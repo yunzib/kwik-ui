@@ -1,0 +1,20 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "kwik.platform"
+        },
+        {
+          "logical-name": "kwik.engine.context"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

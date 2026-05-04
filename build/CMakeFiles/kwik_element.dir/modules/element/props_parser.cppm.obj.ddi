@@ -1,0 +1,30 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_element.dir\\modules\\element\\props_parser.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.element.props_parser",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/element/props_parser.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "kwik.element.props"
+        },
+        {
+          "logical-name": "kwik.engine.js_value"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

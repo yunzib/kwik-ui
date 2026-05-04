@@ -1,0 +1,12 @@
+ninja_dyndep_version = 1.0
+build CMakeFiles/kwik_core.dir/src/core/log.cpp.obj: dyndep | CMakeFiles/__cmake_cxx_std_26.dir/std.pcm CMakeFiles/kwik_core.dir/kwik.core.log.pcm
+
+build CMakeFiles/kwik_core.dir/modules/core/types.cppm.obj | CMakeFiles/kwik_core.dir/kwik.core.types.pcm: dyndep | CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+
+build CMakeFiles/kwik_core.dir/modules/core/constraints.cppm.obj | CMakeFiles/kwik_core.dir/kwik.core.constraints.pcm: dyndep | CMakeFiles/kwik_core.dir/kwik.core.types.pcm
+  restat = 1
+
+build CMakeFiles/kwik_core.dir/modules/core/log.cppm.obj | CMakeFiles/kwik_core.dir/kwik.core.log.pcm: dyndep | CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+

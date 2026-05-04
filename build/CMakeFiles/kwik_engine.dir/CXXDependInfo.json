@@ -1,0 +1,156 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "Clang",
+	"compiler-simulate-id" : "",
+	"config" : "Debug",
+	"cxx-modules" : 
+	{
+		"CMakeFiles/kwik_engine.dir/modules/engine/bindings.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ENGINE_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/bindings.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_engine.dir/modules/engine/color_parser.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ENGINE_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/color_parser.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_engine.dir/modules/engine/js_value.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ENGINE_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/js_value.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_engine.dir/modules/engine/quickjs_context.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ENGINE_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/quickjs_context.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_engine.dir/modules/engine/quickjs_runtime.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ENGINE_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/quickjs_runtime.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		}
+	},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-cur-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"dir-top-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-top-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs"
+	],
+	"language" : "CXX",
+	"linked-target-dirs" : 
+	[
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir"
+	],
+	"module-dir" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir",
+	"sources" : 
+	{
+		"CMakeFiles/kwik_engine.dir/src/engine/bindings.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/bindings.cpp"
+		},
+		"CMakeFiles/kwik_engine.dir/src/engine/color_parser.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/color_parser.cpp"
+		},
+		"CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/js_value.cpp"
+		},
+		"CMakeFiles/kwik_engine.dir/src/engine/quickjs_context.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/quickjs_context.cpp"
+		},
+		"CMakeFiles/kwik_engine.dir/src/engine/quickjs_runtime.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/quickjs_runtime.cpp"
+		}
+	}
+}

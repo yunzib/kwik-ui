@@ -1,0 +1,278 @@
+{
+	"modules" : {},
+	"references" : 
+	{
+		"kwik.core.constraints" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.constraints.pcm"
+		},
+		"kwik.core.log" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.log.pcm"
+		},
+		"kwik.core.types" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.types.pcm"
+		},
+		"kwik.element.element_factory" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_element.dir/kwik.element.element_factory.pcm"
+		},
+		"kwik.element.props" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_element.dir/kwik.element.props.pcm"
+		},
+		"kwik.element.props_parser" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_element.dir/kwik.element.props_parser.pcm"
+		},
+		"kwik.element.view" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_element.dir/kwik.element.view.pcm"
+		},
+		"kwik.engine.bindings" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_engine.dir/kwik.engine.bindings.pcm"
+		},
+		"kwik.engine.color_parser" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_engine.dir/kwik.engine.color_parser.pcm"
+		},
+		"kwik.engine.context" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_engine.dir/kwik.engine.context.pcm"
+		},
+		"kwik.engine.js_value" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_engine.dir/kwik.engine.js_value.pcm"
+		},
+		"kwik.engine.runtime" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm"
+		},
+		"kwik.platform" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_platform.dir/kwik.platform.pcm"
+		},
+		"kwik.platform.win32_window" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_platform.dir/kwik.platform.win32_window.pcm"
+		},
+		"kwik.platform.window" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_platform.dir/kwik.platform.window.pcm"
+		},
+		"kwik.platform.window_factory" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_platform.dir/kwik.platform.window_factory.pcm"
+		},
+		"kwik.render.backend" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.backend.pcm"
+		},
+		"kwik.render.command" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.command.pcm"
+		},
+		"kwik.render.graphics" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.graphics.pcm"
+		},
+		"kwik.render.render_thread" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.render_thread.pcm"
+		},
+		"kwik.render.software_backend" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.software_backend.pcm"
+		},
+		"kwik.render.vulkan_backend" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_render.dir/kwik.render.vulkan_backend.pcm"
+		},
+		"kwik.utils" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_utils.dir/kwik.utils.pcm"
+		},
+		"kwik.utils.string_utils" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_utils.dir/kwik.utils.string_utils.pcm"
+		},
+		"std" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"
+		},
+		"std.compat" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/__cmake_cxx_std_26.dir/std.compat.pcm"
+		}
+	},
+	"usages" : 
+	{
+		"kwik.core.constraints" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.core.log" : 
+		[
+			"std"
+		],
+		"kwik.core.types" : 
+		[
+			"std"
+		],
+		"kwik.element.element_factory" : 
+		[
+			"kwik.core.constraints",
+			"kwik.core.types",
+			"kwik.element.props",
+			"kwik.element.props_parser",
+			"kwik.element.view",
+			"kwik.engine.js_value",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"kwik.render.command",
+			"kwik.render.graphics",
+			"std"
+		],
+		"kwik.element.props" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.element.props_parser" : 
+		[
+			"kwik.core.types",
+			"kwik.element.props",
+			"kwik.engine.js_value",
+			"std"
+		],
+		"kwik.element.view" : 
+		[
+			"kwik.core.constraints",
+			"kwik.core.types",
+			"kwik.element.props",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"kwik.render.command",
+			"kwik.render.graphics",
+			"std"
+		],
+		"kwik.engine.color_parser" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.engine.context" : 
+		[
+			"kwik.engine.runtime",
+			"std"
+		],
+		"kwik.engine.js_value" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.engine.runtime" : 
+		[
+			"std"
+		],
+		"kwik.platform" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.win32_window",
+			"kwik.platform.window",
+			"kwik.platform.window_factory",
+			"std"
+		],
+		"kwik.platform.win32_window" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"std"
+		],
+		"kwik.platform.window_factory" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.win32_window",
+			"kwik.platform.window",
+			"std"
+		],
+		"kwik.render.backend" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"std"
+		],
+		"kwik.render.command" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.render.graphics" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"kwik.render.command",
+			"std"
+		],
+		"kwik.render.render_thread" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"kwik.render.command",
+			"std"
+		],
+		"kwik.render.software_backend" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"std"
+		],
+		"kwik.render.vulkan_backend" : 
+		[
+			"kwik.core.types",
+			"kwik.platform.window",
+			"kwik.render.backend",
+			"std"
+		],
+		"kwik.utils" : 
+		[
+			"kwik.utils.string_utils"
+		],
+		"std.compat" : 
+		[
+			"std"
+		]
+	}
+}

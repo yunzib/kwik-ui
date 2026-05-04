@@ -1,0 +1,9 @@
+ninja_dyndep_version = 1.0
+build CMakeFiles/kwik_utils.dir/src/utils/string_utils.cpp.obj: dyndep | CMakeFiles/kwik_utils.dir/kwik.utils.string_utils.pcm
+
+build CMakeFiles/kwik_utils.dir/modules/utils/utils.cppm.obj | CMakeFiles/kwik_utils.dir/kwik.utils.pcm: dyndep | CMakeFiles/kwik_utils.dir/kwik.utils.string_utils.pcm
+  restat = 1
+
+build CMakeFiles/kwik_utils.dir/modules/utils/string_utils.cppm.obj | CMakeFiles/kwik_utils.dir/kwik.utils.string_utils.pcm: dyndep
+  restat = 1
+

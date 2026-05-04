@@ -1,0 +1,49 @@
+module;
+
+export module kwik.render.opengl_backend;
+
+import kwik.render.backend;
+import kwik.core.types;
+import std;
+
+export namespace kwik::render {
+
+    /**
+     * @brief OpenGL渲染后端实现
+     */
+    class OpenGLBackend : public RenderBackend {
+    public:
+        OpenGLBackend();
+        OpenGLBackend(int width, int height);
+        ~OpenGLBackend() override;
+
+        bool initialize(void* nativeHandle, int width, int height) override;
+        void shutdown() override;
+        void resize(int width, int height) override;
+        bool beginFrame() override;
+        void endFrame() override;
+        void present() override;
+        void setGlobalAlpha(float alpha) override;
+        void pushClipRoundedRect(const core::Rect& rect, float radius) override;
+        void resetClip() override;
+        void clear(const core::Color& color) override;
+        void fillRect(const core::Rect& rect, const core::Color& color) override;
+        void fillRoundedRect(const core::Rect& rect, float radius, const core::Color& color) override;
+        void strokeRoundedRect(const core::Rect& rect, float radius, const core::Color& color, float strokeWidth) override;
+        void drawShadow(const core::Rect& rect, float radius, const core::Shadow& shadow) override;
+        BackendType getType() const override { return BackendType::OpenGL; }
+        int getWidth() const override { return width_; }
+        int getHeight() const override { return height_; }
+
+    private:
+        bool initOpenGL(void* nativeHandle, int width, int height);
+        void cleanupOpenGL();
+        void* getOpenGLContext() const;
+        int width_ = 0;
+        int height_ = 0;
+        void* nativeHandle_ = nullptr;
+        void* glContext_ = nullptr;
+        float globalAlpha_ = 1.0f;
+    };
+
+} // namespace kwik::render

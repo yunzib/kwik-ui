@@ -1,0 +1,33 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.render.render_thread",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/render/render_thread.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "kwik.platform.window"
+        },
+        {
+          "logical-name": "kwik.render.backend"
+        },
+        {
+          "logical-name": "kwik.render.command"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

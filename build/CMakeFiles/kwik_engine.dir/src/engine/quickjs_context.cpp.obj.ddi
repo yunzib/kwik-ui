@@ -1,0 +1,23 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_engine.dir\\src\\engine\\quickjs_context.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "kwik.engine.runtime"
+        },
+        {
+          "logical-name": "kwik.core.log"
+        },
+        {
+          "logical-name": "kwik.engine.bindings"
+        },
+        {
+          "logical-name": "kwik.engine.context"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

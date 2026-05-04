@@ -1,0 +1,6 @@
+-x c++-module
+-fmodule-output="CMakeFiles/kwik_element.dir/kwik.element.props_parser.pcm"
+-fmodule-file="kwik.core.types=CMakeFiles/kwik_core.dir/kwik.core.types.pcm"
+-fmodule-file="kwik.element.props=CMakeFiles/kwik_element.dir/kwik.element.props.pcm"
+-fmodule-file="kwik.engine.js_value=CMakeFiles/kwik_engine.dir/kwik.engine.js_value.pcm"
+-fmodule-file="std=CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"

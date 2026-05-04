@@ -1,0 +1,21 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_core.dir\\modules\\core\\constraints.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.core.constraints",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/core/constraints.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.core.types"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

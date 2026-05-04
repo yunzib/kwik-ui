@@ -1,0 +1,130 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "Clang",
+	"compiler-simulate-id" : "",
+	"config" : "Debug",
+	"cxx-modules" : 
+	{
+		"CMakeFiles/kwik_element.dir/modules/element/element_factory.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/element_factory.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/element/props.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/props.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/element/props_parser.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/props_parser.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/element/view.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/view.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		}
+	},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-cur-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"dir-top-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-top-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs"
+	],
+	"language" : "CXX",
+	"linked-target-dirs" : 
+	[
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_utils.dir"
+	],
+	"module-dir" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir",
+	"sources" : 
+	{
+		"CMakeFiles/kwik_element.dir/src/element/element_factory.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/element_factory.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/element/props_parser.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/props_parser.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/element/view.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/view.cpp"
+		}
+	}
+}

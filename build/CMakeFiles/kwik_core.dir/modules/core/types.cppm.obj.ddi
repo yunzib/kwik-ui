@@ -1,0 +1,21 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_core.dir\\modules\\core\\types.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.core.types",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/core/types.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

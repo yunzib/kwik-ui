@@ -1,0 +1,83 @@
+module kwik.render.opengl_backend;
+
+import std;
+import kwik.core.types;
+
+namespace core = kwik::core;
+namespace kwik::render {
+
+    OpenGLBackend::OpenGLBackend() = default;
+
+    OpenGLBackend::OpenGLBackend(int width, int height) : width_(width), height_(height) {}
+
+    OpenGLBackend::~OpenGLBackend() {
+        shutdown();
+    }
+
+    bool OpenGLBackend::initialize(void* nativeHandle, int width, int height) {
+        nativeHandle_ = nativeHandle;
+        width_ = width;
+        height_ = height;
+        return initOpenGL(nativeHandle, width, height);
+    }
+
+    void OpenGLBackend::shutdown() {
+        cleanupOpenGL();
+    }
+
+    void OpenGLBackend::resize(int width, int height) {
+        if (width_ == width && height_ == height) {
+            return;
+        }
+        width_ = width;
+        height_ = height;
+    }
+
+    bool OpenGLBackend::beginFrame() {
+        return true;
+    }
+
+    void OpenGLBackend::endFrame() {
+    }
+
+    void OpenGLBackend::present() {
+    }
+
+    void OpenGLBackend::setGlobalAlpha(float alpha) {
+        globalAlpha_ = std::clamp(alpha, 0.0f, 1.0f);
+    }
+
+    void OpenGLBackend::pushClipRoundedRect(const core::Rect& rect, float radius) {
+    }
+
+    void OpenGLBackend::resetClip() {
+    }
+
+    void OpenGLBackend::clear(const core::Color& color) {
+    }
+
+    void OpenGLBackend::fillRect(const core::Rect& rect, const core::Color& color) {
+    }
+
+    void OpenGLBackend::fillRoundedRect(const core::Rect& rect, float radius, const core::Color& color) {
+    }
+
+    void OpenGLBackend::strokeRoundedRect(const core::Rect& rect, float radius, const core::Color& color, float strokeWidth) {
+    }
+
+    void OpenGLBackend::drawShadow(const core::Rect& rect, float radius, const core::Shadow& shadow) {
+    }
+
+    bool OpenGLBackend::initOpenGL(void* nativeHandle, int width, int height) {
+        // 暂不实现
+        return false;
+    }
+
+    void OpenGLBackend::cleanupOpenGL() {
+    }
+
+    void* OpenGLBackend::getOpenGLContext() const {
+        return nullptr;
+    }
+
+} // namespace kwik::render

@@ -1,0 +1,33 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_element.dir\\modules\\element\\view.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.element.view",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/element/view.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "kwik.core.constraints"
+        },
+        {
+          "logical-name": "kwik.element.props"
+        },
+        {
+          "logical-name": "kwik.render.graphics"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

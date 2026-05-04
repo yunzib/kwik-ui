@@ -1,0 +1,33 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_element.dir\\modules\\element\\element_factory.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.element.element_factory",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/element/element_factory.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.element.view"
+        },
+        {
+          "logical-name": "kwik.element.props"
+        },
+        {
+          "logical-name": "kwik.element.props_parser"
+        },
+        {
+          "logical-name": "kwik.engine.js_value"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

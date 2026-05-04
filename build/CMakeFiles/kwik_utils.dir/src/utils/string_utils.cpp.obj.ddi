@@ -1,0 +1,14 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_utils.dir\\src\\utils\\string_utils.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "kwik.utils.string_utils"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

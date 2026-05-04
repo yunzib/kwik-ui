@@ -1,0 +1,33 @@
+CMakeFiles\kwik_element.dir\src\element\props_parser.cpp.obj.ddi: \
+  C:/ws-code/ws-kwik/kwik-ui/src/element/props_parser.cpp \
+  C:/software/llvm-mingw/include/c++/v1/cstddef \
+  C:/software/llvm-mingw/include/c++/v1/__config \
+  C:/software/llvm-mingw/include/c++/v1/__config_site \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/abi.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/compiler.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/platform.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/availability.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/language.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/experimental.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/hardening.h \
+  C:/software/llvm-mingw/include/c++/v1/version \
+  C:/software/llvm-mingw/include/c++/v1/stddef.h \
+  C:/software/llvm-mingw/lib/clang/22/include/stddef.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_header_macro.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_ptrdiff_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_size_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_wchar_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_null.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_nullptr_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_max_align_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_offsetof.h \
+  C:/software/llvm-mingw/include/c++/v1/__cstddef/byte.h \
+  C:/software/llvm-mingw/include/c++/v1/__fwd/byte.h \
+  C:/software/llvm-mingw/include/c++/v1/__type_traits/enable_if.h \
+  C:/software/llvm-mingw/include/c++/v1/__type_traits/is_integral.h \
+  C:/software/llvm-mingw/include/c++/v1/__type_traits/integral_constant.h \
+  C:/software/llvm-mingw/include/c++/v1/__type_traits/remove_cv.h \
+  C:/software/llvm-mingw/include/c++/v1/__cstddef/max_align_t.h \
+  C:/software/llvm-mingw/include/c++/v1/__cstddef/nullptr_t.h \
+  C:/software/llvm-mingw/include/c++/v1/__cstddef/ptrdiff_t.h \
+  C:/software/llvm-mingw/include/c++/v1/__cstddef/size_t.h

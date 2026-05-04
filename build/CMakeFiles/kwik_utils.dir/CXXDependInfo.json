@@ -1,0 +1,66 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "Clang",
+	"compiler-simulate-id" : "",
+	"config" : "Debug",
+	"cxx-modules" : 
+	{
+		"CMakeFiles/kwik_utils.dir/modules/utils/string_utils.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_UTILS_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : [],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/utils/string_utils.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_utils.dir/modules/utils/utils.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_UTILS_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : [],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/utils/utils.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		}
+	},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-cur-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"dir-top-bld" : "C:/ws-code/ws-kwik/kwik-ui/build",
+	"dir-top-src" : "C:/ws-code/ws-kwik/kwik-ui",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : [],
+	"language" : "CXX",
+	"linked-target-dirs" : 
+	[
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir"
+	],
+	"module-dir" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_utils.dir",
+	"sources" : 
+	{
+		"CMakeFiles/kwik_utils.dir/src/utils/string_utils.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/utils/string_utils.cpp"
+		}
+	}
+}

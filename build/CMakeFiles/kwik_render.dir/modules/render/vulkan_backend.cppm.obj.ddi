@@ -1,0 +1,27 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.render.vulkan_backend",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/render/vulkan_backend.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.render.backend"
+        },
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

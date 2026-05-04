@@ -1,0 +1,24 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_engine.dir\\modules\\engine\\quickjs_context.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.engine.context",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/quickjs_context.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.engine.runtime"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

@@ -1,0 +1,5 @@
+-fmodule-file="kwik.engine.runtime=CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm"
+-fmodule-file="kwik.core.log=CMakeFiles/kwik_core.dir/kwik.core.log.pcm"
+-fmodule-file="kwik.engine.bindings=CMakeFiles/kwik_engine.dir/kwik.engine.bindings.pcm"
+-fmodule-file="kwik.engine.context=CMakeFiles/kwik_engine.dir/kwik.engine.context.pcm"
+-fmodule-file="std=CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"

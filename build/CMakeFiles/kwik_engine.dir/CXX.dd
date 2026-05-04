@@ -1,0 +1,26 @@
+ninja_dyndep_version = 1.0
+build CMakeFiles/kwik_engine.dir/src/engine/quickjs_runtime.cpp.obj: dyndep | CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm
+
+build CMakeFiles/kwik_engine.dir/src/engine/quickjs_context.cpp.obj: dyndep | CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm CMakeFiles/kwik_core.dir/kwik.core.log.pcm CMakeFiles/kwik_engine.dir/kwik.engine.bindings.pcm CMakeFiles/kwik_engine.dir/kwik.engine.context.pcm
+
+build CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj: dyndep | CMakeFiles/kwik_engine.dir/kwik.engine.js_value.pcm
+
+build CMakeFiles/kwik_engine.dir/src/engine/color_parser.cpp.obj: dyndep | CMakeFiles/kwik_core.dir/kwik.core.types.pcm CMakeFiles/kwik_engine.dir/kwik.engine.color_parser.pcm
+
+build CMakeFiles/kwik_engine.dir/src/engine/bindings.cpp.obj: dyndep | CMakeFiles/kwik_core.dir/kwik.core.log.pcm CMakeFiles/__cmake_cxx_std_26.dir/std.pcm CMakeFiles/kwik_engine.dir/kwik.engine.bindings.pcm
+
+build CMakeFiles/kwik_engine.dir/modules/engine/quickjs_runtime.cppm.obj | CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm: dyndep | CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+
+build CMakeFiles/kwik_engine.dir/modules/engine/quickjs_context.cppm.obj | CMakeFiles/kwik_engine.dir/kwik.engine.context.pcm: dyndep | CMakeFiles/kwik_engine.dir/kwik.engine.runtime.pcm CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+
+build CMakeFiles/kwik_engine.dir/modules/engine/js_value.cppm.obj | CMakeFiles/kwik_engine.dir/kwik.engine.js_value.pcm: dyndep | CMakeFiles/kwik_core.dir/kwik.core.types.pcm CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+
+build CMakeFiles/kwik_engine.dir/modules/engine/color_parser.cppm.obj | CMakeFiles/kwik_engine.dir/kwik.engine.color_parser.pcm: dyndep | CMakeFiles/kwik_core.dir/kwik.core.types.pcm CMakeFiles/__cmake_cxx_std_26.dir/std.pcm
+  restat = 1
+
+build CMakeFiles/kwik_engine.dir/modules/engine/bindings.cppm.obj | CMakeFiles/kwik_engine.dir/kwik.engine.bindings.pcm: dyndep
+  restat = 1
+

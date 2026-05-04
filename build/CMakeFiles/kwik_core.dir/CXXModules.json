@@ -1,0 +1,68 @@
+{
+	"modules" : 
+	{
+		"kwik.core.constraints" : 
+		{
+			"bmi" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/kwik.core.constraints.pcm",
+			"is-private" : false
+		},
+		"kwik.core.log" : 
+		{
+			"bmi" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/kwik.core.log.pcm",
+			"is-private" : false
+		},
+		"kwik.core.types" : 
+		{
+			"bmi" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/kwik.core.types.pcm",
+			"is-private" : false
+		}
+	},
+	"references" : 
+	{
+		"kwik.core.constraints" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.constraints.pcm"
+		},
+		"kwik.core.log" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.log.pcm"
+		},
+		"kwik.core.types" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/kwik_core.dir/kwik.core.types.pcm"
+		},
+		"std" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"
+		},
+		"std.compat" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/__cmake_cxx_std_26.dir/std.compat.pcm"
+		}
+	},
+	"usages" : 
+	{
+		"kwik.core.constraints" : 
+		[
+			"kwik.core.types",
+			"std"
+		],
+		"kwik.core.log" : 
+		[
+			"std"
+		],
+		"kwik.core.types" : 
+		[
+			"std"
+		],
+		"std.compat" : 
+		[
+			"std"
+		]
+	}
+}

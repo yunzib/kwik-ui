@@ -1,0 +1,27 @@
+CMakeFiles\kwik_engine.dir\src\engine\color_parser.cpp.obj.ddi: \
+  C:/ws-code/ws-kwik/kwik-ui/src/engine/color_parser.cpp \
+  C:/software/llvm-mingw/lib/clang/22/include/stdint.h \
+  C:/software/llvm-mingw/include/stdint.h \
+  C:/software/llvm-mingw/include/crtdefs.h \
+  C:/software/llvm-mingw/include/corecrt.h \
+  C:/software/llvm-mingw/include/_mingw.h \
+  C:/software/llvm-mingw/include/_mingw_mac.h \
+  C:/software/llvm-mingw/include/_mingw_secapi.h \
+  C:/software/llvm-mingw/lib/clang/22/include/vadefs.h \
+  C:/software/llvm-mingw/include/vadefs.h \
+  C:/software/llvm-mingw/include/c++/v1/stddef.h \
+  C:/software/llvm-mingw/include/c++/v1/__config \
+  C:/software/llvm-mingw/include/c++/v1/__config_site \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/abi.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/compiler.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/platform.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/availability.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/language.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/experimental.h \
+  C:/software/llvm-mingw/include/c++/v1/__configuration/hardening.h \
+  C:/software/llvm-mingw/lib/clang/22/include/stddef.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_wchar_t.h \
+  C:/software/llvm-mingw/lib/clang/22/include/__stddef_wint_t.h \
+  C:/software/llvm-mingw/include/c++/v1/ctype.h \
+  C:/software/llvm-mingw/include/ctype.h \
+  C:/software/llvm-mingw/include/corecrt_wctype.h

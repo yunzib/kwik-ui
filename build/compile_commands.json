@@ -1,0 +1,362 @@
+[
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_UTILS_MODULE -g -std=c++26 @CMakeFiles\\kwik_utils.dir\\src\\utils\\string_utils.cpp.obj.modmap -o CMakeFiles\\kwik_utils.dir\\src\\utils\\string_utils.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\utils\\string_utils.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/utils/string_utils.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_utils.dir/src/utils/string_utils.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_UTILS_MODULE -g -std=c++26 @CMakeFiles\\kwik_utils.dir\\modules\\utils\\utils.cppm.obj.modmap -o CMakeFiles\\kwik_utils.dir\\modules\\utils\\utils.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\utils\\utils.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/utils/utils.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_utils.dir/modules/utils/utils.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_UTILS_MODULE -g -std=c++26 @CMakeFiles\\kwik_utils.dir\\modules\\utils\\string_utils.cppm.obj.modmap -o CMakeFiles\\kwik_utils.dir\\modules\\utils\\string_utils.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\utils\\string_utils.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/utils/string_utils.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_utils.dir/modules/utils/string_utils.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_CORE_MODULE -g -std=c++26 @CMakeFiles\\kwik_core.dir\\src\\core\\log.cpp.obj.modmap -o CMakeFiles\\kwik_core.dir\\src\\core\\log.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\core\\log.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/core/log.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/src/core/log.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_CORE_MODULE -g -std=c++26 @CMakeFiles\\kwik_core.dir\\modules\\core\\types.cppm.obj.modmap -o CMakeFiles\\kwik_core.dir\\modules\\core\\types.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\core\\types.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/core/types.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/modules/core/types.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_CORE_MODULE -g -std=c++26 @CMakeFiles\\kwik_core.dir\\modules\\core\\constraints.cppm.obj.modmap -o CMakeFiles\\kwik_core.dir\\modules\\core\\constraints.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\core\\constraints.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/core/constraints.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/modules/core/constraints.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_CORE_MODULE -g -std=c++26 @CMakeFiles\\kwik_core.dir\\modules\\core\\log.cppm.obj.modmap -o CMakeFiles\\kwik_core.dir\\modules\\core\\log.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\core\\log.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/core/log.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_core.dir/modules/core/log.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\view.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\view.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\view.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/view.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/view.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\props_parser.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\props_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\props_parser.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/props_parser.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/props_parser.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\element_factory.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\element_factory.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\element_factory.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/element_factory.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/element_factory.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\props.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\props.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\props.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/props.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/props.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\view.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\view.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\view.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/view.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/view.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\props_parser.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\props_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\props_parser.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/props_parser.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/props_parser.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\element_factory.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\element_factory.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\element_factory.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/element_factory.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/element_factory.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_PLATFORM_win32 -g -std=c++26 @CMakeFiles\\kwik_platform.dir\\src\\platform\\window_win32.cpp.obj.modmap -o CMakeFiles\\kwik_platform.dir\\src\\platform\\window_win32.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\platform\\window_win32.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/platform/window_win32.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir/src/platform/window_win32.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_PLATFORM_win32 -g -std=c++26 @CMakeFiles\\kwik_platform.dir\\modules\\platform\\window.cppm.obj.modmap -o CMakeFiles\\kwik_platform.dir\\modules\\platform\\window.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\platform\\window.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/platform/window.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir/modules/platform/window.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_PLATFORM_win32 -g -std=c++26 @CMakeFiles\\kwik_platform.dir\\modules\\platform\\window_factory.cppm.obj.modmap -o CMakeFiles\\kwik_platform.dir\\modules\\platform\\window_factory.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\platform\\window_factory.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/platform/window_factory.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir/modules/platform/window_factory.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_PLATFORM_win32 -g -std=c++26 @CMakeFiles\\kwik_platform.dir\\modules\\platform\\platform.cppm.obj.modmap -o CMakeFiles\\kwik_platform.dir\\modules\\platform\\platform.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\platform\\platform.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/platform/platform.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir/modules/platform/platform.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_PLATFORM_win32 -g -std=c++26 @CMakeFiles\\kwik_platform.dir\\modules\\platform\\window_win32.cppm.obj.modmap -o CMakeFiles\\kwik_platform.dir\\modules\\platform\\window_win32.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\platform\\window_win32.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/platform/window_win32.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_platform.dir/modules/platform/window_win32.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\graphics.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/graphics.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/graphics.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\command.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/command.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/command.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\render_thread.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/render_thread.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/render_thread.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\vulkan_backend.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/vulkan_backend.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/vulkan_backend.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\software_backend.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/software_backend.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/software_backend.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\graphics.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/graphics.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/graphics.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\backend.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/backend.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/backend.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\command.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/command.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/command.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\render_thread.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/render_thread.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/render_thread.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\vulkan_backend.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/vulkan_backend.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/vulkan_backend.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\software_backend.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/software_backend.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/software_backend.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\quickjs_runtime.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\quickjs_runtime.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\quickjs_runtime.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/quickjs_runtime.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/quickjs_runtime.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\quickjs_context.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\quickjs_context.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\quickjs_context.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/quickjs_context.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/quickjs_context.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\js_value.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\js_value.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\js_value.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/js_value.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\color_parser.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\color_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\color_parser.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/color_parser.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/color_parser.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\bindings.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\bindings.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\bindings.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/bindings.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/bindings.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\quickjs_runtime.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\quickjs_runtime.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\quickjs_runtime.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/quickjs_runtime.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/quickjs_runtime.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\quickjs_context.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\quickjs_context.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\quickjs_context.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/quickjs_context.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/quickjs_context.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\js_value.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\js_value.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\js_value.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/js_value.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/js_value.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\color_parser.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\color_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\color_parser.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/color_parser.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/color_parser.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\bindings.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\bindings.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\bindings.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/bindings.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/bindings.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -IC:/software/llvm-mingw/share/libc++/v1 -g -std=c++26 @CMakeFiles\\__cmake_cxx_std_26.dir\\C_\\software\\llvm-mingw\\share\\libc++\\v1\\std.compat.cppm.obj.modmap -o CMakeFiles\\__cmake_cxx_std_26.dir\\C_\\software\\llvm-mingw\\share\\libc++\\v1\\std.compat.cppm.obj -c C:\\software\\llvm-mingw\\share\\libc++\\v1\\std.compat.cppm",
+  "file": "C:/software/llvm-mingw/share/libc++/v1/std.compat.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir/C_/software/llvm-mingw/share/libc++/v1/std.compat.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -IC:/software/llvm-mingw/share/libc++/v1 -g -std=c++26 @CMakeFiles\\__cmake_cxx_std_26.dir\\C_\\software\\llvm-mingw\\share\\libc++\\v1\\std.cppm.obj.modmap -o CMakeFiles\\__cmake_cxx_std_26.dir\\C_\\software\\llvm-mingw\\share\\libc++\\v1\\std.cppm.obj -c C:\\software\\llvm-mingw\\share\\libc++\\v1\\std.cppm",
+  "file": "C:/software/llvm-mingw/share/libc++/v1/std.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir/C_/software/llvm-mingw/share/libc++/v1/std.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs.dir\\dtoa.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\dtoa.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/dtoa.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs.dir/dtoa.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs.dir\\libregexp.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\libregexp.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libregexp.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs.dir/libregexp.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs.dir\\libunicode.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\libunicode.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libunicode.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs.dir/libunicode.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs.dir\\quickjs.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\quickjs.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/quickjs.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs.dir/quickjs.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs-libc.dir\\quickjs-libc.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\quickjs-libc.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/quickjs-libc.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs-libc.dir/quickjs-libc.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjsc.dir\\qjsc.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\qjsc.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/qjsc.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjsc.dir/qjsc.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs_exe.dir\\gen\\repl.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\gen\\repl.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/gen/repl.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs_exe.dir/gen/repl.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs_exe.dir\\gen\\standalone.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\gen\\standalone.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/gen/standalone.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs_exe.dir/gen/standalone.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\qjs_exe.dir\\qjs.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\qjs.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/qjs.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/qjs_exe.dir/qjs.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\run-test262.dir\\run-test262.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\run-test262.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/run-test262.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/run-test262.dir/run-test262.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\api-test.dir\\api-test.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\api-test.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/api-test.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/api-test.dir/api-test.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\lre-test.dir\\lre-test.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\lre-test.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/lre-test.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/lre-test.dir/lre-test.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\lre-test.dir\\libregexp.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\libregexp.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libregexp.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/lre-test.dir/libregexp.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\lre-test.dir\\libunicode.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\libunicode.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libunicode.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/lre-test.dir/libunicode.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\unicode_gen.dir\\libunicode.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\libunicode.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libunicode.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/unicode_gen.dir/libunicode.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\unicode_gen.dir\\unicode_gen.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\unicode_gen.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/unicode_gen.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/unicode_gen.dir/unicode_gen.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DQJS_ENABLE_INSTALL -DQUICKJS_NG_BUILD -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0601 -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer -o third_party\\quickjs\\CMakeFiles\\function_source.dir\\gen\\function_source.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\quickjs\\gen\\function_source.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/gen/function_source.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/CMakeFiles/function_source.dir/gen/function_source.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj.modmap -o examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\view\\view_example.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/view/view_example.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj"
+}
+]

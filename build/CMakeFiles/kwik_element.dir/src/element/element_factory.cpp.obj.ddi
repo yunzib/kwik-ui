@@ -1,0 +1,29 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_element.dir\\src\\element\\element_factory.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "kwik.element.props_parser"
+        },
+        {
+          "logical-name": "kwik.element.view"
+        },
+        {
+          "logical-name": "kwik.element.props"
+        },
+        {
+          "logical-name": "kwik.engine.js_value"
+        },
+        {
+          "logical-name": "std"
+        },
+        {
+          "logical-name": "kwik.element.element_factory"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

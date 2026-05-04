@@ -1,0 +1,26 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_element.dir\\src\\element\\view.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "kwik.render.graphics"
+        },
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "kwik.core.constraints"
+        },
+        {
+          "logical-name": "std"
+        },
+        {
+          "logical-name": "kwik.element.view"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

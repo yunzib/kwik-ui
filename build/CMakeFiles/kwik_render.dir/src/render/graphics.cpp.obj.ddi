@@ -1,0 +1,32 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj",
+      "requires": [
+        {
+          "logical-name": "std"
+        },
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "kwik.render.command"
+        },
+        {
+          "logical-name": "kwik.render.backend"
+        },
+        {
+          "logical-name": "kwik.render.software_backend"
+        },
+        {
+          "logical-name": "kwik.render.vulkan_backend"
+        },
+        {
+          "logical-name": "kwik.render.graphics"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

@@ -1,0 +1,324 @@
+{
+	"configurations" : 
+	[
+		{
+			"abstractTargets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "Threads::Threads::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-Threads__Threads-Debug-53960d3de7632791600d.json",
+					"name" : "Threads::Threads",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Vulkan::Headers::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Vulkan__Headers-Debug-68024bc3275c59927495.json",
+					"name" : "Vulkan::Headers",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Vulkan::Vulkan::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Vulkan__Vulkan-Debug-5eee4bb33f3cd3a0177e.json",
+					"name" : "Vulkan::Vulkan",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Vulkan::glslangValidator::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Vulkan__glslangValidator-Debug-52be483f9351af6c99d3.json",
+					"name" : "Vulkan::glslangValidator",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "Vulkan::glslc::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Vulkan__glslc-Debug-dab762cbe98903ddd463.json",
+					"name" : "Vulkan::glslc",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik-Debug-835f92e08de20b2b0c7c.json",
+					"name" : "kwik",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "qjs_module_lib::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-qjs_module_lib-Debug-cab3cd295b0060adeeb9.json",
+					"name" : "qjs_module_lib",
+					"projectIndex" : 1
+				}
+			],
+			"directories" : 
+			[
+				{
+					"abstractTargetIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5
+					],
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-f040eec181a89de70dbe.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "4.3.2"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					]
+				},
+				{
+					"abstractTargetIndexes" : 
+					[
+						0,
+						6
+					],
+					"build" : "third_party/quickjs",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-third_party.quickjs-Debug-fe95cb46fb6547994a56.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "third_party/quickjs",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14
+					]
+				},
+				{
+					"build" : "examples",
+					"jsonFile" : "directory-examples-Debug-97274ece987b9369c56b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "4.3.2"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "examples",
+					"targetIndexes" : 
+					[
+						15
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"abstractTargetIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5
+					],
+					"childIndexes" : 
+					[
+						1
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						2
+					],
+					"name" : "KwiKUI",
+					"targetIndexes" : 
+					[
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						15
+					]
+				},
+				{
+					"abstractTargetIndexes" : 
+					[
+						0,
+						6
+					],
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "quickjs",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "api-test::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-api-test-Debug-9f91d7ad244d822255cb.json",
+					"name" : "api-test",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "function_source::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-function_source-Debug-de5a06e2a186f0bbbb46.json",
+					"name" : "function_source",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_core::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_core-Debug-97d695c010cdc4909bde.json",
+					"name" : "kwik_core",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_element::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_element-Debug-e2cf32be0a417226696c.json",
+					"name" : "kwik_element",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_engine::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_engine-Debug-bdcdb370a815a234ee01.json",
+					"name" : "kwik_engine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_platform::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_platform-Debug-0a8c8f8b260cf43c1369.json",
+					"name" : "kwik_platform",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_render::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_render-Debug-791f33531e96520dfb30.json",
+					"name" : "kwik_render",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "kwik_utils::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-kwik_utils-Debug-81a72ece42c7a85009e1.json",
+					"name" : "kwik_utils",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "lre-test::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-lre-test-Debug-ebe3a0b4e90550a31983.json",
+					"name" : "lre-test",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "qjs::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-qjs-Debug-534c213cbf7fdb99c087.json",
+					"name" : "qjs",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "qjs-libc::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-qjs-libc-Debug-c6d9721b7a9d31c18998.json",
+					"name" : "qjs-libc",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "qjs_exe::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-qjs_exe-Debug-8625c58759de9b0d2254.json",
+					"name" : "qjs_exe",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "qjsc::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-qjsc-Debug-02481c832f0af777661b.json",
+					"name" : "qjsc",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "run-test262::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-run-test262-Debug-86beae7189121c5132d0.json",
+					"name" : "run-test262",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "unicode_gen::@af39f7fe222db2f2bad6",
+					"jsonFile" : "target-unicode_gen-Debug-c10c516f4f75cd52e3a4.json",
+					"name" : "unicode_gen",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "view_example::@714eac15f71a94114fdf",
+					"jsonFile" : "target-view_example-Debug-b4dbb57cfc7799ccc560.json",
+					"name" : "view_example",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/ws-code/ws-kwik/kwik-ui/build",
+		"source" : "C:/ws-code/ws-kwik/kwik-ui"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 10
+	}
+}

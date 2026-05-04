@@ -1,0 +1,21 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_utils.dir\\modules\\utils\\utils.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.utils",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/utils/utils.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.utils.string_utils"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

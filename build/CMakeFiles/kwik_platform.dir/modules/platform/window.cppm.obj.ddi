@@ -1,0 +1,16 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_platform.dir\\modules\\platform\\window.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.platform.window",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/platform/window.cppm"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

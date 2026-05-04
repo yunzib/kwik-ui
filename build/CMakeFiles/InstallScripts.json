@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/ws-code/ws-kwik/kwik-ui/build/cmake_install.cmake",
+		"C:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/cmake_install.cmake",
+		"C:/ws-code/ws-kwik/kwik-ui/build/examples/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

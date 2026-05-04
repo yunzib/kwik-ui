@@ -1,0 +1,124 @@
+module;
+
+export module kwik.render.backend;
+
+import kwik.core.types;
+import kwik.platform.window;
+import std;
+
+/**
+ * @brief 渲染后端类型枚举
+ */
+export enum class BackendType {
+    Software, // CPU软件渲染
+    Vulkan,   // Vulkan图形API
+    OpenGL,   // OpenGL图形API
+    Metal     // Metal图形API (macOS/iOS)
+};
+
+/**
+ * @brief 渲染后端抽象基类
+ *
+ * 定义不同图形API后端的统一接口，支持运行时切换
+ */
+export class RenderBackend {
+public:
+    virtual ~RenderBackend() = default;
+
+    /**
+     * @brief 初始化后端
+     * @param nativeHandle 原生窗口句柄
+     * @param width 初始宽度
+     * @param height 初始高度
+     * @return 初始化是否成功
+     */
+    virtual bool initialize(void *nativeHandle, int width, int height) = 0;
+
+    /**
+     * @brief 清理后端资源
+     */
+    virtual void shutdown() = 0;
+
+    /**
+     * @brief 调整渲染尺寸
+     */
+    virtual void resize(int width, int height) = 0;
+
+    /**
+     * @brief 开始一帧渲染
+     * @return 如果帧缓冲区准备就绪返回true
+     */
+    virtual bool beginFrame() = 0;
+
+    /**
+     * @brief 结束一帧渲染
+     */
+    virtual void endFrame() = 0;
+
+    /**
+     * @brief 呈现当前帧到窗口
+     */
+    virtual void present() = 0;
+
+    /**
+     * @brief 设置全局透明度（0.0 - 1.0）
+     */
+    virtual void setGlobalAlpha(float alpha) = 0;
+
+    /**
+     * @brief 推送圆角矩形裁剪区域
+     */
+    virtual void pushClipRoundedRect(const Rect &rect, float radius) = 0;
+
+    /**
+     * @brief 重置裁剪区域
+     */
+    virtual void resetClip() = 0;
+
+    /**
+     * @brief 清空画布
+     */
+    virtual void clear(const Color &color) = 0;
+
+    /**
+     * @brief 填充矩形
+     */
+    virtual void fillRect(const Rect &rect, const Color &color) = 0;
+
+    /**
+     * @brief 填充圆角矩形
+     */
+    virtual void fillRoundedRect(const Rect &rect, float radius, const Color &color) = 0;
+
+    /**
+     * @brief 描边圆角矩形
+     */
+    virtual void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth) = 0;
+
+    /**
+     * @brief 绘制阴影
+     */
+    virtual void drawShadow(const Rect &rect, float radius, const Shadow &shadow) = 0;
+
+    /**
+     * @brief 获取后端类型
+     */
+    virtual BackendType getType() const = 0;
+
+    /**
+     * @brief 获取当前宽度
+     */
+    virtual int getWidth() const = 0;
+
+    /**
+     * @brief 获取当前高度
+     */
+    virtual int getHeight() const = 0;
+};
+
+/**
+ * @brief 创建指定类型的渲染后端
+ * @param type 后端类型
+ * @return 后端实例指针，失败返回nullptr
+ */
+export std::unique_ptr<RenderBackend> createBackend(BackendType type);

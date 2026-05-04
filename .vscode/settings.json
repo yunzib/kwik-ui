@@ -1,0 +1,30 @@
+{
+    "cmake.generator": "Ninja",
+    "clangd.path": "C:/software/llvm-mingw/bin/clangd.exe",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--query-driver=C:/software/llvm-mingw/bin/g++.exe",
+        "--log=verbose",
+        "--pretty",
+        "--all-scopes-completion",
+        "--completion-style=bundled",
+        "--cross-file-rename",
+        "--header-insertion=never",
+        "--background-index",
+        "--clang-tidy",
+        "--clang-tidy-checks=cppcoreguidelines-*,performance-*,bugprone-*,portability-*,modernize-*,google-*",
+        "-j=2",
+        "--pch-storage=disk",
+        "--function-arg-placeholders=false",
+        "--experimental-modules-support"
+    ],
+    // 为 C/C++ 指定 clangd 扩展作为默认 formatter
+    "[cpp]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+        "editor.formatOnSave": true
+    },
+    "[c]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+        "editor.formatOnSave": true
+    }
+}

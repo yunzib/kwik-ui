@@ -1,0 +1,24 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles\\kwik_engine.dir\\modules\\engine\\color_parser.cppm.obj",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "kwik.engine.color_parser",
+          "source-path": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/color_parser.cppm"
+        }
+      ],
+      "requires": [
+        {
+          "logical-name": "kwik.core.types"
+        },
+        {
+          "logical-name": "std"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

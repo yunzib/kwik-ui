@@ -1,0 +1,36 @@
+module;
+
+
+export module kwik.element.props_parser;
+
+import kwik.core.types;
+import kwik.element.props;
+import kwik.engine.js_value;
+import std;
+
+/**
+ * @brief 解析边距
+ *
+ * 支持格式：
+ * - 数值：四边相同
+ * - 数组[1]：四边相同
+ * - 数组[2]：[水平, 垂直]
+ * - 数组[4]：[上, 右, 下, 左]
+ * - 对象：{left, top, right, bottom}
+ */
+export EdgeInsets parseEdgeInsets(const JSValueRef &value);
+/**
+ * @brief 解析阴影字符串
+ *
+ * 格式："offsetX offsetY blurRadius color"
+ * 示例："0 2px 8px rgba(0,0,0,0.1)"
+ */
+export Shadow parseShadow(const std::string &str);
+/**
+ * @brief 解析边框样式
+ */
+export BorderStyle parseBorderStyle(const std::string &str);
+/**
+ * @brief 解析View属性
+ */
+export ViewProps parseViewProps(const JSValueRef &props);
