@@ -19,6 +19,10 @@ public:
     }
     ~Text() override = default;
 
+    const char *typeName() const override {
+        return "Text";
+    }
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

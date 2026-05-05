@@ -123,10 +123,10 @@ void RenderThread::threadMain() {
 #endif
 
     try {
-        Log::debug("渲染线程主函数开始\n");
+        // Log::debug("渲染线程主函数开始\n");
         // 初始化后端
         if (!initBackend()) { throw std::runtime_error("Failed to initialize render backend"); }
-        Log::debug("渲染后端初始化成功\n");
+        // Log::debug("渲染后端初始化成功\n");
         // 标记为运行状态
         {
             std::lock_guard<std::mutex> lock(stateMutex_);
@@ -321,6 +321,8 @@ void RenderThread::executeCommand(const Command &cmd) {
                 // 已由processCommands处理
             } else if constexpr (std::is_same_v<T, EndFrameCmd>) {
                 // 已由processCommands处理
+            } else if constexpr (std::is_same_v<T, DrawGlyphCmd>) {
+                backend_->drawGlyph(arg);
             } else if constexpr (std::is_same_v<T, PresentCmd>) {
                 // 已由threadMain处理
             } else if constexpr (std::is_same_v<T, ResizeCmd>) {

@@ -49,11 +49,13 @@ int main(int argc, char *argv[]) {
         std::print("错误: 解析 View 树失败\n");
         return -1;
     }
-    ElementParser::printTree(tree.get());
+    
     int winW, winH;
     window->GetSize(&winW, &winH);
     tree->measure(Constraints::loose(Size{static_cast<float>(winW), static_cast<float>(winH)}));
     tree->layout(Rect(0, 0, static_cast<float>(winW), static_cast<float>(winH)));
+    ElementParser::printTree(tree.get());
+
     bool running = true;
     window->SetEventCallback([&running, &renderThread](const Event &e) {
         if (e.type == Event::Type::WindowClose) running = false;

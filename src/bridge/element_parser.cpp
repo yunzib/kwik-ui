@@ -162,39 +162,28 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
 // ============================================================================
 // 公开接口 - printTree 打印完整 View 组件树
 // ============================================================================
-void ElementParser::printTree(const View *view, int depth, const std::string &prefix) {
+void ElementParser::printTree(const View* view, int depth, const std::string& prefix) {
     if (!view) return;
-    const auto &p = view->props;
-    // ── 尺寸 ──────────────────────────────────────────────────────────
-    std::print("{}View [{}x{}]", prefix, p.width.has_value() ? std::to_string((int)*p.width) : "?",
-               p.height.has_value() ? std::to_string((int)*p.height) : "?");
-    // ── 背景 ──────────────────────────────────────────────────────────
+    const auto& p = view->props;
+    std::print("{}{} [{:.0f}x{:.0f}]", prefix, view->typeName(),
+               view->frame.width, view->frame.height);
     if (p.background.isVisible())
         std::print(" bg=#{:02X}{:02X}{:02X} a={}", p.background.r, p.background.g, p.background.b, p.background.a);
-    // ── 圆角 ──────────────────────────────────────────────────────────
     if (p.borderRadius > 0) std::print(" radius={}", p.borderRadius);
-    // ── 边框 ──────────────────────────────────────────────────────────
     if (p.borderWidth > 0)
-        std::print(" border={} #{:02X}{:02X}{:02X} style={}", p.borderWidth, p.borderColor.r, p.borderColor.g,
-                   p.borderColor.b, p.borderStyle == BorderStyle::Dashed ? "dashed" : "solid");
-    // ── 阴影 ──────────────────────────────────────────────────────────
-    if (p.shadow.has_value())
-        std::print(" shadow=({:.0f},{:.0f},{:.0f}) color=#{:02X}{:02X}{:02X}", p.shadow->offsetX, p.shadow->offsetY,
-                   p.shadow->blurRadius, p.shadow->color.r, p.shadow->color.g, p.shadow->color.b);
-    // ── 透明度 ────────────────────────────────────────────────────────
-    if (p.opacity < 1.0f) std::print(" opacity={:.2f}", p.opacity);
-    // ── 可见性 ────────────────────────────────────────────────────────
-    if (!p.visible) std::print(" hidden");
-    // ── 内边距 ────────────────────────────────────────────────────────
+        std::print(" border={} #{:02X}{:02X}{:02X}", p.borderWidth, p.borderColor.r, p.borderColor.g, p.borderColor.b);
     if (p.padding.top > 0 || p.padding.left > 0 || p.padding.bottom > 0 || p.padding.right > 0)
-        std::print(" padding=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.padding.top, p.padding.right, p.padding.bottom,
-                   p.padding.left);
-    // ── 外边距 ────────────────────────────────────────────────────────
+        std::print(" padding=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.padding.top, p.padding.right, p.padding.bottom, p.padding.left);
     if (p.margin.top > 0 || p.margin.left > 0 || p.margin.bottom > 0 || p.margin.right > 0)
-        std::print(" margin=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.margin.top, p.margin.right, p.margin.bottom,
-                   p.margin.left);
+        std::print(" margin=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.margin.top, p.margin.right, p.margin.bottom, p.margin.left);
+    if (!p.text.empty()) {
+        std::print(" text=\"{}\"", p.text.c_str());
+        std::print(" fontSize={:.0f}", p.fontSize);
+        if (p.textColor.isVisible())
+            std::print(" color=#{:02X}{:02X}{:02X}", p.textColor.r, p.textColor.g, p.textColor.b);
+    }
+    if (p.opacity < 1.0f) std::print(" opacity={:.2f}", p.opacity);
     std::println();
-    // ── 递归子节点 ────────────────────────────────────────────────────
     for (size_t i = 0; i < view->children.size(); ++i) {
         bool last = (i == view->children.size() - 1);
         std::string childPrefix = prefix;

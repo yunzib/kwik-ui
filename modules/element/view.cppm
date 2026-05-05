@@ -72,6 +72,10 @@ public:
         children.push_back(std::move(child));
     }
 
+    virtual const char *typeName() const {
+        return "View";
+    }
+
 protected:
     /**
      * @brief 测量回调（子类重写）

@@ -26,8 +26,8 @@ CMAKE_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
 //No help, variable specified on the command line.
 CMAKE_BUILD_TYPE:STRING=Debug
 
-//No help, variable specified on the command line.
-CMAKE_CXX_COMPILER:FILEPATH=C:/software/llvm-mingw/bin/clang++.exe
+//CXX compiler
+CMAKE_CXX_COMPILER:STRING=C:/software/llvm-mingw/bin/clang++.exe
 
 //LLVM archiver
 CMAKE_CXX_COMPILER_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
@@ -56,8 +56,8 @@ CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 //Libraries linked by default with all C++ applications.
 CMAKE_CXX_STANDARD_LIBRARIES:STRING=-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
 
-//No help, variable specified on the command line.
-CMAKE_C_COMPILER:FILEPATH=C:/software/llvm-mingw/bin/clang.exe
+//C compiler
+CMAKE_C_COMPILER:STRING=C:/software/llvm-mingw/bin/clang.exe
 
 //LLVM archiver
 CMAKE_C_COMPILER_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
@@ -299,9 +299,6 @@ CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 // during the make.  This is useful for debugging only. With Visual
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
-
-//Test COMPILER_SUPPORTS_Wformat=2
-COMPILER_SUPPORTS_Wformat:UNINITIALIZED=2:INTERNAL=1
 
 //Enable to build 7-Zip source packages
 CPACK_SOURCE_7Z:BOOL=ON

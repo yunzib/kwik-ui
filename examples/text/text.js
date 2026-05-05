@@ -42,11 +42,11 @@ export default View({
         }),
         Text({ 
             text: "采用 C++20 模块化架构，集成 HarfBuzz 文本整形引擎。",
-            fontSize: 14, color: "#ddd", margin: [4, 0, 4, 0]
+            fontSize: 16, color: "#ddd", margin: [4, 0, 4, 0]
         }),
         Text({ 
             text: "支持 SDF 字体渲染，实现分辨率无关的抗锯齿效果。",
-            fontSize: 14, color: "#ddd", margin: [4, 0, 0, 0]
+            fontSize: 18, color: "#ddd", margin: [4, 0, 0, 0]
         }),
     ]),
 ]);

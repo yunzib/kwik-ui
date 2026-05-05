@@ -159,7 +159,11 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
         float u1 = (float)(info.atlasX + info.atlasW) / fm.atlasWidth();
         float v1 = (float)(info.atlasY + info.atlasH) / fm.atlasHeight();
         Color c = applyOpacity(color);
-        addCommand(DrawGlyphCmd{info.glyphIndex, x + g.x, y + g.y, g.width, g.height, u0, v0, u1, v1, c});
+        float tx = (x + g.x) * currentState_.sx + currentState_.tx;
+        float ty = (y + g.y) * currentState_.sy + currentState_.ty;
+        float tw = g.width * currentState_.sx;
+        float th = g.height * currentState_.sy;
+        addCommand(DrawGlyphCmd{info.glyphIndex, tx, ty, tw, th, u0, v0, u1, v1, c});
     }
 }
 

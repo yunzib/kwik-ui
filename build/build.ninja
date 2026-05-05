@@ -65,6 +65,8 @@ build CMakeFiles/kwik_utils.dir/src/utils/string_utils.cpp.obj: CXX_COMPILER__kw
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_utils.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_utils.dir\src\utils
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_utils.dir\kwik_utils.pdb
+  TARGET_PDB = libkwik_utils.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_utils.dir
   dyndep = CMakeFiles/kwik_utils.dir/CXX.dd
 
@@ -84,6 +86,8 @@ build CMakeFiles/kwik_utils.dir/modules/utils/utils.cppm.obj: CXX_COMPILER__kwik
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_utils.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_utils.dir\modules\utils
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_utils.dir\kwik_utils.pdb
+  TARGET_PDB = libkwik_utils.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_utils.dir
   dyndep = CMakeFiles/kwik_utils.dir/CXX.dd
 
@@ -103,6 +107,8 @@ build CMakeFiles/kwik_utils.dir/modules/utils/string_utils.cppm.obj: CXX_COMPILE
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_utils.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_utils.dir\modules\utils
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_utils.dir\kwik_utils.pdb
+  TARGET_PDB = libkwik_utils.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_utils.dir
   dyndep = CMakeFiles/kwik_utils.dir/CXX.dd
 
@@ -122,8 +128,9 @@ build libkwik_utils.a: CXX_STATIC_LIBRARY_LINKER__kwik_utils_Debug CMakeFiles/kw
   OBJECT_DIR = CMakeFiles\kwik_utils.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_utils.dir\kwik_utils.pdb
   TARGET_FILE = libkwik_utils.a
-  TARGET_PDB = kwik_utils.a.dbg
+  TARGET_PDB = libkwik_utils.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_utils.dir
 
 # =============================================================================
@@ -151,6 +158,8 @@ build CMakeFiles/kwik_core.dir/src/core/log.cpp.obj: CXX_COMPILER__kwik_core_sca
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_core.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_core.dir\src\core
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_core.dir\kwik_core.pdb
+  TARGET_PDB = libkwik_core.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_core.dir
   dyndep = CMakeFiles/kwik_core.dir/CXX.dd
 
@@ -170,6 +179,8 @@ build CMakeFiles/kwik_core.dir/modules/core/types.cppm.obj: CXX_COMPILER__kwik_c
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_core.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_core.dir\modules\core
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_core.dir\kwik_core.pdb
+  TARGET_PDB = libkwik_core.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_core.dir
   dyndep = CMakeFiles/kwik_core.dir/CXX.dd
 
@@ -189,6 +200,8 @@ build CMakeFiles/kwik_core.dir/modules/core/constraints.cppm.obj: CXX_COMPILER__
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_core.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_core.dir\modules\core
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_core.dir\kwik_core.pdb
+  TARGET_PDB = libkwik_core.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_core.dir
   dyndep = CMakeFiles/kwik_core.dir/CXX.dd
 
@@ -208,6 +221,8 @@ build CMakeFiles/kwik_core.dir/modules/core/log.cppm.obj: CXX_COMPILER__kwik_cor
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_core.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_core.dir\modules\core
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_core.dir\kwik_core.pdb
+  TARGET_PDB = libkwik_core.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_core.dir
   dyndep = CMakeFiles/kwik_core.dir/CXX.dd
 
@@ -227,8 +242,9 @@ build libkwik_core.a: CXX_STATIC_LIBRARY_LINKER__kwik_core_Debug CMakeFiles/kwik
   OBJECT_DIR = CMakeFiles\kwik_core.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_core.dir\kwik_core.pdb
   TARGET_FILE = libkwik_core.a
-  TARGET_PDB = kwik_core.a.dbg
+  TARGET_PDB = libkwik_core.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_core.dir
 
 # =============================================================================
@@ -258,6 +274,8 @@ build CMakeFiles/kwik_element.dir/src/element/view.cpp.obj: CXX_COMPILER__kwik_e
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\element
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -279,6 +297,8 @@ build CMakeFiles/kwik_element.dir/src/element/text.cpp.obj: CXX_COMPILER__kwik_e
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\element
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -300,6 +320,8 @@ build CMakeFiles/kwik_element.dir/src/layout/flex_layout.cpp.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -321,6 +343,8 @@ build CMakeFiles/kwik_element.dir/src/layout/grid_layout.cpp.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -342,6 +366,8 @@ build CMakeFiles/kwik_element.dir/src/layout/stack_layout.cpp.obj: CXX_COMPILER_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -363,6 +389,8 @@ build CMakeFiles/kwik_element.dir/src/layout/scroll_view.cpp.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\src\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -384,6 +412,8 @@ build CMakeFiles/kwik_element.dir/modules/element/props.cppm.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\element
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -405,6 +435,8 @@ build CMakeFiles/kwik_element.dir/modules/element/view.cppm.obj: CXX_COMPILER__k
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\element
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -426,6 +458,8 @@ build CMakeFiles/kwik_element.dir/modules/element/text.cppm.obj: CXX_COMPILER__k
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\element
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -447,6 +481,8 @@ build CMakeFiles/kwik_element.dir/modules/layout/flex_layout.cppm.obj: CXX_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -468,6 +504,8 @@ build CMakeFiles/kwik_element.dir/modules/layout/grid_layout.cppm.obj: CXX_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -489,6 +527,8 @@ build CMakeFiles/kwik_element.dir/modules/layout/stack_layout.cppm.obj: CXX_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -510,6 +550,8 @@ build CMakeFiles/kwik_element.dir/modules/layout/scroll_view.cppm.obj: CXX_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_element.dir\modules\layout
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
   dyndep = CMakeFiles/kwik_element.dir/CXX.dd
 
@@ -529,8 +571,9 @@ build libkwik_element.a: CXX_STATIC_LIBRARY_LINKER__kwik_element_Debug CMakeFile
   OBJECT_DIR = CMakeFiles\kwik_element.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_element.dir\kwik_element.pdb
   TARGET_FILE = libkwik_element.a
-  TARGET_PDB = kwik_element.a.dbg
+  TARGET_PDB = libkwik_element.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_element.dir
 
 # =============================================================================
@@ -558,6 +601,8 @@ build CMakeFiles/kwik_platform.dir/src/platform/window_win32.cpp.obj: CXX_COMPIL
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_platform.dir\src\platform
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
   dyndep = CMakeFiles/kwik_platform.dir/CXX.dd
 
@@ -577,6 +622,8 @@ build CMakeFiles/kwik_platform.dir/modules/platform/window.cppm.obj: CXX_COMPILE
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_platform.dir\modules\platform
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
   dyndep = CMakeFiles/kwik_platform.dir/CXX.dd
 
@@ -596,6 +643,8 @@ build CMakeFiles/kwik_platform.dir/modules/platform/window_factory.cppm.obj: CXX
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_platform.dir\modules\platform
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
   dyndep = CMakeFiles/kwik_platform.dir/CXX.dd
 
@@ -615,6 +664,8 @@ build CMakeFiles/kwik_platform.dir/modules/platform/platform.cppm.obj: CXX_COMPI
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_platform.dir\modules\platform
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
   dyndep = CMakeFiles/kwik_platform.dir/CXX.dd
 
@@ -634,6 +685,8 @@ build CMakeFiles/kwik_platform.dir/modules/platform/window_win32.cppm.obj: CXX_C
   FLAGS = -g -std=c++26
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_platform.dir\modules\platform
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
   dyndep = CMakeFiles/kwik_platform.dir/CXX.dd
 
@@ -653,8 +706,9 @@ build libkwik_platform.a: CXX_STATIC_LIBRARY_LINKER__kwik_platform_Debug CMakeFi
   OBJECT_DIR = CMakeFiles\kwik_platform.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_platform.dir\kwik_platform.pdb
   TARGET_FILE = libkwik_platform.a
-  TARGET_PDB = kwik_platform.a.dbg
+  TARGET_PDB = libkwik_platform.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_platform.dir
 
 # =============================================================================
@@ -686,6 +740,8 @@ build CMakeFiles/kwik_render.dir/src/render/graphics.cpp.obj: CXX_COMPILER__kwik
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -707,6 +763,8 @@ build CMakeFiles/kwik_render.dir/src/render/command.cpp.obj: CXX_COMPILER__kwik_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -728,6 +786,8 @@ build CMakeFiles/kwik_render.dir/src/render/render_thread.cpp.obj: CXX_COMPILER_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -749,6 +809,8 @@ build CMakeFiles/kwik_render.dir/src/render/font.cpp.obj: CXX_COMPILER__kwik_ren
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -770,6 +832,8 @@ build CMakeFiles/kwik_render.dir/src/render/vulkan_backend.cpp.obj: CXX_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -791,6 +855,8 @@ build CMakeFiles/kwik_render.dir/src/render/software_backend.cpp.obj: CXX_COMPIL
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\src\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -812,6 +878,8 @@ build CMakeFiles/kwik_render.dir/modules/render/graphics.cppm.obj: CXX_COMPILER_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -833,6 +901,8 @@ build CMakeFiles/kwik_render.dir/modules/render/backend.cppm.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -854,6 +924,8 @@ build CMakeFiles/kwik_render.dir/modules/render/command.cppm.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -875,6 +947,8 @@ build CMakeFiles/kwik_render.dir/modules/render/render_thread.cppm.obj: CXX_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -896,6 +970,8 @@ build CMakeFiles/kwik_render.dir/modules/render/font.cppm.obj: CXX_COMPILER__kwi
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -917,6 +993,8 @@ build CMakeFiles/kwik_render.dir/modules/render/vulkan_backend.cppm.obj: CXX_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -938,6 +1016,8 @@ build CMakeFiles/kwik_render.dir/modules/render/software_backend.cppm.obj: CXX_C
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_render.dir\modules\render
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
   dyndep = CMakeFiles/kwik_render.dir/CXX.dd
 
@@ -957,8 +1037,9 @@ build libkwik_render.a: CXX_STATIC_LIBRARY_LINKER__kwik_render_Debug CMakeFiles/
   OBJECT_DIR = CMakeFiles\kwik_render.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_render.dir\kwik_render.pdb
   TARGET_FILE = libkwik_render.a
-  TARGET_PDB = kwik_render.a.dbg
+  TARGET_PDB = libkwik_render.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_render.dir
 
 # =============================================================================
@@ -988,6 +1069,8 @@ build CMakeFiles/kwik_engine.dir/src/engine/quickjs_runtime.cpp.obj: CXX_COMPILE
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\src\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1009,6 +1092,8 @@ build CMakeFiles/kwik_engine.dir/src/engine/quickjs_context.cpp.obj: CXX_COMPILE
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\src\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1030,6 +1115,8 @@ build CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj: CXX_COMPILER__kwik
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\src\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1051,6 +1138,8 @@ build CMakeFiles/kwik_engine.dir/src/engine/bindings.cpp.obj: CXX_COMPILER__kwik
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\src\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1072,6 +1161,8 @@ build CMakeFiles/kwik_engine.dir/modules/engine/quickjs_runtime.cppm.obj: CXX_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\modules\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1093,6 +1184,8 @@ build CMakeFiles/kwik_engine.dir/modules/engine/quickjs_context.cppm.obj: CXX_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\modules\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1114,6 +1207,8 @@ build CMakeFiles/kwik_engine.dir/modules/engine/js_value.cppm.obj: CXX_COMPILER_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\modules\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1135,6 +1230,8 @@ build CMakeFiles/kwik_engine.dir/modules/engine/bindings.cppm.obj: CXX_COMPILER_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_engine.dir\modules\engine
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
   dyndep = CMakeFiles/kwik_engine.dir/CXX.dd
 
@@ -1154,8 +1251,9 @@ build libkwik_engine.a: CXX_STATIC_LIBRARY_LINKER__kwik_engine_Debug CMakeFiles/
   OBJECT_DIR = CMakeFiles\kwik_engine.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_engine.dir\kwik_engine.pdb
   TARGET_FILE = libkwik_engine.a
-  TARGET_PDB = kwik_engine.a.dbg
+  TARGET_PDB = libkwik_engine.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_engine.dir
 
 # =============================================================================
@@ -1185,6 +1283,8 @@ build CMakeFiles/kwik_bridge.dir/src/bridge/color_parser.cpp.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\src\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1206,6 +1306,8 @@ build CMakeFiles/kwik_bridge.dir/src/bridge/props_parser.cpp.obj: CXX_COMPILER__
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\src\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1227,6 +1329,8 @@ build CMakeFiles/kwik_bridge.dir/src/bridge/element_parser.cpp.obj: CXX_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\src\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1248,6 +1352,8 @@ build CMakeFiles/kwik_bridge.dir/modules/bridge/color_parser.cppm.obj: CXX_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\modules\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1269,6 +1375,8 @@ build CMakeFiles/kwik_bridge.dir/modules/bridge/props_parser.cppm.obj: CXX_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\modules\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1290,6 +1398,8 @@ build CMakeFiles/kwik_bridge.dir/modules/bridge/element_parser.cppm.obj: CXX_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   OBJECT_FILE_DIR = CMakeFiles\kwik_bridge.dir\modules\bridge
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
   dyndep = CMakeFiles/kwik_bridge.dir/CXX.dd
 
@@ -1309,8 +1419,9 @@ build libkwik_bridge.a: CXX_STATIC_LIBRARY_LINKER__kwik_bridge_Debug CMakeFiles/
   OBJECT_DIR = CMakeFiles\kwik_bridge.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\kwik_bridge.dir\kwik_bridge.pdb
   TARGET_FILE = libkwik_bridge.a
-  TARGET_PDB = kwik_bridge.a.dbg
+  TARGET_PDB = libkwik_bridge.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\kwik_bridge.dir
 
 
@@ -1428,6 +1539,8 @@ build CMakeFiles/__cmake_cxx_std_26.dir/C_/software/llvm-mingw/share/libc++/v1/s
   INCLUDES = -IC:/software/llvm-mingw/share/libc++/v1
   OBJECT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
   OBJECT_FILE_DIR = CMakeFiles\__cmake_cxx_std_26.dir\C_\software\llvm-mingw\share\libc++\v1
+  TARGET_COMPILE_PDB = CMakeFiles\__cmake_cxx_std_26.dir\__cmake_cxx_std_26.pdb
+  TARGET_PDB = lib__cmake_cxx_std_26.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
   dyndep = CMakeFiles/__cmake_cxx_std_26.dir/CXX.dd
 
@@ -1447,6 +1560,8 @@ build CMakeFiles/__cmake_cxx_std_26.dir/C_/software/llvm-mingw/share/libc++/v1/s
   INCLUDES = -IC:/software/llvm-mingw/share/libc++/v1
   OBJECT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
   OBJECT_FILE_DIR = CMakeFiles\__cmake_cxx_std_26.dir\C_\software\llvm-mingw\share\libc++\v1
+  TARGET_COMPILE_PDB = CMakeFiles\__cmake_cxx_std_26.dir\__cmake_cxx_std_26.pdb
+  TARGET_PDB = lib__cmake_cxx_std_26.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
   dyndep = CMakeFiles/__cmake_cxx_std_26.dir/CXX.dd
 
@@ -1466,8 +1581,9 @@ build lib__cmake_cxx_std_26.a: CXX_STATIC_LIBRARY_LINKER____cmake_cxx_std_26_Deb
   OBJECT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\__cmake_cxx_std_26.dir\__cmake_cxx_std_26.pdb
   TARGET_FILE = lib__cmake_cxx_std_26.a
-  TARGET_PDB = __cmake_cxx_std_26.a.dbg
+  TARGET_PDB = lib__cmake_cxx_std_26.pdb
   TARGET_SUPPORT_DIR = CMakeFiles\__cmake_cxx_std_26.dir
 
 
@@ -1510,6 +1626,8 @@ build third_party/quickjs/CMakeFiles/qjs.dir/dtoa.c.obj: C_COMPILER__qjs_unscann
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs.dir\qjs.pdb
+  TARGET_PDB = third_party\quickjs\libqjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
 
 build third_party/quickjs/CMakeFiles/qjs.dir/libregexp.c.obj: C_COMPILER__qjs_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libregexp.c || cmake_object_order_depends_target_qjs
@@ -1520,6 +1638,8 @@ build third_party/quickjs/CMakeFiles/qjs.dir/libregexp.c.obj: C_COMPILER__qjs_un
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs.dir\qjs.pdb
+  TARGET_PDB = third_party\quickjs\libqjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
 
 build third_party/quickjs/CMakeFiles/qjs.dir/libunicode.c.obj: C_COMPILER__qjs_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libunicode.c || cmake_object_order_depends_target_qjs
@@ -1530,6 +1650,8 @@ build third_party/quickjs/CMakeFiles/qjs.dir/libunicode.c.obj: C_COMPILER__qjs_u
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs.dir\qjs.pdb
+  TARGET_PDB = third_party\quickjs\libqjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
 
 build third_party/quickjs/CMakeFiles/qjs.dir/quickjs.c.obj: C_COMPILER__qjs_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/quickjs.c || cmake_object_order_depends_target_qjs
@@ -1540,6 +1662,8 @@ build third_party/quickjs/CMakeFiles/qjs.dir/quickjs.c.obj: C_COMPILER__qjs_unsc
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs.dir\qjs.pdb
+  TARGET_PDB = third_party\quickjs\libqjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
 
 
@@ -1556,8 +1680,9 @@ build third_party/quickjs/libqjs.a: CXX_STATIC_LIBRARY_LINKER__qjs_Debug third_p
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs.dir\qjs.pdb
   TARGET_FILE = third_party\quickjs\libqjs.a
-  TARGET_PDB = qjs.a.dbg
+  TARGET_PDB = third_party\quickjs\libqjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs.dir
 
 # =============================================================================
@@ -1577,6 +1702,8 @@ build third_party/quickjs/CMakeFiles/qjs-libc.dir/quickjs-libc.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs-libc.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs-libc.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs-libc.dir\qjs-libc.pdb
+  TARGET_PDB = third_party\quickjs\libqjs-libc.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs-libc.dir
 
 
@@ -1593,8 +1720,9 @@ build third_party/quickjs/libqjs-libc.a: CXX_STATIC_LIBRARY_LINKER__qjs-libc_Deb
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs-libc.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs-libc.dir\qjs-libc.pdb
   TARGET_FILE = third_party\quickjs\libqjs-libc.a
-  TARGET_PDB = qjs-libc.a.dbg
+  TARGET_PDB = third_party\quickjs\libqjs-libc.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs-libc.dir
 
 # =============================================================================
@@ -1614,6 +1742,8 @@ build third_party/quickjs/CMakeFiles/qjsc.dir/qjsc.c.obj: C_COMPILER__qjsc_unsca
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjsc.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjsc.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjsc.dir\
+  TARGET_PDB = third_party\quickjs\qjsc.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjsc.dir
 
 
@@ -1632,9 +1762,10 @@ build third_party/quickjs/qjsc.exe: CXX_EXECUTABLE_LINKER__qjsc_Debug third_part
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjsc.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjsc.dir\
   TARGET_FILE = third_party\quickjs\qjsc.exe
   TARGET_IMPLIB = third_party\quickjs\libqjsc.dll.a
-  TARGET_PDB = qjsc.exe.dbg
+  TARGET_PDB = third_party\quickjs\qjsc.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjsc.dir
 
 # =============================================================================
@@ -1654,6 +1785,8 @@ build third_party/quickjs/CMakeFiles/qjs_exe.dir/gen/repl.c.obj: C_COMPILER__qjs
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir\gen
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs_exe.dir\
+  TARGET_PDB = third_party\quickjs\qjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
 
 build third_party/quickjs/CMakeFiles/qjs_exe.dir/gen/standalone.c.obj: C_COMPILER__qjs_exe_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/gen/standalone.c || cmake_object_order_depends_target_qjs_exe
@@ -1664,6 +1797,8 @@ build third_party/quickjs/CMakeFiles/qjs_exe.dir/gen/standalone.c.obj: C_COMPILE
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir\gen
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs_exe.dir\
+  TARGET_PDB = third_party\quickjs\qjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
 
 build third_party/quickjs/CMakeFiles/qjs_exe.dir/qjs.c.obj: C_COMPILER__qjs_exe_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/qjs.c || cmake_object_order_depends_target_qjs_exe
@@ -1674,6 +1809,8 @@ build third_party/quickjs/CMakeFiles/qjs_exe.dir/qjs.c.obj: C_COMPILER__qjs_exe_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs_exe.dir\
+  TARGET_PDB = third_party\quickjs\qjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
 
 
@@ -1692,9 +1829,10 @@ build third_party/quickjs/qjs.exe: CXX_EXECUTABLE_LINKER__qjs_exe_Debug third_pa
   OBJECT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\qjs_exe.dir\
   TARGET_FILE = third_party\quickjs\qjs.exe
   TARGET_IMPLIB = third_party\quickjs\libqjs.dll.a
-  TARGET_PDB = qjs.exe.dbg
+  TARGET_PDB = third_party\quickjs\qjs.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\qjs_exe.dir
 
 # =============================================================================
@@ -1714,6 +1852,8 @@ build third_party/quickjs/CMakeFiles/run-test262.dir/run-test262.c.obj: C_COMPIL
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\run-test262.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\run-test262.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\run-test262.dir\
+  TARGET_PDB = third_party\quickjs\run-test262.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\run-test262.dir
 
 
@@ -1732,9 +1872,10 @@ build third_party/quickjs/run-test262.exe: CXX_EXECUTABLE_LINKER__run-test262_De
   OBJECT_DIR = third_party\quickjs\CMakeFiles\run-test262.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\run-test262.dir\
   TARGET_FILE = third_party\quickjs\run-test262.exe
   TARGET_IMPLIB = third_party\quickjs\librun-test262.dll.a
-  TARGET_PDB = run-test262.exe.dbg
+  TARGET_PDB = third_party\quickjs\run-test262.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\run-test262.dir
 
 # =============================================================================
@@ -1754,6 +1895,8 @@ build third_party/quickjs/CMakeFiles/api-test.dir/api-test.c.obj: C_COMPILER__ap
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\api-test.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\api-test.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\api-test.dir\
+  TARGET_PDB = third_party\quickjs\api-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\api-test.dir
 
 
@@ -1772,9 +1915,10 @@ build third_party/quickjs/api-test.exe: CXX_EXECUTABLE_LINKER__api-test_Debug th
   OBJECT_DIR = third_party\quickjs\CMakeFiles\api-test.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\api-test.dir\
   TARGET_FILE = third_party\quickjs\api-test.exe
   TARGET_IMPLIB = third_party\quickjs\libapi-test.dll.a
-  TARGET_PDB = api-test.exe.dbg
+  TARGET_PDB = third_party\quickjs\api-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\api-test.dir
 
 # =============================================================================
@@ -1793,6 +1937,8 @@ build third_party/quickjs/CMakeFiles/lre-test.dir/lre-test.c.obj: C_COMPILER__lr
   FLAGS = -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer
   OBJECT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\lre-test.dir\
+  TARGET_PDB = third_party\quickjs\lre-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
 
 build third_party/quickjs/CMakeFiles/lre-test.dir/libregexp.c.obj: C_COMPILER__lre-test_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libregexp.c || cmake_object_order_depends_target_lre-test
@@ -1802,6 +1948,8 @@ build third_party/quickjs/CMakeFiles/lre-test.dir/libregexp.c.obj: C_COMPILER__l
   FLAGS = -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer
   OBJECT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\lre-test.dir\
+  TARGET_PDB = third_party\quickjs\lre-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
 
 build third_party/quickjs/CMakeFiles/lre-test.dir/libunicode.c.obj: C_COMPILER__lre-test_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/libunicode.c || cmake_object_order_depends_target_lre-test
@@ -1811,6 +1959,8 @@ build third_party/quickjs/CMakeFiles/lre-test.dir/libunicode.c.obj: C_COMPILER__
   FLAGS = -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer
   OBJECT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\lre-test.dir\
+  TARGET_PDB = third_party\quickjs\lre-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
 
 
@@ -1829,9 +1979,10 @@ build third_party/quickjs/lre-test.exe: CXX_EXECUTABLE_LINKER__lre-test_Debug th
   OBJECT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\lre-test.dir\
   TARGET_FILE = third_party\quickjs\lre-test.exe
   TARGET_IMPLIB = third_party\quickjs\liblre-test.dll.a
-  TARGET_PDB = lre-test.exe.dbg
+  TARGET_PDB = third_party\quickjs\lre-test.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\lre-test.dir
 
 # =============================================================================
@@ -1850,6 +2001,8 @@ build third_party/quickjs/CMakeFiles/unicode_gen.dir/libunicode.c.obj: C_COMPILE
   FLAGS = -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer
   OBJECT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\unicode_gen.dir\
+  TARGET_PDB = third_party\quickjs\unicode_gen.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
 
 build third_party/quickjs/CMakeFiles/unicode_gen.dir/unicode_gen.c.obj: C_COMPILER__unicode_gen_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/unicode_gen.c || cmake_object_order_depends_target_unicode_gen
@@ -1859,6 +2012,8 @@ build third_party/quickjs/CMakeFiles/unicode_gen.dir/unicode_gen.c.obj: C_COMPIL
   FLAGS = -g -std=gnu11 -fvisibility=hidden -Wall -Wextra -Wformat=2 -Wno-implicit-fallthrough -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result -Wno-array-bounds -funsigned-char -O0 -ggdb -fno-omit-frame-pointer
   OBJECT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\unicode_gen.dir\
+  TARGET_PDB = third_party\quickjs\unicode_gen.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
 
 
@@ -1877,9 +2032,10 @@ build third_party/quickjs/unicode_gen.exe: CXX_EXECUTABLE_LINKER__unicode_gen_De
   OBJECT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\unicode_gen.dir\
   TARGET_FILE = third_party\quickjs\unicode_gen.exe
   TARGET_IMPLIB = third_party\quickjs\libunicode_gen.dll.a
-  TARGET_PDB = unicode_gen.exe.dbg
+  TARGET_PDB = third_party\quickjs\unicode_gen.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\unicode_gen.dir
 
 # =============================================================================
@@ -1899,6 +2055,8 @@ build third_party/quickjs/CMakeFiles/function_source.dir/gen/function_source.c.o
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs
   OBJECT_DIR = third_party\quickjs\CMakeFiles\function_source.dir
   OBJECT_FILE_DIR = third_party\quickjs\CMakeFiles\function_source.dir\gen
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\function_source.dir\
+  TARGET_PDB = third_party\quickjs\function_source.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\function_source.dir
 
 
@@ -1917,9 +2075,10 @@ build third_party/quickjs/function_source.exe: CXX_EXECUTABLE_LINKER__function_s
   OBJECT_DIR = third_party\quickjs\CMakeFiles\function_source.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\quickjs\CMakeFiles\function_source.dir\
   TARGET_FILE = third_party\quickjs\function_source.exe
   TARGET_IMPLIB = third_party\quickjs\libfunction_source.dll.a
-  TARGET_PDB = function_source.exe.dbg
+  TARGET_PDB = third_party\quickjs\function_source.pdb
   TARGET_SUPPORT_DIR = third_party\quickjs\CMakeFiles\function_source.dir
 
 
@@ -2034,6 +2193,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/autofit/autofit.c.obj: C_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\autofit
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbase.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbase.c || cmake_object_order_depends_target_freetype
@@ -2044,6 +2205,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbase.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbbox.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbbox.c || cmake_object_order_depends_target_freetype
@@ -2054,6 +2217,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbbox.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbdf.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbdf.c || cmake_object_order_depends_target_freetype
@@ -2064,6 +2229,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbdf.c.obj: C_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbitmap.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbitmap.c || cmake_object_order_depends_target_freetype
@@ -2074,6 +2241,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbitmap.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftcid.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftcid.c || cmake_object_order_depends_target_freetype
@@ -2084,6 +2253,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftcid.c.obj: C_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftfstype.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftfstype.c || cmake_object_order_depends_target_freetype
@@ -2094,6 +2265,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftfstype.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgasp.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftgasp.c || cmake_object_order_depends_target_freetype
@@ -2104,6 +2277,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgasp.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftglyph.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftglyph.c || cmake_object_order_depends_target_freetype
@@ -2114,6 +2289,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftglyph.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgxval.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftgxval.c || cmake_object_order_depends_target_freetype
@@ -2124,6 +2301,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgxval.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftinit.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftinit.c || cmake_object_order_depends_target_freetype
@@ -2134,6 +2313,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftinit.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftmm.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftmm.c || cmake_object_order_depends_target_freetype
@@ -2144,6 +2325,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftmm.c.obj: C_COMPIL
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftotval.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftotval.c || cmake_object_order_depends_target_freetype
@@ -2154,6 +2337,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftotval.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpatent.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftpatent.c || cmake_object_order_depends_target_freetype
@@ -2164,6 +2349,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpatent.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpfr.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftpfr.c || cmake_object_order_depends_target_freetype
@@ -2174,6 +2361,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpfr.c.obj: C_COMPI
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftstroke.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftstroke.c || cmake_object_order_depends_target_freetype
@@ -2184,6 +2373,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftstroke.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftsynth.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftsynth.c || cmake_object_order_depends_target_freetype
@@ -2194,6 +2385,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftsynth.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/fttype1.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/fttype1.c || cmake_object_order_depends_target_freetype
@@ -2204,6 +2397,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/fttype1.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftwinfnt.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftwinfnt.c || cmake_object_order_depends_target_freetype
@@ -2214,6 +2409,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftwinfnt.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/bdf/bdf.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/bdf/bdf.c || cmake_object_order_depends_target_freetype
@@ -2224,6 +2421,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/bdf/bdf.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\bdf
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/bzip2/ftbzip2.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/bzip2/ftbzip2.c || cmake_object_order_depends_target_freetype
@@ -2234,6 +2433,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/bzip2/ftbzip2.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\bzip2
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/cache/ftcache.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cache/ftcache.c || cmake_object_order_depends_target_freetype
@@ -2244,6 +2445,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/cache/ftcache.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\cache
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/cff/cff.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cff/cff.c || cmake_object_order_depends_target_freetype
@@ -2254,6 +2457,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/cff/cff.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\cff
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/cid/type1cid.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cid/type1cid.c || cmake_object_order_depends_target_freetype
@@ -2264,6 +2469,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/cid/type1cid.c.obj: C_COM
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\cid
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/gzip/ftgzip.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/gzip/ftgzip.c || cmake_object_order_depends_target_freetype
@@ -2274,6 +2481,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/gzip/ftgzip.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\gzip
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/hvf/hvf.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/hvf/hvf.c || cmake_object_order_depends_target_freetype
@@ -2284,6 +2493,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/hvf/hvf.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\hvf
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/lzw/ftlzw.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/lzw/ftlzw.c || cmake_object_order_depends_target_freetype
@@ -2294,6 +2505,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/lzw/ftlzw.c.obj: C_COMPIL
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\lzw
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/pcf/pcf.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pcf/pcf.c || cmake_object_order_depends_target_freetype
@@ -2304,6 +2517,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/pcf/pcf.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\pcf
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/pfr/pfr.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pfr/pfr.c || cmake_object_order_depends_target_freetype
@@ -2314,6 +2529,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/pfr/pfr.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\pfr
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/psaux/psaux.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/psaux/psaux.c || cmake_object_order_depends_target_freetype
@@ -2324,6 +2541,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/psaux/psaux.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\psaux
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/pshinter/pshinter.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pshinter/pshinter.c || cmake_object_order_depends_target_freetype
@@ -2334,6 +2553,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/pshinter/pshinter.c.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\pshinter
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/psnames/psnames.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/psnames/psnames.c || cmake_object_order_depends_target_freetype
@@ -2344,6 +2565,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/psnames/psnames.c.obj: C_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\psnames
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/raster/raster.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/raster/raster.c || cmake_object_order_depends_target_freetype
@@ -2354,6 +2577,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/raster/raster.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\raster
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/sdf/sdf.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/sdf/sdf.c || cmake_object_order_depends_target_freetype
@@ -2364,6 +2589,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/sdf/sdf.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\sdf
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/sfnt/sfnt.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/sfnt/sfnt.c || cmake_object_order_depends_target_freetype
@@ -2374,6 +2601,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/sfnt/sfnt.c.obj: C_COMPIL
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\sfnt
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/smooth/smooth.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/smooth/smooth.c || cmake_object_order_depends_target_freetype
@@ -2384,6 +2613,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/smooth/smooth.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\smooth
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/svg/svg.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/svg/svg.c || cmake_object_order_depends_target_freetype
@@ -2394,6 +2625,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/svg/svg.c.obj: C_COMPILER
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\svg
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/truetype/truetype.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/truetype/truetype.c || cmake_object_order_depends_target_freetype
@@ -2404,6 +2637,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/truetype/truetype.c.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\truetype
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/type1/type1.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/type1/type1.c || cmake_object_order_depends_target_freetype
@@ -2414,6 +2649,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/type1/type1.c.obj: C_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\type1
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/type42/type42.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/type42/type42.c || cmake_object_order_depends_target_freetype
@@ -2424,6 +2661,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/type42/type42.c.obj: C_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\type42
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/winfonts/winfnt.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/winfonts/winfnt.c || cmake_object_order_depends_target_freetype
@@ -2434,6 +2673,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/winfonts/winfnt.c.obj: C_
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\winfonts
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftsystem.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/builds/windows/ftsystem.c || cmake_object_order_depends_target_freetype
@@ -2444,6 +2685,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftsystem.c.obj
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\builds\windows
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftdebug.c.obj: C_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/builds/windows/ftdebug.c || cmake_object_order_depends_target_freetype
@@ -2454,6 +2697,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftdebug.c.obj:
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\builds\windows
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftver.rc.obj: RC_COMPILER__freetype_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftver.rc || cmake_object_order_depends_target_freetype
@@ -2463,6 +2708,8 @@ build third_party/freetype/CMakeFiles/freetype.dir/src/base/ftver.rc.obj: RC_COM
   INCLUDES = -I C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -I C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -I C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -I C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   OBJECT_FILE_DIR = third_party\freetype\CMakeFiles\freetype.dir\src\base
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 
@@ -2479,8 +2726,9 @@ build third_party/freetype/libfreetyped.a: CXX_STATIC_LIBRARY_LINKER__freetype_D
   OBJECT_DIR = third_party\freetype\CMakeFiles\freetype.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\freetype\CMakeFiles\freetype.dir\freetype.pdb
   TARGET_FILE = third_party\freetype\libfreetyped.a
-  TARGET_PDB = freetyped.a.dbg
+  TARGET_PDB = third_party\freetype\libfreetyped.pdb
   TARGET_SUPPORT_DIR = third_party\freetype\CMakeFiles\freetype.dir
 
 
@@ -2595,6 +2843,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz.dir/src/harfbuzz.cc.obj: CXX_COMP
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz.dir\harfbuzz.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz.dir
 
 
@@ -2611,8 +2861,9 @@ build third_party/harfbuzz/libharfbuzz.a: C_STATIC_LIBRARY_LINKER__harfbuzz_Debu
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz.dir\harfbuzz.pdb
   TARGET_FILE = third_party\harfbuzz\libharfbuzz.a
-  TARGET_PDB = harfbuzz.a.dbg
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz.dir
 
 # =============================================================================
@@ -2632,6 +2883,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster.cc.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-image.cc.obj: CXX_COMPILER__harfbuzz-raster_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-image.cc || cmake_object_order_depends_target_harfbuzz-raster
@@ -2642,6 +2895,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-image.cc
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-draw.cc.obj: CXX_COMPILER__harfbuzz-raster_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-draw.cc || cmake_object_order_depends_target_harfbuzz-raster
@@ -2652,6 +2907,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-draw.cc.
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-paint.cc.obj: CXX_COMPILER__harfbuzz-raster_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-paint.cc || cmake_object_order_depends_target_harfbuzz-raster
@@ -2662,6 +2919,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-paint.cc
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-static.cc.obj: CXX_COMPILER__harfbuzz-raster_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc || cmake_object_order_depends_target_harfbuzz-raster
@@ -2672,6 +2931,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-static.cc.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 
@@ -2688,8 +2949,9 @@ build third_party/harfbuzz/libharfbuzz-raster.a: C_STATIC_LIBRARY_LINKER__harfbu
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir\harfbuzz-raster.pdb
   TARGET_FILE = third_party\harfbuzz\libharfbuzz-raster.a
-  TARGET_PDB = harfbuzz-raster.a.dbg
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-raster.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-raster.dir
 
 # =============================================================================
@@ -2709,6 +2971,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-zlib.cc.obj: CX
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2719,6 +2983,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector.cc.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-draw.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-draw.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2729,6 +2995,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-draw.cc.
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-path.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-path.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2739,6 +3007,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-path.cc.
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2749,6 +3019,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint.cc
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-svg.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint-svg.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2759,6 +3031,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-sv
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-pdf.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint-pdf.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2769,6 +3043,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-pd
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-static.cc.obj: CXX_COMPILER__harfbuzz-vector_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc || cmake_object_order_depends_target_harfbuzz-vector
@@ -2779,6 +3055,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-static.cc.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 
@@ -2795,8 +3073,9 @@ build third_party/harfbuzz/libharfbuzz-vector.a: C_STATIC_LIBRARY_LINKER__harfbu
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir\harfbuzz-vector.pdb
   TARGET_FILE = third_party\harfbuzz\libharfbuzz-vector.a
-  TARGET_PDB = harfbuzz-vector.a.dbg
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-vector.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-vector.dir
 
 # =============================================================================
@@ -2816,6 +3095,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu.cc.obj: CXX_CO
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\harfbuzz-gpu.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-gpu.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-draw.cc.obj: CXX_COMPILER__harfbuzz-gpu_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-gpu-draw.cc || cmake_object_order_depends_target_harfbuzz-gpu
@@ -2826,6 +3107,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-draw.cc.obj: C
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\harfbuzz-gpu.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-gpu.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-paint.cc.obj: CXX_COMPILER__harfbuzz-gpu_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-gpu-paint.cc || cmake_object_order_depends_target_harfbuzz-gpu
@@ -2836,6 +3119,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-paint.cc.obj: 
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\harfbuzz-gpu.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-gpu.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
 
 build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-static.cc.obj: CXX_COMPILER__harfbuzz-gpu_unscanned_Debug C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc || cmake_object_order_depends_target_harfbuzz-gpu
@@ -2846,6 +3131,8 @@ build third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-static.cc.obj: CXX
   INCLUDES = -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
   OBJECT_FILE_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\src
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\harfbuzz-gpu.pdb
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-gpu.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
 
 
@@ -2862,8 +3149,9 @@ build third_party/harfbuzz/libharfbuzz-gpu.a: C_STATIC_LIBRARY_LINKER__harfbuzz-
   OBJECT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir\harfbuzz-gpu.pdb
   TARGET_FILE = third_party\harfbuzz\libharfbuzz-gpu.a
-  TARGET_PDB = harfbuzz-gpu.a.dbg
+  TARGET_PDB = third_party\harfbuzz\libharfbuzz-gpu.pdb
   TARGET_SUPPORT_DIR = third_party\harfbuzz\CMakeFiles\harfbuzz-gpu.dir
 
 
@@ -2984,6 +3272,8 @@ build examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj: CXX_COMPIL
   FLAGS = -g -std=c++26
   OBJECT_DIR = examples\CMakeFiles\view_example.dir
   OBJECT_FILE_DIR = examples\CMakeFiles\view_example.dir\view
+  TARGET_COMPILE_PDB = examples\CMakeFiles\view_example.dir\
+  TARGET_PDB = examples\view_example.pdb
   TARGET_SUPPORT_DIR = examples\CMakeFiles\view_example.dir
   dyndep = examples/CMakeFiles/view_example.dir/CXX.dd
 
@@ -3004,9 +3294,10 @@ build examples/view_example.exe: CXX_EXECUTABLE_LINKER__view_example_Debug examp
   OBJECT_DIR = examples\CMakeFiles\view_example.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = examples\CMakeFiles\view_example.dir\
   TARGET_FILE = examples\view_example.exe
   TARGET_IMPLIB = examples\libview_example.dll.a
-  TARGET_PDB = view_example.exe.dbg
+  TARGET_PDB = examples\view_example.pdb
   TARGET_SUPPORT_DIR = examples\CMakeFiles\view_example.dir
 
 # =============================================================================
@@ -3032,6 +3323,8 @@ build examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj: CXX_COMPIL
   FLAGS = -g -std=c++26
   OBJECT_DIR = examples\CMakeFiles\text_example.dir
   OBJECT_FILE_DIR = examples\CMakeFiles\text_example.dir\text
+  TARGET_COMPILE_PDB = examples\CMakeFiles\text_example.dir\
+  TARGET_PDB = examples\text_example.pdb
   TARGET_SUPPORT_DIR = examples\CMakeFiles\text_example.dir
   dyndep = examples/CMakeFiles/text_example.dir/CXX.dd
 
@@ -3052,9 +3345,10 @@ build examples/text_example.exe: CXX_EXECUTABLE_LINKER__text_example_Debug examp
   OBJECT_DIR = examples\CMakeFiles\text_example.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
+  TARGET_COMPILE_PDB = examples\CMakeFiles\text_example.dir\
   TARGET_FILE = examples\text_example.exe
   TARGET_IMPLIB = examples\libtext_example.dll.a
-  TARGET_PDB = text_example.exe.dbg
+  TARGET_PDB = examples\text_example.pdb
   TARGET_SUPPORT_DIR = examples\CMakeFiles\text_example.dir
 
 
@@ -3310,14 +3604,14 @@ build third_party/quickjs/all: phony third_party/quickjs/libqjs.a third_party/qu
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja C$:/ws-code/ws-kwik/kwik-ui/build/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/examples/cmake_install.cmake: RERUN_CMAKE | C$:/software/cmake/share/cmake-4.3/Modules/BasicConfigVersion-SameMajorVersion.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCommonLanguageInclude.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDependentOption.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeGenericSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeInitializeConfigs.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeLanguageInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePackageConfigHelpers.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePushCheckState.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInitialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPack.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPackComponent.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckFunctionExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFile.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckLibraryExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckSymbolExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPNG.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageHandleStandardArgs.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageMessage.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPkgConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython3.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython/Support.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindThreads.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindVulkan.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindZLIB.cmake C$:/software/cmake/share/cmake-4.3/Modules/GNUInstallDirs.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckFlagCommonConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Initialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-windres.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/WindowsPaths.cmake C$:/software/cmake/share/cmake-4.3/Modules/SelectLibraryConfigurations.cmake C$:/software/cmake/share/cmake-4.3/Modules/WriteBasicConfigVersionFile.cmake C$:/software/cmake/share/cmake-4.3/Templates/CPackConfig.cmake.in C$:/ws-code/ws-kwik/kwik-ui/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Bridge.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Core.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Element.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Engine.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Platform.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Render.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Utils.cmake C$:/ws-code/ws-kwik/kwik-ui/examples/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/CMakeLists.txt CMakeCache.txt CMakeFiles/4.3.2/CMakeCCompiler.cmake CMakeFiles/4.3.2/CMakeCXXCompiler.cmake CMakeFiles/4.3.2/CMakeRCCompiler.cmake CMakeFiles/4.3.2/CMakeSystem.cmake
+build build.ninja C$:/ws-code/ws-kwik/kwik-ui/build/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/quickjs/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/cmake_install.cmake C$:/ws-code/ws-kwik/kwik-ui/build/examples/cmake_install.cmake: RERUN_CMAKE | C$:/software/cmake/share/cmake-4.3/Modules/BasicConfigVersion-SameMajorVersion.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c C$:/software/cmake/share/cmake-4.3/Modules/CMakeCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCommonLanguageInclude.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCompilerIdDetection.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDependentOption.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCXXCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerId.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerSupport.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineRCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeFindBinUtils.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeGenericSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeInitializeConfigs.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeLanguageInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeNinjaFindMake.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePackageConfigHelpers.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseImplicitIncludeInfo.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseImplicitLinkInfo.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseLibraryArchitecture.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePushCheckState.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystem.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInitialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCXXCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCompilerCommon.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestRCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPack.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPackComponent.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckFunctionExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFile.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckLibraryExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckSymbolExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ADSP-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ARMCC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ARMClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/AppleClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Borland-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Bruce-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX-CXXImportStd.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-DetermineCompilerInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-FindBinUtils.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Compaq-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Cray-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CrayClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Diab-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Embarcadero-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Fujitsu-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GHS-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/HP-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/HP-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IAR-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMCPP-C-DetermineVersionInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMClang-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Intel-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/LCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/MSVC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/NVHPC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/NVIDIA-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/OrangeC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/PGI-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/PathScale-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Renesas-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SCO-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SDCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SunPro-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TI-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TIClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Tasking-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TinyCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/VisualAge-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Watcom-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XL-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XL-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XLClang-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/zOS-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPNG.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageHandleStandardArgs.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageMessage.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPkgConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython3.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython/Support.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindThreads.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindVulkan.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindZLIB.cmake C$:/software/cmake/share/cmake-4.3/Modules/GNUInstallDirs.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeDetermineLinkerId.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeInspectCLinker.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeInspectCXXLinker.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckFlagCommonConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/FeatureTesting.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Determine-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Initialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-windres.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/WindowsPaths.cmake C$:/software/cmake/share/cmake-4.3/Modules/SelectLibraryConfigurations.cmake C$:/software/cmake/share/cmake-4.3/Modules/WriteBasicConfigVersionFile.cmake C$:/software/cmake/share/cmake-4.3/Templates/CPackConfig.cmake.in C$:/ws-code/ws-kwik/kwik-ui/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Bridge.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Core.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Element.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Engine.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Platform.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Render.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Utils.cmake C$:/ws-code/ws-kwik/kwik-ui/examples/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/CMakeLists.txt CMakeCache.txt CMakeFiles/4.3.2/CMakeCCompiler.cmake CMakeFiles/4.3.2/CMakeCXXCompiler.cmake CMakeFiles/4.3.2/CMakeRCCompiler.cmake CMakeFiles/4.3.2/CMakeSystem.cmake
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build C$:/software/cmake/share/cmake-4.3/Modules/BasicConfigVersion-SameMajorVersion.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCommonLanguageInclude.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDependentOption.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeGenericSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeInitializeConfigs.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeLanguageInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePackageConfigHelpers.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePushCheckState.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInitialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPack.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPackComponent.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckFunctionExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFile.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckLibraryExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckSymbolExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPNG.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageHandleStandardArgs.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageMessage.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPkgConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython3.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython/Support.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindThreads.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindVulkan.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindZLIB.cmake C$:/software/cmake/share/cmake-4.3/Modules/GNUInstallDirs.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckFlagCommonConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Initialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-windres.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/WindowsPaths.cmake C$:/software/cmake/share/cmake-4.3/Modules/SelectLibraryConfigurations.cmake C$:/software/cmake/share/cmake-4.3/Modules/WriteBasicConfigVersionFile.cmake C$:/software/cmake/share/cmake-4.3/Templates/CPackConfig.cmake.in C$:/ws-code/ws-kwik/kwik-ui/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Bridge.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Core.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Element.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Engine.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Platform.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Render.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Utils.cmake C$:/ws-code/ws-kwik/kwik-ui/examples/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/CMakeLists.txt CMakeCache.txt CMakeFiles/4.3.2/CMakeCCompiler.cmake CMakeFiles/4.3.2/CMakeCXXCompiler.cmake CMakeFiles/4.3.2/CMakeRCCompiler.cmake CMakeFiles/4.3.2/CMakeSystem.cmake: phony
+build C$:/software/cmake/share/cmake-4.3/Modules/BasicConfigVersion-SameMajorVersion.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c C$:/software/cmake/share/cmake-4.3/Modules/CMakeCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp C$:/software/cmake/share/cmake-4.3/Modules/CMakeCXXInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCommonLanguageInclude.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeCompilerIdDetection.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDependentOption.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCXXCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerId.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineCompilerSupport.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineRCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeDetermineSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeFindBinUtils.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeGenericSystem.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeInitializeConfigs.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeLanguageInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeNinjaFindMake.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePackageConfigHelpers.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseImplicitIncludeInfo.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseImplicitLinkInfo.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeParseLibraryArchitecture.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakePushCheckState.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCCompiler.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeRCInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystem.cmake.in C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeSystemSpecificInitialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCXXCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestCompilerCommon.cmake C$:/software/cmake/share/cmake-4.3/Modules/CMakeTestRCCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPack.cmake C$:/software/cmake/share/cmake-4.3/Modules/CPackComponent.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckCXXSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckFunctionExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFile.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckIncludeFiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckLibraryExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/CheckSymbolExists.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ADSP-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ARMCC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/ARMClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/AppleClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Borland-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Bruce-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX-CXXImportStd.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-DetermineCompilerInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang-FindBinUtils.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Compaq-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Cray-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/CrayClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Diab-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Embarcadero-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Fujitsu-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GHS-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/HP-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/HP-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IAR-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMCPP-C-DetermineVersionInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMClang-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Intel-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/LCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/MSVC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/NVHPC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/NVIDIA-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/OrangeC-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/PGI-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/PathScale-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Renesas-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SCO-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SDCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SunPro-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TI-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TIClang-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Tasking-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/TinyCC-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/VisualAge-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/Watcom-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XL-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XL-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XLClang-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/zOS-C-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPNG.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageHandleStandardArgs.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPackageMessage.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPkgConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython3.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindPython/Support.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindThreads.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindVulkan.cmake C$:/software/cmake/share/cmake-4.3/Modules/FindZLIB.cmake C$:/software/cmake/share/cmake-4.3/Modules/GNUInstallDirs.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeDetermineLinkerId.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeInspectCLinker.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CMakeInspectCXXLinker.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckCompilerFlag.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckFlagCommonConfig.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/CheckSourceCompiles.cmake C$:/software/cmake/share/cmake-4.3/Modules/Internal/FeatureTesting.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Linker/LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Linker/Windows-LLD.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-C.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Clang.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Determine-CXX.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-GNU.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-Initialize.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows-windres.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/Windows.cmake C$:/software/cmake/share/cmake-4.3/Modules/Platform/WindowsPaths.cmake C$:/software/cmake/share/cmake-4.3/Modules/SelectLibraryConfigurations.cmake C$:/software/cmake/share/cmake-4.3/Modules/WriteBasicConfigVersionFile.cmake C$:/software/cmake/share/cmake-4.3/Templates/CPackConfig.cmake.in C$:/ws-code/ws-kwik/kwik-ui/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Bridge.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Core.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Element.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Engine.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Platform.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Render.cmake C$:/ws-code/ws-kwik/kwik-ui/cmake/modules/Utils.cmake C$:/ws-code/ws-kwik/kwik-ui/examples/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/freetype/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/CMakeLists.txt C$:/ws-code/ws-kwik/kwik-ui/third_party/quickjs/CMakeLists.txt CMakeCache.txt CMakeFiles/4.3.2/CMakeCCompiler.cmake CMakeFiles/4.3.2/CMakeCXXCompiler.cmake CMakeFiles/4.3.2/CMakeRCCompiler.cmake CMakeFiles/4.3.2/CMakeSystem.cmake: phony
 
 
 #############################################

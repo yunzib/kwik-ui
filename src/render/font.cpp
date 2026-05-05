@@ -38,6 +38,7 @@ FontManager::~FontManager() {
     }
 }
 bool FontManager::loadFont(const char *path, int faceIndex) {
+    if (fontPath_ == path && fontIndex_ == faceIndex && ftFace_) return true;
     if (!ftLib_) return false;
     if (ftFace_) {
         if (hbFont_) {
@@ -82,7 +83,7 @@ std::vector<ShapedGlyph> FontManager::shapeText(const char *text, float fontSize
     unsigned int glyphCount;
     hb_glyph_info_t *glyphInfo = hb_buffer_get_glyph_infos(buf, &glyphCount);
     hb_glyph_position_t *glyphPos = hb_buffer_get_glyph_positions(buf, &glyphCount);
-    float scale = fontSize / (float)kSDFBaseSize;
+    float scale = 1.0f;
     float x = 0, y = 0;
     for (unsigned int i = 0; i < glyphCount; i++) {
         uint32_t gid = glyphInfo[i].codepoint;

@@ -959,8 +959,11 @@ void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32
     VkBuffer staging;
     VkDeviceMemory stagingMem;
     if (!createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging, stagingMem))
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging,
+                      stagingMem)) {
+        std::print("uploadGlyphAtlas: createBuffer failed\n");
         return;
+    }
     void *mapped;
     vkMapMemory(vkDevice_, stagingMem, 0, size, 0, &mapped);
     std::memcpy(mapped, data, size);
