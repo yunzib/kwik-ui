@@ -1,8 +1,0 @@
--fmodule-file="std=CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"
--fmodule-file="kwik.core.types=CMakeFiles/kwik_core.dir/kwik.core.types.pcm"
--fmodule-file="kwik.render.command=CMakeFiles/kwik_render.dir/kwik.render.command.pcm"
--fmodule-file="kwik.render.backend=CMakeFiles/kwik_render.dir/kwik.render.backend.pcm"
--fmodule-file="kwik.render.software_backend=CMakeFiles/kwik_render.dir/kwik.render.software_backend.pcm"
--fmodule-file="kwik.render.vulkan_backend=CMakeFiles/kwik_render.dir/kwik.render.vulkan_backend.pcm"
--fmodule-file="kwik.render.graphics=CMakeFiles/kwik_render.dir/kwik.render.graphics.pcm"
--fmodule-file="kwik.platform.window=CMakeFiles/kwik_platform.dir/kwik.platform.window.pcm"

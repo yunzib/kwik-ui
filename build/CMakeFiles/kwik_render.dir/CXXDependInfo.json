@@ -20,6 +20,10 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
@@ -42,11 +46,41 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
 			"relative-directory" : "",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/render/command.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_render.dir/modules/render/font.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_RENDER_MODULE",
+				"KWIK_RENDER_VULKAN",
+				"KWIK_RENDER_SOFTWARE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
+				"C:/VulkanSDK/1.4.341.1/include"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/render/font.cppm",
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
@@ -64,6 +98,10 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
@@ -86,6 +124,10 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
@@ -108,6 +150,10 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
@@ -130,6 +176,10 @@
 			"destination" : null,
 			"include-directories" : 
 			[
+				"C:/ws-code/ws-kwik/kwik-ui/build/shaders",
+				"C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include",
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src",
 				"C:/VulkanSDK/1.4.341.1/include"
 			],
 			"name" : "cxx_modules",
@@ -148,6 +198,10 @@
 	"forward-modules-from-target-dirs" : [],
 	"include-dirs" : 
 	[
+		"shaders",
+		"third_party\\freetype\\include",
+		"C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\include",
+		"C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src",
 		"C:\\VulkanSDK\\1.4.341.1\\include"
 	],
 	"language" : "CXX",
@@ -165,6 +219,11 @@
 		{
 			"language" : "CXX",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/render/command.cpp"
+		},
+		"CMakeFiles/kwik_render.dir/src/render/font.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/render/font.cpp"
 		},
 		"CMakeFiles/kwik_render.dir/src/render/graphics.cpp.obj" : 
 		{

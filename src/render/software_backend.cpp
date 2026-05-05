@@ -6,6 +6,7 @@ module kwik.render.software_backend;
 
 import std;
 import kwik.core.types;
+import kwik.render.command;
 
 SoftwareBackend::SoftwareBackend() = default;
 
@@ -92,4 +93,18 @@ void SoftwareBackend::strokeRoundedRect(const Rect &rect, float radius, const Co
 
 void SoftwareBackend::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
     // 暂不实现
+}
+
+void SoftwareBackend::drawGlyph(const DrawGlyphCmd &cmd) {
+    int x0 = std::max(0, (int)cmd.x);
+    int y0 = std::max(0, (int)cmd.y);
+    int x1 = std::min(width_, (int)(cmd.x + cmd.width));
+    int y1 = std::min(height_, (int)(cmd.y + cmd.height));
+    uint32_t c = ((uint32_t)(cmd.color.a * globalAlpha_) << 24) | ((uint32_t)cmd.color.r << 16)
+                 | ((uint32_t)cmd.color.g << 8) | (uint32_t)cmd.color.b;
+    for (int y = y0; y < y1; ++y)
+        for (int x = x0; x < x1; ++x) pixelBuffer_[y * width_ + x] = c;
+}
+void SoftwareBackend::uploadGlyphAtlas(const uint8_t *, uint32_t, uint32_t) {
+    // 软件后端无需上传纹理
 }

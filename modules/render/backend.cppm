@@ -1,8 +1,10 @@
 module;
+#include <cstdint>
 
 export module kwik.render.backend;
 
 import kwik.core.types;
+import kwik.render.command;
 import kwik.platform.window;
 import std;
 
@@ -60,6 +62,9 @@ public:
      */
     virtual void present() = 0;
 
+    virtual void drawGlyph(const DrawGlyphCmd &cmd) = 0;
+    virtual void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) = 0;
+
     /**
      * @brief 设置全局透明度（0.0 - 1.0）
      */
@@ -115,10 +120,3 @@ public:
      */
     virtual int getHeight() const = 0;
 };
-
-/**
- * @brief 创建指定类型的渲染后端
- * @param type 后端类型
- * @return 后端实例指针，失败返回nullptr
- */
-export std::unique_ptr<RenderBackend> createBackend(BackendType type);

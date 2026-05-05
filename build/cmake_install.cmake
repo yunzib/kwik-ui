@@ -44,6 +44,16 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
+  include("C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
   include("C:/ws-code/ws-kwik/kwik-ui/build/examples/cmake_install.cmake")
 endif()
 

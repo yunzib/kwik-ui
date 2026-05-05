@@ -1,5 +1,0 @@
--x c++-module
--fmodule-output="CMakeFiles/kwik_platform.dir/kwik.platform.win32_window.pcm"
--fmodule-file="kwik.platform.window=CMakeFiles/kwik_platform.dir/kwik.platform.window.pcm"
--fmodule-file="kwik.core.types=CMakeFiles/kwik_core.dir/kwik.core.types.pcm"
--fmodule-file="std=CMakeFiles/__cmake_cxx_std_26.dir/std.pcm"

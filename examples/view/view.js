@@ -30,16 +30,15 @@ export default View({
 }, [
     // 绿色View
     View({
-        width: 200,
+        width: 100,
         height: 100,
         background: "#4CAF50",
         borderRadius: 4,
         margin: [10, 0, 0, 0]
     }),
-    
     // 蓝色View（带边框）
     View({
-        width: 200,
+        width: 100,
         height: 100,
         background: "#2196F3",
         borderRadius: 12,
@@ -50,11 +49,13 @@ export default View({
     
     // 橙色View（带阴影和圆角）
     View({
-        width: 200,
+        width: 100,
         height: 100,
         background: "#FF5722",
         borderRadius: 50,
         shadow: "0 4px 8px rgba(0,0,0,0.3)",
-        margin: [10, 0, 0, 0]
+        margin: [10, 0, 0, 0],
+        x: 200,
+        y: 200
     })
 ]);

@@ -10,6 +10,7 @@ import kwik.render.command;
 import kwik.render.backend;
 import kwik.render.software_backend;
 import kwik.render.vulkan_backend;
+import kwik.render.font;
 
 // ============================================================================
 // 构造函数和析构函数
@@ -144,6 +145,22 @@ void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) 
     Shadow transformedShadow = shadow;
     transformedShadow.color = applyOpacity(shadow.color);
     addCommand(DrawShadowCmd{transformed, radius, transformedShadow});
+}
+
+void Graphics::drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
+                        const Color &color) {
+    FontManager &fm = FontManager::instance();
+    fm.loadFont(fontPath.c_str());
+    auto glyphs = fm.shapeText(text.c_str(), fontSize);
+    for (auto &g : glyphs) {
+        GlyphInfo info = fm.getGlyphInfo(g.glyphIndex, fontSize);
+        float u0 = (float)info.atlasX / fm.atlasWidth();
+        float v0 = (float)info.atlasY / fm.atlasHeight();
+        float u1 = (float)(info.atlasX + info.atlasW) / fm.atlasWidth();
+        float v1 = (float)(info.atlasY + info.atlasH) / fm.atlasHeight();
+        Color c = applyOpacity(color);
+        addCommand(DrawGlyphCmd{info.glyphIndex, x + g.x, y + g.y, g.width, g.height, u0, v0, u1, v1, c});
+    }
 }
 
 // ============================================================================

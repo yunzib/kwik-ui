@@ -60,4 +60,8 @@ if(KWIK_BUILD_EXAMPLES)
     add_executable(view_example ${CMAKE_SOURCE_DIR}/examples/view/view_example.cpp)
     target_link_libraries(view_example PRIVATE kwik)
 
+    # text example
+    add_executable(text_example ${CMAKE_SOURCE_DIR}/examples/text/text_example.cpp)
+    target_link_libraries(text_example PRIVATE kwik)
+
 endif()

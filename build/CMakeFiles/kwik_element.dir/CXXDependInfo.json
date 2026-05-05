@@ -6,26 +6,6 @@
 	"config" : "Debug",
 	"cxx-modules" : 
 	{
-		"CMakeFiles/kwik_element.dir/modules/element/element_factory.cppm.obj" : 
-		{
-			"bmi-only" : false,
-			"compile-features" : [],
-			"compile-options" : [],
-			"definitions" : 
-			[
-				"KWIK_ELEMENT_MODULE"
-			],
-			"destination" : null,
-			"include-directories" : 
-			[
-				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
-			],
-			"name" : "cxx_modules",
-			"relative-directory" : "",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/element_factory.cppm",
-			"type" : "CXX_MODULES",
-			"visibility" : "PUBLIC"
-		},
 		"CMakeFiles/kwik_element.dir/modules/element/props.cppm.obj" : 
 		{
 			"bmi-only" : false,
@@ -46,7 +26,7 @@
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
-		"CMakeFiles/kwik_element.dir/modules/element/props_parser.cppm.obj" : 
+		"CMakeFiles/kwik_element.dir/modules/element/text.cppm.obj" : 
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
@@ -62,7 +42,7 @@
 			],
 			"name" : "cxx_modules",
 			"relative-directory" : "",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/props_parser.cppm",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/text.cppm",
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
@@ -83,6 +63,86 @@
 			"name" : "cxx_modules",
 			"relative-directory" : "",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/view.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/layout/flex_layout.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/flex_layout.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/layout/grid_layout.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/grid_layout.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/layout/scroll_view.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/scroll_view.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
+		"CMakeFiles/kwik_element.dir/modules/layout/stack_layout.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/stack_layout.cppm",
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		}
@@ -111,20 +171,35 @@
 	"module-dir" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir",
 	"sources" : 
 	{
-		"CMakeFiles/kwik_element.dir/src/element/element_factory.cpp.obj" : 
+		"CMakeFiles/kwik_element.dir/src/element/text.cpp.obj" : 
 		{
 			"language" : "CXX",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/element_factory.cpp"
-		},
-		"CMakeFiles/kwik_element.dir/src/element/props_parser.cpp.obj" : 
-		{
-			"language" : "CXX",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/props_parser.cpp"
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/text.cpp"
 		},
 		"CMakeFiles/kwik_element.dir/src/element/view.cpp.obj" : 
 		{
 			"language" : "CXX",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/view.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/layout/flex_layout.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/flex_layout.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/layout/grid_layout.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/grid_layout.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/layout/scroll_view.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/scroll_view.cpp"
+		},
+		"CMakeFiles/kwik_element.dir/src/layout/stack_layout.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/stack_layout.cpp"
 		}
 	}
 }

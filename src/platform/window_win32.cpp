@@ -347,7 +347,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 
     // 窗口绘制
-    case WM_PAINT: e.type = Event::Type::WindowPaint; break;
+    case WM_PAINT: ValidateRect(hwnd_, nullptr); return 0;
 
     default: return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }

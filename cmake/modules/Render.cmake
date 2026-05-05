@@ -10,11 +10,13 @@ set(RENDER_PUBLIC_MODULES
     modules/render/backend.cppm
     modules/render/command.cppm
     modules/render/render_thread.cppm
+    modules/render/font.cppm
 )
 set(RENDER_PRIVATE_SOURCES
     src/render/graphics.cpp
     src/render/command.cpp
     src/render/render_thread.cpp
+    src/render/font.cpp
 )
 
 set(RENDER_COMPILE_DEFINITIONS
@@ -58,6 +60,8 @@ target_link_libraries(kwik_render
     PRIVATE
         kwik_core
         kwik_platform
+        freetype
+        harfbuzz
 )
 
 # 6. 添加链接库（LINK_LIBRARIES）
@@ -75,3 +79,46 @@ if(RENDER_COMPILE_DEFINITIONS)
             ${RENDER_COMPILE_DEFINITIONS}
     )
 endif()
+
+
+
+# ============================================================================
+# Shader compilation — compile GLSL to SPIR-V, embed in C++ header
+# ============================================================================
+find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
+if(NOT GLSLANG_VALIDATOR)
+    message(FATAL_ERROR "glslangValidator not found — install Vulkan SDK")
+endif()
+set(SHADER_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)
+set(SHADER_GEN_DIR ${CMAKE_BINARY_DIR}/shaders)
+file(MAKE_DIRECTORY ${SHADER_GEN_DIR})
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/rect_shaders.h
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/rect.vert -o ${SHADER_GEN_DIR}/rect.vert.spv
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/rect.frag -o ${SHADER_GEN_DIR}/rect.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/rect.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/rect.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/rect_shaders.h
+        -DNAME=kRect
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/rect.vert ${SHADER_SRC_DIR}/rect.frag ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling shaders to embedded SPIR-V header"
+)
+target_include_directories(kwik_render PRIVATE ${SHADER_GEN_DIR})
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/rect_shaders.h)
+
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/glyph_shaders.h
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/glyph.vert -o ${SHADER_GEN_DIR}/glyph.vert.spv
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/glyph.frag -o ${SHADER_GEN_DIR}/glyph.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/glyph.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/glyph.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/glyph_shaders.h
+        -DNAME=kGlyph
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/glyph.vert ${SHADER_SRC_DIR}/glyph.frag ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling glyph shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/glyph_shaders.h)

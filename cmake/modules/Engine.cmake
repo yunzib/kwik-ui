@@ -11,7 +11,6 @@ target_sources(kwik_engine
             modules/engine/quickjs_runtime.cppm
             modules/engine/quickjs_context.cppm
             modules/engine/js_value.cppm
-            modules/engine/color_parser.cppm
             modules/engine/bindings.cppm
     
     # 添加私有实现源文件（PRIVATE_SOURCES）
@@ -19,7 +18,6 @@ target_sources(kwik_engine
         src/engine/quickjs_runtime.cpp
         src/engine/quickjs_context.cpp
         src/engine/js_value.cpp
-        src/engine/color_parser.cpp
         src/engine/bindings.cpp
 
 

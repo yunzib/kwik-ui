@@ -13,7 +13,7 @@ import std;
 /**
  * @brief 渲染线程事件回调
  */
-struct RenderThreadCallbacks {
+export struct RenderThreadCallbacks {
     /**
      * @brief 窗口大小改变回调
      * @param width 新宽度
@@ -41,7 +41,7 @@ struct RenderThreadCallbacks {
 /**
  * @brief 渲染线程状态
  */
-enum class RenderThreadState {
+export enum class RenderThreadState {
     Stopped,  // 已停止
     Starting, // 正在启动
     Running,  // 运行中
@@ -52,7 +52,7 @@ enum class RenderThreadState {
 /**
  * @brief 渲染线程配置
  */
-struct RenderThreadConfig {
+export struct RenderThreadConfig {
     BackendType backendType = BackendType::Vulkan;
     int initialWidth = 800;
     int initialHeight = 600;
@@ -70,7 +70,7 @@ struct RenderThreadConfig {
  * 3. 处理窗口事件（resize、present等）
  * 4. 与窗口系统交互（surface创建、swapchain管理等）
  */
-class RenderThread {
+export class RenderThread {
 public:
     /**
      * @brief 构造函数

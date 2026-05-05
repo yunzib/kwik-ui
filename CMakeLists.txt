@@ -29,6 +29,22 @@ message(STATUS "===== 完成引入 quickjs =====")
 # find_package(Vulkan REQUIRED)
 #   target_link_libraries(project_target PRIVATE Vulkan::Vulkan)
 
+# FreeType — 先关闭 HarfBuzz 动态加载，关闭不必要的外部依赖
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "")
+set(FT_DISABLE_ZLIB ON CACHE BOOL "")
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "")
+set(FT_DISABLE_PNG ON CACHE BOOL "")
+set(FT_DISABLE_BROTLI ON CACHE BOOL "")
+add_subdirectory(third_party/freetype)
+message(STATUS "===== 完成引入 freetype =====")
+# HarfBuzz — 此时 freetype target 已存在，会自动开启 HB_HAVE_FREETYPE
+set(HB_BUILD_UTILS OFF CACHE BOOL "")
+set(HB_BUILD_SUBSET OFF CACHE BOOL "")
+add_subdirectory(third_party/harfbuzz)
+message(STATUS "===== 完成引入 harfbuzz =====")
+target_link_libraries(freetype PRIVATE harfbuzz)
+target_compile_definitions(freetype PRIVATE FT_CONFIG_OPTION_USE_HARFBUZZ)
+
 
 ################################## 项目配置 ######################################
 # ==================== 平台选项定义 ====================
@@ -44,6 +60,7 @@ include(cmake/modules/Element.cmake)
 include(cmake/modules/Platform.cmake)
 include(cmake/modules/Render.cmake)
 include(cmake/modules/Engine.cmake)
+include(cmake/modules/Bridge.cmake)
 
 # 构建选项
 option(KWIK_BUILD_TESTS "Build tests" OFF)
@@ -58,7 +75,7 @@ target_link_libraries(kwik INTERFACE
     kwik_engine
     kwik_element
     kwik_render
-    
+    kwik_bridge
 )
 
 # 示例程序

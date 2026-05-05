@@ -49,15 +49,33 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\props_parser.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\props_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\props_parser.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/props_parser.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/props_parser.cpp.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\text.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\text.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\text.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/text.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/text.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\element_factory.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\element_factory.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\element_factory.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/element_factory.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/element_factory.cpp.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\flex_layout.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\flex_layout.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\flex_layout.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/flex_layout.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/flex_layout.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\grid_layout.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\grid_layout.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\grid_layout.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/grid_layout.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/grid_layout.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\stack_layout.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\stack_layout.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\stack_layout.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/stack_layout.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/stack_layout.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\scroll_view.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\scroll_view.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\scroll_view.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/scroll_view.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/scroll_view.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -73,15 +91,33 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\props_parser.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\props_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\props_parser.cppm",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/props_parser.cppm",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/props_parser.cppm.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\text.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\text.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\text.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/text.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/text.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\element_factory.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\element_factory.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\element_factory.cppm",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/element_factory.cppm",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/element_factory.cppm.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\flex_layout.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\flex_layout.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\flex_layout.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/flex_layout.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/flex_layout.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\grid_layout.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\grid_layout.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\grid_layout.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/grid_layout.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/grid_layout.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\stack_layout.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\stack_layout.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\stack_layout.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/stack_layout.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/stack_layout.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\scroll_view.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\scroll_view.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\scroll_view.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/scroll_view.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/scroll_view.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -115,67 +151,79 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\graphics.cpp",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\graphics.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\graphics.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/graphics.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/graphics.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\command.cpp",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\command.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\command.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/command.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/command.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\render_thread.cpp",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\render_thread.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\render_thread.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/render_thread.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/render_thread.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\vulkan_backend.cpp",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\font.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\font.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\font.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/font.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/font.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\vulkan_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\vulkan_backend.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/vulkan_backend.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/vulkan_backend.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\software_backend.cpp",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj.modmap -o CMakeFiles\\kwik_render.dir\\src\\render\\software_backend.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\render\\software_backend.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/render/software_backend.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/src/render/software_backend.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\graphics.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\graphics.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\graphics.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/graphics.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/graphics.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\backend.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\backend.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/backend.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/backend.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\command.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\command.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\command.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/command.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/command.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\render_thread.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\render_thread.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\render_thread.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/render_thread.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/render_thread.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\vulkan_backend.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\font.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\font.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\font.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/font.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/font.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\vulkan_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\vulkan_backend.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/vulkan_backend.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/vulkan_backend.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\software_backend.cppm",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_RENDER_MODULE -DKWIK_RENDER_SOFTWARE -DKWIK_RENDER_VULKAN -IC:/ws-code/ws-kwik/kwik-ui/build/shaders -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -isystem C:/VulkanSDK/1.4.341.1/include -g -std=c++26 @CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj.modmap -o CMakeFiles\\kwik_render.dir\\modules\\render\\software_backend.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\render\\software_backend.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/render/software_backend.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir/modules/render/software_backend.cppm.obj"
 },
@@ -196,12 +244,6 @@
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\js_value.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\js_value.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\js_value.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/js_value.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj"
-},
-{
-  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\src\\engine\\color_parser.cpp.obj.modmap -o CMakeFiles\\kwik_engine.dir\\src\\engine\\color_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\engine\\color_parser.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/src/engine/color_parser.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/src/engine/color_parser.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -229,15 +271,45 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\color_parser.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\color_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\color_parser.cppm",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/color_parser.cppm",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/color_parser.cppm.obj"
-},
-{
-  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ENGINE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_engine.dir\\modules\\engine\\bindings.cppm.obj.modmap -o CMakeFiles\\kwik_engine.dir\\modules\\engine\\bindings.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\engine\\bindings.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/engine/bindings.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir/modules/engine/bindings.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\src\\bridge\\color_parser.cpp.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\src\\bridge\\color_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\bridge\\color_parser.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/bridge/color_parser.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/src/bridge/color_parser.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\src\\bridge\\props_parser.cpp.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\src\\bridge\\props_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\bridge\\props_parser.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/bridge/props_parser.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/src/bridge/props_parser.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\src\\bridge\\element_parser.cpp.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\src\\bridge\\element_parser.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\bridge\\element_parser.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/bridge/element_parser.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/src/bridge/element_parser.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\color_parser.cppm.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\color_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\bridge\\color_parser.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/bridge/color_parser.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/modules/bridge/color_parser.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\props_parser.cppm.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\props_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\bridge\\props_parser.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/bridge/props_parser.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/modules/bridge/props_parser.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\element_parser.cppm.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\element_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\bridge\\element_parser.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/bridge/element_parser.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/modules/bridge/element_parser.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -355,8 +427,386 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\autofit\\autofit.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\autofit\\autofit.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/autofit/autofit.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/autofit/autofit.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftbase.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftbase.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbase.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbase.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftbbox.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftbbox.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbbox.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbbox.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftbdf.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftbdf.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbdf.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbdf.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftbitmap.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftbitmap.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftbitmap.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftbitmap.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftcid.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftcid.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftcid.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftcid.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftfstype.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftfstype.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftfstype.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftfstype.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftgasp.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftgasp.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftgasp.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgasp.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftglyph.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftglyph.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftglyph.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftglyph.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftgxval.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftgxval.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftgxval.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftgxval.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftinit.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftinit.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftinit.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftinit.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftmm.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftmm.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftmm.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftmm.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftotval.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftotval.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftotval.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftotval.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftpatent.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftpatent.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftpatent.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpatent.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftpfr.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftpfr.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftpfr.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftpfr.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftstroke.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftstroke.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftstroke.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftstroke.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftsynth.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftsynth.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftsynth.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftsynth.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\fttype1.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\fttype1.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/fttype1.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/fttype1.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftwinfnt.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftwinfnt.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftwinfnt.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftwinfnt.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\bdf\\bdf.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\bdf\\bdf.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/bdf/bdf.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/bdf/bdf.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\bzip2\\ftbzip2.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\bzip2\\ftbzip2.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/bzip2/ftbzip2.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/bzip2/ftbzip2.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\cache\\ftcache.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\cache\\ftcache.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cache/ftcache.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/cache/ftcache.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\cff\\cff.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\cff\\cff.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cff/cff.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/cff/cff.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\cid\\type1cid.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\cid\\type1cid.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/cid/type1cid.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/cid/type1cid.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\gzip\\ftgzip.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\gzip\\ftgzip.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/gzip/ftgzip.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/gzip/ftgzip.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\hvf\\hvf.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\hvf\\hvf.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/hvf/hvf.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/hvf/hvf.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\lzw\\ftlzw.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\lzw\\ftlzw.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/lzw/ftlzw.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/lzw/ftlzw.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\pcf\\pcf.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\pcf\\pcf.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pcf/pcf.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/pcf/pcf.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\pfr\\pfr.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\pfr\\pfr.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pfr/pfr.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/pfr/pfr.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\psaux\\psaux.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\psaux\\psaux.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/psaux/psaux.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/psaux/psaux.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\pshinter\\pshinter.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\pshinter\\pshinter.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/pshinter/pshinter.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/pshinter/pshinter.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\psnames\\psnames.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\psnames\\psnames.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/psnames/psnames.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/psnames/psnames.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\raster\\raster.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\raster\\raster.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/raster/raster.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/raster/raster.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\sdf\\sdf.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\sdf\\sdf.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/sdf/sdf.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/sdf/sdf.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\sfnt\\sfnt.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\sfnt\\sfnt.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/sfnt/sfnt.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/sfnt/sfnt.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\smooth\\smooth.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\smooth\\smooth.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/smooth/smooth.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/smooth/smooth.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\svg\\svg.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\svg\\svg.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/svg/svg.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/svg/svg.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\truetype\\truetype.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\truetype\\truetype.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/truetype/truetype.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/truetype/truetype.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\type1\\type1.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\type1\\type1.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/type1/type1.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/type1/type1.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\type42\\type42.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\type42\\type42.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/type42/type42.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/type42/type42.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\winfonts\\winfnt.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\winfonts\\winfnt.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/winfonts/winfnt.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/winfonts/winfnt.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\builds\\windows\\ftsystem.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\builds\\windows\\ftsystem.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/builds/windows/ftsystem.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftsystem.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang.exe -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -g -std=c23 -o third_party\\freetype\\CMakeFiles\\freetype.dir\\builds\\windows\\ftdebug.c.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\builds\\windows\\ftdebug.c",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/builds/windows/ftdebug.c",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/builds/windows/ftdebug.c.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\windres.exe -O coff -DFT2_BUILD_LIBRARY -DFT_CONFIG_OPTION_USE_HARFBUZZ -D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -I C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -I C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include -I C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include/freetype/config -I C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\freetype\\src\\base\\ftver.rc third_party\\freetype\\CMakeFiles\\freetype.dir\\src\\base\\ftver.rc.obj",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/freetype/src/base/ftver.rc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/CMakeFiles/freetype.dir/src/base/ftver.rc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -pthread -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz.dir\\src\\harfbuzz.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\harfbuzz.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/harfbuzz.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz.dir/src/harfbuzz.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-raster.dir\\src\\hb-raster.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-raster.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-raster.dir\\src\\hb-raster-image.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-raster-image.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-image.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-image.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-raster.dir\\src\\hb-raster-draw.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-raster-draw.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-draw.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-draw.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-raster.dir\\src\\hb-raster-paint.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-raster-paint.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-raster-paint.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-raster-paint.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-raster.dir\\src\\hb-static.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-static.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-raster.dir/src/hb-static.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-zlib.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-zlib.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-zlib.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-zlib.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector-draw.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector-draw.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-draw.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-draw.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector-path.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector-path.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-path.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-path.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector-paint.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector-paint.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector-paint-svg.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector-paint-svg.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint-svg.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-svg.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-vector-paint-pdf.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-vector-paint-pdf.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-vector-paint-pdf.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-vector-paint-pdf.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-vector.dir\\src\\hb-static.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-static.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-vector.dir/src/hb-static.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-gpu.dir\\src\\hb-gpu.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-gpu.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-gpu.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-gpu.dir\\src\\hb-gpu-draw.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-gpu-draw.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-gpu-draw.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-draw.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-gpu.dir\\src\\hb-gpu-paint.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-gpu-paint.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-gpu-paint.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-gpu-paint.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DHAVE_ATEXIT -DHAVE_FREETYPE=1 -DHAVE_ISATTY -DHAVE_PTHREAD -DHAVE_STDBOOL_H -DHAVE_UNISTD_H -IC:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/src -IC:/ws-code/ws-kwik/kwik-ui/build/third_party/freetype/include -IC:/ws-code/ws-kwik/kwik-ui/third_party/freetype/include  -fno-rtti -fno-exceptions -fno-threadsafe-statics -std=c++11 -g -std=c++11 -fvisibility-inlines-hidden -Wa,-mbig-obj -o third_party\\harfbuzz\\CMakeFiles\\harfbuzz-gpu.dir\\src\\hb-static.cc.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\third_party\\harfbuzz\\src\\hb-static.cc",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/third_party/harfbuzz/src/hb-static.cc",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/harfbuzz-gpu.dir/src/hb-static.cc.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj.modmap -o examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\view\\view_example.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/examples/view/view_example.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj.modmap -o examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\text\\text_example.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/text/text_example.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj"
 }
 ]

@@ -5,6 +5,7 @@ export module kwik.render.software_backend;
 
 import kwik.render.backend;
 import kwik.core.types;
+import kwik.render.command;
 import std;
 
 /**
@@ -30,6 +31,8 @@ public:
     void fillRoundedRect(const Rect &rect, float radius, const Color &color) override;
     void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth) override;
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
+    void drawGlyph(const DrawGlyphCmd &cmd) override;
+    void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) override;
     BackendType getType() const override {
         return BackendType::Software;
     }

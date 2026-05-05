@@ -26,26 +26,6 @@
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
-		"CMakeFiles/kwik_engine.dir/modules/engine/color_parser.cppm.obj" : 
-		{
-			"bmi-only" : false,
-			"compile-features" : [],
-			"compile-options" : [],
-			"definitions" : 
-			[
-				"KWIK_ENGINE_MODULE"
-			],
-			"destination" : null,
-			"include-directories" : 
-			[
-				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
-			],
-			"name" : "cxx_modules",
-			"relative-directory" : "",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/engine/color_parser.cppm",
-			"type" : "CXX_MODULES",
-			"visibility" : "PUBLIC"
-		},
 		"CMakeFiles/kwik_engine.dir/modules/engine/js_value.cppm.obj" : 
 		{
 			"bmi-only" : false,
@@ -131,11 +111,6 @@
 		{
 			"language" : "CXX",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/bindings.cpp"
-		},
-		"CMakeFiles/kwik_engine.dir/src/engine/color_parser.cpp.obj" : 
-		{
-			"language" : "CXX",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/engine/color_parser.cpp"
 		},
 		"CMakeFiles/kwik_engine.dir/src/engine/js_value.cpp.obj" : 
 		{

@@ -52,6 +52,8 @@ public:
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
+    void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
+                  const Color &color);
 
     // 帧控制（命令记录）
     void beginFrame();

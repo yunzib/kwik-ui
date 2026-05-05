@@ -11,12 +11,23 @@ target_sources(kwik_element
         FILES
             modules/element/props.cppm
             modules/element/view.cppm
-            modules/element/props_parser.cppm
-            modules/element/element_factory.cppm
+            modules/element/text.cppm
+
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
+        FILES
+            modules/layout/flex_layout.cppm
+            modules/layout/grid_layout.cppm
+            modules/layout/stack_layout.cppm
+            modules/layout/scroll_view.cppm
+            
     PRIVATE
         src/element/view.cpp
-        src/element/props_parser.cpp
-        src/element/element_factory.cpp
+        src/element/text.cpp
+
+        src/layout/flex_layout.cpp
+        src/layout/grid_layout.cpp
+        src/layout/stack_layout.cpp
+        src/layout/scroll_view.cpp
 )
 
 # 5. 添加依赖（DEPENDS）
