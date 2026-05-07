@@ -83,3 +83,15 @@ private:
     JSContext *context_;
     JSValue value_;
 };
+
+/**
+ * @brief 判断 JSValue 是否为 JS_NULL
+ * @param v JSValue 值
+ * @return true 表示值为 JS_NULL
+ *
+ * JSValue 是 QuickJS 的 tagged union, 不定义 operator==,
+ * 必须通过 tag 值比较
+ */
+export inline bool js_is_null(JSValue v) {
+    return JS_VALUE_GET_TAG(v) == JS_TAG_NULL;
+}

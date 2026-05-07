@@ -61,6 +61,7 @@ include(cmake/modules/Platform.cmake)
 include(cmake/modules/Render.cmake)
 include(cmake/modules/Engine.cmake)
 include(cmake/modules/Bridge.cmake)
+include(cmake/modules/Event.cmake)
 
 # 构建选项
 option(KWIK_BUILD_TESTS "Build tests" OFF)
@@ -76,6 +77,7 @@ target_link_libraries(kwik INTERFACE
     kwik_element
     kwik_render
     kwik_bridge
+    kwik_event
 )
 
 # 示例程序

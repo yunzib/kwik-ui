@@ -55,6 +55,12 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\element\\button.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\element\\button.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\element\\button.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/element/button.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/element/button.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\flex_layout.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\flex_layout.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\flex_layout.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/flex_layout.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/flex_layout.cpp.obj"
@@ -94,6 +100,12 @@
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\text.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\text.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\text.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/text.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/text.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\element\\button.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\element\\button.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\element\\button.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/element/button.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/element/button.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -310,6 +322,18 @@
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_BRIDGE_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\element_parser.cppm.obj.modmap -o CMakeFiles\\kwik_bridge.dir\\modules\\bridge\\element_parser.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\bridge\\element_parser.cppm",
   "file": "C:/ws-code/ws-kwik/kwik-ui/modules/bridge/element_parser.cppm",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir/modules/bridge/element_parser.cppm.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_EVENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_event.dir\\src\\event\\event.cpp.obj.modmap -o CMakeFiles\\kwik_event.dir\\src\\event\\event.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\event\\event.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/event/event.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_event.dir/src/event/event.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_EVENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_event.dir\\modules\\event\\event.cppm.obj.modmap -o CMakeFiles\\kwik_event.dir\\modules\\event\\event.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\event\\event.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/event/event.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_event.dir/modules/event/event.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -808,5 +832,11 @@
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj.modmap -o examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\text\\text_example.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/examples/text/text_example.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj"
+},
+{
+  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\event_example.dir\\event\\event_example.cpp.obj.modmap -o examples\\CMakeFiles\\event_example.dir\\event\\event_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\event\\event_example.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/event/event_example.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj"
 }
 ]

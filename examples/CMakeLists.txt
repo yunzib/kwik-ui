@@ -64,4 +64,8 @@ if(KWIK_BUILD_EXAMPLES)
     add_executable(text_example ${CMAKE_SOURCE_DIR}/examples/text/text_example.cpp)
     target_link_libraries(text_example PRIVATE kwik)
 
+    # event example — 事件处理演示
+    add_executable(event_example ${CMAKE_SOURCE_DIR}/examples/event/event_example.cpp)
+    target_link_libraries(event_example PRIVATE kwik)
+
 endif()

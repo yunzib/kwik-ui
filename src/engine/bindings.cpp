@@ -184,6 +184,12 @@ JSValue js_text(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *a
     return makeElement(ctx, "Text", props, JS_UNDEFINED);
 }
 
+JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    return makeElement(ctx, "Button", props, children);
+}
+
 JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     Log::info("Creating State instance");
     StateData *sd;
@@ -342,6 +348,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
     static const JSCFunctionListEntry ui_exports[] = {
         JS_CFUNC_DEF("View", 1, js_view),
         JS_CFUNC_DEF("Text", 1, js_text),
+        JS_CFUNC_DEF("Button", 2, js_button),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

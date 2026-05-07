@@ -68,6 +68,9 @@ public:
      */
     void requestRender();
 
+    bool isRenderNeeded() const { return needRender; }
+    void clearRenderFlag() { needRender = false; }
+
 private:
     // ── 运行时 & 上下文 ──────────────────────────────────────────
     std::shared_ptr<QuickJSRuntime> runtime; ///< 共享的 JSRuntime 实例

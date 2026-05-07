@@ -20,6 +20,7 @@ import kwik.element.view;
 import kwik.element.props;
 import kwik.engine.js_value;
 import kwik.element.text;
+import kwik.element.button;
 
 import std;
 // ============================================================================
@@ -61,10 +62,9 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("View", [](ViewProps &&props) { return std::make_unique<View>(std::move(props)); });
         // ── Text 组件 ─────────────────────────────────────────
         ElementParser::registerType("Text", [](ViewProps &&props) { return std::make_unique<Text>(std::move(props)); });
-        // ── Button 组件 (TODO) ───────────────────────────────────────
-        // ElementParser::registerType("Button", [](ViewProps&& props) {
-        //     return std::make_unique<Button>(std::move(props));
-        // });
+        // ── Button 组件 ───────────────────────────────────────
+        ElementParser::registerType("Button",
+                                    [](ViewProps &&props) { return std::make_unique<Button>(std::move(props)); });
     }
 } _init_builtin_types;
 // ============================================================================
@@ -154,6 +154,28 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
             if (child) { element->addChild(std::move(child)); }
         }
     }
+
+    // ── 5. 提取事件处理器 ────────────────────────────────────────
+    //     通过 ViewEventHandlers::bind() 绑定 JS 事件回调。
+    //     bind() 内部处理 JS_DupValue + 旧值释放, 调用者无需关心引用计数
+    if (element) {
+        auto propsVal = jsVal.getProperty("props");
+        if (propsVal.isObject()) {
+            JSContext *ctx_ = propsVal.context();
+            // 辅助 lambda: 检查 prop 是否存在且为函数, 是则绑定
+            auto tryBind = [&](const char *propName) {
+                if (propsVal.hasProperty(propName)) {
+                    auto handler = propsVal.getProperty(propName);
+                    if (JS_IsFunction(ctx_, handler.raw())) { element->handlers.bind(ctx_, propName, handler.raw()); }
+                }
+            };
+            tryBind("onClick");
+            tryBind("onLongPress");
+            tryBind("onHoverEnter");
+            tryBind("onHoverLeave");
+        }
+    }
+
     // childrenVal 和子节点的 JSValueRef 在此作用域结束时自动析构，
     // 每个析构调用 JS_FreeValue，正确释放解析过程中持有的所有 JS 引用
     return element;
@@ -162,20 +184,21 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
 // ============================================================================
 // 公开接口 - printTree 打印完整 View 组件树
 // ============================================================================
-void ElementParser::printTree(const View* view, int depth, const std::string& prefix) {
+void ElementParser::printTree(const View *view, int depth, const std::string &prefix) {
     if (!view) return;
-    const auto& p = view->props;
-    std::print("{}{} [{:.0f}x{:.0f}]", prefix, view->typeName(),
-               view->frame.width, view->frame.height);
+    const auto &p = view->props;
+    std::print("{}{} [{:.0f}x{:.0f}]", prefix, view->typeName(), view->frame.width, view->frame.height);
     if (p.background.isVisible())
         std::print(" bg=#{:02X}{:02X}{:02X} a={}", p.background.r, p.background.g, p.background.b, p.background.a);
     if (p.borderRadius > 0) std::print(" radius={}", p.borderRadius);
     if (p.borderWidth > 0)
         std::print(" border={} #{:02X}{:02X}{:02X}", p.borderWidth, p.borderColor.r, p.borderColor.g, p.borderColor.b);
     if (p.padding.top > 0 || p.padding.left > 0 || p.padding.bottom > 0 || p.padding.right > 0)
-        std::print(" padding=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.padding.top, p.padding.right, p.padding.bottom, p.padding.left);
+        std::print(" padding=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.padding.top, p.padding.right, p.padding.bottom,
+                   p.padding.left);
     if (p.margin.top > 0 || p.margin.left > 0 || p.margin.bottom > 0 || p.margin.right > 0)
-        std::print(" margin=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.margin.top, p.margin.right, p.margin.bottom, p.margin.left);
+        std::print(" margin=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.margin.top, p.margin.right, p.margin.bottom,
+                   p.margin.left);
     if (!p.text.empty()) {
         std::print(" text=\"{}\"", p.text.c_str());
         std::print(" fontSize={:.0f}", p.fontSize);

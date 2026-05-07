@@ -5,6 +5,17 @@ export module kwik.core.types;
 
 import std;
 
+export enum class UIEventType {
+    Tap,
+    LongPress,
+    HoverEnter,
+    HoverLeave,
+    HoverMove,
+    PanBegin,
+    PanMove,
+    PanEnd
+};
+
 /**
  * @brief 尺寸结构体
  */

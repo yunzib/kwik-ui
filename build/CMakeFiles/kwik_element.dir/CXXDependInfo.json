@@ -6,6 +6,26 @@
 	"config" : "Debug",
 	"cxx-modules" : 
 	{
+		"CMakeFiles/kwik_element.dir/modules/element/button.cppm.obj" : 
+		{
+			"bmi-only" : false,
+			"compile-features" : [],
+			"compile-options" : [],
+			"definitions" : 
+			[
+				"KWIK_ELEMENT_MODULE"
+			],
+			"destination" : null,
+			"include-directories" : 
+			[
+				"C:/ws-code/ws-kwik/kwik-ui/third_party/quickjs"
+			],
+			"name" : "cxx_modules",
+			"relative-directory" : "",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/element/button.cppm",
+			"type" : "CXX_MODULES",
+			"visibility" : "PUBLIC"
+		},
 		"CMakeFiles/kwik_element.dir/modules/element/props.cppm.obj" : 
 		{
 			"bmi-only" : false,
@@ -171,6 +191,11 @@
 	"module-dir" : "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir",
 	"sources" : 
 	{
+		"CMakeFiles/kwik_element.dir/src/element/button.cpp.obj" : 
+		{
+			"language" : "CXX",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/element/button.cpp"
+		},
 		"CMakeFiles/kwik_element.dir/src/element/text.cpp.obj" : 
 		{
 			"language" : "CXX",
