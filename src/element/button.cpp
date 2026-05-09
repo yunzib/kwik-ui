@@ -1,12 +1,123 @@
 module;
+#include "quickjs.h"
+
 module kwik.element.button;
 import kwik.element.view;
 import kwik.element.props;
 import kwik.core.types;
+import kwik.core.constraints;
 import kwik.render.graphics;
+import kwik.render.font;
+
+
 import std;
-void Button::onDraw(Graphics& graphics) {
-    // Button 复用 View 的绘制逻辑（背景、圆角、边框等）
-    // hover/press 视觉状态可在后续通过状态机扩展
-    View::onDraw(graphics);
+// ============================================================================
+// Button::needReshapeText — 文字排版脏检测
+// ============================================================================
+bool Button::needReshapeText(const std::string &fontPath) const {
+    if (props.text != cachedText_) return true;
+    if (props.fontSize != cachedFontSize_) return true;
+    if (fontPath != cachedFontPath_) return true;
+    return false;
+}
+// ============================================================================
+// Button::onMeasure — 内容感知测量
+// ============================================================================
+Size Button::onMeasure(Constraints constraints) {
+    if (!children.empty()) return View::onMeasure(constraints);
+    if (props.text.empty()) return View::onMeasure(constraints);
+    auto &fm = FontManager::instance();
+    std::string fontPath = fm.resolveFontPath(props.fontFamily.empty() ? "NotoSansSC-Regular.otf" : props.fontFamily);
+    if (fontPath.empty()) return View::onMeasure(constraints);
+    fm.loadFont(fontPath.c_str());
+    auto shaped = fm.shapeText(props.text.c_str(), props.fontSize);
+    float textW = 0;
+    for (auto &g : shaped) textW += g.advanceX;
+    auto metrics = fm.getMetrics(props.fontSize);
+    float w = textW + props.padding.horizontal();
+    float h = metrics.lineHeight + props.padding.vertical();
+    if (props.width.has_value()) w = *props.width + props.padding.horizontal();
+    if (props.height.has_value()) h = *props.height + props.padding.vertical();
+    return constraints.constrain({w, h});
+}
+// ============================================================================
+// Button::onEvent — 状态机驱动
+// ============================================================================
+bool Button::onEvent(int code, float localX, float localY, JSContext *ctx) {
+    switch (code) {
+    case ViewEventCode::HoverEnter: state_ = ButtonState::Hovered; break;
+    case ViewEventCode::HoverLeave: state_ = ButtonState::Idle; break;
+    case ViewEventCode::PressBegin: state_ = ButtonState::Pressed; break;
+    case ViewEventCode::PressEnd: state_ = ButtonState::Idle; break;
+    }
+    return View::onEvent(code, localX, localY, ctx);
+}
+// ============================================================================
+// Button::onDraw — 状态感知绘制 + 文字渲染
+// ============================================================================
+void Button::onDraw(Graphics &graphics) {
+    graphics.save();
+    if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
+    // ── 状态感知属性 ──
+    Color bg = props.background;
+    Color borderColor = props.borderColor;
+    std::optional<Shadow> shadow = props.shadow;
+    if (state_ == ButtonState::Hovered) {
+        if (props.hoverBackground.isVisible()) bg = props.hoverBackground;
+        if (props.hoverBorderColor.isVisible()) borderColor = props.hoverBorderColor;
+        if (props.hoverShadow.has_value()) shadow = props.hoverShadow;
+    } else if (state_ == ButtonState::Pressed) {
+        if (props.pressedBackground.isVisible()) bg = props.pressedBackground;
+        if (props.pressedBorderColor.isVisible()) borderColor = props.pressedBorderColor;
+        if (props.pressedShadow.has_value()) shadow = props.pressedShadow;
+    }
+    // ── Press 缩放变换 ──
+    if (state_ == ButtonState::Pressed) {
+        float cx = frame.x + frame.width * 0.5f;
+        float cy = frame.y + frame.height * 0.5f;
+        graphics.translate(cx, cy);
+        graphics.scale(props.pressedScale, props.pressedScale);
+        graphics.translate(-cx, -cy);
+    }
+    Rect drawRect = frame;
+    if (shadow.has_value()) { graphics.drawShadow(drawRect, props.borderRadius, *shadow); }
+    if (bg.isVisible()) { graphics.drawRoundedRect(drawRect, props.borderRadius, bg); }
+    if (props.borderWidth > 0 && props.borderStyle != BorderStyle::None) {
+        graphics.drawRoundedRectStroke(drawRect, props.borderRadius, borderColor, props.borderWidth);
+    }
+    Rect contentRect = {frame.x + props.padding.left, frame.y + props.padding.top,
+                        frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
+    if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
+    // ── 绘制子控件 ──
+    for (auto &child : children) { child->draw(graphics); }
+    // ── 绘制文字 ──
+    if (!props.text.empty()) {
+        auto &fm = FontManager::instance();
+        std::string fontPath =
+            fm.resolveFontPath(props.fontFamily.empty() ? "NotoSansSC-Regular.otf" : props.fontFamily);
+        if (!fontPath.empty()) {
+            fm.loadFont(fontPath.c_str());
+            if (needReshapeText(fontPath)) {
+                shapedGlyphsCache_ = fm.shapeText(props.text.c_str(), props.fontSize);
+                cachedText_ = props.text;
+                cachedFontSize_ = props.fontSize;
+                cachedFontPath_ = fontPath;
+                cachedMetrics_ = fm.getMetrics(props.fontSize);
+            }
+            if (!shapedGlyphsCache_.empty()) {
+                float contentW = frame.width - props.padding.horizontal();
+                float contentH = frame.height - props.padding.vertical();
+                float textW = 0;
+                for (auto &g : shapedGlyphsCache_) textW += g.advanceX;
+                float textX = frame.x + props.padding.left + (contentW - textW) * 0.5f;
+                float baselineY = frame.y + props.padding.top + (contentH - cachedMetrics_.lineHeight) * 0.5f
+                                  + cachedMetrics_.ascender;
+                graphics.save();
+                graphics.translate(textX, baselineY);
+                graphics.drawTextCached(shapedGlyphsCache_, props.textColor);
+                graphics.restore();
+            }
+        }
+    }
+    graphics.restore();
 }

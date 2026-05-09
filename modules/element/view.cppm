@@ -29,6 +29,8 @@ constexpr int HoverMove = 4;  // 鼠标移动
 constexpr int PanBegin = 5;   // 拖拽开始
 constexpr int PanMove = 6;    // 拖拽中
 constexpr int PanEnd = 7;     // 拖拽结束
+constexpr int PressBegin = 8; // 按下开始
+constexpr int PressEnd = 9;   // 按下结束
 } // namespace ViewEventCode
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装
@@ -94,8 +96,7 @@ export struct ViewEventHandlers {
      * @return 全部为 JS_NULL 则返回 true
      */
     bool empty() const {
-        return js_is_null(onClick) && js_is_null(onLongPress)
-            && js_is_null(onHoverEnter) && js_is_null(onHoverLeave);
+        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave);
     }
 
 private:

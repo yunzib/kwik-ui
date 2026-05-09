@@ -256,6 +256,11 @@ public:
      */
     void setMaxDepth(size_t maxDepth);
 
+    /**
+     * @brief 唤醒所有阻塞的 acquire() 调用（用于停止时）
+     */
+    void wake();
+
 private:
     // 双缓冲：一个用于当前帧记录，一个用于渲染线程处理
     CommandBuffer buffers_[2];
@@ -270,5 +275,6 @@ private:
     std::condition_variable cv_;
 
     // 队列限制
-    size_t maxDepth_ = 3; // 最多缓存3帧
+    size_t maxDepth_ = 3;   // 最多缓存3帧
+    bool stopping_ = false; // 停止标志
 };

@@ -17,6 +17,40 @@ set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 
 project(KwiKUI LANGUAGES C CXX)
 
+# ============================================================================
+# 构建类型配置
+#
+# 切换方式: 修改下面 KWIK_BUILD_TYPE 的值后执行 cmake -B build -G Ninja
+#   "Debug"       — 完整调试符号, 无优化 (~28 MB)
+#   "Release"     — O3 + LTO + gc-sections (~3-4 MB)
+#   "MinSizeRel"  — Os + LTO + gc-sections (~2-3 MB)
+# ============================================================================
+set(KWIK_BUILD_TYPE "Debug" CACHE STRING "Debug | Release | MinSizeRel")
+set_property(CACHE KWIK_BUILD_TYPE PROPERTY STRINGS Debug Release MinSizeRel)
+set(CMAKE_BUILD_TYPE "${KWIK_BUILD_TYPE}" CACHE STRING "" FORCE)
+# ── Debug flags ──────────────────────────────────────────
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og"       CACHE STRING "")
+set(CMAKE_C_FLAGS_DEBUG     "-g -Og"       CACHE STRING "")
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_DEBUG FALSE)
+# ── Release flags ────────────────────────────────────────
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffunction-sections -fdata-sections"
+    CACHE STRING "")
+set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -ffunction-sections -fdata-sections"
+    CACHE STRING "")
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+add_link_options(
+    "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:Clang>>:LINKER:--gc-sections>"
+)
+# ── MinSizeRel flags ─────────────────────────────────────
+set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -DNDEBUG -ffunction-sections -fdata-sections"
+    CACHE STRING "")
+set(CMAKE_C_FLAGS_MINSIZEREL   "-Os -DNDEBUG -ffunction-sections -fdata-sections"
+    CACHE STRING "")
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+add_link_options(
+    "$<$<AND:$<CONFIG:MinSizeRel>,$<CXX_COMPILER_ID:Clang>>:LINKER:--gc-sections>"
+)
+
 
 
 ####################### 三方库配置 ##########################################
@@ -62,6 +96,7 @@ include(cmake/modules/Render.cmake)
 include(cmake/modules/Engine.cmake)
 include(cmake/modules/Bridge.cmake)
 include(cmake/modules/Event.cmake)
+include(cmake/modules/App.cmake)
 
 # 构建选项
 option(KWIK_BUILD_TESTS "Build tests" OFF)
@@ -78,6 +113,7 @@ target_link_libraries(kwik INTERFACE
     kwik_render
     kwik_bridge
     kwik_event
+    kwik_app
 )
 
 # 示例程序

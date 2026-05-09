@@ -241,5 +241,26 @@ ViewProps parseViewProps(const JSValueRef &props) {
             result.textAlign = TextAlign::Justify;
     }
 
+    // ── Button 属性 ─────────────────────────────────
+    if (props.hasProperty("hoverBackground")) {
+        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
+    }
+    if (props.hasProperty("pressedBackground")) {
+        result.pressedBackground = parseColor(props.getProperty("pressedBackground").toString());
+    }
+    if (props.hasProperty("pressedScale")) { result.pressedScale = props.getProperty("pressedScale").toFloat(); }
+    if (props.hasProperty("hoverBorderColor")) {
+        result.hoverBorderColor = parseColor(props.getProperty("hoverBorderColor").toString());
+    }
+    if (props.hasProperty("pressedBorderColor")) {
+        result.pressedBorderColor = parseColor(props.getProperty("pressedBorderColor").toString());
+    }
+    if (props.hasProperty("hoverShadow")) {
+        result.hoverShadow = parseShadow(props.getProperty("hoverShadow").toString());
+    }
+    if (props.hasProperty("pressedShadow")) {
+        result.pressedShadow = parseShadow(props.getProperty("pressedShadow").toString());
+    }
+
     return result;
 }

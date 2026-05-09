@@ -24,6 +24,8 @@ int uiEventTypeToCode(UIEventType t) {
     case UIEventType::PanBegin: return 5;
     case UIEventType::PanMove: return 6;
     case UIEventType::PanEnd: return 7;
+    case UIEventType::PressBegin: return 8;
+    case UIEventType::PressEnd: return 9;
     }
     return -1;
 }
@@ -32,14 +34,14 @@ Point viewLocalPos(View *view, Point globalPos) {
     return {globalPos.x - view->frame.x, globalPos.y - view->frame.y};
 }
 // ============================================================================
-// GestureRecognizer
+// EventProcessor
 // ============================================================================
-uint32_t GestureRecognizer::nowMs() {
+uint32_t EventProcessor::nowMs() {
     using namespace std::chrono;
     auto now = steady_clock::now().time_since_epoch();
     return static_cast<uint32_t>(duration_cast<milliseconds>(now).count());
 }
-std::vector<UIEvent> GestureRecognizer::process(const Event &rawEvent) {
+std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
     std::vector<UIEvent> result;
     uint32_t ts = nowMs();
     Point pos{static_cast<float>(rawEvent.x), static_cast<float>(rawEvent.y)};
@@ -54,8 +56,24 @@ std::vector<UIEvent> GestureRecognizer::process(const Event &rawEvent) {
         // ▶ HoverEnter / HoverLeave: 比对上一帧命中的 View
         View *currentHover = rootTree_ ? rootTree_->hitTest(pos) : nullptr;
         if (currentHover != lastHoverView_) {
-            if (lastHoverView_) { result.push_back(UIEvent{UIEventType::HoverLeave, pos, ts}); }
-            if (currentHover) { result.push_back(UIEvent{UIEventType::HoverEnter, pos, ts}); }
+            // 离开上一个: 事件具体发给 lastHoverView_, 而非 hitTest 到的 View
+            if (lastHoverView_) {
+                UIEvent leaveEvt;
+                leaveEvt.type = UIEventType::HoverLeave;
+                leaveEvt.position = pos;
+                leaveEvt.timestamp = ts;
+                leaveEvt.targetView = lastHoverView_; // ← 关键: 预设目标
+                result.push_back(leaveEvt);
+            }
+            // 进入新的: 事件具体发给 currentHover
+            if (currentHover) {
+                UIEvent enterEvt;
+                enterEvt.type = UIEventType::HoverEnter;
+                enterEvt.position = pos;
+                enterEvt.timestamp = ts;
+                enterEvt.targetView = currentHover; // ← 关键: 预设目标
+                result.push_back(enterEvt);
+            }
             lastHoverView_ = currentHover;
         }
         // ▶ Pan 检测: 仅当按键按下中
@@ -80,6 +98,16 @@ std::vector<UIEvent> GestureRecognizer::process(const Event &rawEvent) {
         st.downTime = ts;
         st.lastPos = pos;
         st.panStarted = false;
+        // ▶ PressBegin: 立即生成按下事件
+        st.pressTarget = rootTree_ ? rootTree_->hitTest(pos) : nullptr;
+        if (st.pressTarget) {
+            UIEvent pressEvt;
+            pressEvt.type = UIEventType::PressBegin;
+            pressEvt.position = pos;
+            pressEvt.timestamp = ts;
+            pressEvt.targetView = st.pressTarget;
+            result.push_back(pressEvt);
+        }
         break;
     }
     // ── 鼠标抬起 ─────────────────────────────────
@@ -94,6 +122,15 @@ std::vector<UIEvent> GestureRecognizer::process(const Event &rawEvent) {
                 result.push_back(UIEvent{UIEventType::PanEnd, pos, ts});
             } else if (elapsed < kTapTimeout && dist < kTapDistance) {
                 result.push_back(UIEvent{UIEventType::Tap, pos, ts});
+            }
+            // ▶ PressEnd: 无论 Tap/Pan/LongPress, 都清理按下状态
+            if (it->second.pressTarget) {
+                UIEvent releaseEvt;
+                releaseEvt.type = UIEventType::PressEnd;
+                releaseEvt.position = pos;
+                releaseEvt.timestamp = ts;
+                releaseEvt.targetView = it->second.pressTarget;
+                result.push_back(releaseEvt);
             }
             // LongPress 由超时轮询触发, 此处不重复
             pointers_.erase(it);
@@ -138,8 +175,16 @@ bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ct
     int code = uiEventTypeToCode(event.type);
     return view->onEvent(code, local.x, local.y, ctx);
 }
+
 bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx) {
     if (!root || !ctx) return false;
+
+    // ── 预设目标 (HoverEnter/HoverLeave) ──
+    // 手势识别器已确定了目标 View, 直接对该 View 分发,
+    // 不再通过 hitTest 重新定位
+    if (event.targetView) { return fireOnView(event.targetView, event, ctx); }
+
+    // ── 常规路径: 命中测试 + 捕获/目标/冒泡 ──
     std::vector<View *> path;
     View *target = hitTestWithPath(root, event.position, path);
     if (!target) return false;

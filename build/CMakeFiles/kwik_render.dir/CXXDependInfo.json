@@ -3,14 +3,17 @@
 	"compiler-frontend-variant" : "GNU",
 	"compiler-id" : "Clang",
 	"compiler-simulate-id" : "",
-	"config" : "Debug",
+	"config" : "Release",
 	"cxx-modules" : 
 	{
 		"CMakeFiles/kwik_render.dir/modules/render/backend.cppm.obj" : 
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -36,7 +39,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -62,7 +68,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -88,7 +97,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -114,7 +126,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -140,7 +155,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",
@@ -166,7 +184,10 @@
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
-			"compile-options" : [],
+			"compile-options" : 
+			[
+				"-pthread"
+			],
 			"definitions" : 
 			[
 				"KWIK_RENDER_MODULE",

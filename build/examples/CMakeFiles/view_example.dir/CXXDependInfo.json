@@ -3,7 +3,7 @@
 	"compiler-frontend-variant" : "GNU",
 	"compiler-id" : "Clang",
 	"compiler-simulate-id" : "",
-	"config" : "Debug",
+	"config" : "Release",
 	"cxx-modules" : {},
 	"database-info" : null,
 	"dir-cur-bld" : "C:/ws-code/ws-kwik/kwik-ui/build/examples",
@@ -17,6 +17,7 @@
 	"linked-target-dirs" : 
 	[
 		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/__cmake_cxx_std_26.dir",
+		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_app.dir",
 		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir",
 		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_event.dir",
 		"C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir",

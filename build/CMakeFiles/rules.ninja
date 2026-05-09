@@ -7,14 +7,14 @@
 
 # =============================================================================
 # Project: KwiKUI
-# Configurations: Debug
+# Configurations: Release
 # =============================================================================
 # =============================================================================
 
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_utils_Debug
+rule CXX_SCAN__kwik_utils_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -23,7 +23,7 @@ rule CXX_SCAN__kwik_utils_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_utils_Debug
+rule CXX_DYNDEP__kwik_utils_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_utils.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -34,7 +34,7 @@ rule CXX_DYNDEP__kwik_utils_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_utils_scanned_Debug
+rule CXX_COMPILER__kwik_utils_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -44,7 +44,7 @@ rule CXX_COMPILER__kwik_utils_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_utils_unscanned_Debug
+rule CXX_COMPILER__kwik_utils_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -54,8 +54,8 @@ rule CXX_COMPILER__kwik_utils_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_utils_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_utils_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -63,7 +63,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_utils_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_core_Debug
+rule CXX_SCAN__kwik_core_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -72,7 +72,7 @@ rule CXX_SCAN__kwik_core_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_core_Debug
+rule CXX_DYNDEP__kwik_core_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_core.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -83,7 +83,7 @@ rule CXX_DYNDEP__kwik_core_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_core_scanned_Debug
+rule CXX_COMPILER__kwik_core_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -93,7 +93,7 @@ rule CXX_COMPILER__kwik_core_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_core_unscanned_Debug
+rule CXX_COMPILER__kwik_core_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -103,8 +103,8 @@ rule CXX_COMPILER__kwik_core_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_core_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_core_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -112,7 +112,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_core_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_element_Debug
+rule CXX_SCAN__kwik_element_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -121,7 +121,7 @@ rule CXX_SCAN__kwik_element_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_element_Debug
+rule CXX_DYNDEP__kwik_element_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_element.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -132,7 +132,7 @@ rule CXX_DYNDEP__kwik_element_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_element_scanned_Debug
+rule CXX_COMPILER__kwik_element_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -142,7 +142,7 @@ rule CXX_COMPILER__kwik_element_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_element_unscanned_Debug
+rule CXX_COMPILER__kwik_element_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -152,8 +152,8 @@ rule CXX_COMPILER__kwik_element_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_element_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_element_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -161,7 +161,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_element_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_platform_Debug
+rule CXX_SCAN__kwik_platform_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -170,7 +170,7 @@ rule CXX_SCAN__kwik_platform_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_platform_Debug
+rule CXX_DYNDEP__kwik_platform_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_platform.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -181,7 +181,7 @@ rule CXX_DYNDEP__kwik_platform_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_platform_scanned_Debug
+rule CXX_COMPILER__kwik_platform_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -191,7 +191,7 @@ rule CXX_COMPILER__kwik_platform_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_platform_unscanned_Debug
+rule CXX_COMPILER__kwik_platform_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -201,8 +201,8 @@ rule CXX_COMPILER__kwik_platform_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_platform_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_platform_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -210,7 +210,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_platform_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_render_Debug
+rule CXX_SCAN__kwik_render_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -219,7 +219,7 @@ rule CXX_SCAN__kwik_render_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_render_Debug
+rule CXX_DYNDEP__kwik_render_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_render.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -230,7 +230,7 @@ rule CXX_DYNDEP__kwik_render_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_render_scanned_Debug
+rule CXX_COMPILER__kwik_render_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -240,7 +240,7 @@ rule CXX_COMPILER__kwik_render_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_render_unscanned_Debug
+rule CXX_COMPILER__kwik_render_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -250,8 +250,8 @@ rule CXX_COMPILER__kwik_render_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_render_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_render_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -259,7 +259,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_render_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_engine_Debug
+rule CXX_SCAN__kwik_engine_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -268,7 +268,7 @@ rule CXX_SCAN__kwik_engine_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_engine_Debug
+rule CXX_DYNDEP__kwik_engine_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_engine.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -279,7 +279,7 @@ rule CXX_DYNDEP__kwik_engine_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_engine_scanned_Debug
+rule CXX_COMPILER__kwik_engine_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -289,7 +289,7 @@ rule CXX_COMPILER__kwik_engine_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_engine_unscanned_Debug
+rule CXX_COMPILER__kwik_engine_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -299,8 +299,8 @@ rule CXX_COMPILER__kwik_engine_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_engine_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_engine_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -308,7 +308,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_engine_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_bridge_Debug
+rule CXX_SCAN__kwik_bridge_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -317,7 +317,7 @@ rule CXX_SCAN__kwik_bridge_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_bridge_Debug
+rule CXX_DYNDEP__kwik_bridge_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_bridge.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -328,7 +328,7 @@ rule CXX_DYNDEP__kwik_bridge_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_bridge_scanned_Debug
+rule CXX_COMPILER__kwik_bridge_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -338,7 +338,7 @@ rule CXX_COMPILER__kwik_bridge_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_bridge_unscanned_Debug
+rule CXX_COMPILER__kwik_bridge_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -348,8 +348,8 @@ rule CXX_COMPILER__kwik_bridge_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_bridge_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_bridge_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -357,7 +357,7 @@ rule CXX_STATIC_LIBRARY_LINKER__kwik_bridge_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__kwik_event_Debug
+rule CXX_SCAN__kwik_event_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -366,7 +366,7 @@ rule CXX_SCAN__kwik_event_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__kwik_event_Debug
+rule CXX_DYNDEP__kwik_event_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_event.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -377,7 +377,7 @@ rule CXX_DYNDEP__kwik_event_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_event_scanned_Debug
+rule CXX_COMPILER__kwik_event_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -387,7 +387,7 @@ rule CXX_COMPILER__kwik_event_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__kwik_event_unscanned_Debug
+rule CXX_COMPILER__kwik_event_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -397,8 +397,57 @@ rule CXX_COMPILER__kwik_event_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__kwik_event_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__kwik_event_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
+  description = Linking CXX static library $TARGET_FILE
+  restat = $RESTAT
+
+
+#############################################
+# Rule for generating CXX dependencies.
+
+rule CXX_SCAN__kwik_app_Release
+  depfile = $DEP_FILE
+  command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
+  description = Scanning $in for CXX dependencies
+
+
+#############################################
+# Rule to generate ninja dyndep files for CXX.
+
+rule CXX_DYNDEP__kwik_app_Release
+  command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\kwik_app.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
+  description = Generating CXX dyndep file $out
+  rspfile = $out.rsp
+  rspfile_content = $in
+  restat = 1
+
+
+#############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__kwik_app_scanned_Release
+  depfile = $DEP_FILE
+  deps = gcc
+  command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__kwik_app_unscanned_Release
+  depfile = $DEP_FILE
+  deps = gcc
+  command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
+# Rule for linking CXX static library.
+
+rule CXX_STATIC_LIBRARY_LINKER__kwik_app_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -414,7 +463,7 @@ rule CUSTOM_COMMAND
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN____cmake_cxx_std_26_Debug
+rule CXX_SCAN____cmake_cxx_std_26_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -423,7 +472,7 @@ rule CXX_SCAN____cmake_cxx_std_26_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP____cmake_cxx_std_26_Debug
+rule CXX_DYNDEP____cmake_cxx_std_26_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=CMakeFiles\__cmake_cxx_std_26.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -434,7 +483,7 @@ rule CXX_DYNDEP____cmake_cxx_std_26_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER____cmake_cxx_std_26_scanned_Debug
+rule CXX_COMPILER____cmake_cxx_std_26_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -444,7 +493,7 @@ rule CXX_COMPILER____cmake_cxx_std_26_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER____cmake_cxx_std_26_unscanned_Debug
+rule CXX_COMPILER____cmake_cxx_std_26_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -454,8 +503,8 @@ rule CXX_COMPILER____cmake_cxx_std_26_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER____cmake_cxx_std_26_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER____cmake_cxx_std_26_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -463,7 +512,7 @@ rule CXX_STATIC_LIBRARY_LINKER____cmake_cxx_std_26_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__qjs_unscanned_Debug
+rule C_COMPILER__qjs_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -473,8 +522,8 @@ rule C_COMPILER__qjs_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__qjs_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__qjs_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -482,7 +531,7 @@ rule CXX_STATIC_LIBRARY_LINKER__qjs_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__qjs-libc_unscanned_Debug
+rule C_COMPILER__qjs-libc_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -492,8 +541,8 @@ rule C_COMPILER__qjs-libc_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__qjs-libc_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__qjs-libc_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -501,7 +550,7 @@ rule CXX_STATIC_LIBRARY_LINKER__qjs-libc_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__qjsc_unscanned_Debug
+rule C_COMPILER__qjsc_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -511,7 +560,7 @@ rule C_COMPILER__qjsc_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__qjsc_Debug
+rule CXX_EXECUTABLE_LINKER__qjsc_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -520,7 +569,7 @@ rule CXX_EXECUTABLE_LINKER__qjsc_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__qjs_exe_unscanned_Debug
+rule C_COMPILER__qjs_exe_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -530,7 +579,7 @@ rule C_COMPILER__qjs_exe_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__qjs_exe_Debug
+rule CXX_EXECUTABLE_LINKER__qjs_exe_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -539,7 +588,7 @@ rule CXX_EXECUTABLE_LINKER__qjs_exe_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__run-test262_unscanned_Debug
+rule C_COMPILER__run-test262_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -549,7 +598,7 @@ rule C_COMPILER__run-test262_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__run-test262_Debug
+rule CXX_EXECUTABLE_LINKER__run-test262_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -558,7 +607,7 @@ rule CXX_EXECUTABLE_LINKER__run-test262_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__api-test_unscanned_Debug
+rule C_COMPILER__api-test_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -568,7 +617,7 @@ rule C_COMPILER__api-test_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__api-test_Debug
+rule CXX_EXECUTABLE_LINKER__api-test_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -577,7 +626,7 @@ rule CXX_EXECUTABLE_LINKER__api-test_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__lre-test_unscanned_Debug
+rule C_COMPILER__lre-test_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -587,7 +636,7 @@ rule C_COMPILER__lre-test_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__lre-test_Debug
+rule CXX_EXECUTABLE_LINKER__lre-test_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -596,7 +645,7 @@ rule CXX_EXECUTABLE_LINKER__lre-test_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__unicode_gen_unscanned_Debug
+rule C_COMPILER__unicode_gen_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -606,7 +655,7 @@ rule C_COMPILER__unicode_gen_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__unicode_gen_Debug
+rule CXX_EXECUTABLE_LINKER__unicode_gen_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -615,7 +664,7 @@ rule CXX_EXECUTABLE_LINKER__unicode_gen_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__function_source_unscanned_Debug
+rule C_COMPILER__function_source_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -625,7 +674,7 @@ rule C_COMPILER__function_source_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__function_source_Debug
+rule CXX_EXECUTABLE_LINKER__function_source_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -634,7 +683,7 @@ rule CXX_EXECUTABLE_LINKER__function_source_Debug
 #############################################
 # Rule for compiling C files.
 
-rule C_COMPILER__freetype_unscanned_Debug
+rule C_COMPILER__freetype_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -644,7 +693,7 @@ rule C_COMPILER__freetype_unscanned_Debug
 #############################################
 # Rule for compiling RC files.
 
-rule RC_COMPILER__freetype_unscanned_Debug
+rule RC_COMPILER__freetype_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\windres.exe -O coff $DEFINES $INCLUDES $FLAGS $in $out
@@ -654,8 +703,8 @@ rule RC_COMPILER__freetype_unscanned_Debug
 #############################################
 # Rule for linking CXX static library.
 
-rule CXX_STATIC_LIBRARY_LINKER__freetype_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule CXX_STATIC_LIBRARY_LINKER__freetype_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -663,7 +712,7 @@ rule CXX_STATIC_LIBRARY_LINKER__freetype_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__harfbuzz_unscanned_Debug
+rule CXX_COMPILER__harfbuzz_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -673,8 +722,8 @@ rule CXX_COMPILER__harfbuzz_unscanned_Debug
 #############################################
 # Rule for linking C static library.
 
-rule C_STATIC_LIBRARY_LINKER__harfbuzz_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule C_STATIC_LIBRARY_LINKER__harfbuzz_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking C static library $TARGET_FILE
   restat = $RESTAT
 
@@ -682,7 +731,7 @@ rule C_STATIC_LIBRARY_LINKER__harfbuzz_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__harfbuzz-raster_unscanned_Debug
+rule CXX_COMPILER__harfbuzz-raster_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -692,8 +741,8 @@ rule CXX_COMPILER__harfbuzz-raster_unscanned_Debug
 #############################################
 # Rule for linking C static library.
 
-rule C_STATIC_LIBRARY_LINKER__harfbuzz-raster_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule C_STATIC_LIBRARY_LINKER__harfbuzz-raster_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking C static library $TARGET_FILE
   restat = $RESTAT
 
@@ -701,7 +750,7 @@ rule C_STATIC_LIBRARY_LINKER__harfbuzz-raster_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__harfbuzz-vector_unscanned_Debug
+rule CXX_COMPILER__harfbuzz-vector_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -711,8 +760,8 @@ rule CXX_COMPILER__harfbuzz-vector_unscanned_Debug
 #############################################
 # Rule for linking C static library.
 
-rule C_STATIC_LIBRARY_LINKER__harfbuzz-vector_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule C_STATIC_LIBRARY_LINKER__harfbuzz-vector_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking C static library $TARGET_FILE
   restat = $RESTAT
 
@@ -720,7 +769,7 @@ rule C_STATIC_LIBRARY_LINKER__harfbuzz-vector_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__harfbuzz-gpu_unscanned_Debug
+rule CXX_COMPILER__harfbuzz-gpu_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -730,8 +779,8 @@ rule CXX_COMPILER__harfbuzz-gpu_unscanned_Debug
 #############################################
 # Rule for linking C static library.
 
-rule C_STATIC_LIBRARY_LINKER__harfbuzz-gpu_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && C:\software\llvm-mingw\bin\llvm-ar.exe qc $TARGET_FILE $LINK_FLAGS $in && C:\software\llvm-mingw\bin\llvm-ranlib.exe $TARGET_FILE && $POST_BUILD"
+rule C_STATIC_LIBRARY_LINKER__harfbuzz-gpu_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\cmake\bin\cmake.exe -E rm -f $TARGET_FILE && "C:/software/llvm-mingw/bin/llvm-ar.exe" qc $TARGET_FILE $LINK_FLAGS $in && "C:/software/llvm-mingw/bin/llvm-ranlib.exe" $TARGET_FILE && $POST_BUILD"
   description = Linking C static library $TARGET_FILE
   restat = $RESTAT
 
@@ -739,7 +788,7 @@ rule C_STATIC_LIBRARY_LINKER__harfbuzz-gpu_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__view_example_Debug
+rule CXX_SCAN__view_example_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -748,7 +797,7 @@ rule CXX_SCAN__view_example_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__view_example_Debug
+rule CXX_DYNDEP__view_example_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=examples\CMakeFiles\view_example.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -759,7 +808,7 @@ rule CXX_DYNDEP__view_example_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__view_example_scanned_Debug
+rule CXX_COMPILER__view_example_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -769,7 +818,7 @@ rule CXX_COMPILER__view_example_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__view_example_unscanned_Debug
+rule CXX_COMPILER__view_example_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -779,7 +828,7 @@ rule CXX_COMPILER__view_example_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__view_example_Debug
+rule CXX_EXECUTABLE_LINKER__view_example_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -788,7 +837,7 @@ rule CXX_EXECUTABLE_LINKER__view_example_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__text_example_Debug
+rule CXX_SCAN__text_example_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -797,7 +846,7 @@ rule CXX_SCAN__text_example_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__text_example_Debug
+rule CXX_DYNDEP__text_example_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=examples\CMakeFiles\text_example.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -808,7 +857,7 @@ rule CXX_DYNDEP__text_example_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__text_example_scanned_Debug
+rule CXX_COMPILER__text_example_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -818,7 +867,7 @@ rule CXX_COMPILER__text_example_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__text_example_unscanned_Debug
+rule CXX_COMPILER__text_example_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -828,7 +877,7 @@ rule CXX_COMPILER__text_example_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__text_example_Debug
+rule CXX_EXECUTABLE_LINKER__text_example_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT
@@ -837,7 +886,7 @@ rule CXX_EXECUTABLE_LINKER__text_example_Debug
 #############################################
 # Rule for generating CXX dependencies.
 
-rule CXX_SCAN__event_example_Debug
+rule CXX_SCAN__event_example_Release
   depfile = $DEP_FILE
   command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
   description = Scanning $in for CXX dependencies
@@ -846,7 +895,7 @@ rule CXX_SCAN__event_example_Debug
 #############################################
 # Rule to generate ninja dyndep files for CXX.
 
-rule CXX_DYNDEP__event_example_Debug
+rule CXX_DYNDEP__event_example_Release
   command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=examples\CMakeFiles\event_example.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
   description = Generating CXX dyndep file $out
   rspfile = $out.rsp
@@ -857,7 +906,7 @@ rule CXX_DYNDEP__event_example_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__event_example_scanned_Debug
+rule CXX_COMPILER__event_example_scanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
@@ -867,7 +916,7 @@ rule CXX_COMPILER__event_example_scanned_Debug
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__event_example_unscanned_Debug
+rule CXX_COMPILER__event_example_unscanned_Release
   depfile = $DEP_FILE
   deps = gcc
   command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -877,7 +926,56 @@ rule CXX_COMPILER__event_example_unscanned_Debug
 #############################################
 # Rule for linking CXX executable.
 
-rule CXX_EXECUTABLE_LINKER__event_example_Debug
+rule CXX_EXECUTABLE_LINKER__event_example_Release
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
+  description = Linking CXX executable $TARGET_FILE
+  restat = $RESTAT
+
+
+#############################################
+# Rule for generating CXX dependencies.
+
+rule CXX_SCAN__example_Release
+  depfile = $DEP_FILE
+  command = C:\Windows\system32\cmd.exe /C ""C:/software/llvm-mingw/bin/clang-scan-deps.exe" -format=p1689 -- C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -x c++ $in -c -o $OBJ_FILE -resource-dir "C:/software/llvm-mingw/lib/clang/22" -MT $DYNDEP_INTERMEDIATE_FILE -MD -MF $DEP_FILE > $DYNDEP_INTERMEDIATE_FILE.tmp && "C:/software/cmake/bin/cmake.exe" -E rename $DYNDEP_INTERMEDIATE_FILE.tmp $DYNDEP_INTERMEDIATE_FILE"
+  description = Scanning $in for CXX dependencies
+
+
+#############################################
+# Rule to generate ninja dyndep files for CXX.
+
+rule CXX_DYNDEP__example_Release
+  command = C:\software\cmake\bin\cmake.exe -E cmake_ninja_dyndep --tdi=examples\CMakeFiles\example.dir\CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=$out @$out.rsp
+  description = Generating CXX dyndep file $out
+  rspfile = $out.rsp
+  rspfile_content = $in
+  restat = 1
+
+
+#############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__example_scanned_Release
+  depfile = $DEP_FILE
+  deps = gcc
+  command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE @$DYNDEP_MODULE_MAP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__example_unscanned_Release
+  depfile = $DEP_FILE
+  deps = gcc
+  command = ${LAUNCHER}${CODE_CHECK}C:\software\llvm-mingw\bin\clang++.exe $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
+# Rule for linking CXX executable.
+
+rule CXX_EXECUTABLE_LINKER__example_Release
   command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\software\llvm-mingw\bin\clang++.exe $FLAGS $LINK_FLAGS $in -o $TARGET_FILE -Wl,--out-implib,$TARGET_IMPLIB -Wl,--major-image-version,0,--minor-image-version,0 $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking CXX executable $TARGET_FILE
   restat = $RESTAT

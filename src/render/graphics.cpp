@@ -153,17 +153,26 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
     fm.loadFont(fontPath.c_str());
     auto glyphs = fm.shapeText(text.c_str(), fontSize);
     for (auto &g : glyphs) {
-        GlyphInfo info = fm.getGlyphInfo(g.glyphIndex, fontSize);
-        float u0 = (float)info.atlasX / fm.atlasWidth();
-        float v0 = (float)info.atlasY / fm.atlasHeight();
-        float u1 = (float)(info.atlasX + info.atlasW) / fm.atlasWidth();
-        float v1 = (float)(info.atlasY + info.atlasH) / fm.atlasHeight();
         Color c = applyOpacity(color);
         float tx = (x + g.x) * currentState_.sx + currentState_.tx;
         float ty = (y + g.y) * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-        addCommand(DrawGlyphCmd{info.glyphIndex, tx, ty, tw, th, u0, v0, u1, v1, c});
+        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, c});
+    }
+}
+
+// ============================================================================
+// drawTextCached — 使用缓存的排版结果 (无 loadFont / 无 shapeText / 无 getGlyphInfo)
+// ============================================================================
+void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
+    for (auto &g : glyphs) {
+        Color c = applyOpacity(color);
+        float tx = g.x * currentState_.sx + currentState_.tx;
+        float ty = g.y * currentState_.sy + currentState_.ty;
+        float tw = g.width * currentState_.sx;
+        float th = g.height * currentState_.sy;
+        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, c});
     }
 }
 

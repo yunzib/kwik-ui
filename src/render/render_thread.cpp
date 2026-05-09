@@ -68,6 +68,7 @@ void RenderThread::stop(bool wait) {
         stateCv_.notify_all();
     }
 
+    commandQueue_.wake(); // 唤醒阻塞在 acquire() 的渲染线程
     if (wait && thread_.joinable()) { thread_.join(); }
 }
 

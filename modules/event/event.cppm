@@ -20,13 +20,23 @@ import std;
 /**
  * @brief 高级 UI 事件结构体
  *
- * GestureRecognizer 消费平台原始 Event 后产出的语义事件。
+ * EventProcessor 消费平台原始 Event 后产出的语义事件。
  * position 为窗口客户区全局坐标, timestamp 为事件发生时刻 (毫秒)
  */
 export struct UIEvent {
     UIEventType type = UIEventType::Tap; // 事件类型
     Point position = {};                 // 屏幕全局坐标
     uint32_t timestamp = 0;              // 毫秒时间戳
+
+    /**
+     * @brief 预设的目标 View (仅 HoverEnter/HoverLeave 使用)
+     *
+     * 若非空, EventDispatcher::dispatch() 将直接对此 View 分发事件,
+     * 跳过 hitTest 定位。手势识别器在生成 HoverEnter/HoverLeave 时
+     * 预填此字段, 因为这两个事件的目标是"上一个"或"当前"悬停 View,
+     * 而非鼠标当前位置下的 View
+     */
+    View *targetView = nullptr;
 };
 // ============================================================================
 // 工具函数
@@ -35,7 +45,8 @@ export struct UIEvent {
  * @brief UIEventType 转换为整数码
  * @param t 事件类型枚举
  * @return 0=Tap, 1=LongPress, 2=HoverEnter, 3=HoverLeave,
- *         4=HoverMove, 5=PanBegin, 6=PanMove, 7=PanEnd
+ *         4=HoverMove, 5=PanBegin, 6=PanMove, 7=PanEnd,
+ *         8=PressBegin, 9=PressEnd
  */
 export int uiEventTypeToCode(UIEventType t);
 /**
@@ -46,10 +57,10 @@ export int uiEventTypeToCode(UIEventType t);
  */
 export Point viewLocalPos(View *view, Point globalPos);
 // ============================================================================
-// GestureRecognizer —— 手势识别器
+// EventProcessor —— 事件合成器
 // ============================================================================
 /**
- * @brief 手势识别器
+ * @brief 事件合成器
  *
  * 消费平台原始 Event, 合成高级 UIEvent。
  * 支持的识别:
@@ -59,11 +70,11 @@ export Point viewLocalPos(View *view, Point globalPos);
  *   - PanBegin/Move/End: 按下后拖动 (移动>5px 触发)
  *
  * 使用方式:
- *   gestureRecognizer.setRootTree(tree.get());
- *   for (auto& e : gestureRecognizer.process(rawEvent))
+ *   EventProcessor.setRootTree(tree.get());
+ *   for (auto& e : EventProcessor.process(rawEvent))
  *       dispatcher.dispatch(tree.get(), e, ctx);
  */
-export class GestureRecognizer {
+export class EventProcessor {
 public:
     /**
      * @brief 设置 View 树根节点
@@ -91,10 +102,11 @@ public:
 private:
     // ── 单指按下状态 ──
     struct PointerState {
-        Point downPos = {};      // 按下位置
-        uint32_t downTime = 0;   // 按下时刻 (ms)
-        Point lastPos = {};      // 上一帧位置
-        bool panStarted = false; // 是否已进入拖拽状态
+        Point downPos = {};          // 按下位置
+        uint32_t downTime = 0;       // 按下时刻 (ms)
+        Point lastPos = {};          // 上一帧位置
+        bool panStarted = false;     // 是否已进入拖拽状态
+        View *pressTarget = nullptr; // 按下命中的目标 View
     };
     std::unordered_map<int, PointerState> pointers_; // key = mouse button / touchId
     View *lastHoverView_ = nullptr;                  // 上一帧 hover 命中的 View

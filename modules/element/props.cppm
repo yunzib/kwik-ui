@@ -103,4 +103,13 @@ export struct ViewProps {
     FontStyle fontStyle = FontStyle::Normal;
     Color textColor{0, 0, 0, 255};
     TextAlign textAlign = TextAlign::Left;
+
+    // ==================== Button 属性 ====================
+    Color hoverBackground;               // 悬停背景色（空=使用 background）
+    Color pressedBackground;             // 按下背景色
+    float pressedScale = 0.95f;          // 按下时缩放比例
+    Color hoverBorderColor;              // 悬停边框色
+    Color pressedBorderColor;            // 按下边框色
+    std::optional<Shadow> hoverShadow;   // 悬停阴影
+    std::optional<Shadow> pressedShadow; // 按下阴影
 };

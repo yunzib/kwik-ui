@@ -954,8 +954,87 @@ void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
     vkCmdBindIndexBuffer(cmdbuf, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cmdbuf, 6, 1, 0, 0, 0);
 }
+
+// void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) {
+//     VkDeviceSize size = (VkDeviceSize)width * height;
+//     VkBuffer staging;
+//     VkDeviceMemory stagingMem;
+//     if (!createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+//                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging,
+//                       stagingMem)) {
+//         std::print("uploadGlyphAtlas: createBuffer failed\n");
+//         return;
+//     }
+//     void *mapped;
+//     vkMapMemory(vkDevice_, stagingMem, 0, size, 0, &mapped);
+//     std::memcpy(mapped, data, size);
+//     vkUnmapMemory(vkDevice_, stagingMem);
+//     // Transition layout and copy
+//     VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+//     ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+//     ai.commandPool = commandPool_;
+//     ai.commandBufferCount = 1;
+//     VkCommandBuffer cmd;
+//     vkAllocateCommandBuffers(vkDevice_, &ai, &cmd);
+//     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+//     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+//     vkBeginCommandBuffer(cmd, &bi);
+//     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+//     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+//     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+//     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+//     barrier.image = glyphAtlasImage_;
+//     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//     barrier.subresourceRange.levelCount = 1;
+//     barrier.subresourceRange.layerCount = 1;
+//     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+//     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+//                          nullptr, 1, &barrier);
+//     VkBufferImageCopy region{};
+//     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//     region.imageSubresource.layerCount = 1;
+//     region.imageExtent = {width, height, 1};
+//     vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+//     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+//     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+//     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+//     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+//     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+//     0,
+//                          nullptr, 1, &barrier);
+//     vkEndCommandBuffer(cmd);
+//     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+//     si.commandBufferCount = 1;
+//     si.pCommandBuffers = &cmd;
+//     vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
+//     vkQueueWaitIdle(vkQueue_);
+//     vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &cmd);
+//     vkDestroyBuffer(vkDevice_, staging, nullptr);
+//     vkFreeMemory(vkDevice_, stagingMem, nullptr);
+// }
+
+/**
+ * @brief 增量上传字形图集到 GPU
+ * @param data   图集原始数据 (1024 x 1024 R8)
+ * @param width  图集宽度
+ * @param height 图集高度
+ *
+ * 优化: 仅上传脏区域 (dirtyMin ~ dirtyMax 之间的行),
+ * 避免每帧全量 1MB 上传
+ */
 void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) {
-    VkDeviceSize size = (VkDeviceSize)width * height;
+    auto &fm = FontManager::instance();
+    uint32_t dirtyMin = fm.atlasDirtyMinRow();
+    uint32_t dirtyMax = fm.atlasDirtyMaxRow();
+    // 合法性检查 (初始化后 dirtyMin = atlasSize > dirtyMax = 0 时为脏假阳性)
+    if (dirtyMin >= dirtyMax || dirtyMin >= height) {
+        dirtyMin = 0;
+        dirtyMax = height;
+    }
+    uint32_t dirtyHeight = dirtyMax - dirtyMin;
+    VkDeviceSize size = (VkDeviceSize)width * dirtyHeight;
+    // ① 创建临时 staging buffer (仅脏区域大小)
     VkBuffer staging;
     VkDeviceMemory stagingMem;
     if (!createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -964,11 +1043,12 @@ void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32
         std::print("uploadGlyphAtlas: createBuffer failed\n");
         return;
     }
+    // ② 仅拷贝脏行到 staging
     void *mapped;
     vkMapMemory(vkDevice_, stagingMem, 0, size, 0, &mapped);
-    std::memcpy(mapped, data, size);
+    std::memcpy(mapped, data + dirtyMin * width, size);
     vkUnmapMemory(vkDevice_, stagingMem);
-    // Transition layout and copy
+    // ③ 分配一次性提交的 command buffer
     VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandPool = commandPool_;
@@ -978,6 +1058,7 @@ void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
+    // ④ 初次使用: UNDEFINED → TRANSFER_DST
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -990,23 +1071,28 @@ void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                          nullptr, 1, &barrier);
+    // ⑤ 仅拷贝脏区域
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
-    region.imageExtent = {width, height, 1};
+    region.imageOffset = {0, (int32_t)dirtyMin, 0};
+    region.imageExtent = {width, dirtyHeight, 1};
     vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    // ⑥ TRANSFER_DST → SHADER_READ_ONLY
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                          nullptr, 1, &barrier);
+    // ⑦ 提交 + 等待完成
     vkEndCommandBuffer(cmd);
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
     si.commandBufferCount = 1;
     si.pCommandBuffers = &cmd;
     vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
     vkQueueWaitIdle(vkQueue_);
+    // ⑧ 清理
     vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &cmd);
     vkDestroyBuffer(vkDevice_, staging, nullptr);
     vkFreeMemory(vkDevice_, stagingMem, nullptr);

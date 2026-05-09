@@ -87,7 +87,8 @@ bool CommandQueue::acquire(bool block) {
 
     if (block) {
         // 阻塞等待直到有可用的命令缓冲区
-        cv_.wait(lock, [this] { return !submittedQueue_.empty(); });
+        cv_.wait(lock, [this] { return !submittedQueue_.empty() || stopping_; });
+        if (stopping_ || submittedQueue_.empty()) { return false; }
     } else {
         // 非阻塞，立即返回
         if (submittedQueue_.empty()) { return false; }
@@ -139,4 +140,12 @@ void CommandQueue::clear() {
 void CommandQueue::setMaxDepth(size_t maxDepth) {
     std::lock_guard<std::mutex> lock(mutex_);
     maxDepth_ = maxDepth;
+}
+
+void CommandQueue::wake() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stopping_ = true;
+    }
+    cv_.notify_all();
 }

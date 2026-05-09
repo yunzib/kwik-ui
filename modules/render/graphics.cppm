@@ -5,6 +5,7 @@ export module kwik.render.graphics;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.backend;
+import kwik.render.font;
 
 import std;
 
@@ -54,6 +55,15 @@ public:
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
     void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
                   const Color &color);
+    /**
+     * @brief 使用预排版的字形数据绘制文字 (优化路径)
+     * @param glyphs 由 FontManager::shapeText() 返回的排版结果 (含 UV)
+     * @param color  文字颜色
+     *
+     * 相比 drawText(), 此方法跳过 loadFont/shapeText/getGlyphInfo,
+     * 直接从缓存读取 UV 坐标, 适用于 Text 组件的 onDraw 热路径
+     */
+    void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
 
     // 帧控制（命令记录）
     void beginFrame();

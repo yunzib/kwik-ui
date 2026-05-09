@@ -6,6 +6,7 @@ C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_render.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_engine.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_bridge.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_event.dir
+C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_app.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/package.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/package_source.dir
 C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/edit_cache.dir
@@ -56,6 +57,7 @@ C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/install/strip.d
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/event_example.dir
+C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/example.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/package.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/package_source.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/edit_cache.dir

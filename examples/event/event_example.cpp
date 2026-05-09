@@ -2,7 +2,7 @@
 // event_example — 事件处理演示
 //
 // 演示:
-//   1. 手势识别 (GestureRecognizer): MouseDown/Up/Move → Tap/LongPress/Hover/...
+//   1. 手势识别 (EventProcessor): MouseDown/Up/Move → Tap/LongPress/Hover/...
 //   2. 命中测试 (hitTest): 递归查找点击位置的最深层 View
 //   3. 三阶段分发 (EventDispatcher): 捕获 → 目标 → 冒泡
 //   4. JS 事件回调: onClick / onLongPress / onHoverEnter / onHoverLeave
@@ -30,6 +30,8 @@ import kwik.render.render_thread;
 import kwik.render.backend;
 import kwik.event;
 import kwik.core.log;
+import kwik.render.font;
+
 import std;
 int main(int argc, char *argv[]) {
 #if defined(_WIN32)
@@ -57,6 +59,13 @@ int main(int argc, char *argv[]) {
         std::print("错误: 渲染线程启动失败\n");
         return -1;
     }
+
+    // 字体加载
+    // ── 字体路径注册 ────────────────────────────────────────
+    auto &fm = FontManager::instance();
+    fm.addFontDir("../../resources/fonts");    // 项目内置字体
+
+
     // ── 3. JS 解析 — 加载 event.js ─────────────────────────
     QuickJSContext jsContext{};
     if (!jsContext.evalFile("../../examples/event/event.js")) {
@@ -75,9 +84,9 @@ int main(int argc, char *argv[]) {
     tree->measure(Constraints::loose(Size{static_cast<float>(winW), static_cast<float>(winH)}));
     tree->layout(Rect(0, 0, static_cast<float>(winW), static_cast<float>(winH)));
     // ── 5. 事件系统初始化 ─────────────────────────────────
-    GestureRecognizer gestureRecognizer;
+    EventProcessor EventProcessor;
     EventDispatcher eventDispatcher;
-    gestureRecognizer.setRootTree(tree.get());
+    EventProcessor.setRootTree(tree.get());
     // ── 6. 渲染循环 ────────────────────────────────────────
     bool running = true;
     window->SetEventCallback([&](const Event &e) {
@@ -86,8 +95,23 @@ int main(int argc, char *argv[]) {
             running = false;
             return;
         }
+        // ── 窗口大小变更 → 重建 swapchain + 重新布局 ──
+        if (e.type == Event::Type::WindowResize) {
+            if (e.width > 0 && e.height > 0) {
+                renderThread.submitWindowEvent(e);      // ① 通知渲染线程重建 swapchain
+                // ② 重新测量和布局 View 树
+                int w = e.width, h = e.height;
+                auto sz = Size{static_cast<float>(w), static_cast<float>(h)};
+                tree->measure(Constraints::loose(sz));
+                tree->layout(Rect(0, 0, sz.width, sz.height));
+                // ③ 重置手势识别器状态 (View 指针可能因布局失效)
+                EventProcessor.reset();
+            }
+            return;
+        }
+
         // 手势识别 → 事件分发 → 触发 JS 回调
-        auto uiEvents = gestureRecognizer.process(e);
+        auto uiEvents = EventProcessor.process(e);
         for (auto &uiEvent : uiEvents) { eventDispatcher.dispatch(tree.get(), uiEvent, jsContext.getPtr()); }
     });
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -108,8 +132,8 @@ int main(int argc, char *argv[]) {
                 tree->layout(Rect(0, 0, static_cast<float>(w), static_cast<float>(h)));
             }
             // 树重建后更新手势识别器的根指针
-            gestureRecognizer.setRootTree(tree.get());
-            gestureRecognizer.reset();
+            EventProcessor.setRootTree(tree.get());
+            EventProcessor.reset();
             jsContext.clearRenderFlag();
         }
         // ③ 渲染当前帧
