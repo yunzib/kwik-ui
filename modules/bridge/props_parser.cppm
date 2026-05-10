@@ -1,6 +1,5 @@
 module;
 
-
 export module kwik.bridge.props_parser;
 
 import kwik.core.types;
@@ -30,7 +29,20 @@ export Shadow parseShadow(const std::string &str);
  * @brief 解析边框样式
  */
 export BorderStyle parseBorderStyle(const std::string &str);
+
 /**
- * @brief 解析View属性
+ * @brief 解析框架级属性 (display + child layout)
  */
 export ViewProps parseViewProps(const JSValueRef &props);
+/**
+ * @brief 解析文字内容属性
+ */
+export TextContent parseTextContent(const JSValueRef &props);
+/**
+ * @brief 解析按钮交互属性
+ */
+export ButtonStateProps parseButtonState(const JSValueRef &props);
+/**
+ * @brief 解析容器布局属性
+ */
+export ContainerProps parseContainerProps(const JSValueRef &props);

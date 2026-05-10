@@ -3,7 +3,7 @@
 	"compiler-frontend-variant" : "GNU",
 	"compiler-id" : "Clang",
 	"compiler-simulate-id" : "",
-	"config" : "Release",
+	"config" : "Debug",
 	"cxx-modules" : 
 	{
 		"CMakeFiles/kwik_core.dir/modules/core/constraints.cppm.obj" : 

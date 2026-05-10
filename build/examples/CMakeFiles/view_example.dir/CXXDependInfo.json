@@ -3,7 +3,7 @@
 	"compiler-frontend-variant" : "GNU",
 	"compiler-id" : "Clang",
 	"compiler-simulate-id" : "",
-	"config" : "Release",
+	"config" : "Debug",
 	"cxx-modules" : {},
 	"database-info" : null,
 	"dir-cur-bld" : "C:/ws-code/ws-kwik/kwik-ui/build/examples",

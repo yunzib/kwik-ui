@@ -21,11 +21,14 @@ import std;
 export class Text : public View {
 public:
     Text() = default;
-    explicit Text(ViewProps p) : View(std::move(p)) {
+    explicit Text(ViewProps p, TextContent tc = {}) : View(std::move(p)), text_(std::move(tc)) {
     }
     ~Text() override = default;
     const char *typeName() const override {
         return "Text";
+    }
+    const TextContent &textContent() const {
+        return text_;
     }
 
 protected:
@@ -33,6 +36,7 @@ protected:
     void onDraw(Graphics &graphics) override;
 
 private:
+    TextContent text_; // 文字内容属性
     // ── 排版缓存 ──
     std::vector<ShapedGlyph> shapedGlyphsCache_; // 上次版面结果
     float cachedFontSize_ = -1.0f;               // 缓存时的字号

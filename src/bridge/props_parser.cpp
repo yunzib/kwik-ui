@@ -75,71 +75,58 @@ BorderStyle parseBorderStyle(const std::string &str) {
     if (str == "dashed") return BorderStyle::Dashed;
     return BorderStyle::None;
 }
+
 ViewProps parseViewProps(const JSValueRef &props) {
     ViewProps result;
-
     if (!props.isObject()) { return result; }
-
     // 尺寸
     if (props.hasProperty("width")) {
         auto w = props.getProperty("width");
         if (!w.isNull() && !w.isUndefined()) { result.width = w.toFloat(); }
     }
-
     if (props.hasProperty("height")) {
         auto h = props.getProperty("height");
         if (!h.isNull() && !h.isUndefined()) { result.height = h.toFloat(); }
     }
-
     // 背景
     if (props.hasProperty("background")) { result.background = parseColor(props.getProperty("background").toString()); }
-
     // 圆角
     if (props.hasProperty("borderRadius")) { result.borderRadius = props.getProperty("borderRadius").toFloat(); }
-
     // 边框
     if (props.hasProperty("borderWidth")) { result.borderWidth = props.getProperty("borderWidth").toFloat(); }
-
     if (props.hasProperty("borderColor")) {
         result.borderColor = parseColor(props.getProperty("borderColor").toString());
     }
-
     if (props.hasProperty("borderStyle")) {
         result.borderStyle = parseBorderStyle(props.getProperty("borderStyle").toString());
     }
-
     // 间距
     if (props.hasProperty("padding")) { result.padding = parseEdgeInsets(props.getProperty("padding")); }
-
     if (props.hasProperty("margin")) { result.margin = parseEdgeInsets(props.getProperty("margin")); }
-
     // 可见性
     if (props.hasProperty("visible")) { result.visible = props.getProperty("visible").toBool(); }
-
     // 透明度
     if (props.hasProperty("opacity")) { result.opacity = props.getProperty("opacity").toFloat(); }
-
     // 阴影
     if (props.hasProperty("shadow")) { result.shadow = parseShadow(props.getProperty("shadow").toString()); }
-
-    // ── Flex 子项 ──────────────────────────────────────────
+    // ── Flex 子项 ──
     if (props.hasProperty("flexGrow")) result.flexGrow = props.getProperty("flexGrow").toFloat();
     if (props.hasProperty("flex")) result.flexGrow = props.getProperty("flex").toFloat();
     if (props.hasProperty("flexBasis")) result.flexBasis = props.getProperty("flexBasis").toFloat();
-    // ── Grid 子项 ──────────────────────────────────────────
+    // ── Grid 子项 ──
     if (props.hasProperty("gridRow")) result.gridRow = (int)props.getProperty("gridRow").toFloat();
     if (props.hasProperty("gridColumn")) result.gridColumn = (int)props.getProperty("gridColumn").toFloat();
     if (props.hasProperty("gridRowSpan"))
         result.gridRowSpan = std::max(1, (int)props.getProperty("gridRowSpan").toFloat());
     if (props.hasProperty("gridColumnSpan"))
         result.gridColumnSpan = std::max(1, (int)props.getProperty("gridColumnSpan").toFloat());
-    // ── Stack 子项 ──────────────────────────────────────────
+    // ── Stack 子项 ──
     if (props.hasProperty("position")) { result.absolute = (props.getProperty("position").toString() == "absolute"); }
     if (props.hasProperty("top")) result.absTop = props.getProperty("top").toFloat();
     if (props.hasProperty("left")) result.absLeft = props.getProperty("left").toFloat();
     if (props.hasProperty("right")) result.absRight = props.getProperty("right").toFloat();
     if (props.hasProperty("bottom")) result.absBottom = props.getProperty("bottom").toFloat();
-    // ── 通用对齐+定位 ─────────────────────────────────────
+    // ── 通用对齐 ──
     if (props.hasProperty("align")) {
         auto a = props.getProperty("align").toString();
         if (a == "topLeft")
@@ -169,7 +156,71 @@ ViewProps parseViewProps(const JSValueRef &props) {
         result.y = props.getProperty("y").toFloat();
         result.hasExplicitY = true;
     }
-    // ── 布局容器属性 ─────────────────────────────────────
+    return result;
+}
+
+TextContent parseTextContent(const JSValueRef &props) {
+    TextContent result;
+    if (!props.isObject()) { return result; }
+    if (props.hasProperty("text")) { result.text = props.getProperty("text").toString(); }
+    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
+    if (props.hasProperty("fontFamily")) { result.fontFamily = props.getProperty("fontFamily").toString(); }
+    if (props.hasProperty("color")) { result.textColor = parseColor(props.getProperty("color").toString()); }
+    if (props.hasProperty("fontWeight")) {
+        auto fw = props.getProperty("fontWeight").toString();
+        if (fw == "bold")
+            result.fontWeight = FontWeight::Bold;
+        else if (fw == "light")
+            result.fontWeight = FontWeight::Light;
+        else if (fw == "medium")
+            result.fontWeight = FontWeight::Medium;
+    }
+    if (props.hasProperty("fontStyle")) {
+        auto fs = props.getProperty("fontStyle").toString();
+        if (fs == "italic")
+            result.fontStyle = FontStyle::Italic;
+        else if (fs == "oblique")
+            result.fontStyle = FontStyle::Oblique;
+    }
+    if (props.hasProperty("textAlign")) {
+        auto ta = props.getProperty("textAlign").toString();
+        if (ta == "center")
+            result.textAlign = TextAlign::Center;
+        else if (ta == "right")
+            result.textAlign = TextAlign::Right;
+        else if (ta == "justify")
+            result.textAlign = TextAlign::Justify;
+    }
+    return result;
+}
+ButtonStateProps parseButtonState(const JSValueRef &props) {
+    ButtonStateProps result;
+    if (!props.isObject()) { return result; }
+    if (props.hasProperty("hoverBackground")) {
+        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
+    }
+    if (props.hasProperty("pressedBackground")) {
+        result.pressedBackground = parseColor(props.getProperty("pressedBackground").toString());
+    }
+    if (props.hasProperty("pressedScale")) { result.pressedScale = props.getProperty("pressedScale").toFloat(); }
+    if (props.hasProperty("hoverBorderColor")) {
+        result.hoverBorderColor = parseColor(props.getProperty("hoverBorderColor").toString());
+    }
+    if (props.hasProperty("pressedBorderColor")) {
+        result.pressedBorderColor = parseColor(props.getProperty("pressedBorderColor").toString());
+    }
+    if (props.hasProperty("hoverShadow")) {
+        result.hoverShadow = parseShadow(props.getProperty("hoverShadow").toString());
+    }
+    if (props.hasProperty("pressedShadow")) {
+        result.pressedShadow = parseShadow(props.getProperty("pressedShadow").toString());
+    }
+    return result;
+}
+
+ContainerProps parseContainerProps(const JSValueRef &props) {
+    ContainerProps result;
+    if (!props.isObject()) { return result; }
     if (props.hasProperty("direction")) {
         result.flexDirection =
             (props.getProperty("direction").toString() == "column") ? FlexDirection::Column : FlexDirection::Row;
@@ -208,59 +259,5 @@ ViewProps parseViewProps(const JSValueRef &props) {
         else if (d == "both")
             result.scrollDir = ScrollDirection::Both;
     }
-
-    // 文本
-    if (props.hasProperty("text")) { result.text = props.getProperty("text").toString(); }
-    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
-    if (props.hasProperty("fontFamily")) { result.fontFamily = props.getProperty("fontFamily").toString(); }
-    if (props.hasProperty("color")) { result.textColor = parseColor(props.getProperty("color").toString()); }
-
-    if (props.hasProperty("fontWeight")) {
-        auto fw = props.getProperty("fontWeight").toString();
-        if (fw == "bold")
-            result.fontWeight = FontWeight::Bold;
-        else if (fw == "light")
-            result.fontWeight = FontWeight::Light;
-        else if (fw == "medium")
-            result.fontWeight = FontWeight::Medium;
-    }
-    if (props.hasProperty("fontStyle")) {
-        auto fs = props.getProperty("fontStyle").toString();
-        if (fs == "italic")
-            result.fontStyle = FontStyle::Italic;
-        else if (fs == "oblique")
-            result.fontStyle = FontStyle::Oblique;
-    }
-    if (props.hasProperty("textAlign")) {
-        auto ta = props.getProperty("textAlign").toString();
-        if (ta == "center")
-            result.textAlign = TextAlign::Center;
-        else if (ta == "right")
-            result.textAlign = TextAlign::Right;
-        else if (ta == "justify")
-            result.textAlign = TextAlign::Justify;
-    }
-
-    // ── Button 属性 ─────────────────────────────────
-    if (props.hasProperty("hoverBackground")) {
-        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
-    }
-    if (props.hasProperty("pressedBackground")) {
-        result.pressedBackground = parseColor(props.getProperty("pressedBackground").toString());
-    }
-    if (props.hasProperty("pressedScale")) { result.pressedScale = props.getProperty("pressedScale").toFloat(); }
-    if (props.hasProperty("hoverBorderColor")) {
-        result.hoverBorderColor = parseColor(props.getProperty("hoverBorderColor").toString());
-    }
-    if (props.hasProperty("pressedBorderColor")) {
-        result.pressedBorderColor = parseColor(props.getProperty("pressedBorderColor").toString());
-    }
-    if (props.hasProperty("hoverShadow")) {
-        result.hoverShadow = parseShadow(props.getProperty("hoverShadow").toString());
-    }
-    if (props.hasProperty("pressedShadow")) {
-        result.pressedShadow = parseShadow(props.getProperty("pressedShadow").toString());
-    }
-
     return result;
 }

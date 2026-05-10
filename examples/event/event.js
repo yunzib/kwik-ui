@@ -27,7 +27,7 @@ export default View({
         text: "Click Me",
         width: 180,
         height: 50,
-        background: "#4CAF50",
+        // background: "#4CAF50",
         borderRadius: 8,
         onClick: function(event) {
             state.count++;

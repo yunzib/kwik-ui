@@ -10,11 +10,14 @@ import std;
 export class ScrollView : public View {
 public:
     ScrollView() = default;
-    explicit ScrollView(ViewProps p) : View(std::move(p)) {
+    explicit ScrollView(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
     void onDraw(Graphics &g) override;
     Point scrollOffset;
     Size contentSize;
+
+private:
+    ContainerProps container_;
 };

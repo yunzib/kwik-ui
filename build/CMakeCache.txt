@@ -23,10 +23,10 @@ CMAKE_ADDR2LINE:FILEPATH=C:/software/llvm-mingw/bin/llvm-addr2line.exe
 //Path to a program.
 CMAKE_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
 
-CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_BUILD_TYPE:STRING=Debug
 
-//No help, variable specified on the command line.
-CMAKE_CXX_COMPILER:FILEPATH=C:/software/llvm-mingw/bin/clang++.exe
+//CXX compiler
+CMAKE_CXX_COMPILER:STRING=C:/software/llvm-mingw/bin/clang++.exe
 
 //LLVM archiver
 CMAKE_CXX_COMPILER_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
@@ -55,8 +55,8 @@ CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 //Libraries linked by default with all C++ applications.
 CMAKE_CXX_STANDARD_LIBRARIES:STRING=-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
 
-//No help, variable specified on the command line.
-CMAKE_C_COMPILER:FILEPATH=C:/software/llvm-mingw/bin/clang.exe
+//C compiler
+CMAKE_C_COMPILER:STRING=C:/software/llvm-mingw/bin/clang.exe
 
 //LLVM archiver
 CMAKE_C_COMPILER_AR:FILEPATH=C:/software/llvm-mingw/bin/llvm-ar.exe
@@ -299,9 +299,6 @@ CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
-//Test COMPILER_SUPPORTS_Wformat=2
-COMPILER_SUPPORTS_Wformat:UNINITIALIZED=2:INTERNAL=1
-
 //Enable to build 7-Zip source packages
 CPACK_SOURCE_7Z:BOOL=ON
 
@@ -386,7 +383,7 @@ KWIK_BUILD_EXAMPLES:BOOL=ON
 KWIK_BUILD_TESTS:BOOL=OFF
 
 //Debug | Release | MinSizeRel
-KWIK_BUILD_TYPE:STRING=Release
+KWIK_BUILD_TYPE:STRING=Debug
 
 //Platform window backend
 KWIK_PLATFORM_BACKEND:STRING=auto
@@ -712,8 +709,12 @@ CMAKE_STRIP-ADVANCED:INTERNAL=1
 CMAKE_TAPI-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//Test COMPILER_SUPPORTS_/Od
+COMPILER_SUPPORTS_/Od:INTERNAL=
 //Test COMPILER_SUPPORTS_CXX11
 COMPILER_SUPPORTS_CXX11:INTERNAL=1
+//Test COMPILER_SUPPORTS_O0
+COMPILER_SUPPORTS_O0:INTERNAL=1
 //Test COMPILER_SUPPORTS_Wall
 COMPILER_SUPPORTS_Wall:INTERNAL=1
 //Test COMPILER_SUPPORTS_Wextra
@@ -736,8 +737,12 @@ COMPILER_SUPPORTS_Wnounusedbutsetvariable:INTERNAL=1
 COMPILER_SUPPORTS_Wnounusedparameter:INTERNAL=1
 //Test COMPILER_SUPPORTS_Wnounusedresult
 COMPILER_SUPPORTS_Wnounusedresult:INTERNAL=1
+//Test COMPILER_SUPPORTS_fnoomitframepointer
+COMPILER_SUPPORTS_fnoomitframepointer:INTERNAL=1
 //Test COMPILER_SUPPORTS_funsignedchar
 COMPILER_SUPPORTS_funsignedchar:INTERNAL=1
+//Test COMPILER_SUPPORTS_ggdb
+COMPILER_SUPPORTS_ggdb:INTERNAL=1
 //ADVANCED property for variable: CPACK_SOURCE_7Z
 CPACK_SOURCE_7Z-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CPACK_SOURCE_ZIP

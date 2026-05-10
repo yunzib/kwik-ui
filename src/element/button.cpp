@@ -9,14 +9,13 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.font;
 
-
 import std;
 // ============================================================================
 // Button::needReshapeText — 文字排版脏检测
 // ============================================================================
 bool Button::needReshapeText(const std::string &fontPath) const {
-    if (props.text != cachedText_) return true;
-    if (props.fontSize != cachedFontSize_) return true;
+    if (text_.text != cachedText_) return true;
+    if (text_.fontSize != cachedFontSize_) return true;
     if (fontPath != cachedFontPath_) return true;
     return false;
 }
@@ -25,15 +24,15 @@ bool Button::needReshapeText(const std::string &fontPath) const {
 // ============================================================================
 Size Button::onMeasure(Constraints constraints) {
     if (!children.empty()) return View::onMeasure(constraints);
-    if (props.text.empty()) return View::onMeasure(constraints);
+    if (text_.text.empty()) return View::onMeasure(constraints);
     auto &fm = FontManager::instance();
-    std::string fontPath = fm.resolveFontPath(props.fontFamily.empty() ? "NotoSansSC-Regular.otf" : props.fontFamily);
+    std::string fontPath = fm.resolveFontPath(text_.fontFamily.empty() ? "NotoSansSC-Regular.otf" : text_.fontFamily);
     if (fontPath.empty()) return View::onMeasure(constraints);
     fm.loadFont(fontPath.c_str());
-    auto shaped = fm.shapeText(props.text.c_str(), props.fontSize);
+    auto shaped = fm.shapeText(text_.text.c_str(), text_.fontSize);
     float textW = 0;
     for (auto &g : shaped) textW += g.advanceX;
-    auto metrics = fm.getMetrics(props.fontSize);
+    auto metrics = fm.getMetrics(text_.fontSize);
     float w = textW + props.padding.horizontal();
     float h = metrics.lineHeight + props.padding.vertical();
     if (props.width.has_value()) w = *props.width + props.padding.horizontal();
@@ -63,20 +62,20 @@ void Button::onDraw(Graphics &graphics) {
     Color borderColor = props.borderColor;
     std::optional<Shadow> shadow = props.shadow;
     if (state_ == ButtonState::Hovered) {
-        if (props.hoverBackground.isVisible()) bg = props.hoverBackground;
-        if (props.hoverBorderColor.isVisible()) borderColor = props.hoverBorderColor;
-        if (props.hoverShadow.has_value()) shadow = props.hoverShadow;
+        if (button_.hoverBackground.isVisible()) bg = button_.hoverBackground;
+        if (button_.hoverBorderColor.isVisible()) borderColor = button_.hoverBorderColor;
+        if (button_.hoverShadow.has_value()) shadow = button_.hoverShadow;
     } else if (state_ == ButtonState::Pressed) {
-        if (props.pressedBackground.isVisible()) bg = props.pressedBackground;
-        if (props.pressedBorderColor.isVisible()) borderColor = props.pressedBorderColor;
-        if (props.pressedShadow.has_value()) shadow = props.pressedShadow;
+        if (button_.pressedBackground.isVisible()) bg = button_.pressedBackground;
+        if (button_.pressedBorderColor.isVisible()) borderColor = button_.pressedBorderColor;
+        if (button_.pressedShadow.has_value()) shadow = button_.pressedShadow;
     }
     // ── Press 缩放变换 ──
     if (state_ == ButtonState::Pressed) {
         float cx = frame.x + frame.width * 0.5f;
         float cy = frame.y + frame.height * 0.5f;
         graphics.translate(cx, cy);
-        graphics.scale(props.pressedScale, props.pressedScale);
+        graphics.scale(button_.pressedScale, button_.pressedScale);
         graphics.translate(-cx, -cy);
     }
     Rect drawRect = frame;
@@ -91,18 +90,18 @@ void Button::onDraw(Graphics &graphics) {
     // ── 绘制子控件 ──
     for (auto &child : children) { child->draw(graphics); }
     // ── 绘制文字 ──
-    if (!props.text.empty()) {
+    if (!text_.text.empty()) {
         auto &fm = FontManager::instance();
         std::string fontPath =
-            fm.resolveFontPath(props.fontFamily.empty() ? "NotoSansSC-Regular.otf" : props.fontFamily);
+            fm.resolveFontPath(text_.fontFamily.empty() ? "NotoSansSC-Regular.otf" : text_.fontFamily);
         if (!fontPath.empty()) {
             fm.loadFont(fontPath.c_str());
             if (needReshapeText(fontPath)) {
-                shapedGlyphsCache_ = fm.shapeText(props.text.c_str(), props.fontSize);
-                cachedText_ = props.text;
-                cachedFontSize_ = props.fontSize;
+                shapedGlyphsCache_ = fm.shapeText(text_.text.c_str(), text_.fontSize);
+                cachedText_ = text_.text;
+                cachedFontSize_ = text_.fontSize;
                 cachedFontPath_ = fontPath;
-                cachedMetrics_ = fm.getMetrics(props.fontSize);
+                cachedMetrics_ = fm.getMetrics(text_.fontSize);
             }
             if (!shapedGlyphsCache_.empty()) {
                 float contentW = frame.width - props.padding.horizontal();
@@ -114,7 +113,7 @@ void Button::onDraw(Graphics &graphics) {
                                   + cachedMetrics_.ascender;
                 graphics.save();
                 graphics.translate(textX, baselineY);
-                graphics.drawTextCached(shapedGlyphsCache_, props.textColor);
+                graphics.drawTextCached(shapedGlyphsCache_, text_.textColor);
                 graphics.restore();
             }
         }

@@ -47,55 +47,42 @@ export enum class Align {
 };
 
 /**
- * @brief View控件属性结构体
+ * @brief 框架级属性 — 每个 View 实例都持有
+ *
+ * 包含显示属性 + 子项布局属性。
+ * 父布局通过 child->props.xxx 访问子项属性, 因此必须保持扁平。
  */
 export struct ViewProps {
-    // ==================== 尺寸属性 ====================
-    std::optional<float> width;  // 宽度（未指定则由约束决定）
-    std::optional<float> height; // 高度（未指定则由约束决定）
-
-    // ==================== 背景属性 ====================
-    Color background;       // 背景颜色
-    float borderRadius = 0; // 圆角半径
-
-    // ==================== 边框属性 ====================
-    float borderWidth = 0;                        // 边框宽度
-    Color borderColor;                            // 边框颜色
-    BorderStyle borderStyle = BorderStyle::Solid; // 边框样式
-
-    // ==================== 间距属性 ====================
-    EdgeInsets padding; // 内边距
-    EdgeInsets margin;  // 外边距
-
-    // ==================== 可见性属性 ====================
-    bool visible = true;  // 是否可见
-    float opacity = 1.0f; // 透明度 (0.0 ~ 1.0)
-
-    // ==================== 阴影属性 ====================
-    std::optional<Shadow> shadow; // 阴影
-
-    // ==================== Flex 子项属性 ====================
-    float flexGrow = 0.0f;
-    float flexBasis = -1.0f; // -1=auto
-    // ==================== Grid 子项属性 ====================
-    int gridRow = 0, gridColumn = 0;
-    int gridRowSpan = 1, gridColumnSpan = 1;
-    // ==================== Stack 子项属性 ====================
-    bool absolute = false;
-    float absTop = 0, absLeft = 0, absRight = -1, absBottom = -1;
-    // ==================== 通用定位（LVGL 风格） ====================
+    // ── 尺寸 ──
+    std::optional<float> width;
+    std::optional<float> height;
+    // ── 显示 ──
+    Color background;
+    float borderRadius = 0;
+    float borderWidth = 0;
+    Color borderColor;
+    BorderStyle borderStyle = BorderStyle::Solid;
+    EdgeInsets padding;
+    EdgeInsets margin;
+    bool visible = true;
+    float opacity = 1.0f;
+    std::optional<Shadow> shadow;
+    // ── 子项定位 (父布局通过 child->props.xxx 访问) ──
     Align align = Align::Default;
     bool hasExplicitX = false, hasExplicitY = false;
-    float x = 0, y = 0; // 像素偏移（配合 align 使用）
-    // ==================== 布局容器属性 ====================
-    FlexDirection flexDirection = FlexDirection::Row;
-    LayoutAlign mainAxisAlignment = LayoutAlign::Start;
-    CrossAlign crossAxisAlignment = CrossAlign::Start;
-    float gap = 0.0f;
-    int gridCols = 1, gridRows = 1;
-    float columnGap = 0.0f, rowGap = 0.0f;
-    ScrollDirection scrollDir = ScrollDirection::Vertical;
+    float x = 0, y = 0;
+    float flexGrow = 0.0f;
+    float flexBasis = -1.0f;
+    int gridRow = 0, gridColumn = 0;
+    int gridRowSpan = 1, gridColumnSpan = 1;
+    bool absolute = false;
+    float absTop = 0, absLeft = 0, absRight = -1, absBottom = -1;
+};
 
+/**
+ * @brief 文字内容 — Text / Button 使用
+ */
+export struct TextContent {
     std::string text;
     float fontSize = 16.0f;
     std::string fontFamily;
@@ -103,13 +90,30 @@ export struct ViewProps {
     FontStyle fontStyle = FontStyle::Normal;
     Color textColor{0, 0, 0, 255};
     TextAlign textAlign = TextAlign::Left;
+};
 
-    // ==================== Button 属性 ====================
-    Color hoverBackground;               // 悬停背景色（空=使用 background）
-    Color pressedBackground;             // 按下背景色
-    float pressedScale = 0.95f;          // 按下时缩放比例
-    Color hoverBorderColor;              // 悬停边框色
-    Color pressedBorderColor;            // 按下边框色
-    std::optional<Shadow> hoverShadow;   // 悬停阴影
-    std::optional<Shadow> pressedShadow; // 按下阴影
+/**
+ * @brief 按钮交互状态 — 仅 Button 使用
+ */
+export struct ButtonStateProps {
+    Color hoverBackground;
+    Color pressedBackground;
+    float pressedScale = 0.95f;
+    Color hoverBorderColor;
+    Color pressedBorderColor;
+    std::optional<Shadow> hoverShadow;
+    std::optional<Shadow> pressedShadow;
+};
+
+/**
+ * @brief 容器布局 — FlexLayout / GridLayout / ScrollView 使用
+ */
+export struct ContainerProps {
+    FlexDirection flexDirection = FlexDirection::Row;
+    LayoutAlign mainAxisAlignment = LayoutAlign::Start;
+    CrossAlign crossAxisAlignment = CrossAlign::Start;
+    float gap = 0.0f;
+    int gridCols = 1, gridRows = 1;
+    float columnGap = 0.0f, rowGap = 0.0f;
+    ScrollDirection scrollDir = ScrollDirection::Vertical;
 };

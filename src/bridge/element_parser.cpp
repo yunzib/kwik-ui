@@ -57,14 +57,14 @@ void ElementParser::registerType(const std::string &name, TypeCreator creator) {
 // ============================================================================
 static struct InitBuiltinTypes {
     InitBuiltinTypes() {
-        // ── View 组件 ────────────────────────────────────────────────
-        // 基础容器，所有可视控件的基类，支持背景、边框、圆角、阴影
-        ElementParser::registerType("View", [](ViewProps &&props) { return std::make_unique<View>(std::move(props)); });
-        // ── Text 组件 ─────────────────────────────────────────
-        ElementParser::registerType("Text", [](ViewProps &&props) { return std::make_unique<Text>(std::move(props)); });
-        // ── Button 组件 ───────────────────────────────────────
-        ElementParser::registerType("Button",
-                                    [](ViewProps &&props) { return std::make_unique<Button>(std::move(props)); });
+        ElementParser::registerType("View",
+                                    [](const JSValueRef &pv) { return std::make_unique<View>(parseViewProps(pv)); });
+        ElementParser::registerType("Text", [](const JSValueRef &pv) {
+            return std::make_unique<Text>(parseViewProps(pv), parseTextContent(pv));
+        });
+        ElementParser::registerType("Button", [](const JSValueRef &pv) {
+            return std::make_unique<Button>(parseViewProps(pv), parseTextContent(pv), parseButtonState(pv));
+        });
     }
 } _init_builtin_types;
 // ============================================================================
@@ -110,74 +110,43 @@ std::unique_ptr<View> ElementParser::parse(const JSValueRef &jsVal) {
 // ============================================================================
 std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
     // ── 1. 读取组件类型 ──────────────────────────────────────────────
-    //     type 字段由 JS 侧 makeElement("View"/"Text"/...) 设置
     auto typeVal = jsVal.getProperty("type");
     std::string type = typeVal.toString();
-    if (type.empty()) {
-        // type 字段缺失 —— 无效节点，返回 nullptr 让调用方跳过
-        // 调用方 (parseNode 的递归部分) 通过 if(child) 检查
-        return nullptr;
-    }
-    // ── 2. 解析 props 属性 ───────────────────────────────────────────
-    //     复用 kwik.bridge.props_parser 模块的 parseViewProps，
-    //     将 JS 属性对象映射为 C++ ViewProps 结构体
-    ViewProps props = parseViewProps(jsVal.getProperty("props"));
-    // ── 3. 查注册表分发创建 C++ 组件 ─────────────────────────────────
-    //     通过 unordered_map 查找 type 对应的创建器:
-    //       - 命中 → 调用创建器，传入已解析的 props
-    //       - 未命中 → 降级为默认 View（保证新类型不会丢失节点）
-    //
-    //     性能: unordered_map O(1) 查找 vs 旧 if-else 链 O(n)
-    //     扩展: 新增类型只需调用 registerType()，无需修改本函数
+    if (type.empty()) { return nullptr; }
+    // ── 2. 获取 props JS 对象 ─────────────────────────────────────
+    auto propsVal = jsVal.getProperty("props");
+    // ── 3. 查注册表分发创建 C++ 组件 ──────────────────────────
     std::unique_ptr<View> element;
-    auto &registry = creators();
+    auto registry = creators();
     auto it = registry.find(type);
     if (it != registry.end()) {
-        element = it->second(std::move(props));
+        element = it->second(propsVal);
     } else {
-        element = std::make_unique<View>(std::move(props));
+        element = std::make_unique<View>(parseViewProps(propsVal));
     }
     // ── 4. 递归解析子节点 ────────────────────────────────────────────
-    //     children 字段是 JS 数组，每个元素同样是 {type, props, children} 结构
-    //
-    //    递归特性:
-    //      - 深度优先：先完成子节点及其子树，再处理兄弟节点
-    //      - JSValueRef RAII: getArrayElement() 返回的 JSValueRef 在循环体
-    //        结束时自动析构，释放对应的 JS 引用
     auto childrenVal = jsVal.getProperty("children");
     if (childrenVal.isArray()) {
         int len = childrenVal.getArrayLength();
         for (int i = 0; i < len; ++i) {
-            // getArrayElement(i) 返回一个新的 JSValueRef，
-            // 内部通过 JS_GetProperty(ctx, value_, atom) 获取引用 (refcount+1)
             auto child = parseNode(childrenVal.getArrayElement(i));
             if (child) { element->addChild(std::move(child)); }
         }
     }
-
     // ── 5. 提取事件处理器 ────────────────────────────────────────
-    //     通过 ViewEventHandlers::bind() 绑定 JS 事件回调。
-    //     bind() 内部处理 JS_DupValue + 旧值释放, 调用者无需关心引用计数
-    if (element) {
-        auto propsVal = jsVal.getProperty("props");
-        if (propsVal.isObject()) {
-            JSContext *ctx_ = propsVal.context();
-            // 辅助 lambda: 检查 prop 是否存在且为函数, 是则绑定
-            auto tryBind = [&](const char *propName) {
-                if (propsVal.hasProperty(propName)) {
-                    auto handler = propsVal.getProperty(propName);
-                    if (JS_IsFunction(ctx_, handler.raw())) { element->handlers.bind(ctx_, propName, handler.raw()); }
-                }
-            };
-            tryBind("onClick");
-            tryBind("onLongPress");
-            tryBind("onHoverEnter");
-            tryBind("onHoverLeave");
-        }
+    if (element && propsVal.isObject()) {
+        JSContext *ctx_ = propsVal.context();
+        auto tryBind = [&](const char *propName) {
+            if (propsVal.hasProperty(propName)) {
+                auto handler = propsVal.getProperty(propName);
+                if (JS_IsFunction(ctx_, handler.raw())) { element->handlers.bind(ctx_, propName, handler.raw()); }
+            }
+        };
+        tryBind("onClick");
+        tryBind("onLongPress");
+        tryBind("onHoverEnter");
+        tryBind("onHoverLeave");
     }
-
-    // childrenVal 和子节点的 JSValueRef 在此作用域结束时自动析构，
-    // 每个析构调用 JS_FreeValue，正确释放解析过程中持有的所有 JS 引用
     return element;
 }
 
@@ -199,11 +168,14 @@ void ElementParser::printTree(const View *view, int depth, const std::string &pr
     if (p.margin.top > 0 || p.margin.left > 0 || p.margin.bottom > 0 || p.margin.right > 0)
         std::print(" margin=[{:.0f},{:.0f},{:.0f},{:.0f}]", p.margin.top, p.margin.right, p.margin.bottom,
                    p.margin.left);
-    if (!p.text.empty()) {
-        std::print(" text=\"{}\"", p.text.c_str());
-        std::print(" fontSize={:.0f}", p.fontSize);
-        if (p.textColor.isVisible())
-            std::print(" color=#{:02X}{:02X}{:02X}", p.textColor.r, p.textColor.g, p.textColor.b);
+    if (const auto *t = dynamic_cast<const Text *>(view)) {
+        const auto &tc = t->textContent();
+        if (!tc.text.empty()) {
+            std::print(" text=\"{}\"", tc.text.c_str());
+            std::print(" fontSize={:.0f}", tc.fontSize);
+            if (tc.textColor.isVisible())
+                std::print(" color=#{:02X}{:02X}{:02X}", tc.textColor.r, tc.textColor.g, tc.textColor.b);
+        }
     }
     if (p.opacity < 1.0f) std::print(" opacity={:.2f}", p.opacity);
     std::println();

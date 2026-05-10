@@ -9,8 +9,11 @@ import std;
 export class GridLayout : public View {
 public:
     GridLayout() = default;
-    explicit GridLayout(ViewProps p) : View(std::move(p)) {
+    explicit GridLayout(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
+
+private:
+    ContainerProps container_;
 };

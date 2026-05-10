@@ -2,9 +2,7 @@ module;
 #include <string>
 #include <memory>
 #include <vector>
-
 #include "quickjs.h"
-
 export module kwik.element.button;
 import kwik.element.view;
 import kwik.element.props;
@@ -12,7 +10,6 @@ import kwik.core.types;
 import kwik.render.graphics;
 import kwik.render.font;
 import kwik.core.constraints;
-
 import std;
 export enum class ButtonState { Idle, Hovered, Pressed };
 /**
@@ -24,11 +21,31 @@ export enum class ButtonState { Idle, Hovered, Pressed };
 export class Button : public View {
 public:
     Button() = default;
-    explicit Button(ViewProps p) : View(std::move(p)) {
+    explicit Button(ViewProps p, TextContent tc = {}, ButtonStateProps bs = {}) :
+        View(std::move(p)), text_(std::move(tc)), button_(std::move(bs)) {
+        auto isDefault = [](const Color &c) { return c.r == 0 && c.g == 0 && c.b == 0 && c.a == 255; };
+        auto darker = [](const Color &c, float f) -> Color {
+            return {(uint8_t)(c.r * f), (uint8_t)(c.g * f), (uint8_t)(c.b * f), c.a};
+        };
+        // 默认背景
+        if (isDefault(props.background)) props.background = Color{25, 118, 210, 255};
+        // 自动推导 hover / press
+        if (isDefault(button_.hoverBackground)) button_.hoverBackground = darker(props.background, 0.85f);
+        if (isDefault(button_.pressedBackground)) button_.pressedBackground = darker(props.background, 0.70f);
+        // 默认文字色
+        if (isDefault(text_.textColor)) text_.textColor = Color::white();
+        // 默认圆角
+        if (props.borderRadius == 0) props.borderRadius = 6.0f;
     }
     ~Button() override = default;
     const char *typeName() const override {
         return "Button";
+    }
+    const TextContent &textContent() const {
+        return text_;
+    }
+    const ButtonStateProps &buttonState() const {
+        return button_;
     }
 
 protected:
@@ -37,6 +54,8 @@ protected:
     bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
 
 private:
+    TextContent text_;        // 文字内容属性
+    ButtonStateProps button_; // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
     // ── 文字排版缓存 ──
     std::vector<ShapedGlyph> shapedGlyphsCache_;

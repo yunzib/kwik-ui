@@ -224,10 +224,7 @@ bool RenderThread::initBackend() {
 }
 
 void RenderThread::cleanup() {
-    if (backend_) {
-        backend_->shutdown();
-        backend_.reset();
-    }
+    backend_.reset();
 }
 
 void RenderThread::processWindowEvents() {

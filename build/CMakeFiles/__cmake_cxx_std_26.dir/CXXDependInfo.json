@@ -3,7 +3,7 @@
 	"compiler-frontend-variant" : "GNU",
 	"compiler-id" : "Clang",
 	"compiler-simulate-id" : "",
-	"config" : "Release",
+	"config" : "Debug",
 	"cxx-modules" : 
 	{
 		"CMakeFiles/__cmake_cxx_std_26.dir/C_/software/llvm-mingw/share/libc++/v1/std.compat.cppm.obj" : 

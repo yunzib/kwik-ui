@@ -9,8 +9,8 @@ Size ScrollView::onMeasure(Constraints constraints) {
     float w = props.width.value_or(constraints.maxWidth);
     float h = props.height.value_or(constraints.maxHeight);
     float maxW = 0, totalH = 0;
-    bool vert = (props.scrollDir == ScrollDirection::Vertical || props.scrollDir == ScrollDirection::Both);
-    bool horiz = (props.scrollDir == ScrollDirection::Horizontal || props.scrollDir == ScrollDirection::Both);
+    bool vert = (container_.scrollDir == ScrollDirection::Vertical || container_.scrollDir == ScrollDirection::Both);
+    bool horiz = (container_.scrollDir == ScrollDirection::Horizontal || container_.scrollDir == ScrollDirection::Both);
     for (auto &child : children) {
         if (!child->props.visible) continue;
         Size cs = child->measure(Constraints::loose(Size{horiz ? std::numeric_limits<float>::max() : w, 0}));

@@ -9,7 +9,7 @@ import std;
 Size FlexLayout::onMeasure(Constraints constraints) {
     float w = props.width.value_or(constraints.maxWidth);
     float h = props.height.value_or(constraints.maxHeight);
-    bool isRow = (props.flexDirection == FlexDirection::Row);
+    bool isRow = (container_.flexDirection == FlexDirection::Row);
     float contentW = isRow ? w - props.padding.horizontal() : w - props.padding.horizontal();
     float contentH = isRow ? h - props.padding.vertical() : h - props.padding.vertical();
     float totalMain = 0, maxCross = 0;
@@ -31,7 +31,7 @@ Size FlexLayout::onMeasure(Constraints constraints) {
         crossSz += isRow ? child->props.margin.vertical() : child->props.margin.horizontal();
         maxCross = std::max(maxCross, crossSz);
     }
-    if (visibleCount > 1) totalMain += props.gap * (visibleCount - 1);
+    if (visibleCount > 1) totalMain += container_.gap * (visibleCount - 1);
     float resultW = isRow ? (totalMain + props.padding.horizontal()) : (maxCross + props.padding.horizontal());
     float resultH = isRow ? (maxCross + props.padding.vertical()) : (totalMain + props.padding.vertical());
     if (props.width.has_value()) resultW = *props.width;
@@ -39,7 +39,7 @@ Size FlexLayout::onMeasure(Constraints constraints) {
     return constraints.constrain(Size{resultW, resultH});
 }
 void FlexLayout::onLayout() {
-    bool isRow = (props.flexDirection == FlexDirection::Row);
+    bool isRow = (container_.flexDirection == FlexDirection::Row);
     float contentX = frame.x + props.padding.left;
     float contentY = frame.y + props.padding.top;
     float contentW = frame.width - props.padding.horizontal();
@@ -67,7 +67,7 @@ void FlexLayout::onLayout() {
         }
         infos.push_back({child.get(), mainSz});
     }
-    float totalGap = (visibleCount > 1) ? props.gap * (visibleCount - 1) : 0;
+    float totalGap = (visibleCount > 1) ? container_.gap * (visibleCount - 1) : 0;
     float mainSpace = (isRow ? contentW : contentH);
     float remaining = mainSpace - totalFixed - totalGap;
     // 分配剩余空间给 flexGrow>0 的子项
@@ -85,8 +85,8 @@ void FlexLayout::onLayout() {
     }
     usedMain += totalGap;
     float spaceRemain = mainSpace - usedMain;
-    float startOffset = 0, betweenGap = props.gap;
-    switch (props.mainAxisAlignment) {
+    float startOffset = 0, betweenGap = container_.gap;
+    switch (container_.mainAxisAlignment) {
     case LayoutAlign::Center: startOffset = spaceRemain * 0.5f; break;
     case LayoutAlign::End: startOffset = spaceRemain; break;
     case LayoutAlign::SpaceBetween:
@@ -117,7 +117,7 @@ void FlexLayout::onLayout() {
         float crossSz = isRow ? (info.view->frame.height + crossMargin1) : (info.view->frame.width + crossMargin1);
         // 交叉轴对齐
         float crossPos;
-        switch (props.crossAxisAlignment) {
+        switch (container_.crossAxisAlignment) {
         case CrossAlign::Center:
             crossPos = (isRow ? contentY : contentX) + ((isRow ? contentH : contentW) - crossSz) * 0.5f + crossMargin0;
             break;
@@ -149,6 +149,6 @@ void FlexLayout::onLayout() {
     NEXT:
         mainCursor += info.mainSz + (isRow ? info.view->props.margin.horizontal() : info.view->props.margin.vertical())
                       + betweenGap;
-        betweenGap = props.gap; // reset after first use
+        betweenGap = container_.gap; // reset after first use
     }
 }
