@@ -54,9 +54,6 @@ C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/list_install_co
 C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/install.dir
 C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/install/local.dir
 C:/ws-code/ws-kwik/kwik-ui/build/third_party/harfbuzz/CMakeFiles/install/strip.dir
-C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir
-C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir
-C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/event_example.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/example.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/package.dir
 C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/package_source.dir

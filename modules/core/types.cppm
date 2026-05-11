@@ -15,7 +15,8 @@ export enum class UIEventType {
     PanMove,
     PanEnd,
     PressBegin,
-    PressEnd
+    PressEnd,
+    Wheel
 };
 
 /**

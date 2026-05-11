@@ -3,8 +3,6 @@
 // ============================================================================
 module;
 #include <chrono>
-#include <thread>
-#include <iostream>
 #include <memory>
 
 module kwik.app;
@@ -73,11 +71,11 @@ bool Application::init() {
         Log::error("View 树解析失败");
         return false;
     }
-    ElementParser::printTree(tree_.get());
     // ⑤ 首次布局
     auto sz = Size{static_cast<float>(config_.width), static_cast<float>(config_.height)};
     tree_->measure(Constraints::loose(sz));
     tree_->layout(Rect(0, 0, sz.width, sz.height));
+    ElementParser::printTree(tree_.get());
     // ⑥ 事件系统
     eventProc_.setRootTree(tree_.get());
     return true;

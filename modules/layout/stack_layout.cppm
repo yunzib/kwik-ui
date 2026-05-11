@@ -13,4 +13,8 @@ public:
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
+
+    const char *typeName() const override {
+        return "StackLayout";
+    }
 };

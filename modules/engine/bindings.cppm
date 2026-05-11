@@ -13,7 +13,7 @@ export using RenderCallback = std::function<void()>;
 /**
  * @brief 注册 State 类到指定的 JSContext，内部保存类 ID
  */
-export JSValue  register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
 /**
  * @brief 注册 Channel 类到指定的 JSContext，内部保存类 ID
@@ -34,12 +34,17 @@ export void set_render_callback(RenderCallback callback);
  * @param ctx 目标 JSContext
  * @return true 成功，false 失败
  */
-export JSModuleDef* register_kwikui_module(JSContext *ctx);
+export JSModuleDef *register_kwikui_module(JSContext *ctx);
 
 // ---------- 导出给 JS 调用的 C 函数 ----------
 export JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_text(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_scroll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+
 export JSValue js_state_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_channel_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);

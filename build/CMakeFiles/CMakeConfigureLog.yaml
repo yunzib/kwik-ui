@@ -3467,8 +3467,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3482,17 +3482,17 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_bb028
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23   -v -MD -MT CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_bb028.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_a99f6
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23   -v -MD -MT CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_a99f6.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c
         clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/software/llvm-mingw/bin
         Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg
          (in-process)
-         "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_bb028.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c23 -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -exception-model=seh -faddrsig -o CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -x c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c
+         "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_a99f6.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c23 -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -exception-model=seh -faddrsig -o CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -x c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c
         clang -cc1 version 22.1.4 based upon LLVM 22.1.4 default target x86_64-w64-mingw32
         ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include"
         ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include"
@@ -3501,13 +3501,13 @@ events:
          C:/software/llvm-mingw/lib/clang/22/include
          C:/software/llvm-mingw/include
         End of search list.
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -v -Wl,-v CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -o cmTC_bb028.exe -Wl,--out-implib,libcmTC_bb028.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -v -Wl,-v CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -o cmTC_a99f6.exe -Wl,--out-implib,libcmTC_a99f6.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
         clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/software/llvm-mingw/bin
         Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg
-         "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_bb028.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_bb028.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o
+         "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_a99f6.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_a99f6.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o
         LLD 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20) (compatible with GNU linkers)
         
       exitCode: 0
@@ -3539,17 +3539,17 @@ events:
       Parsed C implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|"|[0-9]+>[ 	-]*Build:[ 	0-9]+ ms[ 	]*)?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo']
+        ignore line: [Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g']
         ignore line: []
-        ignore line: [Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_bb028]
-        ignore line: [[1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23   -v -MD -MT CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_bb028.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c]
+        ignore line: [Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_a99f6]
+        ignore line: [[1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23   -v -MD -MT CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_a99f6.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c]
         ignore line: [clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/software/llvm-mingw/bin]
         ignore line: [Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg]
         ignore line: [ (in-process)]
-        ignore line: [ "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-7znzuo -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_bb028.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c23 -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -exception-model=seh -faddrsig -o CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -x c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c]
+        ignore line: [ "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ty0p9g -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_a99f6.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c23 -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -exception-model=seh -faddrsig -o CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -x c C:/software/cmake/share/cmake-4.3/Modules/CMakeCCompilerABI.c]
         ignore line: [clang -cc1 version 22.1.4 based upon LLVM 22.1.4 default target x86_64-w64-mingw32]
         ignore line: [ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include"]
         ignore line: [ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include"]
@@ -3558,19 +3558,19 @@ events:
         ignore line: [ C:/software/llvm-mingw/lib/clang/22/include]
         ignore line: [ C:/software/llvm-mingw/include]
         ignore line: [End of search list.]
-        ignore line: [[2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -v -Wl -v CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj -o cmTC_bb028.exe -Wl --out-implib libcmTC_bb028.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
+        ignore line: [[2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -v -Wl -v CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj -o cmTC_a99f6.exe -Wl --out-implib libcmTC_a99f6.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
         ignore line: [clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/software/llvm-mingw/bin]
         ignore line: [Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg]
-        link line: [ "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_bb028.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_bb028.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o]
+        link line: [ "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_a99f6.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_a99f6.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o]
           arg [C:/software/llvm-mingw/bin/ld.lld] ==> ignore
           arg [-m] ==> ignore
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_bb028.exe] ==> ignore
+          arg [cmTC_a99f6.exe] ==> ignore
           arg [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o] ==> obj [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o]
           arg [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o] ==> obj [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o]
           arg [-LC:/software/llvm-mingw/x86_64-w64-mingw32/lib] ==> dir [C:/software/llvm-mingw/x86_64-w64-mingw32/lib]
@@ -3578,9 +3578,9 @@ events:
           arg [-LC:/software/llvm-mingw/lib] ==> dir [C:/software/llvm-mingw/lib]
           arg [-LC:/software/llvm-mingw/lib/clang/22/lib/windows] ==> dir [C:/software/llvm-mingw/lib/clang/22/lib/windows]
           arg [-v] ==> ignore
-          arg [CMakeFiles/cmTC_bb028.dir/CMakeCCompilerABI.c.obj] ==> ignore
+          arg [CMakeFiles/cmTC_a99f6.dir/CMakeCCompilerABI.c.obj] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_bb028.dll.a] ==> ignore
+          arg [libcmTC_a99f6.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -3637,8 +3637,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_FLAGS: ""
@@ -3652,17 +3652,17 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_94d47
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe   -std=c++26   -v -MD -MT CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_94d47.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e9ccc
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe   -std=c++26   -v -MD -MT CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_e9ccc.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp
         clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/software/llvm-mingw/bin
         Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg
          (in-process)
-         "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_94d47.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/software/llvm-mingw/include/c++/v1 -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c++26 -fdeprecated-macro -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -x c++ C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp
+         "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_e9ccc.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/software/llvm-mingw/include/c++/v1 -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c++26 -fdeprecated-macro -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -x c++ C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp
         clang -cc1 version 22.1.4 based upon LLVM 22.1.4 default target x86_64-w64-mingw32
         ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1"
         ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include"
@@ -3673,13 +3673,13 @@ events:
          C:/software/llvm-mingw/lib/clang/22/include
          C:/software/llvm-mingw/include
         End of search list.
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe  -v -Wl,-v CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_94d47.exe -Wl,--out-implib,libcmTC_94d47.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe  -v -Wl,-v CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_e9ccc.exe -Wl,--out-implib,libcmTC_e9ccc.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
         clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/software/llvm-mingw/bin
         Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg
-         "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_94d47.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_94d47.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o
+         "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_e9ccc.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_e9ccc.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o
         LLD 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20) (compatible with GNU linkers)
         
       exitCode: 0
@@ -3713,17 +3713,17 @@ events:
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|"|[0-9]+>[ 	-]*Build:[ 	0-9]+ ms[ 	]*)?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a']
+        ignore line: [Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw']
         ignore line: []
-        ignore line: [Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_94d47]
-        ignore line: [[1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe   -std=c++26   -v -MD -MT CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_94d47.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e9ccc]
+        ignore line: [[1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe   -std=c++26   -v -MD -MT CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_e9ccc.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -c C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp]
         ignore line: [clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/software/llvm-mingw/bin]
         ignore line: [Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg]
         ignore line: [ (in-process)]
-        ignore line: [ "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cmc71a -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_94d47.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/software/llvm-mingw/include/c++/v1 -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c++26 -fdeprecated-macro -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -x c++ C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [ "C:/software/llvm-mingw/bin/clang-22.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -fno-sized-deallocation -fno-use-init-array -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw -v -fcoverage-compilation-dir=C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-u1otpw -resource-dir C:/software/llvm-mingw/lib/clang/22 -dependency-file "CMakeFiles\\\\cmTC_e9ccc.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/software/llvm-mingw/include/c++/v1 -internal-isystem C:/software/llvm-mingw/lib/clang/22/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/include -internal-isystem C:/software/llvm-mingw/x86_64-w64-mingw32/usr/include -internal-isystem C:/software/llvm-mingw/include -std=c++26 -fdeprecated-macro -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -x c++ C:/software/cmake/share/cmake-4.3/Modules/CMakeCXXCompilerABI.cpp]
         ignore line: [clang -cc1 version 22.1.4 based upon LLVM 22.1.4 default target x86_64-w64-mingw32]
         ignore line: [ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include/c++/v1"]
         ignore line: [ignoring nonexistent directory "C:/software/llvm-mingw/x86_64-w64-mingw32/include"]
@@ -3734,19 +3734,19 @@ events:
         ignore line: [ C:/software/llvm-mingw/lib/clang/22/include]
         ignore line: [ C:/software/llvm-mingw/include]
         ignore line: [End of search list.]
-        ignore line: [[2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe  -v -Wl -v CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_94d47.exe -Wl --out-implib libcmTC_94d47.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
+        ignore line: [[2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe  -v -Wl -v CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_e9ccc.exe -Wl --out-implib libcmTC_e9ccc.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
         ignore line: [clang version 22.1.4 (https://github.com/llvm/llvm-project.git 35990504507d79e0b9deb809c8ee5e1b34ceef20)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/software/llvm-mingw/bin]
         ignore line: [Configuration file: C:/software/llvm-mingw/bin/x86_64-w64-windows-gnu.cfg]
-        link line: [ "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_94d47.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_94d47.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o]
+        link line: [ "C:/software/llvm-mingw/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_e9ccc.exe C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o -LC:/software/llvm-mingw/x86_64-w64-mingw32/lib -LC:/software/llvm-mingw/x86_64-w64-mingw32/mingw/lib -LC:/software/llvm-mingw/lib -LC:/software/llvm-mingw/lib/clang/22/lib/windows -v CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_e9ccc.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/software/llvm-mingw/lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtend.o]
           arg [C:/software/llvm-mingw/bin/ld.lld] ==> ignore
           arg [-m] ==> ignore
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_94d47.exe] ==> ignore
+          arg [cmTC_e9ccc.exe] ==> ignore
           arg [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o] ==> obj [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crt2.o]
           arg [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o] ==> obj [C:/software/llvm-mingw/x86_64-w64-mingw32/lib/crtbegin.o]
           arg [-LC:/software/llvm-mingw/x86_64-w64-mingw32/lib] ==> dir [C:/software/llvm-mingw/x86_64-w64-mingw32/lib]
@@ -3754,9 +3754,9 @@ events:
           arg [-LC:/software/llvm-mingw/lib] ==> dir [C:/software/llvm-mingw/lib]
           arg [-LC:/software/llvm-mingw/lib/clang/22/lib/windows] ==> dir [C:/software/llvm-mingw/lib/clang/22/lib/windows]
           arg [-v] ==> ignore
-          arg [CMakeFiles/cmTC_94d47.dir/CMakeCXXCompilerABI.cpp.obj] ==> ignore
+          arg [CMakeFiles/cmTC_e9ccc.dir/CMakeCXXCompilerABI.cpp.obj] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_94d47.dll.a] ==> ignore
+          arg [libcmTC_e9ccc.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -3816,8 +3816,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wall"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-68zv9o"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-68zv9o"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-vy37k8"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-vy37k8"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3831,11 +3831,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wall"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-68zv9o'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-vy37k8'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_78a5f
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wall  -std=gnu11   -Wall -MD -MT CMakeFiles/cmTC_78a5f.dir/src.c.obj -MF CMakeFiles\\cmTC_78a5f.dir\\src.c.obj.d -o CMakeFiles/cmTC_78a5f.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-68zv9o/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_78a5f.dir/src.c.obj -o cmTC_78a5f.exe -Wl,--out-implib,libcmTC_78a5f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_dedd8
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wall  -std=gnu11   -Wall -MD -MT CMakeFiles/cmTC_dedd8.dir/src.c.obj -MF CMakeFiles\\cmTC_dedd8.dir\\src.c.obj.d -o CMakeFiles/cmTC_dedd8.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-vy37k8/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_dedd8.dir/src.c.obj -o cmTC_dedd8.exe -Wl,--out-implib,libcmTC_dedd8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -3849,8 +3849,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wextra"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4ahq5e"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4ahq5e"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-oxk1hu"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-oxk1hu"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3864,11 +3864,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wextra"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4ahq5e'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-oxk1hu'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_760d5
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wextra  -std=gnu11   -Wextra -MD -MT CMakeFiles/cmTC_760d5.dir/src.c.obj -MF CMakeFiles\\cmTC_760d5.dir\\src.c.obj.d -o CMakeFiles/cmTC_760d5.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4ahq5e/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_760d5.dir/src.c.obj -o cmTC_760d5.exe -Wl,--out-implib,libcmTC_760d5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_25696
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wextra  -std=gnu11   -Wextra -MD -MT CMakeFiles/cmTC_25696.dir/src.c.obj -MF CMakeFiles\\cmTC_25696.dir\\src.c.obj.d -o CMakeFiles/cmTC_25696.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-oxk1hu/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_25696.dir/src.c.obj -o cmTC_25696.exe -Wl,--out-implib,libcmTC_25696.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -3882,8 +3882,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wformat=2"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58pklr"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58pklr"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1lmh7l"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1lmh7l"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3897,11 +3897,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wformat=2"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58pklr'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1lmh7l'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_924ef
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wformat=2  -std=gnu11   -Wformat=2 -MD -MT CMakeFiles/cmTC_924ef.dir/src.c.obj -MF CMakeFiles\\cmTC_924ef.dir\\src.c.obj.d -o CMakeFiles/cmTC_924ef.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58pklr/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_924ef.dir/src.c.obj -o cmTC_924ef.exe -Wl,--out-implib,libcmTC_924ef.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_260f9
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wformat=2  -std=gnu11   -Wformat=2 -MD -MT CMakeFiles/cmTC_260f9.dir/src.c.obj -MF CMakeFiles\\cmTC_260f9.dir\\src.c.obj.d -o CMakeFiles/cmTC_260f9.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1lmh7l/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_260f9.dir/src.c.obj -o cmTC_260f9.exe -Wl,--out-implib,libcmTC_260f9.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -3915,8 +3915,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnoimplicitfallthrough"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-j5v2ts"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-j5v2ts"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-f44naz"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-f44naz"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3930,11 +3930,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnoimplicitfallthrough"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-j5v2ts'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-f44naz'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_95ac1
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnoimplicitfallthrough  -std=gnu11   -Wno-implicit-fallthrough -MD -MT CMakeFiles/cmTC_95ac1.dir/src.c.obj -MF CMakeFiles\\cmTC_95ac1.dir\\src.c.obj.d -o CMakeFiles/cmTC_95ac1.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-j5v2ts/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_95ac1.dir/src.c.obj -o cmTC_95ac1.exe -Wl,--out-implib,libcmTC_95ac1.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_67e5a
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnoimplicitfallthrough  -std=gnu11   -Wno-implicit-fallthrough -MD -MT CMakeFiles/cmTC_67e5a.dir/src.c.obj -MF CMakeFiles\\cmTC_67e5a.dir\\src.c.obj.d -o CMakeFiles/cmTC_67e5a.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-f44naz/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_67e5a.dir/src.c.obj -o cmTC_67e5a.exe -Wl,--out-implib,libcmTC_67e5a.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -3948,8 +3948,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnosigncompare"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-431v16"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-431v16"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-0tuc49"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-0tuc49"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3963,11 +3963,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnosigncompare"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-431v16'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-0tuc49'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_09205
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnosigncompare  -std=gnu11   -Wno-sign-compare -MD -MT CMakeFiles/cmTC_09205.dir/src.c.obj -MF CMakeFiles\\cmTC_09205.dir\\src.c.obj.d -o CMakeFiles/cmTC_09205.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-431v16/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_09205.dir/src.c.obj -o cmTC_09205.exe -Wl,--out-implib,libcmTC_09205.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_fef75
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnosigncompare  -std=gnu11   -Wno-sign-compare -MD -MT CMakeFiles/cmTC_fef75.dir/src.c.obj -MF CMakeFiles\\cmTC_fef75.dir\\src.c.obj.d -o CMakeFiles/cmTC_fef75.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-0tuc49/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_fef75.dir/src.c.obj -o cmTC_fef75.exe -Wl,--out-implib,libcmTC_fef75.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -3981,8 +3981,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnomissingfieldinitializers"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zkkq2o"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zkkq2o"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kkb03l"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kkb03l"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -3996,11 +3996,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnomissingfieldinitializers"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zkkq2o'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kkb03l'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_60e35
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnomissingfieldinitializers  -std=gnu11   -Wno-missing-field-initializers -MD -MT CMakeFiles/cmTC_60e35.dir/src.c.obj -MF CMakeFiles\\cmTC_60e35.dir\\src.c.obj.d -o CMakeFiles/cmTC_60e35.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zkkq2o/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_60e35.dir/src.c.obj -o cmTC_60e35.exe -Wl,--out-implib,libcmTC_60e35.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_01c29
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnomissingfieldinitializers  -std=gnu11   -Wno-missing-field-initializers -MD -MT CMakeFiles/cmTC_01c29.dir/src.c.obj -MF CMakeFiles\\cmTC_01c29.dir\\src.c.obj.d -o CMakeFiles/cmTC_01c29.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kkb03l/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_01c29.dir/src.c.obj -o cmTC_01c29.exe -Wl,--out-implib,libcmTC_01c29.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4014,8 +4014,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnounusedparameter"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-qtfxti"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-qtfxti"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-84ai1z"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-84ai1z"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4029,11 +4029,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnounusedparameter"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-qtfxti'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-84ai1z'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_0a393
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedparameter  -std=gnu11   -Wno-unused-parameter -MD -MT CMakeFiles/cmTC_0a393.dir/src.c.obj -MF CMakeFiles\\cmTC_0a393.dir\\src.c.obj.d -o CMakeFiles/cmTC_0a393.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-qtfxti/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_0a393.dir/src.c.obj -o cmTC_0a393.exe -Wl,--out-implib,libcmTC_0a393.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_d9455
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedparameter  -std=gnu11   -Wno-unused-parameter -MD -MT CMakeFiles/cmTC_d9455.dir/src.c.obj -MF CMakeFiles\\cmTC_d9455.dir\\src.c.obj.d -o CMakeFiles/cmTC_d9455.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-84ai1z/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_d9455.dir/src.c.obj -o cmTC_d9455.exe -Wl,--out-implib,libcmTC_d9455.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4047,8 +4047,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnounusedbutsetvariable"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l5u3xr"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l5u3xr"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-n8one7"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-n8one7"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4062,11 +4062,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnounusedbutsetvariable"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l5u3xr'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-n8one7'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_8be0c
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedbutsetvariable  -std=gnu11   -Wno-unused-but-set-variable -MD -MT CMakeFiles/cmTC_8be0c.dir/src.c.obj -MF CMakeFiles\\cmTC_8be0c.dir\\src.c.obj.d -o CMakeFiles/cmTC_8be0c.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l5u3xr/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_8be0c.dir/src.c.obj -o cmTC_8be0c.exe -Wl,--out-implib,libcmTC_8be0c.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e4a0e
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedbutsetvariable  -std=gnu11   -Wno-unused-but-set-variable -MD -MT CMakeFiles/cmTC_e4a0e.dir/src.c.obj -MF CMakeFiles\\cmTC_e4a0e.dir\\src.c.obj.d -o CMakeFiles/cmTC_e4a0e.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-n8one7/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_e4a0e.dir/src.c.obj -o cmTC_e4a0e.exe -Wl,--out-implib,libcmTC_e4a0e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4080,8 +4080,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnounusedresult"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1ua4j6"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1ua4j6"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ur93iq"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ur93iq"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4095,11 +4095,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnounusedresult"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1ua4j6'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ur93iq'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_810b7
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedresult  -std=gnu11   -Wno-unused-result -MD -MT CMakeFiles/cmTC_810b7.dir/src.c.obj -MF CMakeFiles\\cmTC_810b7.dir\\src.c.obj.d -o CMakeFiles/cmTC_810b7.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-1ua4j6/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_810b7.dir/src.c.obj -o cmTC_810b7.exe -Wl,--out-implib,libcmTC_810b7.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_92d81
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnounusedresult  -std=gnu11   -Wno-unused-result -MD -MT CMakeFiles/cmTC_92d81.dir/src.c.obj -MF CMakeFiles\\cmTC_92d81.dir\\src.c.obj.d -o CMakeFiles/cmTC_92d81.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ur93iq/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_92d81.dir/src.c.obj -o cmTC_92d81.exe -Wl,--out-implib,libcmTC_92d81.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4113,8 +4113,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnostringoptruncation"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-v6c3rr"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-v6c3rr"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-o4lx7h"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-o4lx7h"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4128,13 +4128,13 @@ events:
       variable: "COMPILER_SUPPORTS_Wnostringoptruncation"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-v6c3rr'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-o4lx7h'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_0c731
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnostringoptruncation  -std=gnu11   -Wno-stringop-truncation -MD -MT CMakeFiles/cmTC_0c731.dir/src.c.obj -MF CMakeFiles\\cmTC_0c731.dir\\src.c.obj.d -o CMakeFiles/cmTC_0c731.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-v6c3rr/src.c
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_dc9f0
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnostringoptruncation  -std=gnu11   -Wno-stringop-truncation -MD -MT CMakeFiles/cmTC_dc9f0.dir/src.c.obj -MF CMakeFiles\\cmTC_dc9f0.dir\\src.c.obj.d -o CMakeFiles/cmTC_dc9f0.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-o4lx7h/src.c
         warning: unknown warning option '-Wno-stringop-truncation'; did you mean '-Wno-format-truncation'? [-Wunknown-warning-option]
         1 warning generated.
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_0c731.dir/src.c.obj -o cmTC_0c731.exe -Wl,--out-implib,libcmTC_0c731.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_dc9f0.dir/src.c.obj -o cmTC_dc9f0.exe -Wl,--out-implib,libcmTC_dc9f0.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4148,8 +4148,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_Wnoarraybounds"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hgbsqd"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hgbsqd"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fs1svc"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fs1svc"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4163,11 +4163,11 @@ events:
       variable: "COMPILER_SUPPORTS_Wnoarraybounds"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hgbsqd'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fs1svc'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_6f12f
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnoarraybounds  -std=gnu11   -Wno-array-bounds -MD -MT CMakeFiles/cmTC_6f12f.dir/src.c.obj -MF CMakeFiles\\cmTC_6f12f.dir\\src.c.obj.d -o CMakeFiles/cmTC_6f12f.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hgbsqd/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_6f12f.dir/src.c.obj -o cmTC_6f12f.exe -Wl,--out-implib,libcmTC_6f12f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_d7d6d
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_Wnoarraybounds  -std=gnu11   -Wno-array-bounds -MD -MT CMakeFiles/cmTC_d7d6d.dir/src.c.obj -MF CMakeFiles\\cmTC_d7d6d.dir\\src.c.obj.d -o CMakeFiles/cmTC_d7d6d.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fs1svc/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_d7d6d.dir/src.c.obj -o cmTC_d7d6d.exe -Wl,--out-implib,libcmTC_d7d6d.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4181,8 +4181,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_funsignedchar"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e7etn5"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e7etn5"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tphp92"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tphp92"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4196,11 +4196,11 @@ events:
       variable: "COMPILER_SUPPORTS_funsignedchar"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e7etn5'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tphp92'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_69e36
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_funsignedchar  -std=gnu11   -funsigned-char -MD -MT CMakeFiles/cmTC_69e36.dir/src.c.obj -MF CMakeFiles\\cmTC_69e36.dir\\src.c.obj.d -o CMakeFiles/cmTC_69e36.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e7etn5/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_69e36.dir/src.c.obj -o cmTC_69e36.exe -Wl,--out-implib,libcmTC_69e36.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_b07f9
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_funsignedchar  -std=gnu11   -funsigned-char -MD -MT CMakeFiles/cmTC_b07f9.dir/src.c.obj -MF CMakeFiles\\cmTC_b07f9.dir\\src.c.obj.d -o CMakeFiles/cmTC_b07f9.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tphp92/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_b07f9.dir/src.c.obj -o cmTC_b07f9.exe -Wl,--out-implib,libcmTC_b07f9.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4214,8 +4214,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_/Od"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-3rf6tw"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-3rf6tw"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dj9i1a"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dj9i1a"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4229,12 +4229,12 @@ events:
       variable: "COMPILER_SUPPORTS_/Od"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-3rf6tw'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dj9i1a'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_f7419
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=gnu11   -DCOMPILER_SUPPORTS_/Od /Od -MD -MT CMakeFiles/cmTC_f7419.dir/src.c.obj -MF CMakeFiles\\cmTC_f7419.dir\\src.c.obj.d -o CMakeFiles/cmTC_f7419.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-3rf6tw/src.c
-        FAILED: [code=1] CMakeFiles/cmTC_f7419.dir/src.c.obj 
-        C:\\software\\llvm-mingw\\bin\\clang.exe   -std=gnu11   -DCOMPILER_SUPPORTS_/Od /Od -MD -MT CMakeFiles/cmTC_f7419.dir/src.c.obj -MF CMakeFiles\\cmTC_f7419.dir\\src.c.obj.d -o CMakeFiles/cmTC_f7419.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-3rf6tw/src.c
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_3b84c
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=gnu11   -DCOMPILER_SUPPORTS_/Od /Od -MD -MT CMakeFiles/cmTC_3b84c.dir/src.c.obj -MF CMakeFiles\\cmTC_3b84c.dir\\src.c.obj.d -o CMakeFiles/cmTC_3b84c.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dj9i1a/src.c
+        FAILED: [code=1] CMakeFiles/cmTC_3b84c.dir/src.c.obj 
+        C:\\software\\llvm-mingw\\bin\\clang.exe   -std=gnu11   -DCOMPILER_SUPPORTS_/Od /Od -MD -MT CMakeFiles/cmTC_3b84c.dir/src.c.obj -MF CMakeFiles\\cmTC_3b84c.dir\\src.c.obj.d -o CMakeFiles/cmTC_3b84c.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dj9i1a/src.c
         clang-22: error: no such file or directory: '/Od'
         ninja: build stopped: subcommand failed.
         
@@ -4250,8 +4250,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_O0"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-og4cxo"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-og4cxo"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-355my3"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-355my3"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4265,11 +4265,11 @@ events:
       variable: "COMPILER_SUPPORTS_O0"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-og4cxo'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-355my3'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e3598
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_O0  -std=gnu11   -O0 -MD -MT CMakeFiles/cmTC_e3598.dir/src.c.obj -MF CMakeFiles\\cmTC_e3598.dir\\src.c.obj.d -o CMakeFiles/cmTC_e3598.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-og4cxo/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_e3598.dir/src.c.obj -o cmTC_e3598.exe -Wl,--out-implib,libcmTC_e3598.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_5d9ff
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_O0  -std=gnu11   -O0 -MD -MT CMakeFiles/cmTC_5d9ff.dir/src.c.obj -MF CMakeFiles\\cmTC_5d9ff.dir\\src.c.obj.d -o CMakeFiles/cmTC_5d9ff.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-355my3/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_5d9ff.dir/src.c.obj -o cmTC_5d9ff.exe -Wl,--out-implib,libcmTC_5d9ff.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4283,8 +4283,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_ggdb"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-wfggbd"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-wfggbd"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-43uzec"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-43uzec"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4298,11 +4298,11 @@ events:
       variable: "COMPILER_SUPPORTS_ggdb"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-wfggbd'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-43uzec'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_bf2d4
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_ggdb  -std=gnu11   -ggdb -MD -MT CMakeFiles/cmTC_bf2d4.dir/src.c.obj -MF CMakeFiles\\cmTC_bf2d4.dir\\src.c.obj.d -o CMakeFiles/cmTC_bf2d4.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-wfggbd/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_bf2d4.dir/src.c.obj -o cmTC_bf2d4.exe -Wl,--out-implib,libcmTC_bf2d4.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_139a0
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_ggdb  -std=gnu11   -ggdb -MD -MT CMakeFiles/cmTC_139a0.dir/src.c.obj -MF CMakeFiles\\cmTC_139a0.dir\\src.c.obj.d -o CMakeFiles/cmTC_139a0.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-43uzec/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_139a0.dir/src.c.obj -o cmTC_139a0.exe -Wl,--out-implib,libcmTC_139a0.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4316,8 +4316,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_fnoomitframepointer"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fymhua"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fymhua"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-m783dd"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-m783dd"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4331,11 +4331,11 @@ events:
       variable: "COMPILER_SUPPORTS_fnoomitframepointer"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fymhua'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-m783dd'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_28f66
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_fnoomitframepointer  -std=gnu11   -fno-omit-frame-pointer -MD -MT CMakeFiles/cmTC_28f66.dir/src.c.obj -MF CMakeFiles\\cmTC_28f66.dir\\src.c.obj.d -o CMakeFiles/cmTC_28f66.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-fymhua/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_28f66.dir/src.c.obj -o cmTC_28f66.exe -Wl,--out-implib,libcmTC_28f66.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_a6562
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCOMPILER_SUPPORTS_fnoomitframepointer  -std=gnu11   -fno-omit-frame-pointer -MD -MT CMakeFiles/cmTC_a6562.dir/src.c.obj -MF CMakeFiles\\cmTC_a6562.dir\\src.c.obj.d -o CMakeFiles/cmTC_a6562.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-m783dd/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_a6562.dir/src.c.obj -o cmTC_a6562.exe -Wl,--out-implib,libcmTC_a6562.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -4349,8 +4349,8 @@ events:
     checks:
       - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kmcogb"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kmcogb"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-8jaa2i"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-8jaa2i"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4364,27 +4364,27 @@ events:
       variable: "CMAKE_HAVE_LIBC_PTHREAD"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kmcogb'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-8jaa2i'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_750e7
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu11 -MD -MT CMakeFiles/cmTC_750e7.dir/src.c.obj -MF CMakeFiles\\cmTC_750e7.dir\\src.c.obj.d -o CMakeFiles/cmTC_750e7.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-kmcogb/src.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_750e7.dir/src.c.obj -o cmTC_750e7.exe -Wl,--out-implib,libcmTC_750e7.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_750e7.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_750e7.dir/src.c.obj -o cmTC_750e7.exe -Wl,--out-implib,libcmTC_750e7.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_08f52
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu11 -MD -MT CMakeFiles/cmTC_08f52.dir/src.c.obj -MF CMakeFiles\\cmTC_08f52.dir\\src.c.obj.d -o CMakeFiles/cmTC_08f52.dir/src.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-8jaa2i/src.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_08f52.dir/src.c.obj -o cmTC_08f52.exe -Wl,--out-implib,libcmTC_08f52.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_08f52.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe  -Wl,--stack,8388608 CMakeFiles/cmTC_08f52.dir/src.c.obj -o cmTC_08f52.exe -Wl,--out-implib,libcmTC_08f52.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         ld.lld: error: undefined symbol: pthread_create
-        >>> referenced by CMakeFiles/cmTC_750e7.dir/src.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_08f52.dir/src.c.obj:(main)
         
         ld.lld: error: undefined symbol: pthread_detach
-        >>> referenced by CMakeFiles/cmTC_750e7.dir/src.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_08f52.dir/src.c.obj:(main)
         
         ld.lld: error: undefined symbol: pthread_cancel
-        >>> referenced by CMakeFiles/cmTC_750e7.dir/src.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_08f52.dir/src.c.obj:(main)
         
         ld.lld: error: undefined symbol: pthread_join
-        >>> referenced by CMakeFiles/cmTC_750e7.dir/src.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_08f52.dir/src.c.obj:(main)
         
         ld.lld: error: undefined symbol: pthread_exit
-        >>> referenced by CMakeFiles/cmTC_750e7.dir/src.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_08f52.dir/src.c.obj:(main)
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
         
@@ -4399,8 +4399,8 @@ events:
     checks:
       - "Looking for pthread_create in pthreads"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-bml471"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-bml471"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58520g"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58520g"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4414,13 +4414,13 @@ events:
       variable: "CMAKE_HAVE_PTHREADS_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-bml471'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58520g'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_0c158
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=pthread_create -std=gnu11 -MD -MT CMakeFiles/cmTC_0c158.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_0c158.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_0c158.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-bml471/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_0c158.dir/CheckFunctionExists.c.obj -o cmTC_0c158.exe -Wl,--out-implib,libcmTC_0c158.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthreads  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_0c158.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_0c158.dir/CheckFunctionExists.c.obj -o cmTC_0c158.exe -Wl,--out-implib,libcmTC_0c158.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthreads  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_ffafc
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=pthread_create -std=gnu11 -MD -MT CMakeFiles/cmTC_ffafc.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_ffafc.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_ffafc.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-58520g/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_ffafc.dir/CheckFunctionExists.c.obj -o cmTC_ffafc.exe -Wl,--out-implib,libcmTC_ffafc.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthreads  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_ffafc.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_ffafc.dir/CheckFunctionExists.c.obj -o cmTC_ffafc.exe -Wl,--out-implib,libcmTC_ffafc.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthreads  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         lld: error: unable to find library -lpthreads
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
@@ -4436,8 +4436,8 @@ events:
     checks:
       - "Looking for pthread_create in pthread"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s1q75f"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s1q75f"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-jnbz2w"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-jnbz2w"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -4451,11 +4451,11 @@ events:
       variable: "CMAKE_HAVE_PTHREAD_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s1q75f'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-jnbz2w'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_dfe7a
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=pthread_create -std=gnu11 -MD -MT CMakeFiles/cmTC_dfe7a.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_dfe7a.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_dfe7a.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s1q75f/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_dfe7a.dir/CheckFunctionExists.c.obj -o cmTC_dfe7a.exe -Wl,--out-implib,libcmTC_dfe7a.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_1f0d2
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=pthread_create -std=gnu11 -MD -MT CMakeFiles/cmTC_1f0d2.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_1f0d2.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_1f0d2.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-jnbz2w/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=pthread_create -Wl,--stack,8388608 CMakeFiles/cmTC_1f0d2.dir/CheckFunctionExists.c.obj -o cmTC_1f0d2.exe -Wl,--out-implib,libcmTC_1f0d2.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lpthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7038,8 +7038,8 @@ events:
     checks:
       - "Looking for atexit"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l8wl0x"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l8wl0x"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-5whym3"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-5whym3"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7053,11 +7053,11 @@ events:
       variable: "HAVE_ATEXIT"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l8wl0x'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-5whym3'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_53372
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=atexit -std=c23 -MD -MT CMakeFiles/cmTC_53372.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_53372.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_53372.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-l8wl0x/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=atexit  CMakeFiles/cmTC_53372.dir/CheckFunctionExists.c.obj -o cmTC_53372.exe -Wl,--out-implib,libcmTC_53372.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_3e354
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=atexit -std=c23 -MD -MT CMakeFiles/cmTC_3e354.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_3e354.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_3e354.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-5whym3/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=atexit  CMakeFiles/cmTC_3e354.dir/CheckFunctionExists.c.obj -o cmTC_3e354.exe -Wl,--out-implib,libcmTC_3e354.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7069,8 +7069,8 @@ events:
     checks:
       - "Looking for mprotect"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-g3591r"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-g3591r"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4bt37s"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4bt37s"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7084,15 +7084,15 @@ events:
       variable: "HAVE_MPROTECT"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-g3591r'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4bt37s'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_a6821
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=mprotect -std=c23 -MD -MT CMakeFiles/cmTC_a6821.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_a6821.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_a6821.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-g3591r/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mprotect  CMakeFiles/cmTC_a6821.dir/CheckFunctionExists.c.obj -o cmTC_a6821.exe -Wl,--out-implib,libcmTC_a6821.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_a6821.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mprotect  CMakeFiles/cmTC_a6821.dir/CheckFunctionExists.c.obj -o cmTC_a6821.exe -Wl,--out-implib,libcmTC_a6821.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_7f194
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=mprotect -std=c23 -MD -MT CMakeFiles/cmTC_7f194.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_7f194.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_7f194.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4bt37s/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mprotect  CMakeFiles/cmTC_7f194.dir/CheckFunctionExists.c.obj -o cmTC_7f194.exe -Wl,--out-implib,libcmTC_7f194.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_7f194.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mprotect  CMakeFiles/cmTC_7f194.dir/CheckFunctionExists.c.obj -o cmTC_7f194.exe -Wl,--out-implib,libcmTC_7f194.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         ld.lld: error: undefined symbol: mprotect
-        >>> referenced by CMakeFiles/cmTC_a6821.dir/CheckFunctionExists.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_7f194.dir/CheckFunctionExists.c.obj:(main)
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
         
@@ -7106,8 +7106,8 @@ events:
     checks:
       - "Looking for sysconf"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zw54jk"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zw54jk"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tw3wab"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tw3wab"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7121,15 +7121,15 @@ events:
       variable: "HAVE_SYSCONF"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zw54jk'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tw3wab'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e12f8
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=sysconf -std=c23 -MD -MT CMakeFiles/cmTC_e12f8.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_e12f8.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_e12f8.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-zw54jk/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=sysconf  CMakeFiles/cmTC_e12f8.dir/CheckFunctionExists.c.obj -o cmTC_e12f8.exe -Wl,--out-implib,libcmTC_e12f8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_e12f8.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=sysconf  CMakeFiles/cmTC_e12f8.dir/CheckFunctionExists.c.obj -o cmTC_e12f8.exe -Wl,--out-implib,libcmTC_e12f8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_cd8b0
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=sysconf -std=c23 -MD -MT CMakeFiles/cmTC_cd8b0.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_cd8b0.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_cd8b0.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-tw3wab/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=sysconf  CMakeFiles/cmTC_cd8b0.dir/CheckFunctionExists.c.obj -o cmTC_cd8b0.exe -Wl,--out-implib,libcmTC_cd8b0.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_cd8b0.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=sysconf  CMakeFiles/cmTC_cd8b0.dir/CheckFunctionExists.c.obj -o cmTC_cd8b0.exe -Wl,--out-implib,libcmTC_cd8b0.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         ld.lld: error: undefined symbol: sysconf
-        >>> referenced by CMakeFiles/cmTC_e12f8.dir/CheckFunctionExists.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_cd8b0.dir/CheckFunctionExists.c.obj:(main)
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
         
@@ -7143,8 +7143,8 @@ events:
     checks:
       - "Looking for getpagesize"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-gprsfd"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-gprsfd"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-44rppl"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-44rppl"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7158,15 +7158,15 @@ events:
       variable: "HAVE_GETPAGESIZE"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-gprsfd'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-44rppl'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_954a5
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=getpagesize -std=c23 -MD -MT CMakeFiles/cmTC_954a5.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_954a5.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_954a5.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-gprsfd/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=getpagesize  CMakeFiles/cmTC_954a5.dir/CheckFunctionExists.c.obj -o cmTC_954a5.exe -Wl,--out-implib,libcmTC_954a5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_954a5.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=getpagesize  CMakeFiles/cmTC_954a5.dir/CheckFunctionExists.c.obj -o cmTC_954a5.exe -Wl,--out-implib,libcmTC_954a5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_1a007
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=getpagesize -std=c23 -MD -MT CMakeFiles/cmTC_1a007.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_1a007.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_1a007.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-44rppl/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=getpagesize  CMakeFiles/cmTC_1a007.dir/CheckFunctionExists.c.obj -o cmTC_1a007.exe -Wl,--out-implib,libcmTC_1a007.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_1a007.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=getpagesize  CMakeFiles/cmTC_1a007.dir/CheckFunctionExists.c.obj -o cmTC_1a007.exe -Wl,--out-implib,libcmTC_1a007.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         ld.lld: error: undefined symbol: getpagesize
-        >>> referenced by CMakeFiles/cmTC_954a5.dir/CheckFunctionExists.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_1a007.dir/CheckFunctionExists.c.obj:(main)
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
         
@@ -7180,8 +7180,8 @@ events:
     checks:
       - "Looking for mmap"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-t27goa"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-t27goa"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-nge84l"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-nge84l"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7195,15 +7195,15 @@ events:
       variable: "HAVE_MMAP"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-t27goa'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-nge84l'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_66297
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=mmap -std=c23 -MD -MT CMakeFiles/cmTC_66297.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_66297.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_66297.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-t27goa/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mmap  CMakeFiles/cmTC_66297.dir/CheckFunctionExists.c.obj -o cmTC_66297.exe -Wl,--out-implib,libcmTC_66297.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_66297.exe 
-        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mmap  CMakeFiles/cmTC_66297.dir/CheckFunctionExists.c.obj -o cmTC_66297.exe -Wl,--out-implib,libcmTC_66297.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_81cdd
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=mmap -std=c23 -MD -MT CMakeFiles/cmTC_81cdd.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_81cdd.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_81cdd.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-nge84l/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mmap  CMakeFiles/cmTC_81cdd.dir/CheckFunctionExists.c.obj -o cmTC_81cdd.exe -Wl,--out-implib,libcmTC_81cdd.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_81cdd.exe 
+        C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=mmap  CMakeFiles/cmTC_81cdd.dir/CheckFunctionExists.c.obj -o cmTC_81cdd.exe -Wl,--out-implib,libcmTC_81cdd.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         ld.lld: error: undefined symbol: mmap
-        >>> referenced by CMakeFiles/cmTC_66297.dir/CheckFunctionExists.c.obj:(main)
+        >>> referenced by CMakeFiles/cmTC_81cdd.dir/CheckFunctionExists.c.obj:(main)
         clang-22: error: linker command failed with exit code 1 (use -v to see invocation)
         ninja: build stopped: subcommand failed.
         
@@ -7217,8 +7217,8 @@ events:
     checks:
       - "Looking for isatty"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-xqb7n7"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-xqb7n7"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hsqimm"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hsqimm"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7232,11 +7232,11 @@ events:
       variable: "HAVE_ISATTY"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-xqb7n7'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hsqimm'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_84c87
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=isatty -std=c23 -MD -MT CMakeFiles/cmTC_84c87.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_84c87.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_84c87.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-xqb7n7/CheckFunctionExists.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=isatty  CMakeFiles/cmTC_84c87.dir/CheckFunctionExists.c.obj -o cmTC_84c87.exe -Wl,--out-implib,libcmTC_84c87.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_dbb13
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -DCHECK_FUNCTION_EXISTS=isatty -std=c23 -MD -MT CMakeFiles/cmTC_dbb13.dir/CheckFunctionExists.c.obj -MF CMakeFiles\\cmTC_dbb13.dir\\CheckFunctionExists.c.obj.d -o CMakeFiles/cmTC_dbb13.dir/CheckFunctionExists.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-hsqimm/CheckFunctionExists.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe -DCHECK_FUNCTION_EXISTS=isatty  CMakeFiles/cmTC_dbb13.dir/CheckFunctionExists.c.obj -o cmTC_dbb13.exe -Wl,--out-implib,libcmTC_dbb13.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7247,8 +7247,8 @@ events:
     checks:
       - "Looking for unistd.h"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-a39jfu"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-a39jfu"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-6xpggy"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-6xpggy"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7262,11 +7262,11 @@ events:
       variable: "HAVE_UNISTD_H"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-a39jfu'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-6xpggy'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_7b5ca
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_7b5ca.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_7b5ca.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_7b5ca.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-a39jfu/CheckIncludeFile.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_7b5ca.dir/CheckIncludeFile.c.obj -o cmTC_7b5ca.exe -Wl,--out-implib,libcmTC_7b5ca.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_edbdf
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_edbdf.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_edbdf.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_edbdf.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-6xpggy/CheckIncludeFile.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_edbdf.dir/CheckIncludeFile.c.obj -o cmTC_edbdf.exe -Wl,--out-implib,libcmTC_edbdf.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7277,8 +7277,8 @@ events:
     checks:
       - "Looking for sys/mman.h"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7292,13 +7292,13 @@ events:
       variable: "HAVE_SYS_MMAN_H"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_e3970
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_e3970.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_e3970.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_e3970.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z/CheckIncludeFile.c
-        FAILED: [code=1] CMakeFiles/cmTC_e3970.dir/CheckIncludeFile.c.obj 
-        C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_e3970.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_e3970.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_e3970.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z/CheckIncludeFile.c
-        C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-9xr87z/CheckIncludeFile.c:1:10: fatal error: 'sys/mman.h' file not found
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_effaf
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_effaf.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_effaf.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_effaf.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e/CheckIncludeFile.c
+        FAILED: [code=1] CMakeFiles/cmTC_effaf.dir/CheckIncludeFile.c.obj 
+        C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_effaf.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_effaf.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_effaf.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e/CheckIncludeFile.c
+        C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-4s0j0e/CheckIncludeFile.c:1:10: fatal error: 'sys/mman.h' file not found
             1 | #include <sys/mman.h>
               |          ^~~~~~~~~~~~
         1 error generated.
@@ -7313,8 +7313,8 @@ events:
     checks:
       - "Looking for stdbool.h"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s3ga6a"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s3ga6a"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-slm9cq"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-slm9cq"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7328,11 +7328,11 @@ events:
       variable: "HAVE_STDBOOL_H"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s3ga6a'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-slm9cq'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_541ac
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_541ac.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_541ac.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_541ac.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-s3ga6a/CheckIncludeFile.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_541ac.dir/CheckIncludeFile.c.obj -o cmTC_541ac.exe -Wl,--out-implib,libcmTC_541ac.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_ec2ff
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_ec2ff.dir/CheckIncludeFile.c.obj -MF CMakeFiles\\cmTC_ec2ff.dir\\CheckIncludeFile.c.obj.d -o CMakeFiles/cmTC_ec2ff.dir/CheckIncludeFile.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-slm9cq/CheckIncludeFile.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_ec2ff.dir/CheckIncludeFile.c.obj -o cmTC_ec2ff.exe -Wl,--out-implib,libcmTC_ec2ff.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7344,8 +7344,8 @@ events:
     checks:
       - "Check if compiler accepts -pthread"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-13xvn0"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-13xvn0"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-lcwtdh"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-lcwtdh"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_SCAN_FOR_MODULES: "ON"
@@ -7359,11 +7359,11 @@ events:
       variable: "THREADS_HAVE_PTHREAD_ARG"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-13xvn0'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-lcwtdh'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_6d915
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_6d915.dir/CheckForPthreads.c.obj -MF CMakeFiles\\cmTC_6d915.dir\\CheckForPthreads.c.obj.d -o CMakeFiles/cmTC_6d915.dir/CheckForPthreads.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-13xvn0/CheckForPthreads.c
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_6d915.dir/CheckForPthreads.c.obj -o cmTC_6d915.exe -Wl,--out-implib,libcmTC_6d915.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -pthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_98ee1
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang.exe   -std=c23 -MD -MT CMakeFiles/cmTC_98ee1.dir/CheckForPthreads.c.obj -MF CMakeFiles\\cmTC_98ee1.dir\\CheckForPthreads.c.obj.d -o CMakeFiles/cmTC_98ee1.dir/CheckForPthreads.c.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-lcwtdh/CheckForPthreads.c
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang.exe   CMakeFiles/cmTC_98ee1.dir/CheckForPthreads.c.obj -o cmTC_98ee1.exe -Wl,--out-implib,libcmTC_98ee1.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -pthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -9248,8 +9248,8 @@ events:
     checks:
       - "Performing Test CXX_SUPPORTS_FLAG_BSYMB_FUNCS"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dr9jmg"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dr9jmg"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ghaawz"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ghaawz"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_FLAGS: ""
@@ -9263,11 +9263,11 @@ events:
       variable: "CXX_SUPPORTS_FLAG_BSYMB_FUNCS"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dr9jmg'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ghaawz'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_75b27
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe -DCXX_SUPPORTS_FLAG_BSYMB_FUNCS  -std=c++11   -Bsymbolic-functions -MD -MT CMakeFiles/cmTC_75b27.dir/src.cxx.obj -MF CMakeFiles\\cmTC_75b27.dir\\src.cxx.obj.d -o CMakeFiles/cmTC_75b27.dir/src.cxx.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-dr9jmg/src.cxx
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe   CMakeFiles/cmTC_75b27.dir/src.cxx.obj -o cmTC_75b27.exe -Wl,--out-implib,libcmTC_75b27.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_67db4
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe -DCXX_SUPPORTS_FLAG_BSYMB_FUNCS  -std=c++11   -Bsymbolic-functions -MD -MT CMakeFiles/cmTC_67db4.dir/src.cxx.obj -MF CMakeFiles\\cmTC_67db4.dir\\src.cxx.obj.d -o CMakeFiles/cmTC_67db4.dir/src.cxx.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-ghaawz/src.cxx
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe   CMakeFiles/cmTC_67db4.dir/src.cxx.obj -o cmTC_67db4.exe -Wl,--out-implib,libcmTC_67db4.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -9280,8 +9280,8 @@ events:
     checks:
       - "Performing Test COMPILER_SUPPORTS_CXX11"
     directories:
-      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e5cpyi"
-      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e5cpyi"
+      source: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cvnvic"
+      binary: "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cvnvic"
     cmakeVariables:
       CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "C:/software/llvm-mingw/bin/clang-scan-deps.exe"
       CMAKE_CXX_FLAGS: " -fno-rtti -fno-exceptions -fno-threadsafe-statics"
@@ -9295,11 +9295,11 @@ events:
       variable: "COMPILER_SUPPORTS_CXX11"
       cached: true
       stdout: |
-        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e5cpyi'
+        Change Dir: 'C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cvnvic'
         
-        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_2075a
-        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe -DCOMPILER_SUPPORTS_CXX11  -fno-rtti -fno-exceptions -fno-threadsafe-statics  -std=c++11   -std=c++11 -MD -MT CMakeFiles/cmTC_2075a.dir/src.cxx.obj -MF CMakeFiles\\cmTC_2075a.dir\\src.cxx.obj.d -o CMakeFiles/cmTC_2075a.dir/src.cxx.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-e5cpyi/src.cxx
-        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe -fno-rtti -fno-exceptions -fno-threadsafe-statics  CMakeFiles/cmTC_2075a.dir/src.cxx.obj -o cmTC_2075a.exe -Wl,--out-implib,libcmTC_2075a.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/software/ninja-win/ninja.exe -v cmTC_8744f
+        [1/2] C:\\software\\llvm-mingw\\bin\\clang++.exe -DCOMPILER_SUPPORTS_CXX11  -fno-rtti -fno-exceptions -fno-threadsafe-statics  -std=c++11   -std=c++11 -MD -MT CMakeFiles/cmTC_8744f.dir/src.cxx.obj -MF CMakeFiles\\cmTC_8744f.dir\\src.cxx.obj.d -o CMakeFiles/cmTC_8744f.dir/src.cxx.obj -c C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/CMakeScratch/TryCompile-cvnvic/src.cxx
+        [2/2] C:\\Windows\\system32\\cmd.exe /C "cd . && C:\\software\\llvm-mingw\\bin\\clang++.exe -fno-rtti -fno-exceptions -fno-threadsafe-statics  CMakeFiles/cmTC_8744f.dir/src.cxx.obj -o cmTC_8744f.exe -Wl,--out-implib,libcmTC_8744f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -

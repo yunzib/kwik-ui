@@ -10,6 +10,8 @@ module kwik.event;
 import kwik.element.view;
 import kwik.core.types;
 import kwik.platform.window;
+import kwik.layout.scroll_view;
+
 import std;
 // ============================================================================
 // 工具函数
@@ -26,6 +28,7 @@ int uiEventTypeToCode(UIEventType t) {
     case UIEventType::PanEnd: return 7;
     case UIEventType::PressBegin: return 8;
     case UIEventType::PressEnd: return 9;
+    case UIEventType::Wheel: return 10;
     }
     return -1;
 }
@@ -137,6 +140,16 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
         }
         break;
     }
+    // ── 滚轮 ─────────────────────────────────────
+    case Event::Type::MouseWheel: {
+        UIEvent wheelEvt;
+        wheelEvt.type = UIEventType::Wheel;
+        wheelEvt.position = pos;
+        wheelEvt.timestamp = ts;
+        wheelEvt.wheelDelta = rawEvent.wheelDelta;
+        result.push_back(wheelEvt);
+        break;
+    }
     default: break;
     }
     // ── 长按超时轮询 ─────────────────────────────────
@@ -180,9 +193,18 @@ bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx)
     if (!root || !ctx) return false;
 
     // ── 预设目标 (HoverEnter/HoverLeave) ──
-    // 手势识别器已确定了目标 View, 直接对该 View 分发,
-    // 不再通过 hitTest 重新定位
     if (event.targetView) { return fireOnView(event.targetView, event, ctx); }
+
+    // ── 滚轮事件 ──
+    if (event.type == UIEventType::Wheel) {
+        std::vector<View *> path;
+        View *target = hitTestWithPath(root, event.position, path);
+        if (target) {
+            fireOnView(target, event, ctx);
+            if (auto *sv = dynamic_cast<ScrollView *>(target)) { sv->applyWheel(event.wheelDelta * 30.0f); }
+        }
+        return true;
+    }
 
     // ── 常规路径: 命中测试 + 捕获/目标/冒泡 ──
     std::vector<View *> path;

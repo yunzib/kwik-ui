@@ -835,24 +835,6 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj.modmap -o examples\\CMakeFiles\\view_example.dir\\view\\view_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\view\\view_example.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/view/view_example.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj"
-},
-{
-  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj.modmap -o examples\\CMakeFiles\\text_example.dir\\text\\text_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\text\\text_example.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/text/text_example.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj"
-},
-{
-  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\event_example.dir\\event\\event_example.cpp.obj.modmap -o examples\\CMakeFiles\\event_example.dir\\event\\event_example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\event\\event_example.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/examples/event/event_example.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj"
-},
-{
-  "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
   "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -g -std=c++26 @examples\\CMakeFiles\\example.dir\\example.cpp.obj.modmap -o examples\\CMakeFiles\\example.dir\\example.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\examples\\example.cpp",
   "file": "C:/ws-code/ws-kwik/kwik-ui/examples/example.cpp",
   "output": "C:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/example.dir/example.cpp.obj"

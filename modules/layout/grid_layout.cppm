@@ -13,6 +13,9 @@ public:
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
+    const char *typeName() const override {
+        return "GridLayout";
+    }
 
 private:
     ContainerProps container_;

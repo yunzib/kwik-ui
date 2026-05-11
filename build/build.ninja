@@ -3448,159 +3448,6 @@ build third_party/harfbuzz/install/strip: phony third_party/harfbuzz/CMakeFiles/
 # =============================================================================
 
 # =============================================================================
-# Object build statements for EXECUTABLE target view_example
-
-
-#############################################
-# Order-only phony target for view_example
-
-build cmake_object_order_depends_target_view_example: phony || cmake_object_order_depends_target___cmake_cxx_std_26 cmake_object_order_depends_target_freetype cmake_object_order_depends_target_kwik_app cmake_object_order_depends_target_kwik_bridge cmake_object_order_depends_target_kwik_core cmake_object_order_depends_target_kwik_element cmake_object_order_depends_target_kwik_engine cmake_object_order_depends_target_kwik_event cmake_object_order_depends_target_kwik_platform cmake_object_order_depends_target_kwik_render cmake_object_order_depends_target_kwik_utils cmake_object_order_depends_target_qjs
-
-build examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj.ddi: CXX_SCAN__view_example_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/view/view_example.cpp || cmake_object_order_depends_target_view_example
-  DEP_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj.ddi.d
-  DYNDEP_INTERMEDIATE_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj.ddi
-  FLAGS = -g -std=c++26
-  OBJ_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj
-  PREPROCESSED_OUTPUT_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj.ddi.i
-
-build examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj: CXX_COMPILER__view_example_scanned_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/view/view_example.cpp | examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj.modmap || cmake_object_order_depends_target_view_example examples/CMakeFiles/view_example.dir/CXX.dd
-  CONFIG = Debug
-  DEP_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj.d
-  DYNDEP_MODULE_MAP_FILE = examples\CMakeFiles\view_example.dir\view\view_example.cpp.obj.modmap
-  FLAGS = -g -std=c++26
-  OBJECT_DIR = examples\CMakeFiles\view_example.dir
-  OBJECT_FILE_DIR = examples\CMakeFiles\view_example.dir\view
-  TARGET_COMPILE_PDB = examples\CMakeFiles\view_example.dir\
-  TARGET_PDB = examples\view_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\view_example.dir
-  dyndep = examples/CMakeFiles/view_example.dir/CXX.dd
-
-build examples/CMakeFiles/view_example.dir/CXX.dd | examples/CMakeFiles/view_example.dir/CXXModules.json examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj.modmap: CXX_DYNDEP__view_example_Debug examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj.ddi | C$:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/view_example.dir/CXXDependInfo.json CMakeFiles/__cmake_cxx_std_26.dir/CXXModules.json CMakeFiles/kwik_app.dir/CXXModules.json CMakeFiles/kwik_bridge.dir/CXXModules.json CMakeFiles/kwik_event.dir/CXXModules.json CMakeFiles/kwik_element.dir/CXXModules.json CMakeFiles/kwik_engine.dir/CXXModules.json CMakeFiles/kwik_render.dir/CXXModules.json CMakeFiles/kwik_platform.dir/CXXModules.json CMakeFiles/kwik_utils.dir/CXXModules.json CMakeFiles/kwik_core.dir/CXXModules.json
-
-
-# =============================================================================
-# Link build statements for EXECUTABLE target view_example
-
-
-#############################################
-# Link the executable examples\view_example.exe
-
-build examples/view_example.exe: CXX_EXECUTABLE_LINKER__view_example_Debug examples/CMakeFiles/view_example.dir/view/view_example.cpp.obj | lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_event.a libkwik_element.a libkwik_engine.a libkwik_render.a libkwik_platform.a libkwik_utils.a libkwik_core.a third_party/freetype/libfreetyped.a third_party/harfbuzz/libharfbuzz.a C$:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib third_party/quickjs/libqjs.a || lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_core.a libkwik_element.a libkwik_engine.a libkwik_event.a libkwik_platform.a libkwik_render.a libkwik_utils.a third_party/freetype/libfreetyped.a third_party/quickjs/libqjs.a
-  CONFIG = Debug
-  FLAGS = -g
-  LINK_LIBRARIES = lib__cmake_cxx_std_26.a  libkwik_app.a  libkwik_bridge.a  libkwik_event.a  libkwik_element.a  libkwik_engine.a  libkwik_render.a  libkwik_platform.a  libkwik_utils.a  libkwik_core.a  -luser32  -lgdi32  third_party/freetype/libfreetyped.a  third_party/harfbuzz/libharfbuzz.a  -pthread  C:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib  third_party/quickjs/libqjs.a  -lpthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
-  OBJECT_DIR = examples\CMakeFiles\view_example.dir
-  POST_BUILD = cd .
-  PRE_LINK = cd .
-  TARGET_COMPILE_PDB = examples\CMakeFiles\view_example.dir\
-  TARGET_FILE = examples\view_example.exe
-  TARGET_IMPLIB = examples\libview_example.dll.a
-  TARGET_PDB = examples\view_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\view_example.dir
-
-# =============================================================================
-# Object build statements for EXECUTABLE target text_example
-
-
-#############################################
-# Order-only phony target for text_example
-
-build cmake_object_order_depends_target_text_example: phony || cmake_object_order_depends_target___cmake_cxx_std_26 cmake_object_order_depends_target_freetype cmake_object_order_depends_target_kwik_app cmake_object_order_depends_target_kwik_bridge cmake_object_order_depends_target_kwik_core cmake_object_order_depends_target_kwik_element cmake_object_order_depends_target_kwik_engine cmake_object_order_depends_target_kwik_event cmake_object_order_depends_target_kwik_platform cmake_object_order_depends_target_kwik_render cmake_object_order_depends_target_kwik_utils cmake_object_order_depends_target_qjs
-
-build examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj.ddi: CXX_SCAN__text_example_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/text/text_example.cpp || cmake_object_order_depends_target_text_example
-  DEP_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj.ddi.d
-  DYNDEP_INTERMEDIATE_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj.ddi
-  FLAGS = -g -std=c++26
-  OBJ_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj
-  PREPROCESSED_OUTPUT_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj.ddi.i
-
-build examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj: CXX_COMPILER__text_example_scanned_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/text/text_example.cpp | examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj.modmap || cmake_object_order_depends_target_text_example examples/CMakeFiles/text_example.dir/CXX.dd
-  CONFIG = Debug
-  DEP_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj.d
-  DYNDEP_MODULE_MAP_FILE = examples\CMakeFiles\text_example.dir\text\text_example.cpp.obj.modmap
-  FLAGS = -g -std=c++26
-  OBJECT_DIR = examples\CMakeFiles\text_example.dir
-  OBJECT_FILE_DIR = examples\CMakeFiles\text_example.dir\text
-  TARGET_COMPILE_PDB = examples\CMakeFiles\text_example.dir\
-  TARGET_PDB = examples\text_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\text_example.dir
-  dyndep = examples/CMakeFiles/text_example.dir/CXX.dd
-
-build examples/CMakeFiles/text_example.dir/CXX.dd | examples/CMakeFiles/text_example.dir/CXXModules.json examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj.modmap: CXX_DYNDEP__text_example_Debug examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj.ddi | C$:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/text_example.dir/CXXDependInfo.json CMakeFiles/__cmake_cxx_std_26.dir/CXXModules.json CMakeFiles/kwik_app.dir/CXXModules.json CMakeFiles/kwik_bridge.dir/CXXModules.json CMakeFiles/kwik_event.dir/CXXModules.json CMakeFiles/kwik_element.dir/CXXModules.json CMakeFiles/kwik_engine.dir/CXXModules.json CMakeFiles/kwik_render.dir/CXXModules.json CMakeFiles/kwik_platform.dir/CXXModules.json CMakeFiles/kwik_utils.dir/CXXModules.json CMakeFiles/kwik_core.dir/CXXModules.json
-
-
-# =============================================================================
-# Link build statements for EXECUTABLE target text_example
-
-
-#############################################
-# Link the executable examples\text_example.exe
-
-build examples/text_example.exe: CXX_EXECUTABLE_LINKER__text_example_Debug examples/CMakeFiles/text_example.dir/text/text_example.cpp.obj | lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_event.a libkwik_element.a libkwik_engine.a libkwik_render.a libkwik_platform.a libkwik_utils.a libkwik_core.a third_party/freetype/libfreetyped.a third_party/harfbuzz/libharfbuzz.a C$:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib third_party/quickjs/libqjs.a || lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_core.a libkwik_element.a libkwik_engine.a libkwik_event.a libkwik_platform.a libkwik_render.a libkwik_utils.a third_party/freetype/libfreetyped.a third_party/quickjs/libqjs.a
-  CONFIG = Debug
-  FLAGS = -g
-  LINK_LIBRARIES = lib__cmake_cxx_std_26.a  libkwik_app.a  libkwik_bridge.a  libkwik_event.a  libkwik_element.a  libkwik_engine.a  libkwik_render.a  libkwik_platform.a  libkwik_utils.a  libkwik_core.a  -luser32  -lgdi32  third_party/freetype/libfreetyped.a  third_party/harfbuzz/libharfbuzz.a  -pthread  C:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib  third_party/quickjs/libqjs.a  -lpthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
-  OBJECT_DIR = examples\CMakeFiles\text_example.dir
-  POST_BUILD = cd .
-  PRE_LINK = cd .
-  TARGET_COMPILE_PDB = examples\CMakeFiles\text_example.dir\
-  TARGET_FILE = examples\text_example.exe
-  TARGET_IMPLIB = examples\libtext_example.dll.a
-  TARGET_PDB = examples\text_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\text_example.dir
-
-# =============================================================================
-# Object build statements for EXECUTABLE target event_example
-
-
-#############################################
-# Order-only phony target for event_example
-
-build cmake_object_order_depends_target_event_example: phony || cmake_object_order_depends_target___cmake_cxx_std_26 cmake_object_order_depends_target_freetype cmake_object_order_depends_target_kwik_app cmake_object_order_depends_target_kwik_bridge cmake_object_order_depends_target_kwik_core cmake_object_order_depends_target_kwik_element cmake_object_order_depends_target_kwik_engine cmake_object_order_depends_target_kwik_event cmake_object_order_depends_target_kwik_platform cmake_object_order_depends_target_kwik_render cmake_object_order_depends_target_kwik_utils cmake_object_order_depends_target_qjs
-
-build examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj.ddi: CXX_SCAN__event_example_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/event/event_example.cpp || cmake_object_order_depends_target_event_example
-  DEP_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj.ddi.d
-  DYNDEP_INTERMEDIATE_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj.ddi
-  FLAGS = -g -std=c++26
-  OBJ_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj
-  PREPROCESSED_OUTPUT_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj.ddi.i
-
-build examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj: CXX_COMPILER__event_example_scanned_Debug C$:/ws-code/ws-kwik/kwik-ui/examples/event/event_example.cpp | examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj.modmap || cmake_object_order_depends_target_event_example examples/CMakeFiles/event_example.dir/CXX.dd
-  CONFIG = Debug
-  DEP_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj.d
-  DYNDEP_MODULE_MAP_FILE = examples\CMakeFiles\event_example.dir\event\event_example.cpp.obj.modmap
-  FLAGS = -g -std=c++26
-  OBJECT_DIR = examples\CMakeFiles\event_example.dir
-  OBJECT_FILE_DIR = examples\CMakeFiles\event_example.dir\event
-  TARGET_COMPILE_PDB = examples\CMakeFiles\event_example.dir\
-  TARGET_PDB = examples\event_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\event_example.dir
-  dyndep = examples/CMakeFiles/event_example.dir/CXX.dd
-
-build examples/CMakeFiles/event_example.dir/CXX.dd | examples/CMakeFiles/event_example.dir/CXXModules.json examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj.modmap: CXX_DYNDEP__event_example_Debug examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj.ddi | C$:/ws-code/ws-kwik/kwik-ui/build/examples/CMakeFiles/event_example.dir/CXXDependInfo.json CMakeFiles/__cmake_cxx_std_26.dir/CXXModules.json CMakeFiles/kwik_app.dir/CXXModules.json CMakeFiles/kwik_bridge.dir/CXXModules.json CMakeFiles/kwik_event.dir/CXXModules.json CMakeFiles/kwik_element.dir/CXXModules.json CMakeFiles/kwik_engine.dir/CXXModules.json CMakeFiles/kwik_render.dir/CXXModules.json CMakeFiles/kwik_platform.dir/CXXModules.json CMakeFiles/kwik_utils.dir/CXXModules.json CMakeFiles/kwik_core.dir/CXXModules.json
-
-
-# =============================================================================
-# Link build statements for EXECUTABLE target event_example
-
-
-#############################################
-# Link the executable examples\event_example.exe
-
-build examples/event_example.exe: CXX_EXECUTABLE_LINKER__event_example_Debug examples/CMakeFiles/event_example.dir/event/event_example.cpp.obj | lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_event.a libkwik_element.a libkwik_engine.a libkwik_render.a libkwik_platform.a libkwik_utils.a libkwik_core.a third_party/freetype/libfreetyped.a third_party/harfbuzz/libharfbuzz.a C$:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib third_party/quickjs/libqjs.a || lib__cmake_cxx_std_26.a libkwik_app.a libkwik_bridge.a libkwik_core.a libkwik_element.a libkwik_engine.a libkwik_event.a libkwik_platform.a libkwik_render.a libkwik_utils.a third_party/freetype/libfreetyped.a third_party/quickjs/libqjs.a
-  CONFIG = Debug
-  FLAGS = -g
-  LINK_LIBRARIES = lib__cmake_cxx_std_26.a  libkwik_app.a  libkwik_bridge.a  libkwik_event.a  libkwik_element.a  libkwik_engine.a  libkwik_render.a  libkwik_platform.a  libkwik_utils.a  libkwik_core.a  -luser32  -lgdi32  third_party/freetype/libfreetyped.a  third_party/harfbuzz/libharfbuzz.a  -pthread  C:/VulkanSDK/1.4.341.1/Lib/vulkan-1.lib  third_party/quickjs/libqjs.a  -lpthread  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
-  OBJECT_DIR = examples\CMakeFiles\event_example.dir
-  POST_BUILD = cd .
-  PRE_LINK = cd .
-  TARGET_COMPILE_PDB = examples\CMakeFiles\event_example.dir\
-  TARGET_FILE = examples\event_example.exe
-  TARGET_IMPLIB = examples\libevent_example.dll.a
-  TARGET_PDB = examples\event_example.pdb
-  TARGET_SUPPORT_DIR = examples\CMakeFiles\event_example.dir
-
-# =============================================================================
 # Object build statements for EXECUTABLE target example
 
 
@@ -3750,10 +3597,6 @@ build api-test: phony third_party/quickjs/api-test.exe
 
 build api-test.exe: phony third_party/quickjs/api-test.exe
 
-build event_example: phony examples/event_example.exe
-
-build event_example.exe: phony examples/event_example.exe
-
 build example: phony examples/example.exe
 
 build example.exe: phony examples/example.exe
@@ -3824,17 +3667,9 @@ build run-test262: phony third_party/quickjs/run-test262.exe
 
 build run-test262.exe: phony third_party/quickjs/run-test262.exe
 
-build text_example: phony examples/text_example.exe
-
-build text_example.exe: phony examples/text_example.exe
-
 build unicode_gen: phony third_party/quickjs/unicode_gen.exe
 
 build unicode_gen.exe: phony third_party/quickjs/unicode_gen.exe
-
-build view_example: phony examples/view_example.exe
-
-build view_example.exe: phony examples/view_example.exe
 
 # =============================================================================
 # Folder targets.
@@ -3886,7 +3721,7 @@ build all: phony libkwik_utils.a libkwik_core.a libkwik_element.a libkwik_platfo
 #############################################
 # Folder: C:/ws-code/ws-kwik/kwik-ui/build/examples
 
-build examples/all: phony examples/view_example.exe examples/text_example.exe examples/event_example.exe examples/example.exe
+build examples/all: phony examples/example.exe
 
 # =============================================================================
 

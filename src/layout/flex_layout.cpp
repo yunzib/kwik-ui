@@ -50,6 +50,7 @@ void FlexLayout::onLayout() {
     struct ChildInfo {
         View *view;
         float mainSz;
+        float crossSz;
     };
     std::vector<ChildInfo> infos;
     for (auto &child : children) {
@@ -58,6 +59,7 @@ void FlexLayout::onLayout() {
         float childFlexBasis = (child->props.flexGrow > 0 && child->props.flexBasis >= 0) ? child->props.flexBasis : 0;
         Size cs = child->measure(Constraints::loose(Size{contentW, contentH}));
         float mainSz = isRow ? cs.width : cs.height;
+        float crossSz = isRow ? cs.height : cs.width; // ← 记录交叉轴
         mainSz = std::max(mainSz, childFlexBasis);
         float marginMain = isRow ? child->props.margin.horizontal() : child->props.margin.vertical();
         if (child->props.flexGrow > 0) {
@@ -65,7 +67,7 @@ void FlexLayout::onLayout() {
         } else {
             totalFixed += mainSz + marginMain;
         }
-        infos.push_back({child.get(), mainSz});
+        infos.push_back({child.get(), mainSz, crossSz});
     }
     float totalGap = (visibleCount > 1) ? container_.gap * (visibleCount - 1) : 0;
     float mainSpace = (isRow ? contentW : contentH);
@@ -114,7 +116,7 @@ void FlexLayout::onLayout() {
         float crossMargin0 = isRow ? info.view->props.margin.top : info.view->props.margin.left;
         float crossMargin1 =
             isRow ? info.view->props.margin.top + info.view->props.margin.bottom : info.view->props.margin.horizontal();
-        float crossSz = isRow ? (info.view->frame.height + crossMargin1) : (info.view->frame.width + crossMargin1);
+        float crossSz = info.crossSz + crossMargin1;
         // 交叉轴对齐
         float crossPos;
         switch (container_.crossAxisAlignment) {
@@ -140,11 +142,9 @@ void FlexLayout::onLayout() {
             break;
         }
         if (isRow) {
-            info.view->layout(
-                Rect{mainCursor + info.view->props.margin.left, crossPos, info.mainSz, info.view->frame.height});
+            info.view->layout(Rect{mainCursor + info.view->props.margin.left, crossPos, info.mainSz, info.crossSz});
         } else {
-            info.view->layout(
-                Rect{crossPos, mainCursor + info.view->props.margin.top, info.view->frame.width, info.mainSz});
+            info.view->layout(Rect{crossPos, mainCursor + info.view->props.margin.top, info.crossSz, info.mainSz});
         }
     NEXT:
         mainCursor += info.mainSz + (isRow ? info.view->props.margin.horizontal() : info.view->props.margin.vertical())

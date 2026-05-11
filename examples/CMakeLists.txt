@@ -56,18 +56,6 @@ if(KWIK_BUILD_EXAMPLES)
     # add_executable(win32_window_example ${CMAKE_SOURCE_DIR}/examples/win32_window_example.cpp)
     # target_link_libraries(win32_window_example PRIVATE kwik)
 
-    # view example
-    add_executable(view_example ${CMAKE_SOURCE_DIR}/examples/view/view_example.cpp)
-    target_link_libraries(view_example PRIVATE kwik)
-
-    # text example
-    add_executable(text_example ${CMAKE_SOURCE_DIR}/examples/text/text_example.cpp)
-    target_link_libraries(text_example PRIVATE kwik)
-
-    # event example — 事件处理演示
-    add_executable(event_example ${CMAKE_SOURCE_DIR}/examples/event/event_example.cpp)
-    target_link_libraries(event_example PRIVATE kwik)
-
     # example
     add_executable(example ${CMAKE_SOURCE_DIR}/examples/example.cpp)
     target_link_libraries(example PRIVATE kwik)

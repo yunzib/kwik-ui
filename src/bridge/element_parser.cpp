@@ -21,6 +21,10 @@ import kwik.element.props;
 import kwik.engine.js_value;
 import kwik.element.text;
 import kwik.element.button;
+import kwik.layout.flex_layout;
+import kwik.layout.grid_layout;
+import kwik.layout.stack_layout;
+import kwik.layout.scroll_view;
 
 import std;
 // ============================================================================
@@ -64,6 +68,18 @@ static struct InitBuiltinTypes {
         });
         ElementParser::registerType("Button", [](const JSValueRef &pv) {
             return std::make_unique<Button>(parseViewProps(pv), parseTextContent(pv), parseButtonState(pv));
+        });
+        // ── 布局容器 ───────────────────────────────────────
+        ElementParser::registerType("Flex", [](const JSValueRef &pv) {
+            return std::make_unique<FlexLayout>(parseViewProps(pv), parseContainerProps(pv));
+        });
+        ElementParser::registerType("Grid", [](const JSValueRef &pv) {
+            return std::make_unique<GridLayout>(parseViewProps(pv), parseContainerProps(pv));
+        });
+        ElementParser::registerType(
+            "Stack", [](const JSValueRef &pv) { return std::make_unique<StackLayout>(parseViewProps(pv)); });
+        ElementParser::registerType("Scroll", [](const JSValueRef &pv) {
+            return std::make_unique<ScrollView>(parseViewProps(pv), parseContainerProps(pv));
         });
     }
 } _init_builtin_types;

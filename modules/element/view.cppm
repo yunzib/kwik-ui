@@ -31,6 +31,7 @@ constexpr int PanMove = 6;    // 拖拽中
 constexpr int PanEnd = 7;     // 拖拽结束
 constexpr int PressBegin = 8; // 按下开始
 constexpr int PressEnd = 9;   // 按下结束
+constexpr int Wheel = 10;     // 滚轮滚动
 } // namespace ViewEventCode
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装

@@ -12,12 +12,16 @@ import kwik.app;
 static std::string resolveDemo(int argc, char *argv[]) {
     if (argc >= 2) {
         std::string arg = argv[1];
-        if (arg == "view") return "../../examples/view/view.js";
-        if (arg == "text") return "../../examples/text/text.js";
-        if (arg == "event") return "../../examples/event/event.js";
+        if (arg == "view") return "../../examples/view.js";
+        if (arg == "text") return "../../examples/text.js";
+        if (arg == "event") return "../../examples/event.js";
+        if (arg == "flex") return "../../examples/flex.js";
+        if (arg == "scroll") return "../../examples/scroll.js";
+        if (arg == "grid") return "../../examples/grid.js";
+        if (arg == "stack") return "../../examples/stack.js";
         return arg;
     }
-    return "../../examples/view/view.js";
+    return "../../examples/view.js";
 }
 
 int main(int argc, char *argv[]) {
