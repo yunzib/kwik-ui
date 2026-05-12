@@ -24,7 +24,7 @@ import kwik.element.button;
 import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
 import kwik.layout.stack_layout;
-import kwik.layout.scroll_view;
+import kwik.layout.list_layout;
 
 import std;
 // ============================================================================
@@ -78,8 +78,29 @@ static struct InitBuiltinTypes {
         });
         ElementParser::registerType(
             "Stack", [](const JSValueRef &pv) { return std::make_unique<StackLayout>(parseViewProps(pv)); });
-        ElementParser::registerType("Scroll", [](const JSValueRef &pv) {
-            return std::make_unique<ScrollView>(parseViewProps(pv), parseContainerProps(pv));
+
+        // ── 列表布局 ───────────────────────────────────────
+        ElementParser::registerType("List", [](const JSValueRef &pv) {
+            auto list = std::make_unique<ListLayout>(parseViewProps(pv), parseContainerProps(pv));
+            if (pv.hasProperty("header")) {
+                auto hdr = pv.getProperty("header");
+                if (hdr.isObject()) {
+                    JSContext *c = hdr.context();
+                    JSValue dup = JS_DupValue(c, hdr.raw());
+                    JSValueRef node(c, dup);
+                    list->header = ElementParser::parseNode(node);
+                }
+            }
+            if (pv.hasProperty("footer")) {
+                auto ftr = pv.getProperty("footer");
+                if (ftr.isObject()) {
+                    JSContext *c = ftr.context();
+                    JSValue dup = JS_DupValue(c, ftr.raw());
+                    JSValueRef node(c, dup);
+                    list->footer = ElementParser::parseNode(node);
+                }
+            }
+            return list;
         });
     }
 } _init_builtin_types;

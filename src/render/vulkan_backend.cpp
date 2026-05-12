@@ -146,10 +146,28 @@ void VulkanBackend::present() {
 void VulkanBackend::setGlobalAlpha(float alpha) {
     globalAlpha_ = std::clamp(alpha, 0.0f, 1.0f);
 }
-void VulkanBackend::pushClipRoundedRect(const Rect &, float) {
+
+void VulkanBackend::pushClipRoundedRect(const Rect &rect, float) {
+    clipStack_.push_back(rect);
+    VkRect2D scissor = {{std::max(0, (int32_t)rect.x), std::max(0, (int32_t)rect.y)},
+                        {(uint32_t)std::max(0.0f, rect.width), (uint32_t)std::max(0.0f, rect.height)}};
+    vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
 }
+
 void VulkanBackend::resetClip() {
+    if (!clipStack_.empty()) clipStack_.pop_back();
+    VkRect2D scissor;
+    if (clipStack_.empty()) {
+        scissor.offset = {0, 0};
+        scissor.extent = swapchainExtent_;
+    } else {
+        const auto &r = clipStack_.back();
+        scissor.offset = {(int32_t)std::max(0.0f, r.x), (int32_t)std::max(0.0f, r.y)};
+        scissor.extent = {(uint32_t)std::max(0.0f, r.width), (uint32_t)std::max(0.0f, r.height)};
+    }
+    vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
 }
+
 void VulkanBackend::clear(const Color &color) {
     VkClearAttachment attachment{};
     attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1096,4 +1114,26 @@ void VulkanBackend::uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32
     vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &cmd);
     vkDestroyBuffer(vkDevice_, staging, nullptr);
     vkFreeMemory(vkDevice_, stagingMem, nullptr);
+}
+
+void VulkanBackend::saveClipState() {
+    clipSaveStack_.push_back(clipStack_);
+}
+
+void VulkanBackend::restoreClipState() {
+    if (!clipSaveStack_.empty()) {
+        clipStack_ = std::move(clipSaveStack_.back());
+        clipSaveStack_.pop_back();
+    }
+    // 重新应用当前栈顶 clip, 不修改 clipStack_
+    VkRect2D scissor;
+    if (clipStack_.empty()) {
+        scissor.offset = {0, 0};
+        scissor.extent = swapchainExtent_;
+    } else {
+        const auto &r = clipStack_.back();
+        scissor.offset = {(int32_t)std::max(0.0f, r.x), (int32_t)std::max(0.0f, r.y)};
+        scissor.extent = {(uint32_t)std::max(0.0f, r.width), (uint32_t)std::max(0.0f, r.height)};
+    }
+    vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
 }

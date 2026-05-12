@@ -126,7 +126,7 @@
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
-		"CMakeFiles/kwik_element.dir/modules/layout/scroll_view.cppm.obj" : 
+		"CMakeFiles/kwik_element.dir/modules/layout/list_layout.cppm.obj" : 
 		{
 			"bmi-only" : false,
 			"compile-features" : [],
@@ -142,7 +142,7 @@
 			],
 			"name" : "cxx_modules",
 			"relative-directory" : "",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/scroll_view.cppm",
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/modules/layout/list_layout.cppm",
 			"type" : "CXX_MODULES",
 			"visibility" : "PUBLIC"
 		},
@@ -216,10 +216,10 @@
 			"language" : "CXX",
 			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/grid_layout.cpp"
 		},
-		"CMakeFiles/kwik_element.dir/src/layout/scroll_view.cpp.obj" : 
+		"CMakeFiles/kwik_element.dir/src/layout/list_layout.cpp.obj" : 
 		{
 			"language" : "CXX",
-			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/scroll_view.cpp"
+			"source" : "C:/ws-code/ws-kwik/kwik-ui/src/layout/list_layout.cpp"
 		},
 		"CMakeFiles/kwik_element.dir/src/layout/stack_layout.cpp.obj" : 
 		{

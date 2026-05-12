@@ -304,12 +304,17 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     // 鼠标滚轮
-    case WM_MOUSEWHEEL:
+    // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
+    // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
+    case WM_MOUSEWHEEL: {
         e.type = Event::Type::MouseWheel;
         e.wheelDelta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;
-        e.x = static_cast<int>(LOWORD(lParam));
-        e.y = static_cast<int>(HIWORD(lParam));
+        POINT pt = { (int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam) };
+        ScreenToClient(hwnd_, &pt);
+        e.x = pt.x;
+        e.y = pt.y;
         break;
+    }
 
     // 键盘事件
     case WM_KEYDOWN:

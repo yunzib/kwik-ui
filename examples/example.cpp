@@ -16,7 +16,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "text") return "../../examples/text.js";
         if (arg == "event") return "../../examples/event.js";
         if (arg == "flex") return "../../examples/flex.js";
-        if (arg == "scroll") return "../../examples/scroll.js";
+        if (arg == "list") return "../../examples/list.js";
         if (arg == "grid") return "../../examples/grid.js";
         if (arg == "stack") return "../../examples/stack.js";
         return arg;

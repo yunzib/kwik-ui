@@ -259,5 +259,11 @@ ContainerProps parseContainerProps(const JSValueRef &props) {
         else if (d == "both")
             result.scrollDir = ScrollDirection::Both;
     }
+
+    if (props.hasProperty("dividerColor")) {
+        result.dividerColor = parseColor(props.getProperty("dividerColor").toString());
+    }
+    if (props.hasProperty("dividerHeight")) { result.dividerHeight = props.getProperty("dividerHeight").toFloat(); }
+
     return result;
 }

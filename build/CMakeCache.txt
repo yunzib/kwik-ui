@@ -299,6 +299,9 @@ CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Test COMPILER_SUPPORTS_Wformat=2
+COMPILER_SUPPORTS_Wformat:UNINITIALIZED=2:INTERNAL=1
+
 //Enable to build 7-Zip source packages
 CPACK_SOURCE_7Z:BOOL=ON
 

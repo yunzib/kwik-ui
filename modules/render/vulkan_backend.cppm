@@ -43,6 +43,8 @@ public:
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
     void drawGlyph(const DrawGlyphCmd &cmd) override;
     void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) override;
+    void saveClipState() override;
+    void restoreClipState() override;
 
     BackendType getType() const override {
         return BackendType::Vulkan;
@@ -116,6 +118,9 @@ private:
     bool createGlyphPipeline();
     bool createGlyphAtlas();
     void cleanupGlyphResources();
+    std::vector<Rect> clipStack_;                  // 裁剪矩形栈
+    std::vector<std::vector<Rect>> clipSaveStack_; // save/restore 裁剪状态栈
+
     // 工具函数
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags props);
     bool createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkBuffer &buffer,

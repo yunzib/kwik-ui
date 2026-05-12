@@ -108,3 +108,8 @@ void SoftwareBackend::drawGlyph(const DrawGlyphCmd &cmd) {
 void SoftwareBackend::uploadGlyphAtlas(const uint8_t *, uint32_t, uint32_t) {
     // 软件后端无需上传纹理
 }
+
+// void SoftwareBackend::saveClipState() {
+// }
+// void SoftwareBackend::restoreClipState() {
+// }

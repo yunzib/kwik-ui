@@ -87,15 +87,6 @@ public:
      */
     static std::unique_ptr<View> parse(const JSValueRef &jsVal);
 
-private:
-    // ==================== 内部实现 ====================
-    /**
-     * @brief 获取类型注册表（Meyer's Singleton）
-     *
-     * C++11 保证局部静态变量的初始化是线程安全的，
-     * 且首次调用时构造，确保内置类型在解析前就绪
-     */
-    static std::unordered_map<std::string, TypeCreator> &creators();
     /**
      * @brief 深度优先递归解析单个 JS 节点
      *
@@ -109,4 +100,14 @@ private:
      * @return 解析完成的组件节点（含所有子节点）
      */
     static std::unique_ptr<View> parseNode(const JSValueRef &jsVal);
+
+private:
+    // ==================== 内部实现 ====================
+    /**
+     * @brief 获取类型注册表（Meyer's Singleton）
+     *
+     * C++11 保证局部静态变量的初始化是线程安全的，
+     * 且首次调用时构造，确保内置类型在解析前就绪
+     */
+    static std::unordered_map<std::string, TypeCreator> &creators();
 };

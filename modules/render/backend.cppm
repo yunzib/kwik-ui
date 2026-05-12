@@ -105,6 +105,9 @@ public:
      */
     virtual void drawShadow(const Rect &rect, float radius, const Shadow &shadow) = 0;
 
+    virtual void saveClipState() = 0;
+    virtual void restoreClipState() = 0;
+
     /**
      * @brief 获取后端类型
      */

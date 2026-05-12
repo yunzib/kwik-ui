@@ -19,7 +19,7 @@ target_sources(kwik_element
             modules/layout/flex_layout.cppm
             modules/layout/grid_layout.cppm
             modules/layout/stack_layout.cppm
-            modules/layout/scroll_view.cppm
+            modules/layout/list_layout.cppm
             
     PRIVATE
         src/element/view.cpp
@@ -29,7 +29,7 @@ target_sources(kwik_element
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
         src/layout/stack_layout.cpp
-        src/layout/scroll_view.cpp
+        src/layout/list_layout.cpp
 )
 
 # 5. 添加依赖（DEPENDS）

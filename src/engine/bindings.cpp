@@ -205,10 +205,10 @@ JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "Stack", props, children);
 }
-JSValue js_scroll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    return makeElement(ctx, "Scroll", props, children);
+    return makeElement(ctx, "List", props, children);
 }
 
 JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
@@ -367,9 +367,9 @@ JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
-        JS_CFUNC_DEF("View", 1, js_view),     JS_CFUNC_DEF("Text", 1, js_text), JS_CFUNC_DEF("Button", 2, js_button),
-        JS_CFUNC_DEF("Flex", 2, js_flex),     JS_CFUNC_DEF("Grid", 2, js_grid), JS_CFUNC_DEF("Stack", 2, js_stack),
-        JS_CFUNC_DEF("Scroll", 2, js_scroll),
+        JS_CFUNC_DEF("View", 1, js_view), JS_CFUNC_DEF("Text", 1, js_text), JS_CFUNC_DEF("Button", 2, js_button),
+        JS_CFUNC_DEF("Flex", 2, js_flex), JS_CFUNC_DEF("Grid", 2, js_grid), JS_CFUNC_DEF("Stack", 2, js_stack),
+        JS_CFUNC_DEF("List", 2, js_list),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

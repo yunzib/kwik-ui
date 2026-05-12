@@ -79,9 +79,9 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\scroll_view.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\scroll_view.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\scroll_view.cpp",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/scroll_view.cpp",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/scroll_view.cpp.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\src\\layout\\list_layout.cpp.obj.modmap -o CMakeFiles\\kwik_element.dir\\src\\layout\\list_layout.cpp.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\src\\layout\\list_layout.cpp",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/src/layout/list_layout.cpp",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/src/layout/list_layout.cpp.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
@@ -127,9 +127,9 @@
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",
-  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\scroll_view.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\scroll_view.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\scroll_view.cppm",
-  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/scroll_view.cppm",
-  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/scroll_view.cppm.obj"
+  "command": "C:\\software\\llvm-mingw\\bin\\clang++.exe -DKWIK_ELEMENT_MODULE -IC:/ws-code/ws-kwik/kwik-ui/third_party/quickjs -g -std=c++26 @CMakeFiles\\kwik_element.dir\\modules\\layout\\list_layout.cppm.obj.modmap -o CMakeFiles\\kwik_element.dir\\modules\\layout\\list_layout.cppm.obj -c C:\\ws-code\\ws-kwik\\kwik-ui\\modules\\layout\\list_layout.cppm",
+  "file": "C:/ws-code/ws-kwik/kwik-ui/modules/layout/list_layout.cppm",
+  "output": "C:/ws-code/ws-kwik/kwik-ui/build/CMakeFiles/kwik_element.dir/modules/layout/list_layout.cppm.obj"
 },
 {
   "directory": "C:/ws-code/ws-kwik/kwik-ui/build",

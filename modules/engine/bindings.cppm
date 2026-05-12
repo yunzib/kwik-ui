@@ -43,7 +43,7 @@ export JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 export JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-export JSValue js_scroll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
 export JSValue js_state_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);

@@ -10,7 +10,7 @@ module kwik.event;
 import kwik.element.view;
 import kwik.core.types;
 import kwik.platform.window;
-import kwik.layout.scroll_view;
+import kwik.layout.list_layout;
 
 import std;
 // ============================================================================
@@ -201,7 +201,12 @@ bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx)
         View *target = hitTestWithPath(root, event.position, path);
         if (target) {
             fireOnView(target, event, ctx);
-            if (auto *sv = dynamic_cast<ScrollView *>(target)) { sv->applyWheel(event.wheelDelta * 30.0f); }
+            for (auto it = path.rbegin(); it != path.rend(); ++it) {
+                if (auto *list = dynamic_cast<ListLayout *>(*it)) {
+                    list->applyWheel(event.wheelDelta * 30.0f);
+                    break;
+                }
+            }
         }
         return true;
     }

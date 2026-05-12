@@ -201,11 +201,11 @@ bool RenderThread::initBackend() {
         // 创建后端实例
         switch (config_.backendType) {
         case BackendType::Vulkan: backend_ = std::make_unique<VulkanBackend>(); break;
-        case BackendType::Software: backend_ = std::make_unique<SoftwareBackend>(); break;
+        // case BackendType::Software: backend_ = std::make_unique<SoftwareBackend>(); break;
         default:
             // 回退到软件渲染
-            backend_ = std::make_unique<SoftwareBackend>();
-            config_.backendType = BackendType::Software;
+            // backend_ = std::make_unique<SoftwareBackend>();
+            // config_.backendType = BackendType::Software;
             break;
         }
 
@@ -303,8 +303,10 @@ void RenderThread::executeCommand(const Command &cmd) {
                 backend_->drawShadow(arg.rect, arg.radius, arg.shadow);
             } else if constexpr (std::is_same_v<T, SaveStateCmd>) {
                 // 状态保存由后端处理（如果需要）
+                backend_->saveClipState();
             } else if constexpr (std::is_same_v<T, RestoreStateCmd>) {
                 // 状态恢复由后端处理（如果需要）
+                backend_->restoreClipState();
             } else if constexpr (std::is_same_v<T, TranslateCmd>) {
                 // 变换已由主线程应用，这里无需处理
             } else if constexpr (std::is_same_v<T, ScaleCmd>) {

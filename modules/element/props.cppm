@@ -116,4 +116,8 @@ export struct ContainerProps {
     int gridCols = 1, gridRows = 1;
     float columnGap = 0.0f, rowGap = 0.0f;
     ScrollDirection scrollDir = ScrollDirection::Vertical;
+
+    // ── 列表专属 ──
+    Color dividerColor;      // 分割线颜色（空=不绘制）
+    float dividerHeight = 0; // 分割线高度
 };
