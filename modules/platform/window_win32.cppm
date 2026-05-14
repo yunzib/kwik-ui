@@ -24,6 +24,7 @@ public:
     void Show() override;
     void Hide() override;
     void GetSize(int *width, int *height) const override;
+    float GetDpiScale() const override;
     // 软件渲染
     bool LockBackBuffer(void **pixels, int *stride) override;
     void UnlockBackBuffer() override;

@@ -84,8 +84,8 @@ void Graphics::restore() {
 }
 
 void Graphics::translate(float dx, float dy) {
-    currentState_.tx += dx;
-    currentState_.ty += dy;
+    currentState_.tx += dx * currentState_.sx;
+    currentState_.ty += dy * currentState_.sy;
     addCommand(TranslateCmd{dx, dy});
 }
 

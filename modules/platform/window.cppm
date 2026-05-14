@@ -88,6 +88,13 @@ public:
      * @brief 获取窗口大小
      */
     virtual void GetSize(int *width, int *height) const = 0;
+
+    /**
+     * @brief 获取当前 DPI 缩放比例 (物理像素 / 逻辑像素)
+     * @return 96 DPI 时为 1.0, 192 DPI 时为 2.0
+     */
+    virtual float GetDpiScale() const = 0;
+
     // ==================== 渲染接口（软件方式） ====================
 
     /**

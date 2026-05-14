@@ -63,5 +63,6 @@ private:
     std::string cachedText_;
     std::string cachedFontPath_;
     FontMetrics cachedMetrics_;
+    uint32_t cachedAtlasVersion_ = 0;
     bool needReshapeText(const std::string &fontPath) const;
 };

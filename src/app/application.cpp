@@ -88,9 +88,8 @@ void Application::rebuildTree() {
     if (tree_) {
         int w, h;
         window_.GetSize(&w, &h);
-        auto sz = Size{static_cast<float>(w), static_cast<float>(h)};
-        tree_->measure(Constraints::loose(sz));
-        tree_->layout(Rect(0, 0, sz.width, sz.height));
+        float dpi = window_.GetDpiScale();
+        auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
     }
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();
@@ -104,6 +103,7 @@ void Application::renderFrame() {
     Graphics canvas(&cmdBuffer);
     canvas.beginFrame();
     canvas.clear(Color{255, 255, 255, 255});
+    canvas.scale(window_.GetDpiScale(), window_.GetDpiScale());
     tree_->draw(canvas);
     canvas.endFrame();
     renderThread_.commandQueue().submit();
@@ -128,7 +128,8 @@ int Application::run() {
         if (e.type == Event::Type::WindowResize) {
             if (e.width > 0 && e.height > 0) {
                 renderThread_.submitWindowEvent(e);
-                auto sz = Size{static_cast<float>(e.width), static_cast<float>(e.height)};
+                float dpi = window_.GetDpiScale();
+                auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
                 tree_->measure(Constraints::loose(sz));
                 tree_->layout(Rect(0, 0, sz.width, sz.height));
                 eventProc_.reset();

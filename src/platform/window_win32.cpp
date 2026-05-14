@@ -1,5 +1,10 @@
 module; // 全局模块片段开始
 
+// DPI 感知: 高 DPI 屏上使用物理像素，避免坐标空间错位导致模糊
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((HANDLE) - 4)
+#endif
+
 #include <windows.h>
 #include <map>
 
@@ -22,6 +27,22 @@ PlatformWindowWin32::~PlatformWindowWin32() {
 // 窗口生命周期
 // ============================================================================
 bool PlatformWindowWin32::Create(const std::string &title, int width, int height) {
+    // DPI 感知
+    {
+        typedef BOOL(WINAPI *PfnSetProcessDpiAwarenessContext)(HANDLE);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        if (hUser32) {
+            auto pfn = (PfnSetProcessDpiAwarenessContext)
+                GetProcAddress(hUser32, "SetProcessDpiAwarenessContext");
+            if (pfn) pfn((HANDLE)(-4));
+        }
+    }
+    // DPI 缩放: 用户逻辑尺寸 → 物理像素
+    HDC hdc = GetDC(nullptr);
+    float dpiScale = (float)GetDeviceCaps(hdc, LOGPIXELSX) / 96.0f;
+    ReleaseDC(nullptr, hdc);
+    int scaledW = (int)(width * dpiScale);
+    int scaledH = (int)(height * dpiScale);
     // 注册窗口类
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
@@ -31,34 +52,26 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     wc.lpszClassName = L"KwikUIWindowClass";
-
     RegisterClassExW(&wc);
-    // 计算窗口大小（包含边框）
-    RECT rect = {0, 0, width, height};
+    // 窗口尺寸含装饰
+    RECT rect = {0, 0, scaledW, scaledH};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
-
-    // 居中显示
+    // 居中
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     int posX = (screenWidth - windowWidth) / 2;
     int posY = (screenHeight - windowHeight) / 2;
-    // 创建窗口
-    // std::wstring wtitle(title.begin(), title.end());
     std::wstring wtitle = Utf8ToWide(title);
-
-    hwnd_ = CreateWindowExW(0, L"KwikUIWindowClass", wtitle.c_str(), WS_OVERLAPPEDWINDOW, posX, posY, windowWidth,
-                            windowHeight, nullptr, nullptr, GetModuleHandle(nullptr), this);
-
-    if (!hwnd_) { return false; }
-    // 注册到全局映射
+    hwnd_ = CreateWindowExW(0, L"KwikUIWindowClass", wtitle.c_str(), WS_OVERLAPPEDWINDOW,
+                            posX, posY, windowWidth, windowHeight,
+                            nullptr, nullptr, GetModuleHandle(nullptr), this);
+    if (!hwnd_) return false;
     g_windowMap[hwnd_] = this;
     hdc_ = GetDC(hwnd_);
-    width_ = width;
-    height_ = height;
-
+    width_ = scaledW;
+    height_ = scaledH;
     return true;
 }
 
@@ -309,7 +322,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     case WM_MOUSEWHEEL: {
         e.type = Event::Type::MouseWheel;
         e.wheelDelta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;
-        POINT pt = { (int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam) };
+        POINT pt = {(int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam)};
         ScreenToClient(hwnd_, &pt);
         e.x = pt.x;
         e.y = pt.y;
@@ -359,4 +372,19 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
 
     callback_(e);
     return 0;
+}
+
+float PlatformWindowWin32::GetDpiScale() const {
+    if (hwnd_) {
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        if (hUser32) {
+            auto pfn = (UINT(WINAPI *)(HWND))GetProcAddress(hUser32, "GetDpiForWindow");
+            if (pfn) return pfn(hwnd_) / 96.0f;
+        }
+        HDC hdc = GetDC(hwnd_);
+        float dpi = (float)GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd_, hdc);
+        return dpi / 96.0f;
+    }
+    return 1.0f;
 }

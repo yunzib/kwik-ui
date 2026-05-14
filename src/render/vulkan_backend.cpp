@@ -100,7 +100,7 @@ bool VulkanBackend::beginFrame() {
     rpInfo.renderArea.extent = swapchainExtent_;
     rpInfo.clearValueCount = 1;
     VkClearValue cv{};
-    cv.color = {{clearColor_.r / 255.f, clearColor_.g / 255.f, clearColor_.b / 255.f, clearColor_.a / 255.f}};
+    cv.color = {{clearColor_.b / 255.f, clearColor_.g / 255.f, clearColor_.r / 255.f, clearColor_.a / 255.f}};
     rpInfo.pClearValues = &cv;
     vkCmdBeginRenderPass(commandBuffers_[currentImageIndex_], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
     VkViewport vp{};
@@ -171,9 +171,9 @@ void VulkanBackend::resetClip() {
 void VulkanBackend::clear(const Color &color) {
     VkClearAttachment attachment{};
     attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    attachment.clearValue.color = {{
-        color.r / 255.f, color.b / 255.f, color.g / 255.f, color.a / 255.f // ← 注意 BGR 顺序
-    }};
+    // 说明：shader 输出 outColor 的 .rgb 按 RGBA 逻辑顺序写入，硬件自动转换到 B8G8R8A8 格式。VkClearValue 不受 shader
+    // 影响，必须直接按格式通道顺序填入
+    attachment.clearValue.color = {{color.b / 255.f, color.g / 255.f, color.r / 255.f, color.a / 255.f}};
     VkClearRect clearRect{};
     clearRect.rect.extent = swapchainExtent_;
     clearRect.layerCount = 1;
