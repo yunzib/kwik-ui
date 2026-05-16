@@ -112,6 +112,11 @@ public:
      * @return 字体度量结构体
      */
     FontMetrics getMetrics(float fontSize) const;
+
+    uint32_t atlasVersion() const {
+        return atlasVersion_;
+    }
+
     /**
      * @brief 对文本进行 HarfBuzz 排版, 并在每个字形中填充图集 UV 坐标
      * @param text      UTF-8 文本
@@ -168,26 +173,7 @@ public:
 private:
     FontManager();
     ~FontManager();
-    // ── 图集常量 ──
-    static constexpr uint32_t kAtlasSize = 1024;
-    static constexpr uint32_t kSDFBaseSize = 64;
-    static constexpr uint32_t kSDFSpread = 8;
-    static constexpr uint32_t kGlyphCellSize = kSDFBaseSize + 2 * kSDFSpread;
-    static constexpr uint32_t kGlyphsPerRow = kAtlasSize / kGlyphCellSize;
-    static constexpr uint32_t kMaxSlots = kGlyphsPerRow * kGlyphsPerRow;
-    // ── 字形缓存键 ──
-    struct GlyphKey {
-        uint32_t glyph;
-        float fontSize;
-        bool operator==(const GlyphKey &o) const {
-            return glyph == o.glyph && fontSize == o.fontSize;
-        }
-    };
-    struct GlyphKeyHash {
-        size_t operator()(const GlyphKey &k) const {
-            return std::hash<uint32_t>{}(k.glyph) ^ (std::hash<float>{}(k.fontSize) << 1);
-        }
-    };
+
     /**
      * @brief 将字形渲染为 SDF 并写入图集
      * @param glyphIndex FreeType 字形索引
@@ -201,6 +187,29 @@ private:
      * @param atlasH   字形高度
      */
     void markDirtyRegion(uint32_t atlasRow, uint32_t atlasH);
+
+    // ── 字形缓存键 ──
+    struct GlyphKey {
+        uint32_t glyph;
+        float fontSize;
+        bool operator==(const GlyphKey &o) const {
+            return glyph == o.glyph && fontSize == o.fontSize;
+        }
+    };
+    struct GlyphKeyHash {
+        size_t operator()(const GlyphKey &k) const {
+            return std::hash<uint32_t>{}(k.glyph) ^ (std::hash<float>{}(k.fontSize) << 1);
+        }
+    };
+    // ── 货架分配器 (替换固定格子) ──
+    struct ShelfRow {
+        uint32_t y;         // 本行在 atla 中的 Y 起点
+        uint32_t nextX;     // 下一个可用 X
+        uint32_t rowHeight; // 本行最大字形高度
+    };
+
+    // ── 图集常量 ──
+    static constexpr uint32_t kAtlasSize = 2048;
     // ── FreeType / HarfBuzz ──
     FT_Library ftLib_ = nullptr;
     FT_Face ftFace_ = nullptr;
@@ -214,8 +223,9 @@ private:
     // ── 脏区域追踪 (替代原 bool atlasDirty_) ──
     uint32_t atlasDirtyMinRow_ = kAtlasSize;
     uint32_t atlasDirtyMaxRow_ = 0;
-    // ── 槽位分配 ──
-    uint32_t atlasSlot_ = 0;
     // ── 字形缓存 ──
     std::unordered_map<GlyphKey, GlyphInfo, GlyphKeyHash> glyphCache_;
+    uint32_t atlasVersion_ = 0; // 绕回时递增, Text 用它检测 UV 失效
+    std::vector<ShelfRow> shelves_;
+    uint32_t shelfCurrentY_ = 0; // 无可匹配货架时, 新行的 Y 起点
 };

@@ -25,8 +25,10 @@ EdgeInsets parseEdgeInsets(const JSValueRef &value) {
             float v = value.getArrayElement(1).toFloat();
             return EdgeInsets(h, v);
         } else if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(0).toFloat(), value.getArrayElement(1).toFloat(),
-                              value.getArrayElement(2).toFloat(), value.getArrayElement(3).toFloat());
+            return EdgeInsets(value.getArrayElement(1).toFloat(),  // top
+                              value.getArrayElement(2).toFloat(),  // right
+                              value.getArrayElement(3).toFloat(),  // bottom
+                              value.getArrayElement(0).toFloat()); // left
         }
     }
 

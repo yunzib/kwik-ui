@@ -37,6 +37,7 @@ Size Text::onMeasure(Constraints constraints) {
         cachedFontSize_ = text_.fontSize;
         cachedText_ = text_.text;
         cachedFontPath_ = fontPath;
+        cachedAtlasVersion_ = fm.atlasVersion(); // 保存版本号
     }
     // 使用缓存的度量信息
     auto sz = constraints.constrain({cachedAdvance_, cachedMetrics_.lineHeight});
@@ -48,6 +49,7 @@ Size Text::onMeasure(Constraints constraints) {
 void Text::onDraw(Graphics &graphics) {
     const auto &p = text_;
     if (p.text.empty() || !props.visible) return;
+
     if (shapedGlyphsCache_.empty()) return;
     graphics.save();
     graphics.translate(frame.x, frame.y + cachedMetrics_.ascender); // 使用缓存

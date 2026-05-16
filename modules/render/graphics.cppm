@@ -50,9 +50,9 @@ public:
     // 绘制命令
     void clear(const Color &color);
     void drawRect(const Rect &rect, const Color &color);
-    void drawRoundedRect(const Rect &rect, float radius, const Color &color);
-    void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
-    void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
+    void drawRoundedRect(const Rect &rect, float radius, const Color &color);                          // 填充圆角矩形
+    void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth); // 圆角矩形描边
+    void drawShadow(const Rect &rect, float radius, const Shadow &shadow);                             // 绘制阴影
     void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
                   const Color &color);
     /**
@@ -95,9 +95,9 @@ private:
     int height_ = 0;
 
     struct State {
-        float tx = 0.0f, ty = 0.0f;
-        float sx = 1.0f, sy = 1.0f;
-        float opacity = 1.0f;
+        float tx = 0.0f, ty = 0.0f; // 坐标平移量
+        float sx = 1.0f, sy = 1.0f; // 缩放因子
+        float opacity = 1.0f;       // 全局透明度
     };
     std::vector<State> stateStack_;
     State currentState_;

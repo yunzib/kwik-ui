@@ -73,7 +73,14 @@ bool Application::init() {
     }
     // ⑤ 首次布局
     auto sz = Size{static_cast<float>(config_.width), static_cast<float>(config_.height)};
-    tree_->measure(Constraints::loose(sz));
+    // tree_->measure(Constraints::loose(sz));
+    // ← 新增: measure 循环, 确保图集稳定
+    uint32_t prevVersion;
+    do {
+        prevVersion = fm.atlasVersion();
+        tree_->measure(Constraints::loose(sz));
+    } while (fm.atlasVersion() != prevVersion);
+
     tree_->layout(Rect(0, 0, sz.width, sz.height));
     ElementParser::printTree(tree_.get());
     // ⑥ 事件系统
@@ -130,7 +137,15 @@ int Application::run() {
                 renderThread_.submitWindowEvent(e);
                 float dpi = window_.GetDpiScale();
                 auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
-                tree_->measure(Constraints::loose(sz));
+
+                // ← 新增: measure 循环, 确保图集稳定
+                auto &fm = FontManager::instance();
+                uint32_t prevVersion;
+                do {
+                    prevVersion = fm.atlasVersion();
+                    tree_->measure(Constraints::loose(sz));
+                } while (fm.atlasVersion() != prevVersion);
+
                 tree_->layout(Rect(0, 0, sz.width, sz.height));
                 eventProc_.reset();
             }
@@ -148,6 +163,14 @@ int Application::run() {
         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         window_.PollEvents();
         if (jsCtx_.isRenderNeeded()) rebuildTree();
+
+        for (auto &child : tree_->children) {
+            if (strcmp(child->typeName(), "View") == 0) {
+                printf("  View frame: %.0fx%.0f @ (%.0f,%.0f)\n", child->frame.width, child->frame.height,
+                       child->frame.x, child->frame.y);
+            }
+        }
+
         renderFrame();
         frameCount++;
         auto now = std::chrono::high_resolution_clock::now();

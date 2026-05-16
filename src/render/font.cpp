@@ -33,7 +33,6 @@ FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
     if (err) ftLib_ = nullptr;
     atlasData_.resize(kAtlasSize * kAtlasSize, 0);
-    atlasSlot_ = 0;
 }
 FontManager::~FontManager() {
     if (hbFont_) {
@@ -67,7 +66,8 @@ bool FontManager::loadFont(const char *path, int faceIndex) {
     }
     // 清空全部缓存和前一次脏区
     glyphCache_.clear();
-    atlasSlot_ = 0;
+    shelves_.clear();
+    shelfCurrentY_ = 0; 
     atlasDirtyMinRow_ = kAtlasSize;
     atlasDirtyMaxRow_ = 0;
     std::memset(atlasData_.data(), 0, atlasData_.size());
@@ -176,41 +176,72 @@ GlyphInfo FontManager::getGlyphInfo(uint32_t glyphIndex, float fontSize) {
     glyphCache_[key] = info;
     return info;
 }
+
+//  	原固定格子	货架分配器
+// 槽位粒度	固定 80×80	按字形实际尺寸
+// 容量@2048	625	~3000-4000
+// 空间利用率	~15%	~65%
+// 满时行为	绕回覆盖	整体重置 + 版本递增
 void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &info) {
     if (!ftFace_) return;
-    // ① FreeType 加载并渲染 SDF
+    // ① FreeType 加载并渲染 SDF (不变)
     FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)fontSize);
     FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_DEFAULT);
     FT_Render_Glyph(ftFace_->glyph, FT_RENDER_MODE_SDF);
     FT_Bitmap &bmp = ftFace_->glyph->bitmap;
-    // ② 填充元信息
+    // ② 填充元信息 (不变)
     info.glyphIndex = glyphIndex;
     info.atlasW = bmp.width;
     info.atlasH = bmp.rows;
     info.bearingX = ftFace_->glyph->bitmap_left;
     info.bearingY = ftFace_->glyph->bitmap_top;
     info.advanceX = ftFace_->glyph->advance.x / 64.0f;
-    // ③ 图集槽位分配 — 溢出保护
-    if (atlasSlot_ >= kMaxSlots) {
-        // 超出上限: 环绕回 0, 旧字形会被覆盖但缓存已包含它们的位置信息
-        // 重新渲染时会更新; 图集整体设为脏
-        atlasSlot_ = 0;
-        atlasDirtyMinRow_ = 0;
-        atlasDirtyMaxRow_ = kAtlasSize;
+    // ③ 货架分配器 (替换原固定格子分配)
+    uint32_t w = bmp.width;
+    uint32_t h = bmp.rows;
+    const uint32_t kPad = 2;  // 字形间 2px 间隔防渗色
+    // ── 步骤 1: 找最佳匹配货架 (高度最贴近, 减少垂直浪费) ──
+    ShelfRow *best = nullptr;
+    uint32_t bestH = UINT32_MAX;
+    for (auto &s : shelves_) {
+        if (h <= s.rowHeight && s.nextX + w + kPad <= kAtlasSize) {
+            if (s.rowHeight < bestH) {
+                best = &s;
+                bestH = s.rowHeight;
+            }
+        }
     }
-    uint32_t row = atlasSlot_ / kGlyphsPerRow;
-    uint32_t col = atlasSlot_ % kGlyphsPerRow;
-    info.atlasX = col * kGlyphCellSize;
-    info.atlasY = row * kGlyphCellSize;
-    // ④ 将 SDF 位图写入图集
+    if (best) {
+        // ── 放入现有货架 ──
+        info.atlasX = best->nextX;
+        info.atlasY = best->y;
+        best->nextX += w + kPad;
+    } else {
+        // ── 需要在底部开新货架 ──
+        if (shelfCurrentY_ + h + kPad > kAtlasSize) {
+            // ★ 图集满: 清空全部缓存, 版本递增, measure 循环将重排所有 Text
+            shelfCurrentY_ = 0;
+            shelves_.clear();
+            atlasDirtyMinRow_ = 0;
+            atlasDirtyMaxRow_ = kAtlasSize;
+            glyphCache_.clear();
+            atlasVersion_++;
+            std::memset(atlasData_.data(), 0, atlasData_.size());
+        }
+        info.atlasX = 0;
+        info.atlasY = shelfCurrentY_;
+        ShelfRow newRow{shelfCurrentY_, w + kPad, h};
+        shelves_.push_back(newRow);
+        shelfCurrentY_ += h + kPad;
+    }
+    // ④ 将 SDF 位图写入图集 (不变)
     for (unsigned int y = 0; y < (unsigned int)bmp.rows; y++) {
         unsigned char *src = bmp.buffer + y * (unsigned int)bmp.pitch;
         uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
         std::memcpy(dst, src, (size_t)bmp.width);
     }
-    // ⑤ 更新脏区域
+    // ⑤ 更新脏区域 (不变)
     markDirtyRegion(info.atlasY, info.atlasH);
-    atlasSlot_++;
 }
 // ============================================================================
 // 脏区域追踪

@@ -105,7 +105,7 @@ Size View::onMeasure(Constraints constraints) {
         for (auto &child : children) {
             Size childSize = child->measure(childConstraints);
             maxChildWidth = std::max(maxChildWidth, childSize.width);
-            totalChildHeight += childSize.height;
+            totalChildHeight += childSize.height + child->props.margin.vertical();
         }
         if (!props.width.has_value()) w = maxChildWidth + props.padding.horizontal();
         if (!props.height.has_value()) h = totalChildHeight + props.padding.vertical();

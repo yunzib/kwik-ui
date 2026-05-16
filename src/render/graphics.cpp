@@ -106,7 +106,7 @@ void Graphics::setOpacity(float opacity) {
 
 void Graphics::clipRoundedRect(const Rect &rect, float radius) {
     Rect transformed = transformRect(rect);
-    addCommand(ClipRoundedRectCmd{transformed, radius});
+    addCommand(ClipRoundedRectCmd{transformed, radius * currentState_.sx});
 }
 
 void Graphics::resetClip() {
@@ -131,20 +131,20 @@ void Graphics::drawRect(const Rect &rect, const Color &color) {
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {
     Rect transformed = transformRect(rect);
     Color transformedColor = applyOpacity(color);
-    addCommand(FillRoundedRectCmd{transformed, radius, transformedColor});
+    addCommand(FillRoundedRectCmd{transformed, radius * currentState_.sx, transformedColor});
 }
 
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     Rect transformed = transformRect(rect);
     Color transformedColor = applyOpacity(color);
-    addCommand(StrokeRoundedRectCmd{transformed, radius, transformedColor, strokeWidth});
+    addCommand(StrokeRoundedRectCmd{transformed, radius * currentState_.sx, transformedColor, strokeWidth * currentState_.sx});
 }
 
 void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
     Rect transformed = transformRect(rect);
     Shadow transformedShadow = shadow;
     transformedShadow.color = applyOpacity(shadow.color);
-    addCommand(DrawShadowCmd{transformed, radius, transformedShadow});
+    addCommand(DrawShadowCmd{transformed, radius * currentState_.sx, transformedShadow});
 }
 
 void Graphics::drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,

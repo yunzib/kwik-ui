@@ -111,6 +111,13 @@ bool VulkanBackend::beginFrame() {
     VkRect2D scissor{};
     scissor.extent = swapchainExtent_;
     vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
+
+    // ← 新增: 每帧重置 clip 栈, 防止父view 背景消失
+    // 每个 command buffer 的生命周期开始于 beginFrame，此时的 clipStack_ 应视为空。Vulkan 的 vkCmdSetScissor 已重置了
+    // GPU 端的 scissor， 但 CPU 端的 clipStack_ 若残留上帧的状态，下一帧的 saveClipState/restoreClipState
+    // 会基于错误基线操作。
+    clipStack_.clear();
+    clipSaveStack_.clear();
     return true;
 }
 void VulkanBackend::endFrame() {
@@ -883,7 +890,7 @@ bool VulkanBackend::createGlyphPipeline() {
     return r == VK_SUCCESS;
 }
 bool VulkanBackend::createGlyphAtlas() {
-    uint32_t atlasW = 1024, atlasH = 1024;
+    uint32_t atlasW = 2048, atlasH = 2048;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
     imgInfo.format = VK_FORMAT_R8_UNORM;
