@@ -94,6 +94,10 @@ public:
      * @return 96 DPI 时为 1.0, 192 DPI 时为 2.0
      */
     virtual float GetDpiScale() const = 0;
+    /**
+     * @brief 获取主显示器工作区尺寸（不含任务栏），可在 Create() 前调用
+     */
+    virtual void GetScreenWorkArea(int *width, int *height) = 0;
 
     // ==================== 渲染接口（软件方式） ====================
 

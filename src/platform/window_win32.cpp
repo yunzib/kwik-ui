@@ -11,6 +11,7 @@ module; // 全局模块片段开始
 module kwik.platform.win32_window;
 
 import kwik.utils.string_utils;
+import kwik.core.log;
 
 // 全局窗口映射：HWND -> 对象指针
 static std::map<HWND, PlatformWindowWin32 *> g_windowMap;
@@ -29,18 +30,38 @@ PlatformWindowWin32::~PlatformWindowWin32() {
 bool PlatformWindowWin32::Create(const std::string &title, int width, int height) {
     // DPI 感知
     {
-        typedef BOOL(WINAPI *PfnSetProcessDpiAwarenessContext)(HANDLE);
+        typedef BOOL(WINAPI * PfnSetProcessDpiAwarenessContext)(HANDLE);
         HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
         if (hUser32) {
-            auto pfn = (PfnSetProcessDpiAwarenessContext)
-                GetProcAddress(hUser32, "SetProcessDpiAwarenessContext");
+            auto pfn = (PfnSetProcessDpiAwarenessContext)GetProcAddress(hUser32, "SetProcessDpiAwarenessContext");
             if (pfn) pfn((HANDLE)(-4));
         }
     }
+
+    // 保存原始设计尺寸，供后续 DPI/屏幕切换时重新计算窗口大小
+    designWidth_  = width;
+    designHeight_ = height;
+   
     // DPI 缩放: 用户逻辑尺寸 → 物理像素
     HDC hdc = GetDC(nullptr);
     float dpiScale = (float)GetDeviceCaps(hdc, LOGPIXELSX) / 96.0f;
     ReleaseDC(nullptr, hdc);
+
+    // 屏幕适配：以 1920×1080 逻辑工作区为基准，自动缩放窗口，
+    // 使窗口跨屏保持一致的占比（800/1920 ≈ 41.7%）
+    // 高 DPI 小屏 → 缩小；低 DPI 大屏 → 放大
+    {
+        RECT workArea;
+        if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0)) {
+            int logicalW = (int)((workArea.right - workArea.left) / dpiScale);
+            if (logicalW > 0) {
+                float scale = (float)logicalW / 1920.0f;
+                width  = (int)(width  * scale);
+                height = (int)(height * scale);
+            }
+        }
+    }
+
     int scaledW = (int)(width * dpiScale);
     int scaledH = (int)(height * dpiScale);
     // 注册窗口类
@@ -64,9 +85,8 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     int posX = (screenWidth - windowWidth) / 2;
     int posY = (screenHeight - windowHeight) / 2;
     std::wstring wtitle = Utf8ToWide(title);
-    hwnd_ = CreateWindowExW(0, L"KwikUIWindowClass", wtitle.c_str(), WS_OVERLAPPEDWINDOW,
-                            posX, posY, windowWidth, windowHeight,
-                            nullptr, nullptr, GetModuleHandle(nullptr), this);
+    hwnd_ = CreateWindowExW(0, L"KwikUIWindowClass", wtitle.c_str(), WS_OVERLAPPEDWINDOW, posX, posY, windowWidth,
+                            windowHeight, nullptr, nullptr, GetModuleHandle(nullptr), this);
     if (!hwnd_) return false;
     g_windowMap[hwnd_] = this;
     hdc_ = GetDC(hwnd_);
@@ -367,6 +387,47 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     // 窗口绘制
     case WM_PAINT: ValidateRect(hwnd_, nullptr); return 0;
 
+    // 窗口 DPI 变更（拖到不同缩放比例的另一块屏幕）
+    case WM_DPICHANGED: {
+        UINT newDpiX = LOWORD(wParam);
+        float newDpiScale = newDpiX / 96.0f;
+        // 用 lParam 建议矩形的中心点定位目标显示器，
+        // 而非 MonitorFromWindow (窗口可能跨屏，定位不准)
+        RECT *suggested = (RECT *)lParam;
+        POINT center = {0, 0};
+        if (suggested) {
+            center.x = suggested->left + (suggested->right - suggested->left) / 2;
+            center.y = suggested->top + (suggested->bottom - suggested->top) / 2;
+        }
+        HMONITOR hMon = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
+        if (!hMon) {
+            return 0; // 兜底: 取不到目标屏则不做缩放
+        }
+        MONITORINFO mi = {sizeof(mi)};
+        if (GetMonitorInfoW(hMon, &mi)) {
+            int physicalW = mi.rcWork.right - mi.rcWork.left;
+            int logicalW  = (int)((float)physicalW / newDpiScale);
+            if (logicalW > 0) {
+                float scale = (float)logicalW / 1920.0f;
+                int w = (int)(designWidth_  * scale);
+                int h = (int)(designHeight_ * scale);
+                int newPhysW = (int)((float)w * newDpiScale);
+                int newPhysH = (int)((float)h * newDpiScale);
+                if (suggested) {
+                    SetWindowPos(hwnd_, NULL,
+                                suggested->left, suggested->top,
+                                newPhysW, newPhysH,
+                                SWP_NOZORDER | SWP_NOACTIVATE);
+                } else {
+                    SetWindowPos(hwnd_, NULL,
+                                0, 0, newPhysW, newPhysH,
+                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                }
+            }
+        }
+        return 0;
+    }
+
     default: return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
 
@@ -387,4 +448,15 @@ float PlatformWindowWin32::GetDpiScale() const {
         return dpi / 96.0f;
     }
     return 1.0f;
+}
+
+void PlatformWindowWin32::GetScreenWorkArea(int *width, int *height) {
+    RECT workArea;
+    if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0)) {
+        if (width) *width = workArea.right - workArea.left;
+        if (height) *height = workArea.bottom - workArea.top;
+    } else {
+        if (width) *width = GetSystemMetrics(SM_CXSCREEN);
+        if (height) *height = GetSystemMetrics(SM_CYSCREEN);
+    }
 }

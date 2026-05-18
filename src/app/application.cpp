@@ -4,6 +4,7 @@
 module;
 #include <chrono>
 #include <memory>
+#include <filesystem>
 
 module kwik.app;
 
@@ -40,7 +41,10 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
                   }),
     jsCtx_{} {
 }
-Application::~Application() = default;
+Application::~Application() {
+    std::string fp = FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
+    FontManager::instance().saveAtlasCache("cache/font_atlas.bin", fp);
+}
 // ============================================================================
 // init — 启动渲染线程、加载字体、解析 JS、首次布局
 // ============================================================================
@@ -71,10 +75,23 @@ bool Application::init() {
         Log::error("View 树解析失败");
         return false;
     }
-    // ⑤ 首次布局
-    auto sz = Size{static_cast<float>(config_.width), static_cast<float>(config_.height)};
-    // tree_->measure(Constraints::loose(sz));
-    // ← 新增: measure 循环, 确保图集稳定
+    // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
+    int w, h;
+    window_.GetSize(&w, &h);
+    float dpi = window_.GetDpiScale();
+    auto sz = Size{(float)w / dpi, (float)h / dpi};
+
+    // ① 确保缓存目录存在
+    std::filesystem::create_directories("cache");
+    // ② 先加载字体 (让 loadFont 后续调用走快速返回, 不清缓存)
+    std::string fontPath = fm.resolveFontPath("NotoSansSC-Regular.otf");
+    fm.loadFont(fontPath.c_str());
+    // ③ 再加载图集缓存 (font 已就绪, glyphCache_ 不会被后续 loadFont 冲毁)
+    bool cacheHit = fm.loadAtlasCache("cache/font_atlas.bin", fontPath);
+    if (!cacheHit) {
+        Log::info("图集缓存未命中，实时渲染 SDF...");
+    }
+    // ④ measure 循环 (缓存命中: 全部走 glyphCache_ hit, 无 SDF)
     uint32_t prevVersion;
     do {
         prevVersion = fm.atlasVersion();
@@ -83,6 +100,14 @@ bool Application::init() {
 
     tree_->layout(Rect(0, 0, sz.width, sz.height));
     ElementParser::printTree(tree_.get());
+
+    // ⑤ 仅冷启动保存 (已有缓存则跳过)
+    if (!cacheHit) {
+        if (fm.saveAtlasCache("cache/font_atlas.bin", fontPath)) {
+            Log::info("图集缓存已保存 ({} 字形)", fontPath);
+        }
+    }
+
     // ⑥ 事件系统
     eventProc_.setRootTree(tree_.get());
     return true;
@@ -163,13 +188,6 @@ int Application::run() {
         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         window_.PollEvents();
         if (jsCtx_.isRenderNeeded()) rebuildTree();
-
-        for (auto &child : tree_->children) {
-            if (strcmp(child->typeName(), "View") == 0) {
-                printf("  View frame: %.0fx%.0f @ (%.0f,%.0f)\n", child->frame.width, child->frame.height,
-                       child->frame.x, child->frame.y);
-            }
-        }
 
         renderFrame();
         frameCount++;

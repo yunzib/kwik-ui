@@ -32,9 +32,22 @@ public:
     struct RunConfig {
         std::string jsPath;                // JS 入口文件
         std::vector<std::string> fontDirs; // 字体搜索目录
-        int width = 800;
-        int height = 600;
+        int width = 800;                   // 窗口逻辑宽度（仅在 screenRatio == 0 时生效）
+        int height = 600;                  // 窗口逻辑高度（仅在 screenRatio == 0 时生效）
+        /**
+         * @brief 窗口占主显示器工作区的比例（范围 0.0 ~ 1.0）
+         *    - 0.0（默认）：使用 width/height 绝对像素值（向后兼容）
+         *    - 0.65     ：窗口占屏幕工作区 65%
+         *
+         *   在不同分辨率下可保持一致的视觉占比:
+         *     1080p 工作区 ≈ 1920×1040 → 窗口 ≈ 1248×676
+         *     4K   工作区 ≈ 3840×2120 → 窗口 ≈ 2496×1378
+         *     两者在各自屏幕上看起来大小一致
+         */
+        float screenRatio = 0.0f;
+
         BackendType backend = BackendType::Vulkan;
+
         /**
          * @brief 自定义事件回调 (在默认管线之前执行)
          * @param e 平台原始事件
@@ -115,6 +128,7 @@ private:
     EventProcessor eventProc_;
     EventDispatcher eventDisp_;
     bool running_ = false;
+    bool cacheSaved_ = false; // 字形缓冲
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局
      * @return true 成功

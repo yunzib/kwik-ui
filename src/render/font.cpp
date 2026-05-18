@@ -3,6 +3,9 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include <filesystem>
+#include <chrono>
+
 #include <hb.h>
 #include <hb-ft.h>
 #include "freetype/freetype.h"
@@ -67,7 +70,7 @@ bool FontManager::loadFont(const char *path, int faceIndex) {
     // 清空全部缓存和前一次脏区
     glyphCache_.clear();
     shelves_.clear();
-    shelfCurrentY_ = 0; 
+    shelfCurrentY_ = 0;
     atlasDirtyMinRow_ = kAtlasSize;
     atlasDirtyMaxRow_ = 0;
     std::memset(atlasData_.data(), 0, atlasData_.size());
@@ -164,6 +167,65 @@ std::vector<ShapedGlyph> FontManager::shapeText(const char *text, float fontSize
     hb_buffer_destroy(buf);
     return result;
 }
+
+std::vector<GlyphMetrics> FontManager::shapeMetrics(const char *text, float fontSize) {
+    std::vector<GlyphMetrics> result;
+    if (!ftFace_ || !hbFont_ || !text || !text[0]) return result;
+    FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)fontSize);
+    hb_font_set_scale(hbFont_, (int)(fontSize * 64.f), (int)(fontSize * 64.f));
+    hb_buffer_t *buf = hb_buffer_create();
+    hb_buffer_add_utf8(buf, text, -1, 0, -1);
+    hb_buffer_guess_segment_properties(buf);
+    hb_shape(hbFont_, buf, nullptr, 0);
+    unsigned int glyphCount;
+    hb_glyph_info_t *glyphInfo = hb_buffer_get_glyph_infos(buf, &glyphCount);
+    hb_glyph_position_t *glyphPos = hb_buffer_get_glyph_positions(buf, &glyphCount);
+    float x = 0, y = 0;
+    for (unsigned int i = 0; i < glyphCount; i++) {
+        uint32_t gid = glyphInfo[i].codepoint;
+        float xOff = glyphPos[i].x_offset / 64.0f;
+        float yOff = glyphPos[i].y_offset / 64.0f;
+        float xAdv = glyphPos[i].x_advance / 64.0f;
+        // 仅加载字形度量, 不渲染 SDF
+        FT_Load_Glyph(ftFace_, gid, FT_LOAD_DEFAULT);
+        GlyphMetrics m;
+        m.glyphIndex = gid;
+        m.x = x + xOff;
+        m.y = y + yOff;
+        m.advanceX = xAdv;
+        m.bearingX = (float)ftFace_->glyph->bitmap_left;
+        m.bearingY = (float)ftFace_->glyph->bitmap_top;
+        result.push_back(m);
+        x += xAdv;
+    }
+    hb_buffer_destroy(buf);
+    return result;
+}
+
+std::vector<ShapedGlyph> FontManager::bakeGlyphs(const std::vector<GlyphMetrics> &metrics, float fontSize) {
+    std::vector<ShapedGlyph> result;
+    if (!ftFace_) return result;
+    float scale = 1.0f;
+    for (auto &m : metrics) {
+        GlyphInfo info = getGlyphInfo(m.glyphIndex, fontSize); // 触发懒加载 SDF
+        ShapedGlyph sg;
+        sg.glyphIndex = m.glyphIndex;
+        sg.x = m.x + info.bearingX * scale;
+        sg.y = m.y - info.bearingY * scale;
+        sg.advanceX = m.advanceX;
+        sg.width = (float)info.atlasW * scale;
+        sg.height = (float)info.atlasH * scale;
+        sg.bearingX = info.bearingX;
+        sg.bearingY = info.bearingY;
+        sg.uvLeft = (float)info.atlasX / kAtlasSize;
+        sg.uvTop = (float)info.atlasY / kAtlasSize;
+        sg.uvRight = (float)(info.atlasX + info.atlasW) / kAtlasSize;
+        sg.uvBottom = (float)(info.atlasY + info.atlasH) / kAtlasSize;
+        result.push_back(sg);
+    }
+    return result;
+}
+
 // ============================================================================
 // 字形图集: 缓存查询 + SDF 渲染
 // ============================================================================
@@ -199,7 +261,7 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     // ③ 货架分配器 (替换原固定格子分配)
     uint32_t w = bmp.width;
     uint32_t h = bmp.rows;
-    const uint32_t kPad = 2;  // 字形间 2px 间隔防渗色
+    const uint32_t kPad = 2; // 字形间 2px 间隔防渗色
     // ── 步骤 1: 找最佳匹配货架 (高度最贴近, 减少垂直浪费) ──
     ShelfRow *best = nullptr;
     uint32_t bestH = UINT32_MAX;
@@ -274,4 +336,128 @@ uint32_t FontManager::atlasWidth() const {
 }
 uint32_t FontManager::atlasHeight() const {
     return kAtlasSize;
+}
+
+// ============================================================================
+// 图集磁盘缓存 — 序列化
+// ============================================================================
+static constexpr uint32_t kCacheMagic = 0x4B57494B; // "KWIK"
+bool FontManager::saveAtlasCache(const std::string &path, const std::string &fontPath) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) return false;
+    // ── Header ──────────────────────────────────────────────
+    uint32_t magic = kCacheMagic;
+    uint32_t atlasSz = kAtlasSize;
+    out.write(reinterpret_cast<const char *>(&magic), 4);
+    out.write(reinterpret_cast<const char *>(&atlasSz), 4);
+    // 字体最后修改时间 (热启动校验, 字体更新 → 缓存失效)
+    auto ftime = std::filesystem::last_write_time(fontPath);
+    auto mtime = std::chrono::duration_cast<std::chrono::seconds>(ftime.time_since_epoch()).count();
+    out.write(reinterpret_cast<const char *>(&mtime), 8);
+    // ── 字形缓存条目 ────────────────────────────────────────
+    uint32_t entryCount = static_cast<uint32_t>(glyphCache_.size());
+    out.write(reinterpret_cast<const char *>(&entryCount), 4);
+    for (auto &[key, info] : glyphCache_) {
+        uint32_t fsBits;
+        std::memcpy(&fsBits, &key.fontSize, 4);
+        float bx = info.bearingX, by = info.bearingY, ax = info.advanceX;
+        uint32_t bxBits, byBits, axBits;
+        std::memcpy(&bxBits, &bx, 4);
+        std::memcpy(&byBits, &by, 4);
+        std::memcpy(&axBits, &ax, 4);
+        out.write(reinterpret_cast<const char *>(&key.glyph), 4);
+        out.write(reinterpret_cast<const char *>(&fsBits), 4);
+        out.write(reinterpret_cast<const char *>(&info.atlasX), 4);
+        out.write(reinterpret_cast<const char *>(&info.atlasY), 4);
+        out.write(reinterpret_cast<const char *>(&info.atlasW), 4);
+        out.write(reinterpret_cast<const char *>(&info.atlasH), 4);
+        out.write(reinterpret_cast<const char *>(&bxBits), 4);
+        out.write(reinterpret_cast<const char *>(&byBits), 4);
+        out.write(reinterpret_cast<const char *>(&axBits), 4);
+    }
+    // ── 货架分配器状态 ─────────────────────────────────────
+    uint32_t shelfCount = static_cast<uint32_t>(shelves_.size());
+    out.write(reinterpret_cast<const char *>(&shelfCount), 4);
+    for (auto &s : shelves_) {
+        out.write(reinterpret_cast<const char *>(&s.y), 4);
+        out.write(reinterpret_cast<const char *>(&s.nextX), 4);
+        out.write(reinterpret_cast<const char *>(&s.rowHeight), 4);
+    }
+    out.write(reinterpret_cast<const char *>(&shelfCurrentY_), 4);
+    // ── 图集版本号 ─────────────────────────────────────────
+    out.write(reinterpret_cast<const char *>(&atlasVersion_), 4);
+    // ── 图集像素数据 (kAtlasSize² 字节) ────────────────────
+    out.write(reinterpret_cast<const char *>(atlasData_.data()), atlasData_.size());
+    return out.good();
+}
+
+bool FontManager::loadAtlasCache(const std::string &path, const std::string &fontPath) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    // ① 校验 magic
+    uint32_t magic, savedSize;
+    in.read(reinterpret_cast<char *>(&magic), 4);
+    if (magic != kCacheMagic) return false;
+    // ② 校验图集尺寸
+    in.read(reinterpret_cast<char *>(&savedSize), 4);
+    if (savedSize != kAtlasSize) return false;
+    // ③ 校验字体 mtime
+    int64_t savedMtime;
+    in.read(reinterpret_cast<char *>(&savedMtime), 8);
+    auto ftime = std::filesystem::last_write_time(fontPath);
+    auto curMtime = std::chrono::duration_cast<std::chrono::seconds>(ftime.time_since_epoch()).count();
+    if (savedMtime != static_cast<int64_t>(curMtime)) return false;
+    // ④ 读取字形缓存
+    uint32_t entryCount;
+    in.read(reinterpret_cast<char *>(&entryCount), 4);
+    glyphCache_.clear();
+    glyphCache_.reserve(entryCount);
+    for (uint32_t i = 0; i < entryCount; i++) {
+        GlyphKey key;
+        GlyphInfo info;
+        uint32_t fsBits, bxBits, byBits, axBits;
+        in.read(reinterpret_cast<char *>(&key.glyph), 4);
+        in.read(reinterpret_cast<char *>(&fsBits), 4);
+        std::memcpy(&key.fontSize, &fsBits, 4);
+        in.read(reinterpret_cast<char *>(&info.atlasX), 4);
+        in.read(reinterpret_cast<char *>(&info.atlasY), 4);
+        in.read(reinterpret_cast<char *>(&info.atlasW), 4);
+        in.read(reinterpret_cast<char *>(&info.atlasH), 4);
+        in.read(reinterpret_cast<char *>(&bxBits), 4);
+        std::memcpy(&info.bearingX, &bxBits, 4);
+        in.read(reinterpret_cast<char *>(&byBits), 4);
+        std::memcpy(&info.bearingY, &byBits, 4);
+        in.read(reinterpret_cast<char *>(&axBits), 4);
+        std::memcpy(&info.advanceX, &axBits, 4);
+        info.glyphIndex = key.glyph;
+        glyphCache_[key] = info;
+    }
+    // ⑤ 读取货架分配器状态
+    uint32_t shelfCount;
+    in.read(reinterpret_cast<char *>(&shelfCount), 4);
+    shelves_.clear();
+    shelves_.reserve(shelfCount);
+    for (uint32_t i = 0; i < shelfCount; i++) {
+        ShelfRow s;
+        in.read(reinterpret_cast<char *>(&s.y), 4);
+        in.read(reinterpret_cast<char *>(&s.nextX), 4);
+        in.read(reinterpret_cast<char *>(&s.rowHeight), 4);
+        shelves_.push_back(s);
+    }
+    in.read(reinterpret_cast<char *>(&shelfCurrentY_), 4);
+    // ⑥ 读取图集版本号
+    in.read(reinterpret_cast<char *>(&atlasVersion_), 4);
+    // ⑦ 读取图集像素
+    in.read(reinterpret_cast<char *>(atlasData_.data()), atlasData_.size());
+    if (!in.good()) {
+        glyphCache_.clear();
+        shelves_.clear();
+        shelfCurrentY_ = 0;
+        atlasVersion_ = 0;
+        return false;
+    }
+    // ⑧ 标记全图集脏, 驱染线程上传到 GPU
+    atlasDirtyMinRow_ = 0;
+    atlasDirtyMaxRow_ = kAtlasSize;
+    return true;
 }

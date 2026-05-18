@@ -54,6 +54,15 @@ export {
         float underlinePosition = 0;
         float underlineThickness = 0;
     };
+
+    struct GlyphMetrics {
+        uint32_t glyphIndex;
+        float x;        // HarfBuzz 排版 x
+        float y;        // HarfBuzz 排版 y
+        float advanceX; // 水平步进
+        float bearingX; // FT_Load_Glyph 获取（无 SDF）
+        float bearingY;
+    };
 }
 /**
  * @brief SDF 字形管理器 — 字体加载 / HarfBuzz 排版 / 字形图集
@@ -124,6 +133,33 @@ public:
      * @return 排版后的字形列表, 含绘制位置、尺寸和 UV
      */
     std::vector<ShapedGlyph> shapeText(const char *text, float fontSize);
+
+    // ═══════════════ 图集磁盘缓存 ═══════════════
+    /**
+     * @brief 将图集像素 + 字形缓存序列化到文件
+     * @param path     输出文件路径 (如 "cache/font_atlas.bin")
+     * @param fontPath 当前字体路径 (用于记录字体 mtime, 加载时校验)
+     * @return 成功返回 true
+     *
+     * 通常在首次冷启动渲染完毕后调用一次。
+     * 文件大小约 4.2MB (2048² R8 + ~300 条目 × 36B)。
+     */
+    bool saveAtlasCache(const std::string &path, const std::string &fontPath);
+    /**
+     * @brief 从文件反序列化图集像素 + 字形缓存
+     * @param path     缓存文件路径
+     * @param fontPath 当前字体路径 (比对 mtime, 字体更新则拒绝)
+     * @return 成功返回 true, 失败返回 false (回退到实时渲染)
+     *
+     * 校验: magic 魔数 + atlasSize 匹配 + 字体 mtime 一致
+     */
+    bool loadAtlasCache(const std::string &path, const std::string &fontPath);
+
+    // 纯排版, 不含 SDF 渲染 — 用于 measure 阶段快速获取布局信息
+    std::vector<GlyphMetrics> shapeMetrics(const char *text, float fontSize);
+    // 将 GlyphMetrics 转换为 ShapedGlyph (含 UV) — 触发懒加载 SDF
+    std::vector<ShapedGlyph> bakeGlyphs(const std::vector<GlyphMetrics> &metrics, float fontSize);
+
     // ═══════════════ 字形图集访问 ═══════════════
     /**
      * @brief 获取单个字形的图集信息

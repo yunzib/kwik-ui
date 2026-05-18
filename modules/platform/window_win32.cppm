@@ -25,6 +25,7 @@ public:
     void Hide() override;
     void GetSize(int *width, int *height) const override;
     float GetDpiScale() const override;
+    void GetScreenWorkArea(int *width, int *height) override;
     // 软件渲染
     bool LockBackBuffer(void **pixels, int *stride) override;
     void UnlockBackBuffer() override;
@@ -55,6 +56,8 @@ private:
     void *bitmapBits_ = nullptr; // 位图像素数据
     int width_ = 0;              // 窗口宽度
     int height_ = 0;             // 窗口高度
+    int designWidth_ = 800;   // Create() 传入的原始逻辑宽度（缩放前）
+    int designHeight_ = 600;  // Create() 传入的原始逻辑高度（缩放前）
     EventCallback callback_;     // 事件回调
     WindowDecoration decoration_ = WindowDecoration::Normal;
 };

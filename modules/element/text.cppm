@@ -45,6 +45,9 @@ private:
     float cachedAdvance_ = 0;                    // 缓存的总宽度
     FontMetrics cachedMetrics_;                  // 缓存的度量信息
     uint32_t cachedAtlasVersion_ = 0;
+    std::vector<GlyphMetrics> metricsCache_;
+    size_t bakedCount_ = 0; // 已烘焙字形数 (< metricsCache_.size() 表示未完)
+
     /**
      * @brief 检查是否需要重新排版
      * @param fontPath 当前解析出的字体路径
