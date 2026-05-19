@@ -247,20 +247,32 @@ GlyphInfo FontManager::getGlyphInfo(uint32_t glyphIndex, float fontSize) {
 void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &info) {
     if (!ftFace_) return;
     // ① FreeType 加载并渲染 SDF (不变)
-    FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)fontSize);
+    const int kSuperSample = 4;
+    FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)(fontSize * kSuperSample));
     FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_DEFAULT);
     FT_Render_Glyph(ftFace_->glyph, FT_RENDER_MODE_SDF);
     FT_Bitmap &bmp = ftFace_->glyph->bitmap;
-    // ② 填充元信息 (不变)
+    int outW = bmp.width / kSuperSample;
+    int outH = bmp.rows  / kSuperSample;
+    std::vector<uint8_t> scaled(outW * outH);
+    for (int y = 0; y < outH; ++y) {
+        for (int x = 0; x < outW; ++x) {
+            int sum = 0;
+            for (int dy = 0; dy < kSuperSample; ++dy)
+                for (int dx = 0; dx < kSuperSample; ++dx)
+                    sum += bmp.buffer[(y * kSuperSample + dy) * bmp.pitch
+                                      + (x * kSuperSample + dx)];
+            scaled[y * outW + x] = (uint8_t)(sum / (kSuperSample * kSuperSample));
+        }
+    }
     info.glyphIndex = glyphIndex;
-    info.atlasW = bmp.width;
-    info.atlasH = bmp.rows;
-    info.bearingX = ftFace_->glyph->bitmap_left;
-    info.bearingY = ftFace_->glyph->bitmap_top;
-    info.advanceX = ftFace_->glyph->advance.x / 64.0f;
-    // ③ 货架分配器 (替换原固定格子分配)
-    uint32_t w = bmp.width;
-    uint32_t h = bmp.rows;
+    info.atlasW = outW;
+    info.atlasH = outH;
+    info.bearingX = (float)ftFace_->glyph->bitmap_left / kSuperSample;
+    info.bearingY = (float)ftFace_->glyph->bitmap_top  / kSuperSample;
+    info.advanceX = ftFace_->glyph->advance.x / 64.0f / kSuperSample;
+    uint32_t w = (uint32_t)outW;
+    uint32_t h = (uint32_t)outH;
     const uint32_t kPad = 2; // 字形间 2px 间隔防渗色
     // ── 步骤 1: 找最佳匹配货架 (高度最贴近, 减少垂直浪费) ──
     ShelfRow *best = nullptr;
@@ -297,11 +309,11 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
         shelfCurrentY_ += h + kPad;
     }
     // ④ 将 SDF 位图写入图集 (不变)
-    for (unsigned int y = 0; y < (unsigned int)bmp.rows; y++) {
-        unsigned char *src = bmp.buffer + y * (unsigned int)bmp.pitch;
-        uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
-        std::memcpy(dst, src, (size_t)bmp.width);
-    }
+    for (int y = 0; y < outH; y++) {
+            uint8_t *src = scaled.data() + y * outW;
+            uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
+            std::memcpy(dst, src, (size_t)outW);
+        }
     // ⑤ 更新脏区域 (不变)
     markDirtyRegion(info.atlasY, info.atlasH);
 }
