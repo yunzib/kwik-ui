@@ -142,4 +142,14 @@ private:
      * @brief 渲染一帧
      */
     void renderFrame();
+
+    /**
+     * @brief measure 循环 + layout (init / rebuildTree / WindowResize 共用)
+     * @param sz 布局目标逻辑尺寸
+     *
+     * measure 需循环直至 FontManager 图集版本稳定:
+     * Text 组件 onMeasure 中可能触发增量 SDF 烘焙,
+     * 每次烘焙会递增 atlasVersion, 需反复测量直到无新字形产生。
+     */
+    void relayoutTree(Size sz);
 };

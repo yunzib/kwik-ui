@@ -120,12 +120,13 @@ private:
  * 所有可视控件的基础类, 提供:
  *   - 布局 (measure / layout)
  *   - 绘制 (draw → onDraw)
- *   - 子控件管理 (addChild)
+ *   - 子控件管理 (addChild / removeFromParent)
+ *   - 父子访问 (parent)
  *   - 命中测试 (hitTest)
  *   - 事件处理 (onEvent → handlers.dispatch)
  *
+ * parent_ 指针由 addChild() 自动维护, 支持事件沿父链冒泡。
  * 子类 (Text, Button 等) 通过重写 onMeasure / onLayout / onDraw 实现差异。
- * 不直接持有 JSValue, 事件处理器统一委托给 ViewEventHandlers。
  */
 export class View {
 public:
@@ -134,24 +135,49 @@ public:
     Rect frame;                                  // 布局后的位置和尺寸
     ViewEventHandlers handlers;                  // 事件处理器
     View() = default;
+
     /**
      * @brief 构造 View 并注入属性
      * @param p ViewProps 属性结构体
      */
     explicit View(ViewProps p) : props(std::move(p)) {
     }
+
     /**
      * @brief 析构
      *
-     * handlers 的 JSValue 由 ViewEventHandlers::~ 自动释放, 无需手动清理
+     * 子节点通过 unique_ptr 自动销毁。
+     * parent_ 为裸指针不参与所有权, 析构时无需处理父节点的 children 列表。
+     * handlers 的 JSValue 由 ViewEventHandlers::~ 自动释放。
      */
     virtual ~View() = default;
-    // 禁止拷贝
+
+    // 禁止拷贝 (unique_ptr 和 JSValue 不支持共享)
     View(const View &) = delete;
     View &operator=(const View &) = delete;
-    // 允许移动 (默认逐字段移动, handlers 的移动构造函数确保 JSValue 正确转移)
-    View(View &&) = default;
-    View &operator=(View &&) = default;
+
+    /**
+     * @brief 移动构造
+     *
+     * 移动所有成员后, 调用 fixChildrenParent() 将子节点的 parent_ 从 &other
+     * 更新为 this, 确保父指针一致性。
+     * 移动后 other.children 为空, other.parent_ 置 nullptr。
+     */
+    View(View &&other) noexcept :
+        props(std::move(other.props)), children(std::move(other.children)), frame(other.frame),
+        handlers(std::move(other.handlers)), parent_(other.parent_) {
+        fixChildrenParent();
+        other.parent_ = nullptr;
+    }
+
+    /**
+     * @brief 移动赋值 — 当前无使用场景, 禁止
+     *
+     * 正确实现需: ①从旧父节点分离 ②移动成员 ③更新新旧子节点 parent_。
+     * 复杂度高且无调用方, 待有实际需求时再实现。
+     */
+    View &operator=(View &&) = delete;
+
     // ==================== 布局接口 ====================
     /**
      * @brief 测量控件尺寸
@@ -175,14 +201,38 @@ public:
      * @param graphics 绘图上下文
      */
     void draw(Graphics &graphics);
+
     // ==================== 子控件管理 ====================
     /**
-     * @brief 添加子控件
-     * @param child 子控件的 unique_ptr, 所有权转移
+     * @brief 获取父节点指针
+     * @return 父节点, 根节点返回 nullptr
+     */
+    View *parent() const {
+        return parent_;
+    }
+
+    /**
+     * @brief 添加子控件 (转移所有权)
+     * @param child 子控件, 所有权转移至本控件
+     *
+     * 自动设置 child->parent_ = this。
+     * 若 child 已有父节点, 调用方应先调用 child->removeFromParent() 解绑。
      */
     void addChild(std::unique_ptr<View> child) {
+        child->parent_ = this;
         children.push_back(std::move(child));
     }
+
+    /**
+     * @brief 从父节点中移除自身
+     *
+     * 在父节点的 children 列表中查找并移除本节点。
+     * 调用后 parent_ 置 nullptr, 本节点由调用方的接收变量持有
+     * (或随 unique_ptr 离开作用域销毁)。
+     * 若无父节点, 此调用无操作。
+     */
+    void removeFromParent();
+
     /**
      * @brief 获取控件类型名称
      * @return 类型字符串 ("View" / "Text" / "Button" ...)
@@ -190,15 +240,17 @@ public:
     virtual const char *typeName() const {
         return "View";
     }
+
     // ==================== 命中测试 ====================
     /**
      * @brief 命中测试 — 返回点在树中最深层的可见 View
-     * @param point 窗口客户区全局坐标
-     * @return 命中的 View 指针, 若无命中返回 nullptr
+     * @param point 窗口全局坐标 (须与 frame 在同一坐标系: 逻辑像素)
+     * @return 命中的 View, 无命中返回 nullptr
      *
-     * 遍历策略: 从最后添加的子节点开始 (对应绘制顺序的最上层)
+     * 遍历策略: 从最后添加的子节点开始 (对应绘制 z-order 最上层)
      */
     View *hitTest(Point point);
+
     // ==================== 事件处理 ====================
     /**
      * @brief 接收并分发 UI 事件
@@ -231,4 +283,18 @@ protected:
      * @param graphics 绘图上下文
      */
     virtual void onDraw(Graphics &graphics);
+
+private:
+    View *parent_ = nullptr; // 父节点 (addChild 自动设置, 裸指针不参与所有权)
+
+    /**
+     * @brief 移动构造后修复所有子节点的 parent_ 指针
+     *
+     * children vector 从 other 转移至 this 后,
+     * 每个子节点的 parent_ 仍指向 &other (随移动进入未定义状态)。
+     * 遍历所有子节点, 将 parent_ 更新为 this。
+     */
+    void fixChildrenParent() {
+        for (auto &child : children) { child->parent_ = this; }
+    }
 };

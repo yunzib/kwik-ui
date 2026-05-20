@@ -88,24 +88,14 @@ bool Application::init() {
     fm.loadFont(fontPath.c_str());
     // ③ 再加载图集缓存 (font 已就绪, glyphCache_ 不会被后续 loadFont 冲毁)
     bool cacheHit = fm.loadAtlasCache("cache/font_atlas.bin", fontPath);
-    if (!cacheHit) {
-        Log::info("图集缓存未命中，实时渲染 SDF...");
-    }
-    // ④ measure 循环 (缓存命中: 全部走 glyphCache_ hit, 无 SDF)
-    uint32_t prevVersion;
-    do {
-        prevVersion = fm.atlasVersion();
-        tree_->measure(Constraints::loose(sz));
-    } while (fm.atlasVersion() != prevVersion);
-
-    tree_->layout(Rect(0, 0, sz.width, sz.height));
+    if (!cacheHit) { Log::info("图集缓存未命中，实时渲染 SDF..."); }
+    // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
+    relayoutTree(sz);
     ElementParser::printTree(tree_.get());
 
     // ⑤ 仅冷启动保存 (已有缓存则跳过)
     if (!cacheHit) {
-        if (fm.saveAtlasCache("cache/font_atlas.bin", fontPath)) {
-            Log::info("图集缓存已保存 ({} 字形)", fontPath);
-        }
+        if (fm.saveAtlasCache("cache/font_atlas.bin", fontPath)) { Log::info("图集缓存已保存 ({} 字形)", fontPath); }
     }
 
     // ⑥ 事件系统
@@ -122,6 +112,7 @@ void Application::rebuildTree() {
         window_.GetSize(&w, &h);
         float dpi = window_.GetDpiScale();
         auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
+        relayoutTree(sz); // ← 修复: 之前 sz 只计算未使用, 新树 frame 全为 {0,0,0,0}
     }
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();
@@ -140,6 +131,20 @@ void Application::renderFrame() {
     canvas.endFrame();
     renderThread_.commandQueue().submit();
 }
+
+// ============================================================================
+// relayoutTree — measure 循环 + layout (共用)
+// ============================================================================
+void Application::relayoutTree(Size sz) {
+    auto &fm = FontManager::instance();
+    uint32_t prevVersion;
+    do {
+        prevVersion = fm.atlasVersion();
+        tree_->measure(Constraints::loose(sz));
+    } while (fm.atlasVersion() != prevVersion);
+    tree_->layout(Rect(0, 0, sz.width, sz.height));
+}
+
 // ============================================================================
 // run — 主循环
 // ============================================================================
@@ -147,36 +152,43 @@ int Application::run() {
     if (!init()) return -1;
     running_ = true;
     // ── 事件回调设置 ──
-    window_.SetEventCallback([this](const Event &e) {
-        // ① 用户自定义回调 (优先级最高)
+    window_.SetEventCallback([this](const Event &rawEvent) {
+        // ── ① 物理像素 → 逻辑像素坐标转换 ──────────────────────────
+        // 背景: platform 层产生的事件坐标是物理像素 (DPI 感知窗口的
+        //   client rect 坐标, 未经 Windows DPI 虚拟化),
+        //   而 View 树 frame 按逻辑像素布局 (init 时 w/dpi, h/dpi)。
+        // 修复: 将鼠标/触摸事件的 x,y 除以 dpiScale, 与布局坐标系对齐,
+        //   解决高 DPI 下命中测试错位、右/下半屏不可点击的 bug。
+        Event e = rawEvent;
+        if (e.type == Event::Type::MouseMove || e.type == Event::Type::MouseDown || e.type == Event::Type::MouseUp
+            || e.type == Event::Type::MouseWheel) {
+            float dpi = window_.GetDpiScale();
+            e.x = static_cast<int>(rawEvent.x / dpi);
+            e.y = static_cast<int>(rawEvent.y / dpi);
+        }
+        // WindowResize 的 width/height 在下方单独处理 (已有转换), 此处跳过
+        // ── ② 用户自定义回调 (优先级最高) ──────────────────────────
         if (config_.onEvent && config_.onEvent(e)) return;
-        // ② 窗口关闭
+        // ── ③ 窗口关闭 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowClose) {
             running_ = false;
-            renderThread_.stop(false); // 关闭渲染线程
+            renderThread_.stop(false);
             return;
         }
-        // ③ 窗口缩放
+        // ── ④ 窗口缩放 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowResize) {
             if (e.width > 0 && e.height > 0) {
                 renderThread_.submitWindowEvent(e);
                 float dpi = window_.GetDpiScale();
                 auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
-
-                // ← 新增: measure 循环, 确保图集稳定
-                auto &fm = FontManager::instance();
-                uint32_t prevVersion;
-                do {
-                    prevVersion = fm.atlasVersion();
-                    tree_->measure(Constraints::loose(sz));
-                } while (fm.atlasVersion() != prevVersion);
-
-                tree_->layout(Rect(0, 0, sz.width, sz.height));
+                relayoutTree(sz);
                 eventProc_.reset();
             }
             return;
         }
-        // ④ 事件合成 → 分发 → JS handler
+        // ── ⑤ 事件合成 → 分发 → JS handler ───────────────────────
+        // 此时 e.x / e.y 已为逻辑坐标, EventProcessor 的 hitTest、
+        // 距离计算、viewLocalPos 均在统一坐标系下工作
         auto uiEvents = eventProc_.process(e);
         for (auto &uiEvent : uiEvents) eventDisp_.dispatch(tree_.get(), uiEvent, jsCtx_.getPtr());
     });

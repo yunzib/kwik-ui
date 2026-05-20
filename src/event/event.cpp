@@ -165,23 +165,7 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
     }
     return result;
 }
-// ============================================================================
-// EventDispatcher
-// ============================================================================
-View *EventDispatcher::hitTestWithPath(View *root, Point pos, std::vector<View *> &path) {
-    if (!root) return nullptr;
-    if (!root->props.visible) return nullptr;
-    if (!root->frame.contains(pos)) return nullptr;
-    // 记录当前节点到路径
-    path.push_back(root);
-    // 从最上层子节点 (rbegin) 开始尝试命中
-    for (auto it = root->children.rbegin(); it != root->children.rend(); ++it) {
-        View *hit = hitTestWithPath(it->get(), pos, path);
-        if (hit) return hit;
-    }
-    // 无子节点命中 → root 就是最深层目标
-    return root;
-}
+
 bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ctx) {
     if (!view || !ctx) return false;
     Point local = viewLocalPos(view, event.position);
@@ -191,18 +175,19 @@ bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ct
 
 bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx) {
     if (!root || !ctx) return false;
-
-    // ── 预设目标 (HoverEnter/HoverLeave) ──
+    // ── 预设目标 (HoverEnter/HoverLeave) ──────────────────────────
+    // 这两个事件的目标已由 EventProcessor 通过 hitTest 预计算,
+    // 跳过 hitTest 直接对 targetView 触发其 JS 事件回调
     if (event.targetView) { return fireOnView(event.targetView, event, ctx); }
-
-    // ── 滚轮事件 ──
+    // ── 滚轮事件 ──────────────────────────────────────────────────
+    // 对命中 View 触发 + 沿 parent() 查找最近的 ListLayout 应用滚动
     if (event.type == UIEventType::Wheel) {
-        std::vector<View *> path;
-        View *target = hitTestWithPath(root, event.position, path);
+        View *target = root->hitTest(event.position);
         if (target) {
             fireOnView(target, event, ctx);
-            for (auto it = path.rbegin(); it != path.rend(); ++it) {
-                if (auto *list = dynamic_cast<ListLayout *>(*it)) {
+            // 沿 parent 链向上查找 ListLayout (替代之前 hitTestWithPath + path 反向遍历)
+            for (View *v = target; v; v = v->parent()) {
+                if (auto *list = dynamic_cast<ListLayout *>(v)) {
                     list->applyWheel(event.wheelDelta * 30.0f);
                     break;
                 }
@@ -210,20 +195,15 @@ bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx)
         }
         return true;
     }
-
-    // ── 常规路径: 命中测试 + 捕获/目标/冒泡 ──
-    std::vector<View *> path;
-    View *target = hitTestWithPath(root, event.position, path);
+    // ── 常规事件: 命中测试 → 目标阶段 → parent 冒泡 ───────────────
+    // View::hitTest() 深度优先返回最深层命中的 View (z-order 正确)
+    View *target = root->hitTest(event.position);
     if (!target) return false;
-    // ── 捕获阶段: root → target 的父 (不含 target) ──
-    for (size_t i = 0; i + 1 < path.size(); ++i) {
-        if (fireOnView(path[i], event, ctx)) return true;
-    }
-    // ── 目标阶段 ──
+    // 目标阶段
     if (fireOnView(target, event, ctx)) return true;
-    // ── 冒泡阶段: target 的父 → root (反向遍历) ──
-    for (int i = static_cast<int>(path.size()) - 2; i >= 0; --i) {
-        if (fireOnView(path[i], event, ctx)) return true;
+    // 冒泡阶段: 沿 parent() 向根传播 (替代 hitTestWithPath 收集的 path 向量)
+    for (View *v = target->parent(); v; v = v->parent()) {
+        if (fireOnView(v, event, ctx)) return true;
     }
     return false;
 }

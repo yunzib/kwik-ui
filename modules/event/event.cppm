@@ -130,7 +130,11 @@ private:
 /**
  * @brief 事件分发器
  *
- * 命中测试 → 捕获阶段 → 目标阶段 → 冒泡阶段, 任一阶段消费事件则停止传播。
+ * 命中测试 → 目标阶段 → 父链冒泡。
+ * 任一阶段返回 true (事件已消费) 则停止传播。
+ *
+ * 冒泡阶段利用 View::parent() 指针从目标向根遍历,
+ * 不再依赖独立的路径收集 (消除每事件的 std::vector 分配)。
  *
  * 使用方式:
  *   EventDispatcher dispatcher;
@@ -139,29 +143,28 @@ private:
 export class EventDispatcher {
 public:
     /**
-     * @brief 分发事件, 按三阶段模型传播
+     * @brief 分发事件
      * @param root   View 树根节点
      * @param event  待分发的 UI 事件
      * @param ctx    QuickJS 上下文
      * @return true 表示事件已被消费
+     *
+     * 分发策略:
+     *   - 预设目标 (HoverEnter/HoverLeave): 直接对 targetView 触发
+     *   - Wheel: hitTest 找目标 + 沿 parent 链查找 ListLayout 应用滚动
+     *   - 常规事件: hitTest → 目标阶段 → parent() 冒泡至 root
      */
     bool dispatch(View *root, const UIEvent &event, JSContext *ctx);
-
 private:
-    /**
-     * @brief 命中测试 + 路径收集 (单次 DFS)
-     * @param root  View 树根节点
-     * @param pos   测试坐标 (全局)
-     * @param path  输出: root → ... → target 完整路径
-     * @return 最深命中 View, 无命中返回 nullptr
-     */
-    View *hitTestWithPath(View *root, Point pos, std::vector<View *> &path);
     /**
      * @brief 对单个 View 触发事件
      * @param view   目标控件
      * @param event  UI 事件
      * @param ctx    QuickJS 上下文
      * @return true 表示事件已消费
+     *
+     * 将 event.position (全局逻辑坐标) 转换为 View 局部坐标后,
+     * 调用 view->onEvent()。
      */
     bool fireOnView(View *view, const UIEvent &event, JSContext *ctx);
 };

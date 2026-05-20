@@ -218,3 +218,22 @@ View *View::hitTest(Point point) {
     }
     return this;
 }
+
+// ============================================================================
+// removeFromParent — 从父节点 children 列表中移除自身
+// ============================================================================
+void View::removeFromParent() {
+    if (!parent_) return;
+    auto &siblings = parent_->children;
+    for (auto it = siblings.begin(); it != siblings.end(); ++it) {
+        if (it->get() == this) {
+            // 先将 unique_ptr 移出局部变量, 防止 erase 立即销毁 *this
+            // 导致后续访问 parent_ 时已为野指针
+            std::unique_ptr<View> self = std::move(*it);
+            siblings.erase(it);
+            parent_ = nullptr;
+            // self 在离开作用域时销毁 (或由调用方接收 std::move 返回值扩展)
+            return;
+        }
+    }
+}
