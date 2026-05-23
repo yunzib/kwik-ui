@@ -105,6 +105,28 @@ public:
      */
     virtual void drawShadow(const Rect &rect, float radius, const Shadow &shadow) = 0;
 
+    /**
+     * @brief 绘制图像
+     * @param cmd 包含纹理句柄、目标矩形、透明度
+     */
+    virtual void drawImage(const DrawImageCmd &cmd) = 0;
+    /**
+     * @brief 创建图像纹理并上传 RGBA 像素到 GPU
+     * @param rgba    RGBA8 像素数据 (4 bytes per pixel)
+     * @param width   图像宽度 (像素)
+     * @param height  图像高度 (像素)
+     * @return 非零纹理句柄 (0 表示失败)
+     *
+     * 返回的句柄用于 drawImage() 和 destroyImageTexture()。
+     * 创建后 CPU 端数据可安全释放。
+     */
+    virtual uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) = 0;
+    /**
+     * @brief 销毁图像纹理并释放 GPU 资源
+     * @param id createImageTexture() 返回的句柄
+     */
+    virtual void destroyImageTexture(uint32_t id) = 0;
+
     virtual void saveClipState() = 0;
     virtual void restoreClipState() = 0;
 

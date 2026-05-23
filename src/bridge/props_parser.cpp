@@ -1,6 +1,7 @@
 module;
 
 #include <cstddef>
+#include "quickjs.h"
 
 module kwik.bridge.props_parser;
 
@@ -267,5 +268,55 @@ ContainerProps parseContainerProps(const JSValueRef &props) {
     }
     if (props.hasProperty("dividerHeight")) { result.dividerHeight = props.getProperty("dividerHeight").toFloat(); }
 
+    return result;
+}
+
+ImageProps parseImageProps(const JSValueRef &props) {
+    ImageProps result;
+    if (!props.isObject()) return result;
+    // 文件路径
+    if (props.hasProperty("src")) {
+        result.src = props.getProperty("src").toString();
+        result.source = ImageSource::File;
+    }
+    // 填充模式
+    if (props.hasProperty("fit")) {
+        auto f = props.getProperty("fit").toString();
+        if (f == "fill")
+            result.fit = ImageFit::Fill;
+        else if (f == "contain")
+            result.fit = ImageFit::Contain;
+        else if (f == "none")
+            result.fit = ImageFit::None;
+    }
+    // 透明度
+    if (props.hasProperty("opacity")) {
+        result.imageOpacity = props.getProperty("opacity").toFloat();
+    }
+    // 像素缓冲区 (ArrayBuffer)
+    if (props.hasProperty("data")) {
+        auto dataVal = props.getProperty("data");
+        JSContext *ctx = dataVal.context();
+        JSValue raw = dataVal.raw();
+        if (!JS_IsNull(raw) && !JS_IsUndefined(raw)) {
+            // 支持 ArrayBuffer 和 TypedArray (Uint8Array 等)
+            size_t byteLen = 0;
+            uint8_t *buf = nullptr;
+            if (JS_IsArrayBuffer(raw)) {
+                buf = JS_GetArrayBuffer(ctx, &byteLen, raw);
+            }
+            // TODO: TypedArray 支持 (JS_GetTypedArrayBuffer)
+            if (buf && byteLen > 0) {
+                result.data.assign(buf, buf + byteLen);
+                result.source = ImageSource::Buffer;
+            }
+        }
+    }
+    if (props.hasProperty("width")) {
+        result.bufferWidth = props.getProperty("width").toInt();
+    }
+    if (props.hasProperty("height")) {
+        result.bufferHeight = props.getProperty("height").toInt();
+    }
     return result;
 }

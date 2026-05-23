@@ -152,4 +152,15 @@ private:
      * 每次烘焙会递增 atlasVersion, 需反复测量直到无新字形产生。
      */
     void relayoutTree(Size sz);
+
+    /**
+     * @brief 预遍历 View 树创建所有 Image 纹理
+     *
+     * 在渲染循环启动前同步调用, 将所有 RGBA 像素缓冲区
+     * 上传为 GPU 纹理。避免主线程 onDraw 中首次 createImageTexture
+     * 与渲染线程 present() 并发提交 vkQueue (Vulkan 线程安全违规)。
+     *
+     * @param root 根 View 指针
+     */
+    void preloadImageTextures(View *root);
 };

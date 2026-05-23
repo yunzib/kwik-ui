@@ -147,6 +147,11 @@ public:
      */
     void resetFrameStats();
 
+    // render_thread.cppm — 暴露 backend 访问器
+    RenderBackend *backend() {
+        return backend_.get();
+    }
+
 private:
     /**
      * @brief 渲染线程主函数

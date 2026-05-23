@@ -79,6 +79,13 @@ message(STATUS "===== 完成引入 harfbuzz =====")
 target_link_libraries(freetype PRIVATE harfbuzz)
 target_compile_definitions(freetype PRIVATE FT_CONFIG_OPTION_USE_HARFBUZZ)
 
+# stb_image
+include_directories(third_party/stb)
+message(STATUS "===== 完成引入 stb_image =====")
+
+# nanosvg
+add_subdirectory(third_party/nanosvg)
+
 
 ################################## 项目配置 ######################################
 # ==================== 平台选项定义 ====================
@@ -86,6 +93,7 @@ target_compile_definitions(freetype PRIVATE FT_CONFIG_OPTION_USE_HARFBUZZ)
 # option(KWIK_USE_SOFTWARE "Enable software rendering backend" ON)
 # option(KWIK_USE_OPENGL "Enable OpenGL rendering backend" OFF)
 
+include_directories(include)
 
 # 包含模块配置
 include(cmake/modules/Utils.cmake)

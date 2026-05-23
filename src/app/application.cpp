@@ -22,6 +22,8 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.backend;
 import kwik.core.log;
+import kwik.render.texture_manager;
+import kwik.element.image;
 
 // ============================================================================
 // 构造 / 析构
@@ -44,6 +46,7 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
 Application::~Application() {
     std::string fp = FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
     FontManager::instance().saveAtlasCache("cache/font_atlas.bin", fp);
+    TextureManager::instance().destroyAll();
 }
 // ============================================================================
 // init — 启动渲染线程、加载字体、解析 JS、首次布局
@@ -58,6 +61,9 @@ bool Application::init() {
         Log::error("渲染线程启动超时");
         return false;
     }
+
+    TextureManager::instance().setBackend(renderThread_.backend());
+
     // ② 字体目录
     auto &fm = FontManager::instance();
     for (auto &dir : config_.fontDirs) fm.addFontDir(dir);
@@ -92,6 +98,11 @@ bool Application::init() {
     // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
     relayoutTree(sz);
     ElementParser::printTree(tree_.get());
+
+    // 预创建所有 Image 纹理 — 在渲染循环启动前完成, 避免
+    // createImageTexture() 与渲染线程的 present() 并发提交 vkQueue,
+    // 杜绝 Vulkan 线程竞态 UB (纹理部分加载/渲染损坏)
+    preloadImageTextures(tree_.get());
 
     // ⑤ 仅冷启动保存 (已有缓存则跳过)
     if (!cacheHit) {
@@ -172,7 +183,7 @@ int Application::run() {
         // ── ③ 窗口关闭 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowClose) {
             running_ = false;
-            renderThread_.stop(false);
+            renderThread_.stop(true); // 阻塞等待渲染线程完全退出，避免竞态
             return;
         }
         // ── ④ 窗口缩放 ────────────────────────────────────────────
@@ -213,4 +224,15 @@ int Application::run() {
         }
     }
     return 0;
+}
+
+// ============================================================================
+// preloadImageTextures — 预遍历树, 同步创建所有 Image 纹理
+// ============================================================================
+void Application::preloadImageTextures(View *view) {
+    if (!view) return;
+    if (auto *img = dynamic_cast<Image *>(view)) {
+        if (img->isLoaded() && !img->pixelsEmpty()) { img->uploadTexture(); }
+    }
+    for (auto &child : view->children) { preloadImageTextures(child.get()); }
 }

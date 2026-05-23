@@ -11,6 +11,7 @@ set(RENDER_PUBLIC_MODULES
     modules/render/command.cppm
     modules/render/render_thread.cppm
     modules/render/font.cppm
+    modules/render/texture_manager.cppm
 )
 set(RENDER_PRIVATE_SOURCES
     src/render/graphics.cpp
@@ -122,3 +123,18 @@ add_custom_command(
     COMMENT "Compiling glyph shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/glyph_shaders.h)
+
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/image_shaders.h
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/image.vert -o ${SHADER_GEN_DIR}/image.vert.spv
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/image.frag -o ${SHADER_GEN_DIR}/image.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/image.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/image.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/image_shaders.h
+        -DNAME=kImage
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/image.vert ${SHADER_SRC_DIR}/image.frag ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling image shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/image_shaders.h)

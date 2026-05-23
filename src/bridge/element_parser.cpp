@@ -25,6 +25,7 @@ import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
 import kwik.layout.stack_layout;
 import kwik.layout.list_layout;
+import kwik.element.image;
 
 import std;
 // ============================================================================
@@ -101,6 +102,11 @@ static struct InitBuiltinTypes {
                 }
             }
             return list;
+        });
+
+        // ── 图像组件 ───────────────────────────────────────
+        ElementParser::registerType("Image", [](const JSValueRef &pv) {
+            return std::make_unique<Image>(parseViewProps(pv), parseImageProps(pv));
         });
     }
 } _init_builtin_types;

@@ -121,3 +121,36 @@ export struct ContainerProps {
     Color dividerColor;      // 分割线颜色（空=不绘制）
     float dividerHeight = 0; // 分割线高度
 };
+
+// ==================== 图像属性 ====================
+/**
+ * @brief 图像填充模式
+ *
+ * 当 Image 组件的 width/height 与图像原生尺寸不一致时的缩放策略。
+ */
+export enum class ImageFit {
+    Fill,    // 拉伸填满 (可能变形)
+    Contain, // 等比例缩放至完全可见 (可能留空)
+    Cover,   // 等比例缩放至完全覆盖 (可能裁剪)
+    None,    // 原始尺寸, 不缩放
+};
+/**
+ * @brief 图像来源类型
+ */
+export enum class ImageSource {
+    File,   // 本地文件路径 (通过 src 字段指定)
+    Buffer, // JS ArrayBuffer 像素数据 (通过 data 字段 + width/height 指定)
+    Url,    // 远程 URL (预留, 暂未实现)
+};
+/**
+ * @brief 图像属性 — Image 组件专有
+ */
+export struct ImageProps {
+    std::string src;               // 文件路径 (source == File/Url 时使用)
+    std::vector<uint8_t> data;     // 像素缓冲区 (source == Buffer 时使用)
+    int bufferWidth = 0;           // 缓冲区位图宽度 (source == Buffer)
+    int bufferHeight = 0;          // 缓冲区位图高度 (source == Buffer)
+    ImageSource source = ImageSource::File;
+    ImageFit fit = ImageFit::Cover;
+    float imageOpacity = 1.0f;     // 图像级透明度 (0.0-1.0)
+};

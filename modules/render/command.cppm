@@ -29,7 +29,8 @@ export enum class CommandType {
     BeginFrame,        // beginFrame()
     EndFrame,          // endFrame()
     Present,           // present()
-    Resize             // resize()
+    Resize,            // resize()
+    DrawImage          // drawImage()
 };
 
 /**
@@ -73,6 +74,18 @@ export struct DrawShadowCmd {
     Rect rect;
     float radius;
     Shadow shadow;
+};
+
+/**
+ * @brief 绘制图像命令
+ *
+ * 携带 Vulkan 纹理句柄、目标矩形和透明度。
+ * 纹理由 VulkanBackend::createImageTexture() 创建，destroyImageTexture() 释放。
+ */
+export struct DrawImageCmd {
+    uint32_t textureId; // GPU 纹理句柄
+    Rect rect;          // 绘制位置和尺寸 (逻辑坐标, 已变换)
+    float opacity;      // 绘制透明度 (0.0-1.0)
 };
 
 /**
@@ -152,7 +165,8 @@ export using Command =
                  BeginFrameCmd, // 空结构体，仅作为标记
                  EndFrameCmd,   // 空结构体，仅作为标记
                  PresentCmd,    // 空结构体，仅作为标记
-                 ResizeCmd>;
+                 ResizeCmd,     // resize()
+                 DrawImageCmd>; // drawImage()
 
 /**
  * @brief 命令缓冲区

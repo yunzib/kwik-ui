@@ -13,6 +13,7 @@ target_sources(kwik_element
             modules/element/view.cppm
             modules/element/text.cppm
             modules/element/button.cppm
+            modules/element/image.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -25,6 +26,9 @@ target_sources(kwik_element
         src/element/view.cpp
         src/element/text.cpp
         src/element/button.cpp
+        src/element/image.cpp
+        src/element/stb_image_impl.cpp
+        src/element/svg_decoder.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
@@ -39,6 +43,13 @@ target_link_libraries(kwik_element
         kwik_engine
         kwik_render
         qjs
+        nanosvg
+        nanosvgrast
+)
+
+target_include_directories(kwik_element
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nanosvg/src
 )
 
 # 6. 添加编译定义（COMPILE_DEFINITIONS）

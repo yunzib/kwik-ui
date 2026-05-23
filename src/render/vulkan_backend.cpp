@@ -10,6 +10,7 @@ module;
 
 #include "rect_shaders.h"
 #include "glyph_shaders.h"
+#include "image_shaders.h"
 
 module kwik.render.vulkan_backend;
 
@@ -81,14 +82,16 @@ void VulkanBackend::resize(int width, int height) {
 
 //  Frame 控制：
 bool VulkanBackend::beginFrame() {
-    vkWaitForFences(vkDevice_, 1, &inFlightFence_, VK_TRUE, UINT64_MAX);
-    VkResult result = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphore_, VK_NULL_HANDLE,
-                                            &currentImageIndex_);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // Swapchain needs recreation — handled by resize() at next opportunity
-        return false;
-    }
+    // 1s 超时替代 UINT64_MAX — 窗口关闭后 swapchain 失效,
+    // 部分驱动上 vkAcquireNextImageKHR 可能永久挂起,
+    // 超时返回 false 使渲染线程回到主循环检测 Stopping 标志.
+    VkResult fenceWait = vkWaitForFences(vkDevice_, 1, &inFlightFence_, VK_TRUE, 1'000'000'000);
+    if (fenceWait == VK_TIMEOUT) return false;
+    VkResult result = vkAcquireNextImageKHR(vkDevice_, swapchain_, 1'000'000'000, imageAvailableSemaphore_,
+                                            VK_NULL_HANDLE, &currentImageIndex_);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_SURFACE_LOST_KHR) { return false; }
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) return false;
+
     vkResetCommandBuffer(commandBuffers_[currentImageIndex_], 0);
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -396,6 +399,11 @@ bool VulkanBackend::initVulkan(void *nativeHandle, int width, int height) {
         cleanupVulkan();
         return false;
     }
+
+    if (!createImagePipeline()) {
+        cleanupImageResources();
+        return false;
+    }
     width_ = width;
     height_ = height;
     return true;
@@ -425,6 +433,7 @@ void VulkanBackend::cleanupVulkan() {
     if (pipelineLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(vkDevice_, pipelineLayout_, nullptr);
     if (renderPass_ != VK_NULL_HANDLE) vkDestroyRenderPass(vkDevice_, renderPass_, nullptr);
     cleanupSwapchain();
+    cleanupImageResources(); // 必须在 vkDestroyInstance 之前, vkDevice 仍有效
     if (vkSurface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
     if (vkInstance_ != VK_NULL_HANDLE) vkDestroyInstance(vkInstance_, nullptr);
 }
@@ -1143,4 +1152,318 @@ void VulkanBackend::restoreClipState() {
         scissor.extent = {(uint32_t)std::max(0.0f, r.width), (uint32_t)std::max(0.0f, r.height)};
     }
     vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
+}
+
+// ============================================================================
+// createImagePipeline — 与 glyph pipeline 结构一致, 使用独立 shader
+// ============================================================================
+bool VulkanBackend::createImagePipeline() {
+    VkShaderModule vertMod = createShaderModule(kwik::shader::kImageVert, kwik::shader::kImageVertSize);
+    VkShaderModule fragMod = createShaderModule(kwik::shader::kImageFrag, kwik::shader::kImageFragSize);
+    if (!vertMod || !fragMod) return false;
+    // Descriptor set layout (binding 0: combined image sampler, per-texture)
+    VkDescriptorSetLayoutBinding samplerBinding{};
+    samplerBinding.binding = 0;
+    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerBinding.descriptorCount = 1;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutCreateInfo dslInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    dslInfo.bindingCount = 1;
+    dslInfo.pBindings = &samplerBinding;
+    if (vkCreateDescriptorSetLayout(vkDevice_, &dslInfo, nullptr, &imageDescSetLayout_) != VK_SUCCESS) {
+        vkDestroyShaderModule(vkDevice_, fragMod, nullptr);
+        vkDestroyShaderModule(vkDevice_, vertMod, nullptr);
+        return false;
+    }
+    // Pipeline layout — 复用 GlyphPushConstants (布局完全一致)
+    VkPushConstantRange pcRange{};
+    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pcRange.offset = 0;
+    pcRange.size = sizeof(GlyphPushConstants);
+    VkPipelineLayoutCreateInfo plInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    plInfo.setLayoutCount = 1;
+    plInfo.pSetLayouts = &imageDescSetLayout_;
+    plInfo.pushConstantRangeCount = 1;
+    plInfo.pPushConstantRanges = &pcRange;
+    if (vkCreatePipelineLayout(vkDevice_, &plInfo, nullptr, &imagePipelineLayout_) != VK_SUCCESS) {
+        vkDestroyDescriptorSetLayout(vkDevice_, imageDescSetLayout_, nullptr);
+        vkDestroyShaderModule(vkDevice_, fragMod, nullptr);
+        vkDestroyShaderModule(vkDevice_, vertMod, nullptr);
+        return false;
+    }
+    // Shader stages
+    VkPipelineShaderStageCreateInfo stages[] = {
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vertMod, "main"},
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragMod,
+         "main"},
+    };
+    // Vertex input (same quad as glyph/rect)
+    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    VkPipelineVertexInputStateCreateInfo vtxInput{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    vtxInput.vertexBindingDescriptionCount = 1;
+    vtxInput.pVertexBindingDescriptions = &vtxBind;
+    vtxInput.vertexAttributeDescriptionCount = 1;
+    vtxInput.pVertexAttributeDescriptions = &vtxAttr;
+    // IA / Viewport / Rasterizer / Multisample
+    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+    vp.viewportCount = 1;
+    vp.scissorCount = 1;
+    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+    rs.lineWidth = 1.0f;
+    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    // Alpha blending (SRC_ALPHA / ONE_MINUS_SRC_ALPHA)
+    VkPipelineColorBlendAttachmentState blendAtt{};
+    blendAtt.blendEnable = VK_TRUE;
+    blendAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blendAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAtt.colorBlendOp = VK_BLEND_OP_ADD;
+    blendAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blendAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAtt.alphaBlendOp = VK_BLEND_OP_ADD;
+    blendAtt.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+    blend.attachmentCount = 1;
+    blend.pAttachments = &blendAtt;
+    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+    dyn.dynamicStateCount = 2;
+    dyn.pDynamicStates = dynStates;
+    VkGraphicsPipelineCreateInfo pipeInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    pipeInfo.stageCount = 2;
+    pipeInfo.pStages = stages;
+    pipeInfo.pVertexInputState = &vtxInput;
+    pipeInfo.pInputAssemblyState = &ia;
+    pipeInfo.pViewportState = &vp;
+    pipeInfo.pRasterizationState = &rs;
+    pipeInfo.pMultisampleState = &ms;
+    pipeInfo.pColorBlendState = &blend;
+    pipeInfo.pDynamicState = &dyn;
+    pipeInfo.layout = imagePipelineLayout_;
+    pipeInfo.renderPass = renderPass_;
+    pipeInfo.subpass = 0;
+    VkResult r = vkCreateGraphicsPipelines(vkDevice_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &imagePipeline_);
+    vkDestroyShaderModule(vkDevice_, fragMod, nullptr);
+    vkDestroyShaderModule(vkDevice_, vertMod, nullptr);
+    return r == VK_SUCCESS;
+}
+// ============================================================================
+// createImageTexture — 上传 RGBA 像素到独立 VkImage 纹理
+// ============================================================================
+uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) {
+    if (!rgba || width == 0 || height == 0) return 0;
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
+    // ① Staging buffer (host-visible)
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    if (!createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+                      stagingMemory)) {
+        return 0;
+    }
+    void *mapped;
+    vkMapMemory(vkDevice_, stagingMemory, 0, imageSize, 0, &mapped);
+    std::memcpy(mapped, rgba, static_cast<size_t>(imageSize));
+    vkUnmapMemory(vkDevice_, stagingMemory);
+    // ② Device-local VkImage
+    VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    imgInfo.imageType = VK_IMAGE_TYPE_2D;
+    imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imgInfo.extent = {width, height, 1};
+    imgInfo.mipLevels = 1;
+    imgInfo.arrayLayers = 1;
+    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imgInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    ImageTextureData tex;
+    tex.width = width;
+    tex.height = height;
+    if (vkCreateImage(vkDevice_, &imgInfo, nullptr, &tex.image) != VK_SUCCESS) {
+        vkDestroyBuffer(vkDevice_, stagingBuffer, nullptr);
+        vkFreeMemory(vkDevice_, stagingMemory, nullptr);
+        return 0;
+    }
+    VkMemoryRequirements memReq;
+    vkGetImageMemoryRequirements(vkDevice_, tex.image, &memReq);
+    VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (vkAllocateMemory(vkDevice_, &allocInfo, nullptr, &tex.memory) != VK_SUCCESS) {
+        vkDestroyImage(vkDevice_, tex.image, nullptr);
+        vkDestroyBuffer(vkDevice_, stagingBuffer, nullptr);
+        vkFreeMemory(vkDevice_, stagingMemory, nullptr);
+        return 0;
+    }
+    vkBindImageMemory(vkDevice_, tex.image, tex.memory, 0);
+    // ③ Copy staging → image (with layout transitions)
+    VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandPool = commandPool_;
+    ai.commandBufferCount = 1;
+    VkCommandBuffer cmd;
+    vkAllocateCommandBuffers(vkDevice_, &ai, &cmd);
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &bi);
+    // Transition: UNDEFINED → TRANSFER_DST
+    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = tex.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+    VkBufferImageCopy region{};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent = {width, height, 1};
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    // Transition: TRANSFER_DST → SHADER_READ_ONLY
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
+    vkQueueWaitIdle(vkQueue_);
+    vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &cmd);
+    vkDestroyBuffer(vkDevice_, stagingBuffer, nullptr);
+    vkFreeMemory(vkDevice_, stagingMemory, nullptr);
+    // ④ ImageView
+    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = tex.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.layerCount = 1;
+    vkCreateImageView(vkDevice_, &viewInfo, nullptr, &tex.view);
+    // ⑤ Sampler
+    VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    vkCreateSampler(vkDevice_, &samplerInfo, nullptr, &tex.sampler);
+    // ⑥ Descriptor pool (lazy init — first image creates pool)
+    if (imageDescPool_ == VK_NULL_HANDLE) {
+        VkDescriptorPoolSize poolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256};
+        VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.maxSets = 256;
+        vkCreateDescriptorPool(vkDevice_, &poolInfo, nullptr, &imageDescPool_);
+    }
+    // ⑦ Descriptor set
+    VkDescriptorSetAllocateInfo setAlloc{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    setAlloc.descriptorPool = imageDescPool_;
+    setAlloc.descriptorSetCount = 1;
+    setAlloc.pSetLayouts = &imageDescSetLayout_;
+    vkAllocateDescriptorSets(vkDevice_, &setAlloc, &tex.descSet);
+    VkDescriptorImageInfo imgDesc{tex.sampler, tex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    write.dstSet = tex.descSet;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.pImageInfo = &imgDesc;
+    vkUpdateDescriptorSets(vkDevice_, 1, &write, 0, nullptr);
+    // ⑧ Register
+    uint32_t id = nextTextureId_++;
+    imageTextures_[id] = tex;
+    return id;
+}
+// ============================================================================
+// destroyImageTexture — 释放单个图像纹理的 GPU 资源
+// ============================================================================
+void VulkanBackend::destroyImageTexture(uint32_t id) {
+    auto it = imageTextures_.find(id);
+    if (it == imageTextures_.end()) return;
+    auto &tex = it->second;
+    vkDestroySampler(vkDevice_, tex.sampler, nullptr);
+    vkDestroyImageView(vkDevice_, tex.view, nullptr);
+    vkDestroyImage(vkDevice_, tex.image, nullptr);
+    vkFreeMemory(vkDevice_, tex.memory, nullptr);
+    // descriptor set 从 pool 中分配，无需单独释放（pool 销毁时统一回收）
+    imageTextures_.erase(it);
+}
+// ============================================================================
+// drawImage — 执行图像绘制命令
+// ============================================================================
+void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
+    auto it = imageTextures_.find(cmd.textureId);
+    if (it == imageTextures_.end()) return;
+    auto &tex = it->second;
+    VkCommandBuffer cmdbuf = commandBuffers_[currentImageIndex_];
+    vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline_);
+    vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &tex.descSet, 0,
+                            nullptr);
+    // 复用 GlyphPushConstants (与 image.vert 布局一致)
+    GlyphPushConstants pc{};
+    pc.posX = cmd.rect.x;
+    pc.posY = cmd.rect.y;
+    pc.sizeX = cmd.rect.width;
+    pc.sizeY = cmd.rect.height;
+    pc.uvU0 = 0.0f; // 整图 UV
+    pc.uvV0 = 0.0f;
+    pc.uvU1 = 1.0f;
+    pc.uvV1 = 1.0f;
+    pc.colorR = 1.0f;
+    pc.colorG = 1.0f;
+    pc.colorB = 1.0f;
+    pc.colorA = cmd.opacity;
+    pc.viewportW = static_cast<float>(swapchainExtent_.width);
+    pc.viewportH = static_cast<float>(swapchainExtent_.height);
+    vkCmdPushConstants(cmdbuf, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(GlyphPushConstants), &pc);
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vertexBuffer_, &offset);
+    vkCmdBindIndexBuffer(cmdbuf, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cmdbuf, 6, 1, 0, 0, 0);
+}
+// ============================================================================
+// cleanupImageResources — 释放所有图像纹理 + 管线
+// ============================================================================
+void VulkanBackend::cleanupImageResources() {
+    // 销毁所有纹理
+    for (auto &[id, tex] : imageTextures_) {
+        vkDestroySampler(vkDevice_, tex.sampler, nullptr);
+        vkDestroyImageView(vkDevice_, tex.view, nullptr);
+        vkDestroyImage(vkDevice_, tex.image, nullptr);
+        vkFreeMemory(vkDevice_, tex.memory, nullptr);
+    }
+    imageTextures_.clear();
+    if (imageDescPool_ != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(vkDevice_, imageDescPool_, nullptr);
+        imageDescPool_ = VK_NULL_HANDLE;
+    }
+    if (imagePipeline_ != VK_NULL_HANDLE) {
+        vkDestroyPipeline(vkDevice_, imagePipeline_, nullptr);
+        imagePipeline_ = VK_NULL_HANDLE;
+    }
+    if (imagePipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(vkDevice_, imagePipelineLayout_, nullptr);
+        imagePipelineLayout_ = VK_NULL_HANDLE;
+    }
+    if (imageDescSetLayout_ != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(vkDevice_, imageDescSetLayout_, nullptr);
+        imageDescSetLayout_ = VK_NULL_HANDLE;
+    }
 }

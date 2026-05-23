@@ -323,6 +323,8 @@ void RenderThread::executeCommand(const Command &cmd) {
                 // 已由processCommands处理
             } else if constexpr (std::is_same_v<T, DrawGlyphCmd>) {
                 backend_->drawGlyph(arg);
+            } else if constexpr (std::is_same_v<T, DrawImageCmd>) {
+                backend_->drawImage(arg);
             } else if constexpr (std::is_same_v<T, PresentCmd>) {
                 // 已由threadMain处理
             } else if constexpr (std::is_same_v<T, ResizeCmd>) {

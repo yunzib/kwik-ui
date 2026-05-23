@@ -43,6 +43,10 @@ public:
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
     void drawGlyph(const DrawGlyphCmd &cmd) override;
     void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) override;
+    void drawImage(const DrawImageCmd &cmd) override;
+    uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
+    void destroyImageTexture(uint32_t id) override;
+
     void saveClipState() override;
     void restoreClipState() override;
 
@@ -103,6 +107,24 @@ private:
     VkSemaphore renderFinishedSemaphore_ = VK_NULL_HANDLE;
     VkFence inFlightFence_ = VK_NULL_HANDLE;
     uint32_t currentImageIndex_ = 0;
+
+    // ── Image pipeline / textures ──────────────────────────────
+    struct ImageTextureData {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
+        VkDescriptorSet descSet = VK_NULL_HANDLE;
+        uint32_t width = 0;
+        uint32_t height = 0;
+    };
+    std::unordered_map<uint32_t, ImageTextureData> imageTextures_;
+    uint32_t nextTextureId_ = 1;
+    VkPipeline imagePipeline_ = VK_NULL_HANDLE;
+    VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout imageDescSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorPool imageDescPool_ = VK_NULL_HANDLE;
+
     // ── 私有辅助方法 ──────────────────────────────────────────
     bool initVulkan(void *nativeHandle, int width, int height);
     void cleanupVulkan();
@@ -118,6 +140,11 @@ private:
     bool createGlyphPipeline();
     bool createGlyphAtlas();
     void cleanupGlyphResources();
+
+    bool createImagePipeline();
+    void cleanupImageResources();
+
+    // ── 裁剪状态管理 ─────────────────────────────────────────
     std::vector<Rect> clipStack_;                  // 裁剪矩形栈
     std::vector<std::vector<Rect>> clipSaveStack_; // save/restore 裁剪状态栈
 

@@ -1,5 +1,7 @@
 module;
 
+#include <stdint.h>
+
 export module kwik.render.graphics;
 
 import kwik.core.types;
@@ -64,6 +66,17 @@ public:
      * 直接从缓存读取 UV 坐标, 适用于 Text 组件的 onDraw 热路径
      */
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
+
+    /**
+     * @brief 绘制图像
+     * @param textureId GPU 纹理句柄 (由 createImageTexture 返回)
+     * @param rect      目标矩形 (逻辑坐标)
+     * @param opacity   透明度 (0.0-1.0, 默认 1.0)
+     *
+     * 图像会在当前变换状态下绘制 (受 translate/scale/opacity 影响)。
+     * 纹理 UV 默认为整图 (0,0) → (1,1)。
+     */
+    void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f);
 
     // 帧控制（命令记录）
     void beginFrame();

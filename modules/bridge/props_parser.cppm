@@ -46,3 +46,16 @@ export ButtonStateProps parseButtonState(const JSValueRef &props);
  * @brief 解析容器布局属性
  */
 export ContainerProps parseContainerProps(const JSValueRef &props);
+
+/**
+ * @brief 解析图像属性
+ *
+ * 支持字段:
+ *   - src:       文件路径 (string)
+ *   - fit:       填充模式 ("fill"|"contain"|"cover"|"none")
+ *   - opacity:   图像透明度 (float)
+ *   - data:      像素缓冲区 (ArrayBuffer)
+ *   - width:     缓冲区宽度 (int, data 模式时必填)
+ *   - height:    缓冲区高度 (int, data 模式时必填)
+ */
+export ImageProps parseImageProps(const JSValueRef &props);

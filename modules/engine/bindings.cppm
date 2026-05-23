@@ -44,6 +44,7 @@ export JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
 export JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+export JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
 export JSValue js_state_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
