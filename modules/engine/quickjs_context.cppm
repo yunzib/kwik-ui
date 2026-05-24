@@ -55,11 +55,28 @@ public:
         return context;
     }
     /**
+     * @brief 存储用户指针 (Application 注入 View 树根)
+     * @param ptr 任意不透明指针
+     */
+    void setUserPointer(void *ptr) {
+        userPtr_ = ptr;
+    }
+    /**
+     * @brief 取回用户指针
+     */
+    void *getUserPointer() const {
+        return userPtr_;
+    }
+    /**
      * @brief 获取 JS 执行结果（根组件树 JS 对象）
      *        供 ElementFactory::parse() 消费
      */
     JSValue getRootView() const {
         return rootView;
+    }
+
+    JSModuleDef *getKwikuiModule() const {
+        return kwikuiModule_;
     }
 
     // ── 渲染控制 ──────────────────────────────────────────────────
@@ -68,8 +85,12 @@ public:
      */
     void requestRender();
 
-    bool isRenderNeeded() const { return needRender; }
-    void clearRenderFlag() { needRender = false; }
+    bool isRenderNeeded() const {
+        return needRender;
+    }
+    void clearRenderFlag() {
+        needRender = false;
+    }
 
 private:
     // ── 运行时 & 上下文 ──────────────────────────────────────────
@@ -79,7 +100,8 @@ private:
     JSValue rootView = JS_NULL; ///< 根组件对象，保存最新组件树
     bool needRender = false;    ///< 脏标记，为 true 时下次渲染
     std::string baseDir_;       // evalFile 时记录的基础目录，用于相对路径解析
-    JSModuleDef* kwikuiModule_ = nullptr;
+    JSModuleDef *kwikuiModule_ = nullptr;
+    void *userPtr_ = nullptr; // 用户自定义指针 (由 Application 注入树根)
 
     /**
      * @brief 模块加载器回调：解析 import 路径，加载多文件

@@ -26,6 +26,7 @@ import kwik.layout.grid_layout;
 import kwik.layout.stack_layout;
 import kwik.layout.list_layout;
 import kwik.element.image;
+import kwik.element.input;
 
 import std;
 // ============================================================================
@@ -108,6 +109,10 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("Image", [](const JSValueRef &pv) {
             return std::make_unique<Image>(parseViewProps(pv), parseImageProps(pv));
         });
+
+        ElementParser::registerType("Input", [](const JSValueRef &pv) {
+            return std::make_unique<Input>(parseViewProps(pv), parseInputProps(pv));
+        });
     }
 } _init_builtin_types;
 // ============================================================================
@@ -189,6 +194,7 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         tryBind("onLongPress");
         tryBind("onHoverEnter");
         tryBind("onHoverLeave");
+        tryBind("onChange");
     }
     return element;
 }

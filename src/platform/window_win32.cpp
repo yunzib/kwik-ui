@@ -39,9 +39,9 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     }
 
     // 保存原始设计尺寸，供后续 DPI/屏幕切换时重新计算窗口大小
-    designWidth_  = width;
+    designWidth_ = width;
     designHeight_ = height;
-   
+
     // DPI 缩放: 用户逻辑尺寸 → 物理像素
     HDC hdc = GetDC(nullptr);
     float dpiScale = (float)GetDeviceCaps(hdc, LOGPIXELSX) / 96.0f;
@@ -56,7 +56,7 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
             int logicalW = (int)((workArea.right - workArea.left) / dpiScale);
             if (logicalW > 0) {
                 float scale = (float)logicalW / 1920.0f;
-                width  = (int)(width  * scale);
+                width = (int)(width * scale);
                 height = (int)(height * scale);
             }
         }
@@ -349,6 +349,13 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         break;
     }
 
+    // 字符输入 (含 IME 组合) — 分离 TextInput 和 KeyDown, 支持中文输入
+    case WM_CHAR:
+    case WM_IME_CHAR:
+        e.type = Event::Type::TextInput;
+        e.charCode = static_cast<uint32_t>(wParam);
+        break;
+
     // 键盘事件
     case WM_KEYDOWN:
     case WM_KEYUP:
@@ -406,22 +413,18 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         MONITORINFO mi = {sizeof(mi)};
         if (GetMonitorInfoW(hMon, &mi)) {
             int physicalW = mi.rcWork.right - mi.rcWork.left;
-            int logicalW  = (int)((float)physicalW / newDpiScale);
+            int logicalW = (int)((float)physicalW / newDpiScale);
             if (logicalW > 0) {
                 float scale = (float)logicalW / 1920.0f;
-                int w = (int)(designWidth_  * scale);
+                int w = (int)(designWidth_ * scale);
                 int h = (int)(designHeight_ * scale);
                 int newPhysW = (int)((float)w * newDpiScale);
                 int newPhysH = (int)((float)h * newDpiScale);
                 if (suggested) {
-                    SetWindowPos(hwnd_, NULL,
-                                suggested->left, suggested->top,
-                                newPhysW, newPhysH,
-                                SWP_NOZORDER | SWP_NOACTIVATE);
+                    SetWindowPos(hwnd_, NULL, suggested->left, suggested->top, newPhysW, newPhysH,
+                                 SWP_NOZORDER | SWP_NOACTIVATE);
                 } else {
-                    SetWindowPos(hwnd_, NULL,
-                                0, 0, newPhysW, newPhysH,
-                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                    SetWindowPos(hwnd_, NULL, 0, 0, newPhysW, newPhysH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
                 }
             }
         }

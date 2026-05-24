@@ -59,3 +59,5 @@ export ContainerProps parseContainerProps(const JSValueRef &props);
  *   - height:    缓冲区高度 (int, data 模式时必填)
  */
 export ImageProps parseImageProps(const JSValueRef &props);
+
+export InputProps parseInputProps(const JSValueRef &props);

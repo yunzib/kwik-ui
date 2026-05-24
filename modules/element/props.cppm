@@ -53,6 +53,7 @@ export enum class Align {
  * 父布局通过 child->props.xxx 访问子项属性, 因此必须保持扁平。
  */
 export struct ViewProps {
+    std::string id;              // 组件标识符 (全局查找 / getProp / setProp)
     // ── 尺寸 ──
     std::optional<float> width;
     std::optional<float> height;
@@ -146,11 +147,25 @@ export enum class ImageSource {
  * @brief 图像属性 — Image 组件专有
  */
 export struct ImageProps {
-    std::string src;               // 文件路径 (source == File/Url 时使用)
-    std::vector<uint8_t> data;     // 像素缓冲区 (source == Buffer 时使用)
-    int bufferWidth = 0;           // 缓冲区位图宽度 (source == Buffer)
-    int bufferHeight = 0;          // 缓冲区位图高度 (source == Buffer)
+    std::string src;           // 文件路径 (source == File/Url 时使用)
+    std::vector<uint8_t> data; // 像素缓冲区 (source == Buffer 时使用)
+    int bufferWidth = 0;       // 缓冲区位图宽度 (source == Buffer)
+    int bufferHeight = 0;      // 缓冲区位图高度 (source == Buffer)
     ImageSource source = ImageSource::File;
     ImageFit fit = ImageFit::Cover;
-    float imageOpacity = 1.0f;     // 图像级透明度 (0.0-1.0)
+    float imageOpacity = 1.0f; // 图像级透明度 (0.0-1.0)
+};
+
+// ==================== 输入框属性 ====================
+export struct InputProps {
+    std::string value;                           // 当前文本内容
+    std::string placeholder;                     // 占位符文本 (value 为空时显示)
+    float fontSize = 16.0f;                      // 文本字号
+    Color textColor{0, 0, 0, 255};               // 文本颜色
+    Color placeholderColor{153, 153, 153, 255};  // 占位符颜色
+    Color cursorColor{66, 133, 244, 255};        // 光标颜色
+    Color focusedBorderColor{66, 133, 244, 255}; // 聚焦时边框色
+    int maxLength = 0;                           // 最大字符数 (0 = 不限)
+    bool readOnly = false;                       // 只读模式
+    bool isPassword = false;                     // 密码模式 — 显示 ● 替代原文
 };

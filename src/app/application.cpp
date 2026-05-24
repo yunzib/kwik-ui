@@ -24,6 +24,8 @@ import kwik.render.backend;
 import kwik.core.log;
 import kwik.render.texture_manager;
 import kwik.element.image;
+import kwik.element.input;
+import kwik.bridge.prop_bus;
 
 // ============================================================================
 // 构造 / 析构
@@ -70,6 +72,7 @@ bool Application::init() {
 #if defined(_WIN32)
     fm.addFontDir("C:/Windows/Fonts"); // 系统字体兜底
 #endif
+
     // ③ 加载 JS
     if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
         Log::error("JS 加载失败: {}", config_.jsPath);
@@ -81,6 +84,9 @@ bool Application::init() {
         Log::error("View 树解析失败");
         return false;
     }
+
+    jsCtx_.setUserPointer(tree_.get());
+    
     // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
     int w, h;
     window_.GetSize(&w, &h);
@@ -118,6 +124,7 @@ bool Application::init() {
 // ============================================================================
 void Application::rebuildTree() {
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
+    jsCtx_.setUserPointer(tree_.get());
     if (tree_) {
         int w, h;
         window_.GetSize(&w, &h);
@@ -177,9 +184,40 @@ int Application::run() {
             e.x = static_cast<int>(rawEvent.x / dpi);
             e.y = static_cast<int>(rawEvent.y / dpi);
         }
+
         // WindowResize 的 width/height 在下方单独处理 (已有转换), 此处跳过
         // ── ② 用户自定义回调 (优先级最高) ──────────────────────────
         if (config_.onEvent && config_.onEvent(e)) return;
+
+        // ── 键盘事件 → 聚焦 View 路由 ──
+        if (focusedView_) {
+            Log::info("Key route: type={} keyCode={} charCode={}", static_cast<int>(e.type), e.keyCode, e.charCode);
+            if (e.type == Event::Type::KeyDown) {
+                focusedView_->onEvent(ViewEventCode::KeyAction, static_cast<float>(e.keyCode),
+                                      static_cast<float>(e.modifiers), jsCtx_.getPtr());
+                return;
+            }
+            if (e.type == Event::Type::TextInput) {
+                focusedView_->onEvent(ViewEventCode::CharInput, static_cast<float>(e.charCode), 0.0f, jsCtx_.getPtr());
+                return;
+            }
+        }
+
+        // ── 鼠标按下时更新 focusedView (Input 获取 / 失去焦点) ──
+        if (e.type == Event::Type::MouseDown) {
+            Point pt{static_cast<float>(e.x), static_cast<float>(e.y)};
+            View *target = tree_ ? tree_->hitTest(pt) : nullptr;
+            // 旧焦点失焦 (若目标不是当前聚焦 Input)
+            if (focusedView_ && focusedView_ != target && std::strcmp(focusedView_->typeName(), "Input") == 0) {
+                static_cast<Input *>(focusedView_)->blur();
+            }
+            if (target && std::strcmp(target->typeName(), "Input") == 0) {
+                focusedView_ = target;
+            } else {
+                focusedView_ = nullptr;
+            }
+        }
+
         // ── ③ 窗口关闭 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowClose) {
             running_ = false;

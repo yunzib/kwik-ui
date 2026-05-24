@@ -39,6 +39,11 @@ export struct UIEvent {
     View *targetView = nullptr;
 
     float wheelDelta = 0.0f; // 滚轮增量 (>0 向上, <0 向下)
+
+    // 自定义事件负载
+    int code = 0;      // ViewEventCode 值
+    int data = 0;      // 辅助数据 (keyCode / charCode)
+    int modifiers = 0; // 修饰键
 };
 // ============================================================================
 // 工具函数
@@ -155,6 +160,7 @@ public:
      *   - 常规事件: hitTest → 目标阶段 → parent() 冒泡至 root
      */
     bool dispatch(View *root, const UIEvent &event, JSContext *ctx);
+
 private:
     /**
      * @brief 对单个 View 触发事件

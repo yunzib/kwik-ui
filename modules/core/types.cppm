@@ -16,7 +16,8 @@ export enum class UIEventType {
     PanEnd,
     PressBegin,
     PressEnd,
-    Wheel
+    Wheel,
+    Custom // 自定义事件 (键盘 / 焦点等)
 };
 
 /**

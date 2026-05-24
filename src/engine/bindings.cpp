@@ -2,9 +2,13 @@ module;
 
 #include "quickjs.h"
 
+extern "C" JSCFunction *kwik_prop_get_fn();
+extern "C" JSCFunction *kwik_prop_set_fn();
+
 module kwik.engine.bindings;
 
 import kwik.core.log;
+import kwik.engine.context; //  访问 QuickJSContext::getUserPointer
 
 import std;
 
@@ -216,6 +220,11 @@ JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *
     return makeElement(ctx, "Image", props, JS_UNDEFINED);
 }
 
+JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     Log::info("Creating State instance");
     StateData *sd;
@@ -369,12 +378,17 @@ JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     }
 }
 
+
+
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
-        JS_CFUNC_DEF("View", 1, js_view), JS_CFUNC_DEF("Text", 1, js_text),   JS_CFUNC_DEF("Button", 2, js_button),
-        JS_CFUNC_DEF("Flex", 2, js_flex), JS_CFUNC_DEF("Grid", 2, js_grid),   JS_CFUNC_DEF("Stack", 2, js_stack),
-        JS_CFUNC_DEF("List", 2, js_list), JS_CFUNC_DEF("Image", 1, js_image),
+        JS_CFUNC_DEF("View", 1, js_view),       JS_CFUNC_DEF("Text", 1, js_text),
+        JS_CFUNC_DEF("Button", 2, js_button),   JS_CFUNC_DEF("Flex", 2, js_flex),
+        JS_CFUNC_DEF("Grid", 2, js_grid),       JS_CFUNC_DEF("Stack", 2, js_stack),
+        JS_CFUNC_DEF("List", 2, js_list),       JS_CFUNC_DEF("Image", 1, js_image),
+        JS_CFUNC_DEF("Input", 1, js_input),  JS_CFUNC_DEF("getProp", 2, kwik_prop_get_fn()),
+    JS_CFUNC_DEF("setProp", 3, kwik_prop_set_fn()),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

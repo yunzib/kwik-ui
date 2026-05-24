@@ -168,6 +168,11 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
 
 bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ctx) {
     if (!view || !ctx) return false;
+    if (event.type == UIEventType::Custom) {
+        // 自定义事件 (键盘等): 用 data 字段传递 code, position 携带负载
+        return view->onEvent(event.code, static_cast<float>(event.data),
+                             static_cast<float>(event.modifiers), ctx);
+    }
     Point local = viewLocalPos(view, event.position);
     int code = uiEventTypeToCode(event.type);
     return view->onEvent(code, local.x, local.y, ctx);

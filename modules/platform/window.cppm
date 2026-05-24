@@ -25,7 +25,8 @@ export struct Event {
         TouchCancel,  // 触摸取消
         WindowResize, // 窗口大小改变
         WindowClose,  // 窗口关闭
-        WindowPaint   // 窗口绘制
+        WindowPaint,  // 窗口绘制
+        TextInput,    // 字符输入 (含 IME 组合结果)
     } type = Type::None;
     // 鼠标按钮枚举
     enum class MouseButton { None, Left, Right, Middle } button = MouseButton::None;
@@ -33,8 +34,9 @@ export struct Event {
     int y = 0;               // Y坐标（客户区）
     int width = 0;           // 窗口宽度
     int height = 0;          // 窗口高度
-    uint32_t keyCode = 0;    // 平台无关键码
-    uint32_t modifiers = 0;  // 修饰键：Ctrl(1), Shift(2), Alt(4), Meta(8)
+    uint32_t keyCode = 0;    // 虚拟键码 (VK_*), KeyDown/KeyUp 使用
+    uint32_t modifiers = 0;  // Ctrl(1), Shift(2), Alt(4), Meta(8)
+    uint32_t charCode = 0;   // Unicode 码点, TextInput 使用
     int touchId = 0;         // 触摸点ID
     float pressure = 1.0f;   // 触摸压力
     float wheelDelta = 0.0f; // 滚轮增量

@@ -129,6 +129,7 @@ private:
     EventDispatcher eventDisp_;
     bool running_ = false;
     bool cacheSaved_ = false; // 字形缓冲
+    View *focusedView_ = nullptr;   // 当前聚焦的 Input 控件 (接收键盘事件)
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局
      * @return true 成功

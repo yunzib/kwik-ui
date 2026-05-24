@@ -82,6 +82,7 @@ BorderStyle parseBorderStyle(const std::string &str) {
 ViewProps parseViewProps(const JSValueRef &props) {
     ViewProps result;
     if (!props.isObject()) { return result; }
+    if (props.hasProperty("id")) { result.id = props.getProperty("id").toString(); }
     // 尺寸
     if (props.hasProperty("width")) {
         auto w = props.getProperty("width");
@@ -290,9 +291,7 @@ ImageProps parseImageProps(const JSValueRef &props) {
             result.fit = ImageFit::None;
     }
     // 透明度
-    if (props.hasProperty("opacity")) {
-        result.imageOpacity = props.getProperty("opacity").toFloat();
-    }
+    if (props.hasProperty("opacity")) { result.imageOpacity = props.getProperty("opacity").toFloat(); }
     // 像素缓冲区 (ArrayBuffer)
     if (props.hasProperty("data")) {
         auto dataVal = props.getProperty("data");
@@ -302,9 +301,7 @@ ImageProps parseImageProps(const JSValueRef &props) {
             // 支持 ArrayBuffer 和 TypedArray (Uint8Array 等)
             size_t byteLen = 0;
             uint8_t *buf = nullptr;
-            if (JS_IsArrayBuffer(raw)) {
-                buf = JS_GetArrayBuffer(ctx, &byteLen, raw);
-            }
+            if (JS_IsArrayBuffer(raw)) { buf = JS_GetArrayBuffer(ctx, &byteLen, raw); }
             // TODO: TypedArray 支持 (JS_GetTypedArrayBuffer)
             if (buf && byteLen > 0) {
                 result.data.assign(buf, buf + byteLen);
@@ -312,11 +309,33 @@ ImageProps parseImageProps(const JSValueRef &props) {
             }
         }
     }
-    if (props.hasProperty("width")) {
-        result.bufferWidth = props.getProperty("width").toInt();
-    }
-    if (props.hasProperty("height")) {
-        result.bufferHeight = props.getProperty("height").toInt();
-    }
+    if (props.hasProperty("width")) { result.bufferWidth = props.getProperty("width").toInt(); }
+    if (props.hasProperty("height")) { result.bufferHeight = props.getProperty("height").toInt(); }
     return result;
+}
+
+InputProps parseInputProps(const JSValueRef &props) {
+    InputProps ip;
+    if (!props.isObject()) return ip;
+    // 文本内容
+    if (props.hasProperty("value")) ip.value = props.getProperty("value").toString();
+    if (props.hasProperty("placeholder")) ip.placeholder = props.getProperty("placeholder").toString();
+    // 字号
+    if (props.hasProperty("fontSize")) ip.fontSize = props.getProperty("fontSize").toFloat();
+    // 颜色 — 通过 parseColor 解析十六进制 / CSS 颜色字符串
+    if (props.hasProperty("textColor")) ip.textColor = parseColor(props.getProperty("textColor").toString());
+    if (props.hasProperty("placeholderColor"))
+        ip.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
+    if (props.hasProperty("cursorColor")) ip.cursorColor = parseColor(props.getProperty("cursorColor").toString());
+    if (props.hasProperty("focusedBorderColor"))
+        ip.focusedBorderColor = parseColor(props.getProperty("focusedBorderColor").toString());
+    // 限制
+    if (props.hasProperty("maxLength")) ip.maxLength = props.getProperty("maxLength").toInt();
+    if (props.hasProperty("readOnly")) ip.readOnly = props.getProperty("readOnly").toBool();
+    // type: "password" → 密码模式
+    if (props.hasProperty("type")) {
+        std::string type = props.getProperty("type").toString();
+        ip.isPassword = (type == "password");
+    }
+    return ip;
 }

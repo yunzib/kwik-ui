@@ -1,5 +1,7 @@
 module;
 #include "quickjs.h"
+#include <cstring>
+
 module kwik.element.view;
 import kwik.render.graphics;
 import kwik.core.types;
@@ -23,6 +25,8 @@ void ViewEventHandlers::bind(JSContext *c, const char *name, JSValue handler) {
         target = &onHoverEnter;
     else if (std::strcmp(name, "onHoverLeave") == 0)
         target = &onHoverLeave;
+    else if (std::strcmp(name, "onChange") == 0)
+        target = &onChange;
     else
         return;
     // 如果已有旧回调 (如 State 变更重建树), 先释放旧值
@@ -75,6 +79,10 @@ void ViewEventHandlers::release() {
         JS_FreeValue(ctx, onHoverLeave);
         onHoverLeave = JS_NULL;
     }
+    if (!js_is_null(onChange)) {
+        JS_FreeValue(ctx, onChange);
+        onChange = JS_NULL;
+    }
     ctx = nullptr;
 }
 void ViewEventHandlers::moveFrom(ViewEventHandlers &other) {
@@ -86,6 +94,8 @@ void ViewEventHandlers::moveFrom(ViewEventHandlers &other) {
     other.onHoverEnter = JS_NULL;
     onHoverLeave = other.onHoverLeave;
     other.onHoverLeave = JS_NULL;
+    onChange = other.onChange;
+    other.onChange = JS_NULL;
     ctx = other.ctx;
     other.ctx = nullptr;
 }
@@ -236,4 +246,94 @@ void View::removeFromParent() {
             return;
         }
     }
+}
+
+// ============================================================================
+// 辅助 — 内联 hex 颜色解析
+// ============================================================================
+namespace {
+Color parseHexColor(const std::string &s) {
+    if (s.size() >= 7 && s[0] == '#') {
+        auto h = [&](size_t off) -> uint8_t {
+            auto c = [](char ch) -> int {
+                if (ch >= '0' && ch <= '9') return ch - '0';
+                if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+                if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+                return 0;
+            };
+            return (uint8_t)((c(s[off]) << 4) | c(s[off + 1]));
+        };
+        return {h(1), h(3), h(5), 255};
+    }
+    return {0, 0, 0, 255};
+}
+} // namespace
+
+View *View::findById(const std::string &id) {
+    if (props.id == id) return this;
+    for (auto &child : children) {
+        View *found = child->findById(id);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+// ============================================================================
+// getProperty / setProperty — 通用属性总线 (基类)
+// ============================================================================
+std::string View::getProperty(const char *name) const {
+    if (std::strcmp(name, "width") == 0) return std::to_string(frame.width);
+    if (std::strcmp(name, "height") == 0) return std::to_string(frame.height);
+    if (std::strcmp(name, "background") == 0) {
+        char buf[10];
+        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", props.background.r, props.background.g, props.background.b);
+        return buf;
+    }
+    if (std::strcmp(name, "borderRadius") == 0) return std::to_string(props.borderRadius);
+    if (std::strcmp(name, "borderWidth") == 0) return std::to_string(props.borderWidth);
+    if (std::strcmp(name, "borderColor") == 0) {
+        char buf[10];
+        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", props.borderColor.r, props.borderColor.g, props.borderColor.b);
+        return buf;
+    }
+    if (std::strcmp(name, "opacity") == 0) return std::to_string(props.opacity);
+    if (std::strcmp(name, "visible") == 0) return props.visible ? "true" : "false";
+    if (std::strcmp(name, "id") == 0) return props.id;
+    // 不识别 → 空字符串
+    return "";
+}
+bool View::setProperty(const char *name, const char *value) {
+    if (std::strcmp(name, "width") == 0) {
+        props.width = std::stof(value);
+        return true;
+    }
+    if (std::strcmp(name, "height") == 0) {
+        props.height = std::stof(value);
+        return true;
+    }
+    if (std::strcmp(name, "background") == 0) {
+        props.background = parseHexColor(value);
+        return true;
+    }
+    if (std::strcmp(name, "borderRadius") == 0) {
+        props.borderRadius = std::stof(value);
+        return true;
+    }
+    if (std::strcmp(name, "borderWidth") == 0) {
+        props.borderWidth = std::stof(value);
+        return true;
+    }
+    if (std::strcmp(name, "borderColor") == 0) {
+        props.borderColor = parseHexColor(value);
+        return true;
+    }
+    if (std::strcmp(name, "opacity") == 0) {
+        props.opacity = std::stof(value);
+        return true;
+    }
+    if (std::strcmp(name, "visible") == 0) {
+        props.visible = (std::string(value) == "true");
+        return true;
+    }
+    return false; // 子类未覆写 → 未知属性
 }

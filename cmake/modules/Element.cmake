@@ -14,6 +14,7 @@ target_sources(kwik_element
             modules/element/text.cppm
             modules/element/button.cppm
             modules/element/image.cppm
+            modules/element/input.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -29,6 +30,7 @@ target_sources(kwik_element
         src/element/image.cpp
         src/element/stb_image_impl.cpp
         src/element/svg_decoder.cpp
+        src/element/input.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

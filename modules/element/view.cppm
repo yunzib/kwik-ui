@@ -32,6 +32,8 @@ constexpr int PanEnd = 7;     // 拖拽结束
 constexpr int PressBegin = 8; // 按下开始
 constexpr int PressEnd = 9;   // 按下结束
 constexpr int Wheel = 10;     // 滚轮滚动
+constexpr int KeyAction = 20; // 键盘导航 (Backspace/Delete/方向键...)
+constexpr int CharInput = 21; // 字符输入 (含 IME 组合结果)
 } // namespace ViewEventCode
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装
@@ -52,6 +54,7 @@ export struct ViewEventHandlers {
     JSValue onLongPress = JS_NULL;  // 长按回调
     JSValue onHoverEnter = JS_NULL; // 鼠标进入回调
     JSValue onHoverLeave = JS_NULL; // 鼠标离开回调
+    JSValue onChange = JS_NULL;     // Input 文本变更回调
     JSContext *ctx = nullptr;       // QuickJS 上下文 (析构清理用)
     ViewEventHandlers() = default;
     /**
@@ -210,6 +213,34 @@ public:
     View *parent() const {
         return parent_;
     }
+
+    /**
+     * @brief 递归查找指定 id 的控件
+     * @param id 控件标识符
+     * @return 首个匹配的 View, 未找到返回 nullptr
+     */
+    View *findById(const std::string &id);
+    /**
+     * @brief 获取控件属性值 (字符串形式)
+     *
+     * 子类覆写以支持各自专有属性。
+     * 基类处理 ViewProps 通用属性 (width/height/background/opacity/...)
+     *
+     * @param name 属性名 (如 "width", "background")
+     * @return 属性值字符串, 不支持返回 ""
+     */
+    virtual std::string getProperty(const char *name) const;
+    /**
+     * @brief 设置控件属性值 (立即生效, 无 rebuildTree)
+     *
+     * 子类覆写以支持各自专有属性, 先处理自己的属性,
+     * 不识别时回退到 View::setProperty 或返回 false.
+     *
+     * @param name  属性名
+     * @param value 属性值字符串
+     * @return true 属性已识别并设置, false 未知属性
+     */
+    virtual bool setProperty(const char *name, const char *value);
 
     /**
      * @brief 添加子控件 (转移所有权)
