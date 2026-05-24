@@ -7,7 +7,7 @@ const makeBtn = (label, bgColor, onClick) => Button({
     background: bgColor, borderRadius: 4,
     text: label,
     textColor: "#ffffff",
-    fontSize: 16,          // SDF 推荐 ≥14px 保证清晰
+    fontSize: 14,          // SDF 推荐 ≥14px 保证清晰
     onClick: onClick
 });
 // ============================================================================
