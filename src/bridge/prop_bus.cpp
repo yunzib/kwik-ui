@@ -57,18 +57,6 @@ static JSValue js_setProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return JS_UNDEFINED;
 }
 
-// ── 注入 ──────────────────────────────────────────────────────
-// void register_prop_bus(JSContext *ctx) {
-//     QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
-//     if (!qctx) return;
-//     JSModuleDef *m = qctx->getKwikuiModule();
-//     if (!m) return;
-//     JS_SetModuleExport(ctx, m, "getProp",
-//         JS_NewCFunction(ctx, js_getProp, "getProp", 2));
-//     JS_SetModuleExport(ctx, m, "setProp",
-//         JS_NewCFunction(ctx, js_setProp, "setProp", 3));
-// }
-
 // ── C 链接暴露 (供 bindings.cpp 统一注册) ────────────────────────
 extern "C" JSCFunction *kwik_prop_get_fn() { return js_getProp; }
 extern "C" JSCFunction *kwik_prop_set_fn() { return js_setProp; }

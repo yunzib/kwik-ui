@@ -1,14 +1,15 @@
-import { View, Input, Text, Flex, getProp, setProp } from 'kwikui';
+import { View, Input, Text, Flex, Button, getProp, setProp } from 'kwikui';
 // ============================================================================
 // 按钮组件：带文字的背景按钮
 // ============================================================================
-const makeBtn = (label, bgColor, onClick) => View({
+const makeBtn = (label, bgColor, onClick) => Button({
     width: 80, height: 36,
     background: bgColor, borderRadius: 4,
+    text: label,
+    textColor: "#ffffff",
+    fontSize: 16,          // SDF 推荐 ≥14px 保证清晰
     onClick: onClick
-}, [
-    Text({ text: label, fontSize: 13, color: "#fff" })
-]);
+});
 // ============================================================================
 // 根视图
 // ============================================================================

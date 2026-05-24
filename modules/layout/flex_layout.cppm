@@ -10,6 +10,9 @@ export class FlexLayout : public View {
 public:
     FlexLayout() = default;
     explicit FlexLayout(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
+         if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
+           props.background = Color::transparent();
+       }
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;

@@ -27,6 +27,7 @@ import kwik.layout.stack_layout;
 import kwik.layout.list_layout;
 import kwik.element.image;
 import kwik.element.input;
+import kwik.core.log;
 
 import std;
 // ============================================================================
@@ -160,16 +161,23 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
     // ── 1. 读取组件类型 ──────────────────────────────────────────────
     auto typeVal = jsVal.getProperty("type");
     std::string type = typeVal.toString();
-    if (type.empty()) { return nullptr; }
+    if (type.empty()) { 
+        Log::error("parseNode: 缺少 type 字段 — request import type");
+        return nullptr; }
     // ── 2. 获取 props JS 对象 ─────────────────────────────────────
     auto propsVal = jsVal.getProperty("props");
+
     // ── 3. 查注册表分发创建 C++ 组件 ──────────────────────────
     std::unique_ptr<View> element;
     auto registry = creators();
     auto it = registry.find(type);
     if (it != registry.end()) {
         element = it->second(propsVal);
+        if (!element) {
+            Log::error("parseNode: 组件 '{}' 工厂函数返回 null", type);
+        }
     } else {
+        Log::warn("parseNode: 未注册的类型 '{}' — 降级为 View", type);
         element = std::make_unique<View>(parseViewProps(propsVal));
     }
     // ── 4. 递归解析子节点 ────────────────────────────────────────────

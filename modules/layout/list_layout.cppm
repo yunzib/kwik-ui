@@ -18,6 +18,9 @@ export class ListLayout : public View {
 public:
     ListLayout() = default;
     explicit ListLayout(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
+         if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
+           props.background = Color::transparent();
+       }
     }
     const char *typeName() const override {
         return "ListLayout";
