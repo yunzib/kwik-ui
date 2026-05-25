@@ -67,7 +67,7 @@ bool CommandQueue::submit() {
         
         r = readIdx_.load(std::memory_order_acquire);
         // 无符号减法: w - r 在 uint 回绕时仍返回正确差值
-        if (w - r < kRingSize) break;
+        if (w - r < kRingSize -1) break;
         // 缓冲区满，等待消费者释放 slot
         readIdx_.wait(r, std::memory_order_acquire);
     }

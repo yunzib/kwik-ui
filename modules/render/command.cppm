@@ -265,7 +265,7 @@ public:
 
 private:
     // ── SPSC 环形缓冲区，8 槽（2的幂） ──
-    static constexpr size_t kRingSize = 128;
+    static constexpr size_t kRingSize = 8;
     static constexpr size_t kMask = kRingSize - 1;
     // 环形槽：永远不释放内存，只通过读写索引轮转
     CommandBuffer buffers_[kRingSize];

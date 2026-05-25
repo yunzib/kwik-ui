@@ -82,6 +82,12 @@ void VulkanBackend::resize(int width, int height) {
 
 //  Frame 控制：
 bool VulkanBackend::beginFrame() {
+    // ★ 在渲染通道开始前上传脏图集 — 此时 vkQueueSubmit 合法
+    auto &fm = FontManager::instance();
+    if (fm.atlasDirty()) {
+        uploadGlyphAtlas(fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
+        fm.clearAtlasDirty();
+    }
     // 1s 超时替代 UINT64_MAX — 窗口关闭后 swapchain 失效,
     // 部分驱动上 vkAcquireNextImageKHR 可能永久挂起,
     // 超时返回 false 使渲染线程回到主循环检测 Stopping 标志.
@@ -957,11 +963,11 @@ bool VulkanBackend::createGlyphAtlas() {
     return true;
 }
 void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
-    auto &fm = FontManager::instance();
-    if (fm.atlasDirty()) {
-        uploadGlyphAtlas(fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
-        fm.clearAtlasDirty();
-    }
+    // auto &fm = FontManager::instance();
+    // if (fm.atlasDirty()) {
+    //     uploadGlyphAtlas(fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
+    //     fm.clearAtlasDirty();
+    // }
     VkCommandBuffer cmdbuf = commandBuffers_[currentImageIndex_];
     vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipeline_);
     vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,

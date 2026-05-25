@@ -86,7 +86,7 @@ bool Application::init() {
     }
 
     jsCtx_.setUserPointer(tree_.get());
-    
+
     // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
     int w, h;
     window_.GetSize(&w, &h);
@@ -247,12 +247,8 @@ int Application::run() {
     Log::info("渲染循环已启动");
 
     while (running_) {
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
         window_.PollEvents();
-        
         if (jsCtx_.isRenderNeeded()) rebuildTree();
-
         renderFrame();
 
         frameCount++;

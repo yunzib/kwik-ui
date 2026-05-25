@@ -152,7 +152,7 @@ void RenderThread::threadMain() {
             processWindowEvents();
 
             // 获取命令缓冲区
-            if (commandQueue_.acquire(true)) {
+            if (commandQueue_.acquire(false)) {      // Windows 上 WaitOnAddress 可能丢失 notify_one。当主线程 sleep 导致 ring 经常空时：
                 // 处理命令
                 processCommands(commandQueue_.pendingBuffer());
 
@@ -166,7 +166,7 @@ void RenderThread::threadMain() {
                 updateFrameStats(frameStartTime);
             } else {
                 // 队列为空，短暂休眠避免忙等待
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
 
