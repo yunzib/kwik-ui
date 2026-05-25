@@ -245,12 +245,16 @@ int Application::run() {
     auto startTime = std::chrono::high_resolution_clock::now();
     int frameCount = 0;
     Log::info("渲染循环已启动");
+
     while (running_) {
         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
         window_.PollEvents();
+        
         if (jsCtx_.isRenderNeeded()) rebuildTree();
 
         renderFrame();
+
         frameCount++;
         auto now = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();

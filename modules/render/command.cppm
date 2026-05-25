@@ -212,31 +212,29 @@ private:
 };
 
 /**
- * @brief 命令队列
+ * @brief 命令队列 — SPSC 无锁环形缓冲区
  *
- * 线程安全的双缓冲队列，支持主线程提交和渲染线程消费
+ * 主线程（生产者）写入命令，渲染线程（消费者）读取执行。
+ * 8 槽环形缓冲区，通过原子索引保证单槽所有权，永不释放内存。
+ * 仅 atomic notify/wait 用于阻塞，零 mutex。
  */
 export class CommandQueue {
 public:
     CommandQueue();
     ~CommandQueue();
-
     // 禁用拷贝
     CommandQueue(const CommandQueue &) = delete;
     CommandQueue &operator=(const CommandQueue &) = delete;
-
     /**
      * @brief 获取当前帧的命令缓冲区（用于主线程记录命令）
      */
     CommandBuffer &currentBuffer();
-
     /**
      * @brief 提交当前帧的命令缓冲区到队列
      *
      * @return 提交是否成功（队列未满）
      */
     bool submit();
-
     /**
      * @brief 获取下一帧的命令缓冲区（渲染线程消费）
      *
@@ -244,51 +242,41 @@ public:
      * @return 成功获取返回true，队列为空返回false
      */
     bool acquire(bool block = true);
-
     /**
      * @brief 获取当前待处理的命令缓冲区（渲染线程使用）
      */
     const CommandBuffer &pendingBuffer() const;
-
     /**
      * @brief 释放已处理的命令缓冲区（渲染线程使用）
      */
     void release();
-
     /**
      * @brief 获取队列深度（已提交但未处理的帧数）
      */
     size_t depth() const;
-
     /**
      * @brief 清空队列
      */
     void clear();
-
-    /**
-     * @brief 设置最大队列深度（防止内存无限增长）
-     */
-    void setMaxDepth(size_t maxDepth);
-
     /**
      * @brief 唤醒所有阻塞的 acquire() 调用（用于停止时）
      */
     void wake();
 
 private:
-    // 双缓冲：一个用于当前帧记录，一个用于渲染线程处理
-    CommandBuffer buffers_[2];
-    CommandBuffer *currentBuffer_ = &buffers_[0];
-    CommandBuffer *pendingBuffer_ = &buffers_[1];
-
-    // 已提交但未处理的帧队列
-    std::queue<CommandBuffer *> submittedQueue_;
-
-    // 同步原语
-    mutable std::mutex mutex_;
-    std::condition_variable cv_;
-
-    // 队列限制
-    size_t maxDepth_ = 3;   // 最多缓存3帧
-    bool stopping_ = false; // 停止标志
+    // ── SPSC 环形缓冲区，8 槽（2的幂） ──
+    static constexpr size_t kRingSize = 128;
+    static constexpr size_t kMask = kRingSize - 1;
+    // 环形槽：永远不释放内存，只通过读写索引轮转
+    CommandBuffer buffers_[kRingSize];
+    // ── 原子读写索引 ──
+    // writeIdx_: 仅主线程递增 (relaxed 写入, release 发布)
+    // readIdx_:  仅渲染线程递增 (relaxed 写入, release 发布)
+    // writeIdx_ - readIdx_ = 队列深度 (无符号减法天然处理回绕)
+    std::atomic<size_t> writeIdx_{0};
+    std::atomic<size_t> readIdx_{0};
+    // acquire() 后锁定的槽位索引，供 pendingBuffer() 返回
+    size_t pendingIdx_ = 0;
+    // 停止标志：唤醒所有等待线程，安全退出
+    std::atomic<bool> stopping_{false};
 };

@@ -458,12 +458,12 @@ bool VulkanBackend::createSwapchain() {
     std::vector<VkPresentModeKHR> presentModes(presentCount);
     vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice_, vkSurface_, &presentCount, presentModes.data());
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR; // guaranteed
-    for (auto &m : presentModes) {
-        if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
-            presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-            break;
-        }
-    }
+    // for (auto &m : presentModes) {
+    //     if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
+    //         presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+    //         break;
+    //     }
+    // }
     if (caps.currentExtent.width != UINT32_MAX) {
         swapchainExtent_ = caps.currentExtent;
     } else {
