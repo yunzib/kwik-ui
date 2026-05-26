@@ -5,5 +5,5 @@ layout(binding = 0) uniform sampler2D imageTex;
 layout(location = 0) out vec4 outColor;
 void main() {
     vec4 texColor = texture(imageTex, fragUV);
-    outColor = vec4(texColor.bgr, texColor.a) * fragColor.a;
+    outColor = vec4(texColor.rgb, texColor.a) * fragColor.a;
 }

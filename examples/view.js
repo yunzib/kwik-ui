@@ -62,7 +62,7 @@ export default View({
     View({ width: 200, height: 48, background: "#2196F3", borderRadius: 6, opacity: 1.0 }),
     
 
-    View({ width: 600, height: 300, background: "#FFFFFF", borderRadius: 6, padding: 14, x: 400}, [
+    View({ width: 400, height: 300, background: "#FFFFFF", borderRadius: 6, padding: 14, x: 400}, [
         // 纯 View 演示 opacity
         View({ width: 200, height: 48, background: "#2196F3", borderRadius: 6, opacity: 0.6 }),
         View({ width: 200, height: 48, background: "#2196F3", borderRadius: 6, opacity: 0.3 }),

@@ -45,7 +45,7 @@ const QuerySvg = Image({
 export default View({
     width: 800,
     height: 600,
-    background: "#1a1a2e",
+    background: "#ff0000",
     padding: 30
 }, [
     Text({

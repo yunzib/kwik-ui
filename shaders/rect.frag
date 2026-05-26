@@ -30,7 +30,7 @@ void main() {
         float shadowSDF = sdRoundedRect(fragPos * fragSize - shadowCenter, fragSize * 0.5, sr);
         float shadowAlpha = 1.0 - smoothstep(-aa, aa, shadowSDF);
         shadowAlpha *= fragOpacity;
-        outColor = vec4(fragFillColor.bgr, fragFillColor.a * shadowAlpha);
+        outColor = vec4(fragFillColor.rgb, fragFillColor.a * shadowAlpha);
     } else if (fragDrawMode == 1u) {
         // ── Stroke (border) ─────────────────────────────────────
         vec2  innerHalf  = vec2(0.5) - fragBorderWidth / fragSize;
@@ -41,11 +41,11 @@ void main() {
         float innerAlpha = 1.0 - smoothstep(-aa, aa, innerSDF);
         float borderAlpha = outerAlpha - innerAlpha;
         borderAlpha *= fragOpacity;
-        outColor = vec4(fragBorderColor.bgr, fragBorderColor.a * borderAlpha);
+        outColor = vec4(fragBorderColor.rgb, fragBorderColor.a * borderAlpha);
     } else {
         // ── Fill ────────────────────────────────────────────────
         float alpha = 1.0 - smoothstep(-aa, aa, sdf);
         alpha *= fragOpacity;
-        outColor = vec4(fragFillColor.bgr, fragFillColor.a * alpha);
+        outColor = vec4(fragFillColor.rgb, fragFillColor.a * alpha);
     }
 }

@@ -455,10 +455,10 @@ bool VulkanBackend::createSwapchain() {
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &formatCount, nullptr);
     std::vector<VkSurfaceFormatKHR> formats(formatCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &formatCount, formats.data());
-    swapchainFormat_ = VK_FORMAT_B8G8R8A8_UNORM;
+    swapchainFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
     for (auto &f : formats) {
-        if (f.format == VK_FORMAT_B8G8R8A8_SRGB) {
-            swapchainFormat_ = VK_FORMAT_B8G8R8A8_SRGB;
+        if (f.format == VK_FORMAT_R8G8B8A8_SRGB) {
+            swapchainFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
             break;
         }
     }
