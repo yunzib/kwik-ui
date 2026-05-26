@@ -303,10 +303,10 @@ void RenderThread::executeCommand(const Command &cmd) {
                 backend_->drawShadow(arg.rect, arg.radius, arg.shadow);
             } else if constexpr (std::is_same_v<T, SaveStateCmd>) {
                 // 状态保存由后端处理（如果需要）
-                backend_->saveClipState();
+                backend_->saveState();
             } else if constexpr (std::is_same_v<T, RestoreStateCmd>) {
                 // 状态恢复由后端处理（如果需要）
-                backend_->restoreClipState();
+                backend_->restoreState();
             } else if constexpr (std::is_same_v<T, TranslateCmd>) {
                 // 变换已由主线程应用，这里无需处理
             } else if constexpr (std::is_same_v<T, ScaleCmd>) {

@@ -47,8 +47,8 @@ public:
     uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
     void destroyImageTexture(uint32_t id) override;
 
-    void saveClipState() override;
-    void restoreClipState() override;
+    void saveState() override;
+    void restoreState() override;
 
     BackendType getType() const override {
         return BackendType::Vulkan;
@@ -147,6 +147,7 @@ private:
     // ── 裁剪状态管理 ─────────────────────────────────────────
     std::vector<Rect> clipStack_;                  // 裁剪矩形栈
     std::vector<std::vector<Rect>> clipSaveStack_; // save/restore 裁剪状态栈
+    std::vector<float> alphaSaveStack_;
 
     // 工具函数
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags props);

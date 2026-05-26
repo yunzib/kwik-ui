@@ -5,5 +5,5 @@ layout(binding = 0) uniform sampler2D imageTex;
 layout(location = 0) out vec4 outColor;
 void main() {
     vec4 texColor = texture(imageTex, fragUV);
-    outColor = texColor * fragColor;  // fragColor.a 携带 opacity
+    outColor = vec4(texColor.bgr, texColor.a) * fragColor.a;
 }

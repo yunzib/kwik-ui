@@ -29,7 +29,7 @@ layout(location = 9) out flat float fragShadowBlur;
 layout(location = 10) out flat vec2 fragViewportSize;
 void main() {
     vec2 screenPos = pc.topLeft + inPosition * pc.size;
-    vec2 ndc = screenPos / pc.viewportSize * 2.0 - 1.0;
+    vec2 ndc = (screenPos + 0.5) / pc.viewportSize * 2.0 - 1.0;
     gl_Position = vec4(ndc, 0.0, 1.0);
     fragPos          = inPosition;
     fragFillColor    = pc.fillColor;

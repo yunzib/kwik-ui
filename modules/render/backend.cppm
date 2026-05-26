@@ -127,8 +127,8 @@ public:
      */
     virtual void destroyImageTexture(uint32_t id) = 0;
 
-    virtual void saveClipState() = 0;
-    virtual void restoreClipState() = 0;
+    virtual void saveState() = 0;
+    virtual void restoreState() = 0;
 
     /**
      * @brief 获取后端类型

@@ -118,34 +118,28 @@ void Graphics::resetClip() {
 // ============================================================================
 
 void Graphics::clear(const Color &color) {
-    Color transformed = applyOpacity(color);
-    addCommand(ClearCmd{transformed});
+    addCommand(ClearCmd{color});
 }
 
 void Graphics::drawRect(const Rect &rect, const Color &color) {
     Rect transformed = transformRect(rect);
-    Color transformedColor = applyOpacity(color);
-    addCommand(FillRectCmd{transformed, transformedColor});
+    addCommand(FillRectCmd{transformed, color});
 }
 
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {
     Rect transformed = transformRect(rect);
-    Color transformedColor = applyOpacity(color);
-    addCommand(FillRoundedRectCmd{transformed, radius * currentState_.sx, transformedColor});
+    addCommand(FillRoundedRectCmd{transformed, radius * currentState_.sx, color});
 }
 
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     Rect transformed = transformRect(rect);
-    Color transformedColor = applyOpacity(color);
     addCommand(
-        StrokeRoundedRectCmd{transformed, radius * currentState_.sx, transformedColor, strokeWidth * currentState_.sx});
+        StrokeRoundedRectCmd{transformed, radius * currentState_.sx, color, strokeWidth * currentState_.sx});
 }
 
 void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
     Rect transformed = transformRect(rect);
-    Shadow transformedShadow = shadow;
-    transformedShadow.color = applyOpacity(shadow.color);
-    addCommand(DrawShadowCmd{transformed, radius * currentState_.sx, transformedShadow});
+    addCommand(DrawShadowCmd{transformed, radius * currentState_.sx, shadow});
 }
 
 void Graphics::drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
@@ -154,12 +148,11 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
     fm.loadFont(fontPath.c_str());
     auto glyphs = fm.shapeText(text.c_str(), fontSize);
     for (auto &g : glyphs) {
-        Color c = applyOpacity(color);
         float tx = (x + g.x) * currentState_.sx + currentState_.tx;
         float ty = (y + g.y) * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, c});
+        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color});
     }
 }
 
@@ -168,12 +161,11 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
 // ============================================================================
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
     for (auto &g : glyphs) {
-        Color c = applyOpacity(color);
         float tx = g.x * currentState_.sx + currentState_.tx;
         float ty = g.y * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, c});
+        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color});
     }
 }
 
@@ -182,8 +174,7 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 // ============================================================================
 void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity) {
     Rect transformed = transformRect(rect);
-    float o = opacity * currentState_.opacity;
-    addCommand(DrawImageCmd{textureId, transformed, o});
+    addCommand(DrawImageCmd{textureId, transformed, opacity});
 }
 
 
@@ -213,12 +204,12 @@ void Graphics::resize(int width, int height) {
 // ============================================================================
 // 工具函数
 // ============================================================================
-
+// 像素对齐
 Rect Graphics::transformRect(const Rect &rect) const {
-    float x = rect.x * currentState_.sx + currentState_.tx;
-    float y = rect.y * currentState_.sy + currentState_.ty;
-    float w = rect.width * currentState_.sx;
-    float h = rect.height * currentState_.sy;
+    float x = std::round(rect.x * currentState_.sx + currentState_.tx);
+    float y = std::round(rect.y * currentState_.sy + currentState_.ty);
+    float w = std::round(rect.width * currentState_.sx);
+    float h = std::round(rect.height * currentState_.sy);
     return {x, y, w, h};
 }
 
