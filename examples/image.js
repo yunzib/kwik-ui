@@ -2,16 +2,16 @@ import { View, Image, Text, Flex } from 'kwikui';
 // ---------- PNG 图标 (stb_image 解码) ----------
 const AnalyticsImg = Image({
     src: "../../examples/image/Web Analytics.png",
-    width: 64,
-    height: 64,
+    width: 400,
+    height: 300,
     fit: "contain",
     borderRadius: 8,
     background: "#ffffff"
 });
 const AppImg = Image({
     src: "../../examples/image/Web Application.png",
-    width: 64,
-    height: 64,
+    width: 400,
+    height: 300,
     fit: "contain",
     borderRadius: 8,
     background: "#ffffff"
@@ -45,7 +45,7 @@ const QuerySvg = Image({
 export default View({
     width: 800,
     height: 600,
-    background: "#ff0000",
+    background: "#9fcaf3",
     padding: 30
 }, [
     Text({
@@ -107,8 +107,8 @@ export default View({
         View({}, [
             Image({
                 src: "../../examples/image/test1.png",
-                width: 220,
-                height: 160,
+                width: 400,
+                height: 300,
                 fit: "cover",
                 borderRadius: 8
             }),
@@ -117,8 +117,8 @@ export default View({
         View({}, [
             Image({
                 src: "../../examples/image/test2.png",
-                width: 220,
-                height: 160,
+                width: 400,
+                height: 200,
                 fit: "contain",
                 background: "#222",
                 borderRadius: 8
@@ -128,8 +128,8 @@ export default View({
         View({}, [
             Image({
                 src: "../../examples/image/test3.png",
-                width: 220,
-                height: 160,
+                width: 400,
+                height: 300,
                 fit: "fill",
                 borderRadius: 8
             }),

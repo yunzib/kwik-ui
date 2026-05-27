@@ -21,7 +21,7 @@ void main() {
     float sdf      = sdRoundedRect(fragPos * fragSize - center, fragSize * 0.5, cr);
     // 1 pixel in NDC → pixelSize for anti-aliasing
     float rawAA = length(fwidth(fragPos * fragSize));
-    float aa = clamp(rawAA, 0.15, 0.4);
+    float aa = clamp(rawAA, 0.10, 0.6);
     if (fragDrawMode == 2u) {
         // ── Shadow ──────────────────────────────────────────────
         vec2  shadowCenter = fragSize * 0.5 + fragShadowOffset;

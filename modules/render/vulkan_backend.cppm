@@ -64,6 +64,7 @@ private:
     int width_ = 0;
     int height_ = 0;
     float globalAlpha_ = 1.0f;
+    VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_4_BIT;
     Color clearColor_{245, 245, 245, 255};
     // ── Vulkan 核心 ───────────────────────────────────────────
     VkInstance vkInstance_ = VK_NULL_HANDLE;
@@ -79,6 +80,9 @@ private:
     std::vector<VkImage> swapchainImages_;
     std::vector<VkImageView> swapchainImageViews_;
     std::vector<VkFramebuffer> framebuffers_;
+    std::vector<VkImage> msaaImages_;
+    std::vector<VkDeviceMemory> msaaMemories_;
+    std::vector<VkImageView> msaaViews_;
     // ── Render pass / Pipeline ────────────────────────────────
     VkRenderPass renderPass_ = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;

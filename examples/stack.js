@@ -19,4 +19,22 @@ export default View({ width: 800, height: 600, background: "#ffffff", padding: 3
     LayerDemo,
     Text({ text: "绝对定位 — 四角 + 居中", fontSize: 14, color: "#999" }),
     AbsoluteDemo,
+    Stack({ width: 267, height: 100, background: "#e3f2fd", borderRadius: 6, margin: [0, 0, 10, 0] }, [
+        View({
+            width: 60, height: 60, background: "#F44336", borderRadius: 30,
+            position: "absolute", top: 20, left: 104
+        }),
+        View({
+            width: 20, height: 20, background: "#4CAFAA", borderRadius: 10,
+            position: "absolute", top: 8, left: 8
+        }),
+        View({
+            width: 10, height: 10, background: "#FF9800", borderRadius: 4,
+            position: "absolute", bottom: 8, right: 8
+        }),
+        Text({
+            text: "图层1", fontSize: 11, color: "#333",
+            position: "absolute", top: 10, right: 10
+        }),
+    ]),
 ]);

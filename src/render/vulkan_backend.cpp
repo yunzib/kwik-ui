@@ -82,7 +82,7 @@ void VulkanBackend::resize(int width, int height) {
 
 //  Frame 控制：
 bool VulkanBackend::beginFrame() {
-    // ★ 在渲染通道开始前上传脏图集 — 此时 vkQueueSubmit 合法
+    // 在渲染通道开始前上传脏图集 — 此时 vkQueueSubmit 合法
     auto &fm = FontManager::instance();
     if (fm.atlasDirty()) {
         uploadGlyphAtlas(fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
@@ -108,9 +108,13 @@ bool VulkanBackend::beginFrame() {
     rpInfo.framebuffer = framebuffers_[currentImageIndex_];
     rpInfo.renderArea.extent = swapchainExtent_;
     rpInfo.clearValueCount = 1;
-    VkClearValue cv{};
-    cv.color = {{clearColor_.b / 255.f, clearColor_.g / 255.f, clearColor_.r / 255.f, clearColor_.a / 255.f}};
-    rpInfo.pClearValues = &cv;
+
+    VkClearValue cvs[2];
+    cvs[0].color = {{clearColor_.r / 255.f, clearColor_.g / 255.f, clearColor_.b / 255.f, clearColor_.a / 255.f}};
+    cvs[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    rpInfo.clearValueCount = 2;
+    rpInfo.pClearValues = cvs;
+
     vkCmdBeginRenderPass(commandBuffers_[currentImageIndex_], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
     VkViewport vp{};
     vp.width = (float)swapchainExtent_.width;
@@ -370,6 +374,18 @@ bool VulkanBackend::initVulkan(void *nativeHandle, int width, int height) {
         cleanupVulkan();
         return false;
     }
+
+    // 在创建 device 成功后查询 MSAA 支持
+    VkPhysicalDeviceProperties deviceProps;
+    vkGetPhysicalDeviceProperties(vkPhysicalDevice_, &deviceProps);
+    VkSampleCountFlags counts = deviceProps.limits.framebufferColorSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_4_BIT)
+        msaaSamples_ = VK_SAMPLE_COUNT_4_BIT;
+    else if (counts & VK_SAMPLE_COUNT_2_BIT)
+        msaaSamples_ = VK_SAMPLE_COUNT_2_BIT;
+    else
+        msaaSamples_ = VK_SAMPLE_COUNT_1_BIT;
+
     vkGetDeviceQueue(vkDevice_, queueFamilyIndex_, 0, &vkQueue_);
     // 7. Swapchain + Render Pass + Pipeline + Buffers + Sync
     if (!createSwapchain()) {
@@ -467,12 +483,12 @@ bool VulkanBackend::createSwapchain() {
     std::vector<VkPresentModeKHR> presentModes(presentCount);
     vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice_, vkSurface_, &presentCount, presentModes.data());
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR; // guaranteed
-    // for (auto &m : presentModes) {
-    //     if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
-    //         presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    //         break;
-    //     }
-    // }
+    for (auto &m : presentModes) {
+        if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
+            presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+            break;
+        }
+    }
     if (caps.currentExtent.width != UINT32_MAX) {
         swapchainExtent_ = caps.currentExtent;
     } else {
@@ -512,6 +528,40 @@ bool VulkanBackend::createSwapchain() {
         iv.subresourceRange.layerCount = 1;
         if (vkCreateImageView(vkDevice_, &iv, nullptr, &swapchainImageViews_[i]) != VK_SUCCESS) return false;
     }
+
+    // ── 创建 MSAA 颜色缓冲 ──
+    msaaImages_.resize(count);
+    msaaMemories_.resize(count);
+    msaaViews_.resize(count);
+    for (size_t i = 0; i < count; i++) {
+        VkImageCreateInfo msaaImgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        msaaImgInfo.imageType = VK_IMAGE_TYPE_2D;
+        msaaImgInfo.format = swapchainFormat_;
+        msaaImgInfo.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
+        msaaImgInfo.mipLevels = 1;
+        msaaImgInfo.arrayLayers = 1;
+        msaaImgInfo.samples = msaaSamples_;
+        msaaImgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        msaaImgInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        msaaImgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if (vkCreateImage(vkDevice_, &msaaImgInfo, nullptr, &msaaImages_[i]) != VK_SUCCESS) return false;
+        VkMemoryRequirements msaaMemReq;
+        vkGetImageMemoryRequirements(vkDevice_, msaaImages_[i], &msaaMemReq);
+        VkMemoryAllocateInfo msaaAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        msaaAlloc.allocationSize = msaaMemReq.size;
+        msaaAlloc.memoryTypeIndex = findMemoryType(msaaMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (vkAllocateMemory(vkDevice_, &msaaAlloc, nullptr, &msaaMemories_[i]) != VK_SUCCESS) return false;
+        vkBindImageMemory(vkDevice_, msaaImages_[i], msaaMemories_[i], 0);
+        VkImageViewCreateInfo msaaViewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        msaaViewInfo.image = msaaImages_[i];
+        msaaViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        msaaViewInfo.format = swapchainFormat_;
+        msaaViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        msaaViewInfo.subresourceRange.levelCount = 1;
+        msaaViewInfo.subresourceRange.layerCount = 1;
+        if (vkCreateImageView(vkDevice_, &msaaViewInfo, nullptr, &msaaViews_[i]) != VK_SUCCESS) return false;
+    }
+
     return true;
 }
 void VulkanBackend::cleanupSwapchain() {
@@ -522,40 +572,68 @@ void VulkanBackend::cleanupSwapchain() {
     if (swapchain_ != VK_NULL_HANDLE) vkDestroySwapchainKHR(vkDevice_, swapchain_, nullptr);
     swapchain_ = VK_NULL_HANDLE;
     swapchainImages_.clear();
+
+    for (auto &view : msaaViews_) {
+        if (view) vkDestroyImageView(vkDevice_, view, nullptr);
+    }
+    msaaViews_.clear();
+    for (auto &img : msaaImages_) {
+        if (img) vkDestroyImage(vkDevice_, img, nullptr);
+    }
+    msaaImages_.clear();
+    for (auto &mem : msaaMemories_) {
+        if (mem) vkFreeMemory(vkDevice_, mem, nullptr);
+    }
+    msaaMemories_.clear();
 }
 
 //  RenderPass / Framebuffers / Pipeline：
 bool VulkanBackend::createRenderPass() {
-    VkAttachmentDescription colorAtt{};
-    colorAtt.format = swapchainFormat_;
-    colorAtt.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAtt.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    VkAttachmentReference attRef{};
-    attRef.attachment = 0;
-    attRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // 附件 0: MSAA 颜色缓冲
+    VkAttachmentDescription msaaAtt{};
+    msaaAtt.format = swapchainFormat_;
+    msaaAtt.samples = msaaSamples_;
+    msaaAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    msaaAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    msaaAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    msaaAtt.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // 附件 1: 解析目标（swapchain）
+    VkAttachmentDescription resolveAtt{};
+    resolveAtt.format = swapchainFormat_;
+    resolveAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+    resolveAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    resolveAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    resolveAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    resolveAtt.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference resolveRef{};
+    resolveRef.attachment = 1;
+    resolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &attRef;
-    VkRenderPassCreateInfo rpInfo{};
-    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    rpInfo.attachmentCount = 1;
-    rpInfo.pAttachments = &colorAtt;
+    subpass.pColorAttachments = &colorRef;
+    subpass.pResolveAttachments = &resolveRef;
+    VkAttachmentDescription attachments[] = {msaaAtt, resolveAtt};
+    VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    rpInfo.attachmentCount = 2;
+    rpInfo.pAttachments = attachments;
     rpInfo.subpassCount = 1;
     rpInfo.pSubpasses = &subpass;
     return vkCreateRenderPass(vkDevice_, &rpInfo, nullptr, &renderPass_) == VK_SUCCESS;
 }
+
 bool VulkanBackend::createFramebuffers() {
     framebuffers_.resize(swapchainImageViews_.size());
     for (size_t i = 0; i < swapchainImageViews_.size(); i++) {
+        VkImageView attachments[] = {msaaViews_[i], swapchainImageViews_[i]};
         VkFramebufferCreateInfo fbInfo{};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = renderPass_;
-        fbInfo.attachmentCount = 1;
-        fbInfo.pAttachments = &swapchainImageViews_[i];
+        fbInfo.attachmentCount = 2;
+        fbInfo.pAttachments = attachments;
         fbInfo.width = swapchainExtent_.width;
         fbInfo.height = swapchainExtent_.height;
         fbInfo.layers = 1;
@@ -617,7 +695,7 @@ bool VulkanBackend::createPipeline() {
     raster.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo msaa{};
     msaa.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msaa.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    msaa.rasterizationSamples = msaaSamples_;
     VkPipelineColorBlendAttachmentState blendAtt{};
     blendAtt.blendEnable = VK_TRUE;
     blendAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -871,7 +949,7 @@ bool VulkanBackend::createGlyphPipeline() {
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = msaaSamples_;
     VkPipelineColorBlendAttachmentState blendAtt{};
     blendAtt.blendEnable = VK_TRUE;
     blendAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -1170,7 +1248,7 @@ bool VulkanBackend::createImagePipeline() {
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = msaaSamples_;
     // Alpha blending (SRC_ALPHA / ONE_MINUS_SRC_ALPHA)
     VkPipelineColorBlendAttachmentState blendAtt{};
     blendAtt.blendEnable = VK_TRUE;
@@ -1207,8 +1285,9 @@ bool VulkanBackend::createImagePipeline() {
     vkDestroyShaderModule(vkDevice_, vertMod, nullptr);
     return r == VK_SUCCESS;
 }
+
 // ============================================================================
-// createImageTexture — 上传 RGBA 像素到独立 VkImage 纹理
+// createImageTexture — 上传 RGBA 像素到独立 VkImage 纹理（含 mipmap）
 // ============================================================================
 uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) {
     if (!rgba || width == 0 || height == 0) return 0;
@@ -1217,8 +1296,8 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
     if (!createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
-                      stagingMemory)) {
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+                       stagingMemory)) {
         return 0;
     }
     void *mapped;
@@ -1230,11 +1309,12 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
     imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     imgInfo.extent = {width, height, 1};
-    imgInfo.mipLevels = 1;
+    uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+    imgInfo.mipLevels = mipLevels;
     imgInfo.arrayLayers = 1;
     imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imgInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     ImageTextureData tex;
@@ -1257,7 +1337,7 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
         return 0;
     }
     vkBindImageMemory(vkDevice_, tex.image, tex.memory, 0);
-    // ③ Copy staging → image (with layout transitions)
+    // ③ Copy staging → image + generate mipmaps
     VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandPool = commandPool_;
@@ -1267,7 +1347,7 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
-    // Transition: UNDEFINED → TRANSFER_DST
+    // Barrier: UNDEFINED → TRANSFER_DST (level 0)
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -1280,18 +1360,77 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                          nullptr, 1, &barrier);
+    // Copy staging → image (level 0)
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
     region.imageExtent = {width, height, 1};
     vkCmdCopyBufferToImage(cmd, stagingBuffer, tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    // Transition: TRANSFER_DST → SHADER_READ_ONLY
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrier);
+    if (mipLevels > 1) {
+        // Barrier: level 0 TRANSFER_DST → TRANSFER_SRC (blit 源)
+        VkImageMemoryBarrier toSrc{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        toSrc.image = tex.image;
+        toSrc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        toSrc.subresourceRange.levelCount = 1;
+        toSrc.subresourceRange.layerCount = 1;
+        toSrc.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toSrc.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        toSrc.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toSrc.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &toSrc);
+        // Blit 逐级生成 mipmap
+        int32_t mipW = static_cast<int32_t>(width);
+        int32_t mipH = static_cast<int32_t>(height);
+        for (uint32_t i = 1; i < mipLevels; i++) {
+            VkImageBlit blit{};
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.layerCount = 1;
+            blit.srcOffsets[1] = {mipW, mipH, 1};
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.layerCount = 1;
+            blit.dstOffsets[1] = {mipW > 1 ? mipW / 2 : 1, mipH > 1 ? mipH / 2 : 1, 1};
+            vkCmdBlitImage(cmd, tex.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex.image,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+            // Barrier: level i TRANSFER_DST → TRANSFER_SRC (下一轮 blit 源)
+            VkImageMemoryBarrier mipBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            mipBarrier.image = tex.image;
+            mipBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            mipBarrier.subresourceRange.baseMipLevel = i;
+            mipBarrier.subresourceRange.levelCount = 1;
+            mipBarrier.subresourceRange.layerCount = 1;
+            mipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            mipBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            mipBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            mipBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 0, 0, nullptr, 0, nullptr, 1, &mipBarrier);
+            if (mipW > 1) mipW /= 2;
+            if (mipH > 1) mipH /= 2;
+        }
+        // Barrier: ALL mip levels → SHADER_READ_ONLY
+        VkImageMemoryBarrier toShader{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        toShader.image = tex.image;
+        toShader.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        toShader.subresourceRange.levelCount = mipLevels;
+        toShader.subresourceRange.layerCount = 1;
+        toShader.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        toShader.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        toShader.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        toShader.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &toShader);
+    } else {
+        // 无 mipmap: TRANSFER_DST → SHADER_READ_ONLY
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
     vkEndCommandBuffer(cmd);
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
     si.commandBufferCount = 1;
@@ -1307,13 +1446,15 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t width, 
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.levelCount = mipLevels;
     viewInfo.subresourceRange.layerCount = 1;
     vkCreateImageView(vkDevice_, &viewInfo, nullptr, &tex.view);
     // ⑤ Sampler
     VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.maxLod = static_cast<float>(mipLevels);
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;

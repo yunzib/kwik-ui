@@ -77,7 +77,7 @@ export struct ViewProps {
     int gridRow = 0, gridColumn = 0;
     int gridRowSpan = 1, gridColumnSpan = 1;
     bool absolute = false;
-    float absTop = 0, absLeft = 0, absRight = -1, absBottom = -1;
+    float absTop = -1, absLeft = -1, absRight = -1, absBottom = -1;
 };
 
 /**
