@@ -11,7 +11,6 @@ import kwik.render.font;
 import kwik.core.types;
 import std;
 
-
 GlyphRenderer::~GlyphRenderer() {
     destroy();
 }
@@ -47,6 +46,10 @@ void GlyphRenderer::destroy() {
     if (glyphPipeline_ != VK_NULL_HANDLE) {
         vkDestroyPipeline(device_, glyphPipeline_, nullptr);
         glyphPipeline_ = VK_NULL_HANDLE;
+    }
+    if (glyphClipPipeline_ != VK_NULL_HANDLE) { // ← 新增
+        vkDestroyPipeline(device_, glyphClipPipeline_, nullptr);
+        glyphClipPipeline_ = VK_NULL_HANDLE;
     }
     if (glyphPipelineLayout_ != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
@@ -126,10 +129,27 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     blend.attachmentCount = 1;
     blend.pAttachments = &ba;
-    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    // ── Dynamic states (含 stencil 动态控制) ─────────────
+    VkDynamicState dynStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+    };
     VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 2;
+    dyn.dynamicStateCount = 5;
     dyn.pDynamicStates = dynStates;
+    // ── Depth / Stencil — stencil 测试启用, 不写入 ───────
+    VkStencilOpState stencilNoWrite{};
+    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
+    stencilNoWrite.compareMask = 0xFF;
+    stencilNoWrite.writeMask = 0x00;
+    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    ds.stencilTestEnable = VK_TRUE;
+    ds.front = stencilNoWrite;
+    ds.back = stencilNoWrite;
     VkGraphicsPipelineCreateInfo pipeInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     pipeInfo.stageCount = 2;
     pipeInfo.pStages = stages;
@@ -143,7 +163,41 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     pipeInfo.layout = glyphPipelineLayout_;
     pipeInfo.renderPass = ctx.renderPass();
     pipeInfo.subpass = 0;
+    pipeInfo.pDepthStencilState = &ds; // ← 绑定 stencil 测试
     bool ok = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphPipeline_) == VK_SUCCESS;
+    if (!ok) {
+        vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
+        vkDestroyShaderModule(device_, glyphFrag, nullptr);
+        vkDestroyShaderModule(device_, glyphVert, nullptr);
+        return false;
+    }
+    // ── 创建 glyph stencil 测试变体管线 (同 shader, 追加 stencil 测试) ──
+    {
+        VkDynamicState clipDynStates[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+            VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        };
+        VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        clipDyn.dynamicStateCount = 4;
+        clipDyn.pDynamicStates = clipDynStates;
+        VkStencilOpState stencilTest{};
+        stencilTest.failOp = VK_STENCIL_OP_KEEP;
+        stencilTest.passOp = VK_STENCIL_OP_KEEP;
+        stencilTest.depthFailOp = VK_STENCIL_OP_KEEP;
+        stencilTest.compareOp = VK_COMPARE_OP_EQUAL;
+        stencilTest.compareMask = 0xFF;
+        stencilTest.writeMask = 0x00;
+        VkPipelineDepthStencilStateCreateInfo dsClip{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+        dsClip.stencilTestEnable = VK_TRUE;
+        dsClip.front = stencilTest;
+        dsClip.back = stencilTest;
+        pipeInfo.pDynamicState = &clipDyn;
+        pipeInfo.pDepthStencilState = &dsClip;
+        vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphClipPipeline_);
+    }
+
     vkDestroyShaderModule(device_, glyphFrag, nullptr);
     vkDestroyShaderModule(device_, glyphVert, nullptr);
     if (!ok) {
@@ -330,4 +384,36 @@ void GlyphRenderer::uploadAtlas(VulkanContext &ctx, const uint8_t *data, uint32_
     vkFreeCommandBuffers(device_, ctx.commandPool(), 1, &cmd);
     vkDestroyBuffer(device_, staging, nullptr);
     vkFreeMemory(device_, stagingMem, nullptr);
+}
+
+// ================================================================
+// drawGlyphClipped — stencil 测试版 (裁剪区域内使用)
+// ================================================================
+void GlyphRenderer::drawGlyphClipped(VulkanContext &ctx, const DrawGlyphCmd &cmd, float globalAlpha) {
+    VkCommandBuffer cb = ctx.commandBuffer();
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphClipPipeline_); // ← 唯一差异
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,
+                            nullptr);
+    GlyphPushConstants pc{};
+    pc.posX = cmd.x;
+    pc.posY = cmd.y;
+    pc.sizeX = cmd.width;
+    pc.sizeY = cmd.height;
+    pc.uvU0 = cmd.uvLeft;
+    pc.uvV0 = cmd.uvTop;
+    pc.uvU1 = cmd.uvRight;
+    pc.uvV1 = cmd.uvBottom;
+    pc.colorR = cmd.color.r / 255.f;
+    pc.colorG = cmd.color.g / 255.f;
+    pc.colorB = cmd.color.b / 255.f;
+    pc.colorA = cmd.color.a / 255.f * globalAlpha;
+    pc.viewportW = (float)ctx.extent().width;
+    pc.viewportH = (float)ctx.extent().height;
+    vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(GlyphPushConstants), &pc);
+    VkDeviceSize off = 0;
+    VkBuffer vb = ctx.vertexBuffer();
+    vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+    vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }

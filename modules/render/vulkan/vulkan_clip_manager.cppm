@@ -17,11 +17,20 @@ public:
     void resetClip(VulkanContext &ctx);
     void saveState();
     void restoreState(VulkanContext &ctx);
-    void  setGlobalAlpha(float alpha);
-    float globalAlpha() const { return globalAlpha_; }
+    void setGlobalAlpha(float alpha);
+    float globalAlpha() const {
+        return globalAlpha_;
+    }
+
+    // ── Stencil 层级追踪 ────────────────────────────────
+    /// 返回当前裁剪栈深度 (0 = 无裁剪)
+    size_t level() const {
+        return clipStack_.size();
+    }
+
 private:
-    std::vector<Rect>              clipStack_;
+    std::vector<Rect> clipStack_;
     std::vector<std::vector<Rect>> clipSaveStack_;
-    float              globalAlpha_ = 1.0f;
+    float globalAlpha_ = 1.0f;
     std::vector<float> alphaSaveStack_;
 };

@@ -33,6 +33,10 @@ void ImageRenderer::destroy() {
         vkDestroyPipeline(device_, imagePipeline_, nullptr);
         imagePipeline_ = VK_NULL_HANDLE;
     }
+    if (imageClipPipeline_ != VK_NULL_HANDLE) { // ← 新增
+        vkDestroyPipeline(device_, imageClipPipeline_, nullptr);
+        imageClipPipeline_ = VK_NULL_HANDLE;
+    }
     if (imagePipelineLayout_ != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device_, imagePipelineLayout_, nullptr);
         imagePipelineLayout_ = VK_NULL_HANDLE;
@@ -125,6 +129,39 @@ bool ImageRenderer::create(VulkanContext &ctx) {
     pi.renderPass = ctx.renderPass();
     pi.subpass = 0;
     VkResult r = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &imagePipeline_);
+
+    if (r != VK_SUCCESS) {
+        vkDestroyShaderModule(device_, fragMod, nullptr);
+        vkDestroyShaderModule(device_, vertMod, nullptr);
+        return false;
+    }
+    // ── 创建 image stencil 测试变体管线 (同 shader, 追加 stencil 测试) ──
+    {
+        VkDynamicState clipDynStates[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+            VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        };
+        VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        clipDyn.dynamicStateCount = 4;
+        clipDyn.pDynamicStates = clipDynStates;
+        VkStencilOpState stencilTest{};
+        stencilTest.failOp = VK_STENCIL_OP_KEEP;
+        stencilTest.passOp = VK_STENCIL_OP_KEEP;
+        stencilTest.depthFailOp = VK_STENCIL_OP_KEEP;
+        stencilTest.compareOp = VK_COMPARE_OP_EQUAL;
+        stencilTest.compareMask = 0xFF;
+        stencilTest.writeMask = 0x00;
+        VkPipelineDepthStencilStateCreateInfo dsClip{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+        dsClip.stencilTestEnable = VK_TRUE;
+        dsClip.front = stencilTest;
+        dsClip.back = stencilTest;
+        pi.pDynamicState = &clipDyn;
+        pi.pDepthStencilState = &dsClip;
+        vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &imageClipPipeline_);
+    }
+
     vkDestroyShaderModule(device_, fragMod, nullptr);
     vkDestroyShaderModule(device_, vertMod, nullptr);
     return r == VK_SUCCESS;
@@ -366,7 +403,42 @@ void ImageRenderer::drawImage(VulkanContext &ctx, const DrawImageCmd &cmd, float
     pc.colorA = cmd.opacity * globalAlpha;
     pc.viewportW = (float)ctx.extent().width;
     pc.viewportH = (float)ctx.extent().height;
-    pc.cornerRadius = cmd.cornerRadius; 
+    pc.cornerRadius = cmd.cornerRadius;
+    vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(GlyphPushConstants), &pc);
+    VkDeviceSize off = 0;
+    VkBuffer vb = ctx.vertexBuffer();
+    vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+    vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
+}
+
+// ================================================================
+// drawImageClipped — stencil 测试版 (裁剪区域内使用)
+// ================================================================
+void ImageRenderer::drawImageClipped(VulkanContext &ctx, const DrawImageCmd &cmd, float globalAlpha) {
+    auto it = textures_.find(cmd.textureId);
+    if (it == textures_.end()) return;
+    auto &t = it->second;
+    VkCommandBuffer cb = ctx.commandBuffer();
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_); // ← 唯一差异
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
+    GlyphPushConstants pc{};
+    pc.posX = cmd.rect.x;
+    pc.posY = cmd.rect.y;
+    pc.sizeX = cmd.rect.width;
+    pc.sizeY = cmd.rect.height;
+    pc.uvU0 = 0.0f;
+    pc.uvV0 = 0.0f;
+    pc.uvU1 = 1.0f;
+    pc.uvV1 = 1.0f;
+    pc.colorR = 1.0f;
+    pc.colorG = 1.0f;
+    pc.colorB = 1.0f;
+    pc.colorA = cmd.opacity * globalAlpha;
+    pc.viewportW = (float)ctx.extent().width;
+    pc.viewportH = (float)ctx.extent().height;
+    pc.cornerRadius = cmd.cornerRadius;
     vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;

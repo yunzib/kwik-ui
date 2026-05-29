@@ -34,16 +34,20 @@ void RectRenderer::destroy() {
     if (fillPipeline_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, fillPipeline_, nullptr);
     if (strokePipeline_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, strokePipeline_, nullptr);
     if (shadowPipeline_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadowPipeline_, nullptr);
+    if (stencilPipeline_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, stencilPipeline_, nullptr); // ← 新增
     if (pipelineLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, pipelineLayout_, nullptr);
-    fillPipeline_ = strokePipeline_ = shadowPipeline_ = VK_NULL_HANDLE;
+    fillPipeline_ = strokePipeline_ = shadowPipeline_ = stencilPipeline_ = VK_NULL_HANDLE;
     pipelineLayout_ = VK_NULL_HANDLE;
 }
 // ================================================================
 // create — 创建 fill / stroke / shadow 三条管线
 // ================================================================
+// ================================================================
+// create — 创建 fill / stroke / shadow / stencil 四条管线
+// ================================================================
 bool RectRenderer::create(VulkanContext &ctx) {
     device_ = ctx.device();
-    // 着色器
+    // ── 着色器 ───────────────────────────────────────────
     VkShaderModule vert =
         VulkanContext::createShaderModule(device_, kwik::shader::kRectVert, kwik::shader::kRectVertSize);
     VkShaderModule frag =
@@ -79,6 +83,7 @@ bool RectRenderer::create(VulkanContext &ctx) {
                                               1.0f};
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms.rasterizationSamples = ctx.msaaSamples();
+    // ── 颜色混合 (fill / stroke / shadow 共用) ───────────
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
     ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -92,15 +97,36 @@ bool RectRenderer::create(VulkanContext &ctx) {
     VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     blend.attachmentCount = 1;
     blend.pAttachments = &ba;
-    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    // ── Dynamic states (含 stencil 动态控制) ─────────────
+    VkDynamicState dynStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+    };
     VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 2;
+    dyn.dynamicStateCount = 5;
     dyn.pDynamicStates = dynStates;
+    // ── Depth / Stencil — 通用 (stencil 测试启用, 不写入) ─
+    VkStencilOpState stencilNoWrite{};
+    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
+    stencilNoWrite.compareMask = 0xFF;
+    stencilNoWrite.writeMask = 0x00; // 不写 stencil
+    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    ds.depthTestEnable = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.stencilTestEnable = VK_TRUE;
+    ds.front = stencilNoWrite;
+    ds.back = stencilNoWrite;
+    // ── Push constant range ──────────────────────────────
     VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants)};
     VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &pcr;
     if (vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_) != VK_SUCCESS) goto fail;
+    // ── 创建 fill / stroke / shadow 管线 ─────────────────
     {
         VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
         pi.stageCount = 2;
@@ -115,9 +141,47 @@ bool RectRenderer::create(VulkanContext &ctx) {
         pi.layout = pipelineLayout_;
         pi.renderPass = ctx.renderPass();
         pi.subpass = 0;
+        pi.pDepthStencilState = &ds; // ← 绑定 stencil 测试
         if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &fillPipeline_) != VK_SUCCESS
             || vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &strokePipeline_) != VK_SUCCESS
             || vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &shadowPipeline_) != VK_SUCCESS)
+            goto fail;
+    }
+    // ── 创建 stencil mask 管线 (颜色输出禁用, stencil 写入) ──
+    {
+        // 颜色: 全部通道禁写 → 不影响帧缓冲颜色
+        VkPipelineColorBlendAttachmentState sba{};
+        // blendEnable = VK_FALSE (default), colorWriteMask = 0 (default) → 不写
+        VkPipelineColorBlendStateCreateInfo sBlend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        sBlend.attachmentCount = 1;
+        sBlend.pAttachments = &sba;
+        // Stencil: ALWAYS 通过比较 → 总是写入 ref 值
+        VkStencilOpState stencilWrite{};
+        stencilWrite.failOp = VK_STENCIL_OP_KEEP;
+        stencilWrite.passOp = VK_STENCIL_OP_REPLACE;
+        stencilWrite.depthFailOp = VK_STENCIL_OP_KEEP;
+        stencilWrite.compareOp = VK_COMPARE_OP_ALWAYS;
+        stencilWrite.compareMask = 0xFF;
+        stencilWrite.writeMask = 0xFF;
+        VkPipelineDepthStencilStateCreateInfo sDs{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+        sDs.stencilTestEnable = VK_TRUE;
+        sDs.front = stencilWrite;
+        sDs.back = stencilWrite;
+        VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+        pi.stageCount = 2;
+        pi.pStages = stages;
+        pi.pVertexInputState = &vtxIn;
+        pi.pInputAssemblyState = &ia;
+        pi.pViewportState = &vp;
+        pi.pRasterizationState = &rs;
+        pi.pMultisampleState = &ms;
+        pi.pColorBlendState = &sBlend; // 颜色不写
+        pi.pDynamicState = &dyn;
+        pi.layout = pipelineLayout_;
+        pi.renderPass = ctx.renderPass();
+        pi.subpass = 0;
+        pi.pDepthStencilState = &sDs; // stencil 写入
+        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &stencilPipeline_) != VK_SUCCESS)
             goto fail;
     }
     vkDestroyShaderModule(device_, vert, nullptr);
@@ -196,7 +260,6 @@ void RectRenderer::strokeRoundedRect(VulkanContext &ctx, const Rect &rect, float
     vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }
 
-
 // 用 4 层同心 SDF 矩形叠加逼近高斯模糊衰减：半径以 blurRadius/3 步进递增，透明度逐层衰减
 // kLayerAlphas 权重和为 0.45 × shadow.color.a/255，叠加后总体约原始阴影透明度的 45%。如果觉得太淡可以调高数组值。
 // 无模糊时 (blur <= 0.5) 退化为单层，kLayerAlphas[0] = 0.20，用户可通过调高 rgba() 的 alpha 值来补偿
@@ -240,4 +303,42 @@ void RectRenderer::drawShadow(VulkanContext &ctx, const Rect &rect, float radius
                            sizeof(PushConstants), &pc);
         vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
     }
+}
+
+// ================================================================
+// writeStencilMask — 将圆角矩形 SDF 写入 stencil buffer
+// ================================================================
+void RectRenderer::writeStencilMask(VulkanContext &ctx, const Rect &rect, float radius) {
+    VkCommandBuffer cb = ctx.commandBuffer();
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, stencilPipeline_);
+    // 绑定几何数据
+    VkBuffer vb = ctx.vertexBuffer();
+    VkDeviceSize off = 0;
+    vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+    vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    // push constants (填充模式, 任意颜色 — 颜色写入已被管线禁用)
+    PushConstants pc{};
+    pc.topLeftX = rect.x;
+    pc.topLeftY = rect.y;
+    pc.sizeX = rect.width;
+    pc.sizeY = rect.height;
+    pc.fillR = 1.0f; // 占位 (颜色不写入)
+    pc.fillG = 1.0f;
+    pc.fillB = 1.0f;
+    pc.fillA = 1.0f;
+    pc.radius = radius;
+    pc.opacity = 1.0f;
+    pc.drawMode = 0; // fill mode
+    pc.viewportW = (float)ctx.extent().width;
+    pc.viewportH = (float)ctx.extent().height;
+    vkCmdPushConstants(cb, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PushConstants), &pc);
+    vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0); // 写入 stencil=ref 到圆角区域
+}
+// ================================================================
+// disableStencilTest — 关闭 stencil 测试 (恢复无裁剪状态)
+// ================================================================
+void RectRenderer::disableStencilTest(VulkanContext &ctx) {
+    // 将 compareMask 设为 0x00 → EQUAL 比较恒成立 → 等效禁用 stencil test
+    vkCmdSetStencilCompareMask(ctx.commandBuffer(), VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
 }

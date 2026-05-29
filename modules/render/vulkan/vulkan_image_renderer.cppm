@@ -17,24 +17,26 @@ public:
     ~ImageRenderer();
     bool create(VulkanContext &ctx);
     void destroy();
-    uint32_t createTexture(VulkanContext &ctx, const uint8_t *rgba,
-                           uint32_t width, uint32_t height);
-    void     destroyTexture(uint32_t id);
-    void     drawImage(VulkanContext &ctx, const DrawImageCmd &cmd,
-                       float globalAlpha);
+    uint32_t createTexture(VulkanContext &ctx, const uint8_t *rgba, uint32_t width, uint32_t height);
+    void destroyTexture(uint32_t id);
+    void drawImage(VulkanContext &ctx, const DrawImageCmd &cmd, float globalAlpha);
+    void drawImageClipped(VulkanContext &ctx, const DrawImageCmd &cmd,
+                          float globalAlpha); // ← 新增: stencil 测试版
+
 private:
     VkDevice device_ = VK_NULL_HANDLE;
-    VkPipeline            imagePipeline_       = VK_NULL_HANDLE;
-    VkPipelineLayout      imagePipelineLayout_  = VK_NULL_HANDLE;
-    VkDescriptorSetLayout imageDescSetLayout_   = VK_NULL_HANDLE;
-    VkDescriptorPool      imageDescPool_        = VK_NULL_HANDLE;
+    VkPipeline imagePipeline_ = VK_NULL_HANDLE;
+    VkPipeline imageClipPipeline_ = VK_NULL_HANDLE;
+    VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout imageDescSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorPool imageDescPool_ = VK_NULL_HANDLE;
     struct TextureData {
-        VkImage         image   = VK_NULL_HANDLE;
-        VkDeviceMemory  memory  = VK_NULL_HANDLE;
-        VkImageView     view    = VK_NULL_HANDLE;
-        VkSampler       sampler = VK_NULL_HANDLE;
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
         VkDescriptorSet descSet = VK_NULL_HANDLE;
-        uint32_t width  = 0;
+        uint32_t width = 0;
         uint32_t height = 0;
     };
     std::unordered_map<uint32_t, TextureData> textures_;

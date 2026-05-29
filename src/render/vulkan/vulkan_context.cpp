@@ -100,6 +100,7 @@ bool VulkanContext::initialize(void *nativeHandle, int width, int height) {
     }
     return true;
 }
+
 bool VulkanContext::resize(int w, int h) {
     if (width_ == w && height_ == h) return true;
     width_ = w;
@@ -108,7 +109,7 @@ bool VulkanContext::resize(int w, int h) {
     cleanupSwapchain();
     if (!createSwapchain()) return false;
     if (!createFramebuffers()) return false;
-    // ── 重建 swapchain 后图像数量可能变化，同步重建 ──
+    // ── 重建命令缓冲和同步对象 (swapchain 图像数可能变化) ──
     vkFreeCommandBuffers(vkDevice_, commandPool_, (uint32_t)commandBuffers_.size(), commandBuffers_.data());
     if (!createCommandBuffers()) return false;
     for (auto &s : imageAvailableSemaphores_)
@@ -241,16 +242,24 @@ bool VulkanContext::beginFrame() {
     rpInfo.renderPass = renderPass_;
     rpInfo.framebuffer = framebuffers_[currentImageIndex_];
     rpInfo.renderArea.extent = swapchainExtent_;
-    VkClearValue cvs[2];
-    cvs[0].color = {{0.96f, 0.96f, 0.96f, 1.0f}};
-    cvs[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-    rpInfo.clearValueCount = 2;
+    VkClearValue cvs[3];
+    cvs[0].color = {{0.96f, 0.96f, 0.96f, 1.0f}}; // 颜色附件清屏
+    cvs[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};    // resolve 附件
+    cvs[2].depthStencil = {1.0f, 0};              // stencil 清 0
+    rpInfo.clearValueCount = 3;                   // 2→3
     rpInfo.pClearValues = cvs;
     vkCmdBeginRenderPass(commandBuffers_[currentImageIndex_], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
     VkViewport vp{0, 0, (float)swapchainExtent_.width, (float)swapchainExtent_.height, 0.0f, 1.0f};
     vkCmdSetViewport(commandBuffers_[currentImageIndex_], 0, 1, &vp);
     VkRect2D scissor{{0, 0}, swapchainExtent_};
     vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
+
+    // ── 初始化 stencil 动态状态: compareMask=0 → EQUAL 恒成立 ──
+    // (stencilRef & 0x00) == (bufferStencil & 0x00) → 0==0 → always pass
+    VkCommandBuffer cb = commandBuffers_[currentImageIndex_];
+    vkCmdSetStencilReference(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
+    vkCmdSetStencilCompareMask(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
+    vkCmdSetStencilWriteMask(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
     return true;
 }
 
@@ -371,6 +380,36 @@ bool VulkanContext::createSwapchain() {
         vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         if (vkCreateImageView(vkDevice_, &vi, nullptr, &msaaViews_[i]) != VK_SUCCESS) return false;
     }
+
+    // ── Stencil 附件 (D24_UNORM_S8_UINT, 每 swapchain 图像一份) ──
+    stencilImages_.resize(n);
+    stencilMemories_.resize(n);
+    stencilViews_.resize(n);
+    for (uint32_t i = 0; i < n; ++i) {
+        VkImageCreateInfo sImg{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        sImg.imageType = VK_IMAGE_TYPE_2D;
+        sImg.format = VK_FORMAT_D24_UNORM_S8_UINT;
+        sImg.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
+        sImg.mipLevels = 1;
+        sImg.arrayLayers = 1;
+        sImg.samples = msaaSamples_; // ─ 与 MSAA 相同采样率
+        sImg.tiling = VK_IMAGE_TILING_OPTIMAL;
+        sImg.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        sImg.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if (vkCreateImage(vkDevice_, &sImg, nullptr, &stencilImages_[i]) != VK_SUCCESS) return false;
+        VkMemoryRequirements mr;
+        vkGetImageMemoryRequirements(vkDevice_, stencilImages_[i], &mr);
+        VkMemoryAllocateInfo sAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
+                                    findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+        if (vkAllocateMemory(vkDevice_, &sAlloc, nullptr, &stencilMemories_[i]) != VK_SUCCESS) return false;
+        vkBindImageMemory(vkDevice_, stencilImages_[i], stencilMemories_[i], 0);
+        VkImageViewCreateInfo sView{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        sView.image = stencilImages_[i];
+        sView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        sView.format = VK_FORMAT_D24_UNORM_S8_UINT;
+        sView.subresourceRange = {VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
+        if (vkCreateImageView(vkDevice_, &sView, nullptr, &stencilViews_[i]) != VK_SUCCESS) return false;
+    }
     return true;
 }
 void VulkanContext::cleanupSwapchain() {
@@ -394,6 +433,16 @@ void VulkanContext::cleanupSwapchain() {
     for (auto &m : msaaMemories_)
         if (m) vkFreeMemory(vkDevice_, m, nullptr);
     msaaMemories_.clear();
+    // ── Stencil 清理 ──────────────────────────────────────
+    for (auto &v : stencilViews_)
+        if (v) vkDestroyImageView(vkDevice_, v, nullptr);
+    stencilViews_.clear();
+    for (auto &img : stencilImages_)
+        if (img) vkDestroyImage(vkDevice_, img, nullptr);
+    stencilImages_.clear();
+    for (auto &m : stencilMemories_)
+        if (m) vkFreeMemory(vkDevice_, m, nullptr);
+    stencilMemories_.clear();
 }
 // ======================================================================
 // 渲染通道 — MSAA color + Resolve
@@ -413,28 +462,41 @@ bool VulkanContext::createRenderPass() {
     resolveAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     resolveAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     resolveAtt.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // ── Stencil 附件 (MSAA 分辨率, 仅关注 stencil 分量) ──
+    VkAttachmentDescription stencilAtt{};
+    stencilAtt.format = VK_FORMAT_D24_UNORM_S8_UINT;
+    stencilAtt.samples = msaaSamples_;
+    stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    stencilAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // 每帧清 0
+    stencilAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    stencilAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    stencilAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
     VkAttachmentReference resolveRef{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference stencilRef{2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorRef;
     subpass.pResolveAttachments = &resolveRef;
-    VkAttachmentDescription atts[] = {msaaAtt, resolveAtt};
+    subpass.pDepthStencilAttachment = &stencilRef;                      // ← 绑定
+    VkAttachmentDescription atts[] = {msaaAtt, resolveAtt, stencilAtt}; // 2→3
     VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    rpInfo.attachmentCount = 2;
+    rpInfo.attachmentCount = 3; // 2→3
     rpInfo.pAttachments = atts;
     rpInfo.subpassCount = 1;
     rpInfo.pSubpasses = &subpass;
     return vkCreateRenderPass(vkDevice_, &rpInfo, nullptr, &renderPass_) == VK_SUCCESS;
 }
+
 bool VulkanContext::createFramebuffers() {
     framebuffers_.resize(swapchainImageViews_.size());
-    for (size_t i = 0; i < swapchainImageViews_.size(); i++) {
-        VkImageView atts[] = {msaaViews_[i], swapchainImageViews_[i]};
+    for (size_t i = 0; i < swapchainImageViews_.size(); ++i) {
+        VkImageView atts[] = {msaaViews_[i], swapchainImageViews_[i], stencilViews_[i]}; // 2→3
         VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
         fb.renderPass = renderPass_;
-        fb.attachmentCount = 2;
+        fb.attachmentCount = 3; // 2→3
         fb.pAttachments = atts;
         fb.width = swapchainExtent_.width;
         fb.height = swapchainExtent_.height;
@@ -443,6 +505,7 @@ bool VulkanContext::createFramebuffers() {
     }
     return true;
 }
+
 // ======================================================================
 // 顶点 / 索引缓冲
 // ======================================================================

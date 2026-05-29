@@ -13,8 +13,6 @@ module;
 export module kwik.render.vulkan.context;
 import kwik.core.types;
 
-
-
 export struct GlyphPushConstants {
     float posX, posY;
     float sizeX, sizeY;
@@ -23,10 +21,9 @@ export struct GlyphPushConstants {
     float colorR, colorG, colorB, colorA;
     float viewportW, viewportH;
     // ── 图片圆角裁剪 ─────────────────────────────────
-    float cornerRadius;                            // offset 56 — 圆角像素半径 (0=不裁剪)
+    float cornerRadius; // offset 56 — 圆角像素半径 (0=不裁剪)
 };
 static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match shader layout");
-
 
 /**
  * @brief Vulkan 核心资源管理器
@@ -90,6 +87,14 @@ public:
     bool copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
     static VkShaderModule createShaderModule(VkDevice device, const std::uint8_t *spv, std::size_t size);
 
+    // ── Stencil 附件访问器 ──────────────────────────────────
+    VkImage stencilImage(size_t idx) const {
+        return stencilImages_[idx];
+    }
+    VkImageView stencilView(size_t idx) const {
+        return stencilViews_[idx];
+    }
+
 private:
     int width_ = 0, height_ = 0;
     VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_4_BIT;
@@ -129,6 +134,12 @@ private:
     std::vector<VkFence> inFlightFences_; // fence 也改为 per-frame
     uint32_t frameIndex_ = 0;
     uint32_t currentImageIndex_ = 0;
+
+    // ── Stencil 附件 (D24S8, 每 swapchain 图像一份) ──
+    std::vector<VkImage> stencilImages_;
+    std::vector<VkDeviceMemory> stencilMemories_;
+    std::vector<VkImageView> stencilViews_;
+
     // 私有初始化
     bool createInstance(void *nativeHandle);
     bool pickPhysicalDevice();
