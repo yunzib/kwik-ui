@@ -1,0 +1,68 @@
+module;
+#include <vulkan/vulkan.h>
+#include <cstdint>
+#include <vector>
+export module kwik.render.vulkan_backend;
+import kwik.render.backend;
+import kwik.render.command;
+import kwik.render.vulkan.context;
+import kwik.render.vulkan.rect_renderer;
+import kwik.render.vulkan.glyph_renderer;
+import kwik.render.vulkan.image_renderer;
+import kwik.render.vulkan.clip_manager;
+import kwik.core.types;
+/**
+ * @brief Vulkan 渲染后端聚合层
+ *
+ * 组合 VulkanContext + 3 个 Renderer + ClipManager，
+ * 实现 RenderBackend 接口。自身不含任何渲染逻辑，纯委托。
+ */
+export class VulkanBackend : public RenderBackend {
+public:
+    VulkanBackend() = default;
+    VulkanBackend(int width, int height);
+    ~VulkanBackend() override;
+    bool initialize(void *nativeHandle, int width, int height) override;
+    void shutdown() override;
+    void resize(int width, int height) override;
+    bool beginFrame() override;
+    void endFrame() override;
+    void present() override;
+    // 形状
+    void clear(const Color &color) override;
+    void fillRect(const Rect &rect, const Color &color) override;
+    void fillRoundedRect(const Rect &rect, float radius, const Color &color) override;
+    void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth) override;
+    void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
+    // 文字
+    void drawGlyph(const DrawGlyphCmd &cmd) override;
+    void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) override;
+    // 图片
+    void drawImage(const DrawImageCmd &cmd) override;
+    uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
+    void destroyImageTexture(uint32_t id) override;
+    // 裁剪
+    void pushClipRoundedRect(const Rect &rect, float radius) override;
+    void resetClip() override;
+    void saveState() override;
+    void restoreState() override;
+    void setGlobalAlpha(float alpha) override;
+    BackendType getType() const override {
+        return BackendType::Vulkan;
+    }
+    int getWidth() const override {
+        return width_;
+    }
+    int getHeight() const override {
+        return height_;
+    }
+
+private:
+    int width_ = 0;
+    int height_ = 0;
+    VulkanContext ctx_;
+    RectRenderer rect_;
+    GlyphRenderer glyph_;
+    ImageRenderer image_;
+    ClipManager clip_;
+};

@@ -26,8 +26,23 @@ set(RENDER_COMPILE_DEFINITIONS
 
 # 条件添加Vulkan后端
 if(KWIK_RENDER_VULKAN)
-    list(APPEND RENDER_PUBLIC_MODULES modules/render/vulkan_backend.cppm)
-    list(APPEND RENDER_PRIVATE_SOURCES src/render/vulkan_backend.cpp)
+    list(APPEND RENDER_PUBLIC_MODULES
+        modules/render/vulkan/vulkan_context.cppm
+        modules/render/vulkan/vulkan_rect_renderer.cppm
+        modules/render/vulkan/vulkan_glyph_renderer.cppm
+        modules/render/vulkan/vulkan_image_renderer.cppm
+        modules/render/vulkan/vulkan_clip_manager.cppm
+        modules/render/vulkan/vulkan_backend.cppm
+    )
+    list(APPEND RENDER_PRIVATE_SOURCES
+        src/render/vulkan/vulkan_context.cpp
+        src/render/vulkan/vulkan_rect_renderer.cpp
+        src/render/vulkan/vulkan_glyph_renderer.cpp
+        src/render/vulkan/vulkan_image_renderer.cpp
+        src/render/vulkan/vulkan_clip_manager.cpp
+        src/render/vulkan/vulkan_backend.cpp
+    )
+
     list(APPEND RENDER_LINK_LIBRARIES Vulkan::Vulkan)
     list(APPEND RENDER_COMPILE_DEFINITIONS KWIK_RENDER_VULKAN)
     
