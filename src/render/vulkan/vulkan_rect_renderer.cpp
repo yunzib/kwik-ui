@@ -195,30 +195,49 @@ void RectRenderer::strokeRoundedRect(VulkanContext &ctx, const Rect &rect, float
     vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }
+
+
+// 用 4 层同心 SDF 矩形叠加逼近高斯模糊衰减：半径以 blurRadius/3 步进递增，透明度逐层衰减
+// kLayerAlphas 权重和为 0.45 × shadow.color.a/255，叠加后总体约原始阴影透明度的 45%。如果觉得太淡可以调高数组值。
+// 无模糊时 (blur <= 0.5) 退化为单层，kLayerAlphas[0] = 0.20，用户可通过调高 rgba() 的 alpha 值来补偿
 void RectRenderer::drawShadow(VulkanContext &ctx, const Rect &rect, float radius, const Shadow &shadow,
                               float globalAlpha) {
     VkCommandBuffer cb = ctx.commandBuffer();
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
-    PushConstants pc{};
-    pc.topLeftX = rect.x + shadow.offsetX;
-    pc.topLeftY = rect.y + shadow.offsetY;
-    pc.sizeX = rect.width;
-    pc.sizeY = rect.height;
-    pc.fillR = shadow.color.r / 255.f;
-    pc.fillG = shadow.color.g / 255.f;
-    pc.fillB = shadow.color.b / 255.f;
-    pc.fillA = shadow.color.a / 255.f;
-    pc.radius = radius;
-    pc.opacity = globalAlpha;
-    pc.drawMode = 2;
-    pc.shadowBlur = shadow.blurRadius;
-    pc.viewportW = (float)ctx.extent().width;
-    pc.viewportH = (float)ctx.extent().height;
-    vkCmdPushConstants(cb, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(PushConstants), &pc);
     VkBuffer vb = ctx.vertexBuffer();
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
     vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
+    // ── 多层阴影: 模拟高斯模糊衰减 ──────────────────────────
+    // 每层半径按 blurRadius/3 递增, 透明度 layerAlpha[N] 递减,
+    // 叠加后近似连续模糊效果。
+    // 层数: 4 层 (无 blur 时退化为 1 层, 避免空绘制)
+    static constexpr int kShadowLayers = 4;
+    static const float kLayerAlphas[kShadowLayers] = {0.20f, 0.14f, 0.08f, 0.03f};
+    const float blur = shadow.blurRadius;
+    // 若无模糊半径, 回退为单层 (保证 100% 阴影颜色可见)
+    const int layers = (blur <= 0.5f) ? 1 : kShadowLayers;
+    const float step = (layers > 1) ? (blur / float(layers - 1)) : 0.0f;
+    for (int i = 0; i < layers; i++) {
+        PushConstants pc{};
+        pc.topLeftX = rect.x + shadow.offsetX;
+        pc.topLeftY = rect.y + shadow.offsetY;
+        pc.sizeX = rect.width;
+        pc.sizeY = rect.height;
+        pc.fillR = shadow.color.r / 255.f;
+        pc.fillG = shadow.color.g / 255.f;
+        pc.fillB = shadow.color.b / 255.f;
+        pc.fillA = shadow.color.a / 255.f;
+        pc.radius = radius;
+        // 阴影半径: 基础圆角半径 + 该层模糊增量
+        pc.shadowBlur = step * float(i);
+        // 透明度: 基础 globalAlpha * 颜色 alpha * 该层权重
+        pc.opacity = globalAlpha * (shadow.color.a / 255.f) * kLayerAlphas[i];
+        pc.drawMode = 2; // shadow mode
+        pc.viewportW = (float)ctx.extent().width;
+        pc.viewportH = (float)ctx.extent().height;
+        vkCmdPushConstants(cb, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(PushConstants), &pc);
+        vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
+    }
 }
