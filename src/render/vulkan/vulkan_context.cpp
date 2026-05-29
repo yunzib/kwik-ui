@@ -46,7 +46,6 @@ void VulkanContext::shutdown() {
         vkFreeMemory(vkDevice_, vertexBufferMemory_, nullptr);
     }
     if (renderPass_ != VK_NULL_HANDLE) vkDestroyRenderPass(vkDevice_, renderPass_, nullptr);
-    if (pipelineLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(vkDevice_, pipelineLayout_, nullptr);
     cleanupSwapchain();
     if (vkSurface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
     if (vkDevice_ != VK_NULL_HANDLE) vkDestroyDevice(vkDevice_, nullptr);
@@ -107,7 +106,21 @@ bool VulkanContext::resize(int w, int h) {
     height_ = h;
     vkDeviceWaitIdle(vkDevice_);
     cleanupSwapchain();
-    return createSwapchain() && createFramebuffers();
+    if (!createSwapchain()) return false;
+    if (!createFramebuffers()) return false;
+    // ── 重建 swapchain 后图像数量可能变化，同步重建 ──
+    vkFreeCommandBuffers(vkDevice_, commandPool_, (uint32_t)commandBuffers_.size(), commandBuffers_.data());
+    if (!createCommandBuffers()) return false;
+    for (auto &s : imageAvailableSemaphores_)
+        if (s != VK_NULL_HANDLE) vkDestroySemaphore(vkDevice_, s, nullptr);
+    for (auto &s : renderFinishedSemaphores_)
+        if (s != VK_NULL_HANDLE) vkDestroySemaphore(vkDevice_, s, nullptr);
+    for (auto &f : inFlightFences_)
+        if (f != VK_NULL_HANDLE) vkDestroyFence(vkDevice_, f, nullptr);
+    if (!createSyncObjects()) return false;
+    frameIndex_ = 0;
+    currentImageIndex_ = 0;
+    return true;
 }
 // ================================================================
 // createInstance — Vulkan 实例 + 平台 Surface
@@ -127,9 +140,25 @@ bool VulkanContext::createInstance(void *nativeHandle) {
     ci.pApplicationInfo = &app;
     ci.enabledExtensionCount = (uint32_t)ext.size();
     ci.ppEnabledExtensionNames = ext.data();
+
+    // 改为条件启用：
     const char *validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
-    ci.enabledLayerCount = 1;
-    ci.ppEnabledLayerNames = validationLayers;
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> available(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, available.data());
+    bool hasValidation = false;
+    for (auto &l : available) {
+        if (std::strcmp(l.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+            hasValidation = true;
+            break;
+        }
+    }
+    if (hasValidation) {
+        ci.enabledLayerCount = 1;
+        ci.ppEnabledLayerNames = validationLayers;
+    }
+
     if (vkCreateInstance(&ci, nullptr, &vkInstance_) != VK_SUCCESS) return false;
 #if defined(_WIN32)
     VkWin32SurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};

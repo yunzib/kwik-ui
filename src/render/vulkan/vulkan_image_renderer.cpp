@@ -9,18 +9,7 @@ import kwik.render.vulkan.context;
 import kwik.render.command;
 import kwik.core.types;
 import std;
-// ── GlyphPushConstants (56 byte, 与 image.vert 复用) ──────────
-namespace {
-struct GlyphPushConstants {
-    float posX, posY;
-    float sizeX, sizeY;
-    float uvU0, uvV0;
-    float uvU1, uvV1;
-    float colorR, colorG, colorB, colorA;
-    float viewportW, viewportH;
-};
-static_assert(sizeof(GlyphPushConstants) == 56, "GlyphPushConstants size mismatch");
-} // namespace
+
 ImageRenderer::~ImageRenderer() {
     destroy();
 }
@@ -293,7 +282,12 @@ uint32_t ImageRenderer::createTexture(VulkanContext &ctx, const uint8_t *rgba, u
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
     vi.format = VK_FORMAT_R8G8B8A8_UNORM;
     vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevels, 0, 1};
-    vkCreateImageView(device_, &vi, nullptr, &tex.view);
+    if (vkCreateImageView(device_, &vi, nullptr, &tex.view) != VK_SUCCESS) {
+        vkDestroySampler(device_, tex.sampler, nullptr);
+        vkDestroyImage(device_, tex.image, nullptr);
+        vkFreeMemory(device_, tex.memory, nullptr);
+        return 0;
+    }
     // ⑥ Sampler
     VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     samplerInfo.magFilter = VK_FILTER_LINEAR;

@@ -1,6 +1,7 @@
 module;
 #include <vulkan/vulkan.h>   // ← VkRect2D, vkCmdSetScissor
 #include <cstdint>            // ← int32_t, uint32_t
+#include <cmath>  
 
 module kwik.render.vulkan.clip_manager;
 import kwik.render.vulkan.context;

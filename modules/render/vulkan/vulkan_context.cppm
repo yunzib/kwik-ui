@@ -12,6 +12,20 @@ module;
 #include <cstdint>
 export module kwik.render.vulkan.context;
 import kwik.core.types;
+
+
+
+export struct GlyphPushConstants {
+    float posX, posY;
+    float sizeX, sizeY;
+    float uvU0, uvV0;
+    float uvU1, uvV1;
+    float colorR, colorG, colorB, colorA;
+    float viewportW, viewportH;
+};
+static_assert(sizeof(GlyphPushConstants) == 56);
+
+
 /**
  * @brief Vulkan 核心资源管理器
  *
@@ -54,9 +68,6 @@ public:
     }
     VkFormat swapchainFormat() const {
         return swapchainFormat_;
-    }
-    VkPipelineLayout pipelineLayout() const {
-        return pipelineLayout_;
     }
     VkBuffer vertexBuffer() const {
         return vertexBuffer_;
@@ -101,7 +112,6 @@ private:
     std::vector<VkImageView> msaaViews_;
     // 渲染通道 + 共享管线布局
     VkRenderPass renderPass_ = VK_NULL_HANDLE;
-    VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE; // PushConstants (96 byte)
     // 命令
     VkCommandPool commandPool_ = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers_;

@@ -10,18 +10,8 @@ import kwik.render.command;
 import kwik.render.font;
 import kwik.core.types;
 import std;
-// ── GlyphPushConstants (56 byte, 与 glyph.vert 对齐) ──────────
-namespace {
-struct GlyphPushConstants {
-    float posX, posY;
-    float sizeX, sizeY;
-    float uvU0, uvV0;
-    float uvU1, uvV1;
-    float colorR, colorG, colorB, colorA;
-    float viewportW, viewportH;
-};
-static_assert(sizeof(GlyphPushConstants) == 56, "GlyphPushConstants size mismatch");
-} // namespace
+
+
 GlyphRenderer::~GlyphRenderer() {
     destroy();
 }

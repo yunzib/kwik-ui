@@ -60,6 +60,7 @@ export default View({
     }),
 
     View({ width: 200, height: 48, background: "#2196F3", borderRadius: 6, opacity: 1.0 }),
+    View({ width: 200, height: 48, background: "#FF0000", borderRadius: 6, opacity: 1.0 }),
     
 
     View({ width: 400, height: 300, background: "#FFFFFF", borderRadius: 6, padding: 14, x: 400}, [
