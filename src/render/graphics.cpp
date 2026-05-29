@@ -133,8 +133,7 @@ void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &colo
 
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     Rect transformed = transformRect(rect);
-    addCommand(
-        StrokeRoundedRectCmd{transformed, radius * currentState_.sx, color, strokeWidth * currentState_.sx});
+    addCommand(StrokeRoundedRectCmd{transformed, radius * currentState_.sx, color, strokeWidth * currentState_.sx});
 }
 
 void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
@@ -172,11 +171,10 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 // ============================================================================
 // drawImage — 录制 DrawImageCmd
 // ============================================================================
-void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity) {
+void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
     Rect transformed = transformRect(rect);
-    addCommand(DrawImageCmd{textureId, transformed, opacity});
+    addCommand(DrawImageCmd{textureId, transformed, opacity, cornerRadius});
 }
-
 
 // ============================================================================
 // 帧控制命令

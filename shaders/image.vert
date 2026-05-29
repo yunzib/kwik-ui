@@ -7,9 +7,12 @@ layout(push_constant) uniform PushConstants {
     vec4  uvRect;       // 整图: 0,0,1,1
     vec4  color;        // rgba, alpha 通道承载 opacity
     vec2  viewportSize;
+    float cornerRadius;      // 图片圆角裁剪半径
 } pc;
 layout(location = 0) out vec2 fragUV;
 layout(location = 1) out flat vec4 fragColor;
+layout(location = 2) out flat vec2 fragSize;          // 传给 fragment 做 SDF
+layout(location = 3) out flat float fragCornerRadius; // 传给 fragment
 void main() {
     vec2 screenPos = pc.pos + inPosition * pc.size;
     vec2 ndc = (screenPos + 0.5) / pc.viewportSize * 2.0 - 1.0;
@@ -19,4 +22,6 @@ void main() {
         mix(pc.uvRect.y, pc.uvRect.w, inPosition.y)
     );
     fragColor = pc.color;
+    fragSize         = pc.size;          
+    fragCornerRadius = pc.cornerRadius;   
 }

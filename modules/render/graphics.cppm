@@ -72,11 +72,12 @@ public:
      * @param textureId GPU 纹理句柄 (由 createImageTexture 返回)
      * @param rect      目标矩形 (逻辑坐标)
      * @param opacity   透明度 (0.0-1.0, 默认 1.0)
+     * @param cornerRadius  圆角
      *
      * 图像会在当前变换状态下绘制 (受 translate/scale/opacity 影响)。
      * 纹理 UV 默认为整图 (0,0) → (1,1)。
      */
-    void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f);
+    void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
 
     // 帧控制（命令记录）
     void beginFrame();

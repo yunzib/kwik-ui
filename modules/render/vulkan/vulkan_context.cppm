@@ -22,8 +22,10 @@ export struct GlyphPushConstants {
     float uvU1, uvV1;
     float colorR, colorG, colorB, colorA;
     float viewportW, viewportH;
+    // ── 图片圆角裁剪 ─────────────────────────────────
+    float cornerRadius;                            // offset 56 — 圆角像素半径 (0=不裁剪)
 };
-static_assert(sizeof(GlyphPushConstants) == 56);
+static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match shader layout");
 
 
 /**

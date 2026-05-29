@@ -366,6 +366,7 @@ void ImageRenderer::drawImage(VulkanContext &ctx, const DrawImageCmd &cmd, float
     pc.colorA = cmd.opacity * globalAlpha;
     pc.viewportW = (float)ctx.extent().width;
     pc.viewportH = (float)ctx.extent().height;
+    pc.cornerRadius = cmd.cornerRadius; 
     vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;

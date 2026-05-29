@@ -148,7 +148,7 @@ void Image::onDraw(Graphics &graphics) {
     if (textureId_ == 0 && !pixels_.empty()) uploadTexture();
     if (textureId_ == 0) return;
     float opacity = imageProps_.imageOpacity * props.opacity;
-    graphics.drawImage(textureId_, frame, opacity);
+    graphics.drawImage(textureId_, frame, opacity, props.borderRadius);
 }
 
 // ============================================================================

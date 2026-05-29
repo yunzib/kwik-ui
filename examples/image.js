@@ -109,7 +109,8 @@ export default View({
                 src: "../../examples/image/test1.png",
                 width: 400,
                 height: 300,
-                fit: "cover",
+                // fit: "cover",
+                fit: "contain",
                 borderRadius: 8
             }),
             Text({ text: "test1 — cover", fontSize: 12, color: "#aaa", margin: [6, 0, 0, 0] })
@@ -121,17 +122,17 @@ export default View({
                 height: 200,
                 fit: "contain",
                 background: "#222",
-                borderRadius: 8
+                borderRadius: 20
             }),
             Text({ text: "test2 — contain", fontSize: 12, color: "#aaa", margin: [6, 0, 0, 0] })
         ]),
-        View({}, [
+        View({background: "FFFFFF"}, [
             Image({
                 src: "../../examples/image/test3.png",
                 width: 400,
                 height: 300,
                 fit: "fill",
-                borderRadius: 8
+                borderRadius: 50
             }),
             Text({ text: "test3 — fill", fontSize: 12, color: "#aaa", margin: [6, 0, 0, 0] })
         ]),

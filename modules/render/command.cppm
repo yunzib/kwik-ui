@@ -86,6 +86,7 @@ export struct DrawImageCmd {
     uint32_t textureId; // GPU 纹理句柄
     Rect rect;          // 绘制位置和尺寸 (逻辑坐标, 已变换)
     float opacity;      // 绘制透明度 (0.0-1.0)
+    float cornerRadius;     //  图片圆角半径 (0=直角)
 };
 
 /**
