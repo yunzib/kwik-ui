@@ -186,7 +186,7 @@ SpaceBeforeParens: ControlStatements
 SpaceInEmptyParentheses: false
 
 # 在尾随的评论前添加的空格数(只适用于//)
-SpacesBeforeTrailingComments: 1
+SpacesBeforeTrailingComments: 4
 
 # 在尖括号的<后和>前添加空格
 SpacesInAngles: false

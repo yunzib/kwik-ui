@@ -19,13 +19,13 @@ static RenderCallback render_callback = nullptr;
 
 // ---------- State 内部数据结构 ----------
 struct StateData {
-    JSValue data; // 持有的真实 JS 对象
+    JSValue data;    // 持有的真实 JS 对象
 };
 
 // ---------- Channel 内部数据结构 ----------
 struct ChannelData {
-    std::queue<JSValue> messages;         // 待接收的消息（已增加引用计数）
-    std::queue<JSValue> pendingReceivers; // 等待中的 resolve 函数（已增加引用计数）
+    std::queue<JSValue> messages;            // 待接收的消息（已增加引用计数）
+    std::queue<JSValue> pendingReceivers;    // 等待中的 resolve 函数（已增加引用计数）
     bool closed = false;
 };
 
@@ -88,7 +88,7 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
     if (!sd) return -1;
     int ret = JS_SetProperty(ctx, sd->data, atom, JS_DupValue(ctx, value));
     if (ret >= 0 && render_callback) {
-        render_callback(); // 触发重绘
+        render_callback();    // 触发重绘
     }
     return ret;
 }
@@ -134,7 +134,7 @@ JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JS
         JSValue ctor = JS_NewCFunction2(ctx, js_state_constructor, "State", 1, JS_CFUNC_constructor, 0);
         JS_SetConstructor(ctx, ctor, proto);
 
-        JS_SetClassProto(ctx, state_class_id, proto); // ref - 1 ，后续不需要free
+        JS_SetClassProto(ctx, state_class_id, proto);    // ref - 1 ，后续不需要free
 
         return ctor;
     }
@@ -237,7 +237,7 @@ JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, 
 
     // 初始化内部 JS 对象
     if (argc > 0 && JS_IsObject(argv[0])) {
-        sd->data = JS_DupValue(ctx, argv[0]); // 复制引用，构造函数持有一个独立引用
+        sd->data = JS_DupValue(ctx, argv[0]);    // 复制引用，构造函数持有一个独立引用
     } else {
         sd->data = JS_NewObject(ctx);
     }
@@ -249,7 +249,7 @@ JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, 
     // 创建类实例
     obj = JS_NewObjectProtoClass(ctx, proto, state_class_id);
     if (JS_IsException(obj)) goto fail;
-    JS_FreeValue(ctx, proto); // ← 释放 proto 引用
+    JS_FreeValue(ctx, proto);    // ← 释放 proto 引用
     // // 绑定内部数据
     JS_SetOpaque(obj, sd);
 
@@ -378,17 +378,34 @@ JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     }
 }
 
+static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    return makeElement(ctx, "RadioButton", props, children);
+}
 
+static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    return makeElement(ctx, "RadioGroup", props, children);
+}
 
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
-        JS_CFUNC_DEF("View", 1, js_view),       JS_CFUNC_DEF("Text", 1, js_text),
-        JS_CFUNC_DEF("Button", 2, js_button),   JS_CFUNC_DEF("Flex", 2, js_flex),
-        JS_CFUNC_DEF("Grid", 2, js_grid),       JS_CFUNC_DEF("Stack", 2, js_stack),
-        JS_CFUNC_DEF("List", 2, js_list),       JS_CFUNC_DEF("Image", 1, js_image),
-        JS_CFUNC_DEF("Input", 1, js_input),  JS_CFUNC_DEF("getProp", 2, kwik_prop_get_fn()),
-    JS_CFUNC_DEF("setProp", 3, kwik_prop_set_fn()),
+        JS_CFUNC_DEF("View", 1, js_view),
+        JS_CFUNC_DEF("Text", 1, js_text),
+        JS_CFUNC_DEF("Button", 2, js_button),
+        JS_CFUNC_DEF("Flex", 2, js_flex),
+        JS_CFUNC_DEF("Grid", 2, js_grid),
+        JS_CFUNC_DEF("Stack", 2, js_stack),
+        JS_CFUNC_DEF("List", 2, js_list),
+        JS_CFUNC_DEF("Image", 1, js_image),
+        JS_CFUNC_DEF("Input", 1, js_input),
+        JS_CFUNC_DEF("getProp", 2, kwik_prop_get_fn()),
+        JS_CFUNC_DEF("setProp", 3, kwik_prop_set_fn()),
+        JS_CFUNC_DEF("RadioButton", 2, js_radiobutton),
+        JS_CFUNC_DEF("RadioGroup", 2, js_radiogroup),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
@@ -398,7 +415,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         // 2. 导出 State 类（真正的构造函数）
         JSValue state_ctor = register_state_class(ctx, JS_UNDEFINED, 0, nullptr);
         if (JS_IsException(state_ctor)) return -1;
-        JS_SetModuleExport(ctx, m, "State", state_ctor); // 此时 state_ctor 的引用被模块接管, ref - 1
+        JS_SetModuleExport(ctx, m, "State", state_ctor);    // 此时 state_ctor 的引用被模块接管, ref - 1
 
         // 3. 导出 Channel 类
         JSValue channel_ctor = register_channel_class(ctx, JS_UNDEFINED, 0, nullptr);

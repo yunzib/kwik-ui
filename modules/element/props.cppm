@@ -11,9 +11,9 @@ import kwik.core.types;
  * @brief 边框样式枚举
  */
 export enum class BorderStyle {
-    None,  // 无边框
-    Solid, // 实线
-    Dashed // 虚线
+    None,     // 无边框
+    Solid,    // 实线
+    Dashed    // 虚线
 };
 
 export enum class FontWeight { Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black };
@@ -53,15 +53,15 @@ export enum class Align {
  * 父布局通过 child->props.xxx 访问子项属性, 因此必须保持扁平。
  */
 export struct ViewProps {
-    std::string id;              // 组件标识符 (全局查找 / getProp / setProp)
+    std::string id;    // 组件标识符 (全局查找 / getProp / setProp)
     // ── 尺寸 ──
     std::optional<float> width;
     std::optional<float> height;
     // ── 显示 ──
-    Color background;
+    Color background = Color::transparent();    // 默认透明，避免不透明黑色
     float borderRadius = 0;
     float borderWidth = 0;
-    Color borderColor;
+    Color borderColor{0, 0, 0, 0};
     BorderStyle borderStyle = BorderStyle::Solid;
     EdgeInsets padding;
     EdgeInsets margin;
@@ -97,11 +97,11 @@ export struct TextContent {
  * @brief 按钮交互状态 — 仅 Button 使用
  */
 export struct ButtonStateProps {
-    Color hoverBackground;
-    Color pressedBackground;
+    Color hoverBackground{0, 0, 0, 0};
+    Color pressedBackground{0, 0, 0, 0};
     float pressedScale = 0.95f;
-    Color hoverBorderColor;
-    Color pressedBorderColor;
+    Color hoverBorderColor{0, 0, 0, 0};
+    Color pressedBorderColor{0, 0, 0, 0};
     std::optional<Shadow> hoverShadow;
     std::optional<Shadow> pressedShadow;
 };
@@ -119,8 +119,8 @@ export struct ContainerProps {
     ScrollDirection scrollDir = ScrollDirection::Vertical;
 
     // ── 列表专属 ──
-    Color dividerColor;      // 分割线颜色（空=不绘制）
-    float dividerHeight = 0; // 分割线高度
+    Color dividerColor{0, 0, 0, 0};    // 分割线颜色（空=不绘制）
+    float dividerHeight = 0;           // 分割线高度
 };
 
 // ==================== 图像属性 ====================
@@ -130,42 +130,66 @@ export struct ContainerProps {
  * 当 Image 组件的 width/height 与图像原生尺寸不一致时的缩放策略。
  */
 export enum class ImageFit {
-    Fill,    // 拉伸填满 (可能变形)
-    Contain, // 等比例缩放至完全可见 (可能留空)
-    Cover,   // 等比例缩放至完全覆盖 (可能裁剪)
-    None,    // 原始尺寸, 不缩放
+    Fill,       // 拉伸填满 (可能变形)
+    Contain,    // 等比例缩放至完全可见 (可能留空)
+    Cover,      // 等比例缩放至完全覆盖 (可能裁剪)
+    None,       // 原始尺寸, 不缩放
 };
 /**
  * @brief 图像来源类型
  */
 export enum class ImageSource {
-    File,   // 本地文件路径 (通过 src 字段指定)
-    Buffer, // JS ArrayBuffer 像素数据 (通过 data 字段 + width/height 指定)
-    Url,    // 远程 URL (预留, 暂未实现)
+    File,      // 本地文件路径 (通过 src 字段指定)
+    Buffer,    // JS ArrayBuffer 像素数据 (通过 data 字段 + width/height 指定)
+    Url,       // 远程 URL (预留, 暂未实现)
 };
 /**
  * @brief 图像属性 — Image 组件专有
  */
 export struct ImageProps {
-    std::string src;           // 文件路径 (source == File/Url 时使用)
-    std::vector<uint8_t> data; // 像素缓冲区 (source == Buffer 时使用)
-    int bufferWidth = 0;       // 缓冲区位图宽度 (source == Buffer)
-    int bufferHeight = 0;      // 缓冲区位图高度 (source == Buffer)
+    std::string src;              // 文件路径 (source == File/Url 时使用)
+    std::vector<uint8_t> data;    // 像素缓冲区 (source == Buffer 时使用)
+    int bufferWidth = 0;          // 缓冲区位图宽度 (source == Buffer)
+    int bufferHeight = 0;         // 缓冲区位图高度 (source == Buffer)
     ImageSource source = ImageSource::File;
     ImageFit fit = ImageFit::Cover;
-    float imageOpacity = 1.0f; // 图像级透明度 (0.0-1.0)
+    float imageOpacity = 1.0f;    // 图像级透明度 (0.0-1.0)
 };
 
 // ==================== 输入框属性 ====================
 export struct InputProps {
-    std::string value;                           // 当前文本内容
-    std::string placeholder;                     // 占位符文本 (value 为空时显示)
-    float fontSize = 16.0f;                      // 文本字号
-    Color textColor{0, 0, 0, 255};               // 文本颜色
-    Color placeholderColor{153, 153, 153, 255};  // 占位符颜色
-    Color cursorColor{66, 133, 244, 255};        // 光标颜色
-    Color focusedBorderColor{66, 133, 244, 255}; // 聚焦时边框色
-    int maxLength = 0;                           // 最大字符数 (0 = 不限)
-    bool readOnly = false;                       // 只读模式
-    bool isPassword = false;                     // 密码模式 — 显示 ● 替代原文
+    std::string value;                              // 当前文本内容
+    std::string placeholder;                        // 占位符文本 (value 为空时显示)
+    float fontSize = 16.0f;                         // 文本字号
+    Color textColor{0, 0, 0, 255};                  // 文本颜色
+    Color placeholderColor{153, 153, 153, 255};     // 占位符颜色
+    Color cursorColor{66, 133, 244, 255};           // 光标颜色
+    Color focusedBorderColor{66, 133, 244, 255};    // 聚焦时边框色
+    int maxLength = 0;                              // 最大字符数 (0 = 不限)
+    bool readOnly = false;                          // 只读模式
+    bool isPassword = false;                        // 密码模式 — 显示 ● 替代原文
+};
+
+// ════════════════════════════════════════════════════════
+// RadioButton 属性
+// ════════════════════════════════════════════════════════
+export struct RadioButtonProps {
+    bool checked = false;                        // 选中状态
+    std::string group;                           // 互斥组名 (同组仅一个可选)
+    std::string value;                           // 选中时对应的值 (配合 RadioGroup 使用)
+    Color checkedColor{25, 118, 210, 255};       // 选中时外圈颜色 (Material Blue 700)
+    Color uncheckedColor{158, 158, 158, 255};    // 未选中时外圈颜色 (Material Grey 500)
+    Color dotColor{25, 118, 210, 255};           // 选中时内圆点颜色
+    float radioSize = 20.0f;                     // 外圈直径 (像素)
+    float dotSize = 12.0f;                       // 内圆点直径 (像素)
+    float ringWidth = 2.0f;                      // 外圈线宽 (像素)
+    float textSpacing = 8.0f;                    // 圆圈与文字间距
+};
+
+// ════════════════════════════════════════════════════════
+// RadioGroup 属性
+// ════════════════════════════════════════════════════════
+export struct RadioGroupProps {
+    std::string name;        // 组名 (对应子 RadioButton 的 group 字段)
+    std::string selected;    // 当前选中的 value 值
 };

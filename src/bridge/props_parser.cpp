@@ -26,10 +26,10 @@ EdgeInsets parseEdgeInsets(const JSValueRef &value) {
             float v = value.getArrayElement(1).toFloat();
             return EdgeInsets(h, v);
         } else if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(1).toFloat(),  // top
-                              value.getArrayElement(2).toFloat(),  // right
-                              value.getArrayElement(3).toFloat(),  // bottom
-                              value.getArrayElement(0).toFloat()); // left
+            return EdgeInsets(value.getArrayElement(1).toFloat(),     // top
+                              value.getArrayElement(2).toFloat(),     // right
+                              value.getArrayElement(3).toFloat(),     // bottom
+                              value.getArrayElement(0).toFloat());    // left
         }
     }
 
@@ -338,4 +338,37 @@ InputProps parseInputProps(const JSValueRef &props) {
         ip.isPassword = (type == "password");
     }
     return ip;
+}
+
+// ============================================================================
+// parseRadioButtonProps
+// ============================================================================
+RadioButtonProps parseRadioButtonProps(const JSValueRef &props) {
+    RadioButtonProps result;
+    if (!props.isObject()) return result;
+    if (props.hasProperty("checked")) { result.checked = props.getProperty("checked").toBool(); }
+    if (props.hasProperty("group")) { result.group = props.getProperty("group").toString(); }
+    if (props.hasProperty("checkedColor")) {
+        result.checkedColor = parseColor(props.getProperty("checkedColor").toString());
+    }
+    if (props.hasProperty("uncheckedColor")) {
+        result.uncheckedColor = parseColor(props.getProperty("uncheckedColor").toString());
+    }
+    if (props.hasProperty("dotColor")) { result.dotColor = parseColor(props.getProperty("dotColor").toString()); }
+    if (props.hasProperty("radioSize")) { result.radioSize = props.getProperty("radioSize").toFloat(); }
+    if (props.hasProperty("dotSize")) { result.dotSize = props.getProperty("dotSize").toFloat(); }
+    if (props.hasProperty("ringWidth")) { result.ringWidth = props.getProperty("ringWidth").toFloat(); }
+    if (props.hasProperty("value")) { result.value = props.getProperty("value").toString(); }
+    return result;
+}
+
+// ============================================================================
+// parseRadioGroupProps
+// ============================================================================
+RadioGroupProps parseRadioGroupProps(const JSValueRef &props) {
+    RadioGroupProps result;
+    if (!props.isObject()) return result;
+    if (props.hasProperty("name")) { result.name = props.getProperty("name").toString(); }
+    if (props.hasProperty("selected")) { result.selected = props.getProperty("selected").toString(); }
+    return result;
 }

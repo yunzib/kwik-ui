@@ -28,6 +28,8 @@ import kwik.layout.list_layout;
 import kwik.element.image;
 import kwik.element.input;
 import kwik.core.log;
+import kwik.element.radiobutton;
+import kwik.layout.radio_group;
 
 import std;
 // ============================================================================
@@ -114,6 +116,16 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("Input", [](const JSValueRef &pv) {
             return std::make_unique<Input>(parseViewProps(pv), parseInputProps(pv));
         });
+
+        // ── 单选按钮 ───────────────────────────────────────
+        ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
+            return std::make_unique<RadioButton>(parseViewProps(pv), parseTextContent(pv), parseRadioButtonProps(pv));
+        });
+
+        // ── 单选按钮组 ───────────────────────────────────────
+        ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
+            return std::make_unique<RadioGroup>(parseViewProps(pv), parseRadioGroupProps(pv));
+        });
     }
 } _init_builtin_types;
 // ============================================================================
@@ -161,9 +173,10 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
     // ── 1. 读取组件类型 ──────────────────────────────────────────────
     auto typeVal = jsVal.getProperty("type");
     std::string type = typeVal.toString();
-    if (type.empty()) { 
+    if (type.empty()) {
         Log::error("parseNode: 缺少 type 字段 — request import type");
-        return nullptr; }
+        return nullptr;
+    }
     // ── 2. 获取 props JS 对象 ─────────────────────────────────────
     auto propsVal = jsVal.getProperty("props");
 
@@ -173,9 +186,7 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
     auto it = registry.find(type);
     if (it != registry.end()) {
         element = it->second(propsVal);
-        if (!element) {
-            Log::error("parseNode: 组件 '{}' 工厂函数返回 null", type);
-        }
+        if (!element) { Log::error("parseNode: 组件 '{}' 工厂函数返回 null", type); }
     } else {
         Log::warn("parseNode: 未注册的类型 '{}' — 降级为 View", type);
         element = std::make_unique<View>(parseViewProps(propsVal));

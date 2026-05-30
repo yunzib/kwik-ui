@@ -23,7 +23,7 @@ public:
     Button() = default;
     explicit Button(ViewProps p, TextContent tc = {}, ButtonStateProps bs = {}) :
         View(std::move(p)), text_(std::move(tc)), button_(std::move(bs)) {
-        auto isDefault = [](const Color &c) { return c.r == 0 && c.g == 0 && c.b == 0 && c.a == 255; };
+        auto isDefault = [](const Color &c) { return c.a == 0; };
         auto darker = [](const Color &c, float f) -> Color {
             return {(uint8_t)(c.r * f), (uint8_t)(c.g * f), (uint8_t)(c.b * f), c.a};
         };

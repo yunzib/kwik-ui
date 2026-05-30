@@ -21,7 +21,8 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "stack") return "../../examples/stack.js";
         if (arg == "image") return "../../examples/image.js";
         if (arg == "input") return "../../examples/input.js";
-        if (arg == "example") return "../examples/example.js";
+        if (arg == "example") return "../../examples/example.js";
+        if (arg == "radiobutton") return "../../examples/radiobutton.js";
         return arg;
     }
     return "../../examples/example.js";

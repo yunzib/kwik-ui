@@ -61,3 +61,7 @@ export ContainerProps parseContainerProps(const JSValueRef &props);
 export ImageProps parseImageProps(const JSValueRef &props);
 
 export InputProps parseInputProps(const JSValueRef &props);
+
+export RadioButtonProps parseRadioButtonProps(const JSValueRef &props);
+
+export RadioGroupProps parseRadioGroupProps(const JSValueRef &props);
