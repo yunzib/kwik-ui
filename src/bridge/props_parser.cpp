@@ -372,3 +372,29 @@ RadioGroupProps parseRadioGroupProps(const JSValueRef &props) {
     if (props.hasProperty("selected")) { result.selected = props.getProperty("selected").toString(); }
     return result;
 }
+
+// ============================================================================
+// parseCheckboxProps
+// ============================================================================
+CheckboxProps parseCheckboxProps(const JSValueRef &props) {
+    CheckboxProps result;
+    if (!props.isObject()) return result;
+    if (props.hasProperty("checked")) { result.checked = props.getProperty("checked").toBool(); }
+    if (props.hasProperty("checkedColor")) {
+        result.checkedColor = parseColor(props.getProperty("checkedColor").toString());
+    }
+    if (props.hasProperty("uncheckedColor")) {
+        result.uncheckedColor = parseColor(props.getProperty("uncheckedColor").toString());
+    }
+    if (props.hasProperty("checkedFillColor")) {
+        result.checkedFillColor = parseColor(props.getProperty("checkedFillColor").toString());
+    }
+    if (props.hasProperty("checkMarkColor")) {
+        result.checkMarkColor = parseColor(props.getProperty("checkMarkColor").toString());
+    }
+    if (props.hasProperty("boxSize")) { result.boxSize = props.getProperty("boxSize").toFloat(); }
+    if (props.hasProperty("borderRadius")) { result.borderRadius = props.getProperty("borderRadius").toFloat(); }
+    if (props.hasProperty("ringWidth")) { result.ringWidth = props.getProperty("ringWidth").toFloat(); }
+    if (props.hasProperty("textSpacing")) { result.textSpacing = props.getProperty("textSpacing").toFloat(); }
+    return result;
+}

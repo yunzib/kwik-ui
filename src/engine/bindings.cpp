@@ -390,6 +390,12 @@ static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JS
     return makeElement(ctx, "RadioGroup", props, children);
 }
 
+static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    return makeElement(ctx, "Checkbox", props, children);
+}
+
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
@@ -406,6 +412,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("setProp", 3, kwik_prop_set_fn()),
         JS_CFUNC_DEF("RadioButton", 2, js_radiobutton),
         JS_CFUNC_DEF("RadioGroup", 2, js_radiogroup),
+        JS_CFUNC_DEF("Checkbox", 2, js_checkbox),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

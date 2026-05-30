@@ -9,13 +9,13 @@ module kwik.engine.context;
 
 import kwik.engine.runtime;
 import kwik.core.log;
-import kwik.engine.bindings;   // 导入绑定
+import kwik.engine.bindings; // 导入绑定
 
 // JS console.log 绑定到 C++ std::println
-static JSValue js_console_log(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     std::ostringstream oss;
     for (int i = 0; i < argc; ++i) {
-        const char* str = JS_ToCString(ctx, argv[i]);
+        const char *str = JS_ToCString(ctx, argv[i]);
         if (str) {
             if (i > 0) oss << ' ';
             oss << str;
@@ -31,10 +31,10 @@ static JSValue js_console_log(JSContext* ctx, JSValueConst this_val, int argc, J
     return JS_UNDEFINED;
 }
 
-static JSValue js_console_error(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+static JSValue js_console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     std::ostringstream oss;
     for (int i = 0; i < argc; ++i) {
-        const char* str = JS_ToCString(ctx, argv[i]);
+        const char *str = JS_ToCString(ctx, argv[i]);
         if (str) {
             if (i > 0) oss << ' ';
             oss << str;
@@ -49,14 +49,12 @@ static JSValue js_console_error(JSContext* ctx, JSValueConst this_val, int argc,
 }
 
 // 注册 console 对象
-static void init_console(JSContext* ctx) {
+static void init_console(JSContext *ctx) {
     JSValue console = JS_NewObject(ctx);
     // 修复点：把 JS_ARG_ARBITRARY 改为 0
-    JS_SetPropertyStr(ctx, console, "log",
-        JS_NewCFunction(ctx, js_console_log, "log", 0));
+    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_console_log, "log", 0));
 
-    JS_SetPropertyStr(ctx, console, "error",
-        JS_NewCFunction(ctx, js_console_error, "error", 0));
+    JS_SetPropertyStr(ctx, console, "error", JS_NewCFunction(ctx, js_console_error, "error", 0));
 
     JSValue global = JS_GetGlobalObject(ctx);
     JS_SetPropertyStr(ctx, global, "console", console);
@@ -69,10 +67,9 @@ static void init_console(JSContext* ctx) {
 QuickJSContext::QuickJSContext() : runtime(QuickJSRuntime::getInstance()), rootView(JS_NULL), needRender(false) {
     context = JS_NewContext(runtime->getPtr());
     JS_SetContextOpaque(context, this);
-    setupModuleLoader(); //  注册模块加载器
+    setupModuleLoader();    //  注册模块加载器
 
-    
-    init_console(context);        // 注册 console.log
+    init_console(context);    // 注册 console.log
 
     // 设置渲染回调：当 State 变更时，触发 requestRender
     set_render_callback([this]() { requestRender(); });
@@ -85,6 +82,8 @@ QuickJSContext::~QuickJSContext() {
         JS_FreeValue(context, rootView);
         JS_FreeContext(context);
     }
+    // 仅当 rootView 是函数时 expandedRoot 才是独立对象 (调用产物), 需要额外释放
+    if (JS_IsFunction(context, rootView) && !JS_IsUndefined(expandedRoot)) { JS_FreeValue(context, expandedRoot); }
 }
 QuickJSContext::QuickJSContext(QuickJSContext &&other) noexcept :
     runtime(std::move(other.runtime)), context(other.context) {
@@ -157,6 +156,12 @@ bool QuickJSContext::extractDefaultExport(JSValue namespaceObj) {
     }
     JS_FreeValue(context, rootView);
     rootView = defaultExport;
+    // 初始化展开视图: 静态对象直接引用, 函数则首次调用
+    if (JS_IsFunction(context, rootView)) {
+        expandedRoot = JS_Call(context, rootView, JS_UNDEFINED, 0, nullptr);
+    } else {
+        expandedRoot = rootView;
+    }
     Log::info("Default export set as rootView");
     return true;
 }
@@ -183,9 +188,8 @@ bool QuickJSContext::evalFile(const std::string &filename) {
 bool QuickJSContext::evalModule(const std::string &code, const std::string &name) {
     // Log::info("Evaluating module: {}", name);
     // 1. 仅编译
-    JSValue func_val = JS_Eval(context, code.c_str(), code.size(),
-                                name.c_str(),
-                                JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    JSValue func_val =
+        JS_Eval(context, code.c_str(), code.size(), name.c_str(), JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(func_val)) {
         JSValue exception = JS_GetException(context);
         const char *err = JS_ToCString(context, exception);
@@ -265,4 +269,11 @@ std::string QuickJSContext::getStringProp(JSContext *ctx, JSValueConst obj, cons
     }
     JS_FreeValue(ctx, propVal);
     return "";
+}
+
+void QuickJSContext::expandRootView() {
+    if (JS_IsFunction(context, rootView)) {
+        if (!JS_IsUndefined(expandedRoot)) { JS_FreeValue(context, expandedRoot); }
+        expandedRoot = JS_Call(context, rootView, JS_UNDEFINED, 0, nullptr);
+    }
 }

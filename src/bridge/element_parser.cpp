@@ -30,6 +30,7 @@ import kwik.element.input;
 import kwik.core.log;
 import kwik.element.radiobutton;
 import kwik.layout.radio_group;
+import kwik.element.checkbox;
 
 import std;
 // ============================================================================
@@ -125,6 +126,11 @@ static struct InitBuiltinTypes {
         // ── 单选按钮组 ───────────────────────────────────────
         ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
             return std::make_unique<RadioGroup>(parseViewProps(pv), parseRadioGroupProps(pv));
+        });
+
+        // ── 复选框 ───────────────────────────────────────
+        ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
+            return std::make_unique<Checkbox>(parseViewProps(pv), parseTextContent(pv), parseCheckboxProps(pv));
         });
     }
 } _init_builtin_types;

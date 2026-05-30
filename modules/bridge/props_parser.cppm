@@ -65,3 +65,5 @@ export InputProps parseInputProps(const JSValueRef &props);
 export RadioButtonProps parseRadioButtonProps(const JSValueRef &props);
 
 export RadioGroupProps parseRadioGroupProps(const JSValueRef &props);
+
+export CheckboxProps parseCheckboxProps(const JSValueRef &props);

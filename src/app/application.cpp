@@ -123,6 +123,7 @@ bool Application::init() {
 // rebuildTree — State 变更后重建树
 // ============================================================================
 void Application::rebuildTree() {
+    jsCtx_.expandRootView();
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     jsCtx_.setUserPointer(tree_.get());
     if (tree_) {
@@ -130,7 +131,7 @@ void Application::rebuildTree() {
         window_.GetSize(&w, &h);
         float dpi = window_.GetDpiScale();
         auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
-        relayoutTree(sz); // ← 修复: 之前 sz 只计算未使用, 新树 frame 全为 {0,0,0,0}
+        relayoutTree(sz);
     }
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();

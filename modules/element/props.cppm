@@ -193,3 +193,18 @@ export struct RadioGroupProps {
     std::string name;        // 组名 (对应子 RadioButton 的 group 字段)
     std::string selected;    // 当前选中的 value 值
 };
+
+// ════════════════════════════════════════════════════════
+// Checkbox 属性
+// ════════════════════════════════════════════════════════
+export struct CheckboxProps {
+    bool checked = false;                            // 选中状态
+    Color checkedColor{25, 118, 210, 255};           // 选中时边框颜色 (Material Blue 700)
+    Color uncheckedColor{158, 158, 158, 255};        // 未选中时边框颜色 (Material Grey 500)
+    Color checkedFillColor{25, 118, 210, 255};       // 选中时填充色
+    Color checkMarkColor{255, 255, 255, 255};        // ✓ 号颜色
+    float boxSize = 20.0f;                           // 方框边长 (像素)
+    float borderRadius = 4.0f;                       // 方框圆角半径
+    float ringWidth = 2.0f;                          // 边框线宽 (像素)
+    float textSpacing = 8.0f;                        // 方框与文字间距
+};

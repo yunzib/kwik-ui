@@ -72,8 +72,17 @@ public:
      *        供 ElementFactory::parse() 消费
      */
     JSValue getRootView() const {
-        return rootView;
+        return expandedRoot;
     }
+
+    /**
+     * @brief 展开根视图 — 若导出为函数则调用获取最新树
+     *
+     * 无参数调用, 无 QuickJS 依赖泄漏。
+     * 静态导出 (export default View({...})) 时此方法为空操作。
+     * 函数式导出 (export default () => View({...})) 时重新求值。
+     */
+    void expandRootView();
 
     JSModuleDef *getKwikuiModule() const {
         return kwikuiModule_;
@@ -92,16 +101,32 @@ public:
         needRender = false;
     }
 
+    /**
+     * @brief 判断 JS 值是否可调用 (函数)
+     */
+    bool isFunction(JSValue v) const {
+        return JS_IsFunction(context, v);
+    }
+    /**
+     * @brief 以 undefined 为 this 调用 JS 函数
+     * @param func 函数值
+     * @return 调用结果 JS 值, 调用方负责释放
+     */
+    JSValue callFunction(JSValue func) const {
+        return JS_Call(context, func, JS_UNDEFINED, 0, nullptr);
+    }
+
 private:
     // ── 运行时 & 上下文 ──────────────────────────────────────────
-    std::shared_ptr<QuickJSRuntime> runtime; ///< 共享的 JSRuntime 实例
-    JSContext *context;                      ///< QuickJS 执行上下文
+    std::shared_ptr<QuickJSRuntime> runtime;    ///< 共享的 JSRuntime 实例
+    JSContext *context;                         ///< QuickJS 执行上下文
     // ── 组件树 / 脏标记 ──────────────────────────────────────────
-    JSValue rootView = JS_NULL; ///< 根组件对象，保存最新组件树
-    bool needRender = false;    ///< 脏标记，为 true 时下次渲染
-    std::string baseDir_;       // evalFile 时记录的基础目录，用于相对路径解析
+    JSValue rootView = JS_NULL;    ///< 根组件对象，保存最新组件树
+    bool needRender = false;       ///< 脏标记，为 true 时下次渲染
+    std::string baseDir_;          // evalFile 时记录的基础目录，用于相对路径解析
     JSModuleDef *kwikuiModule_ = nullptr;
-    void *userPtr_ = nullptr; // 用户自定义指针 (由 Application 注入树根)
+    void *userPtr_ = nullptr;          // 用户自定义指针 (由 Application 注入树根)
+    JSValue expandedRoot = JS_NULL;    ///< 展开后的对象树 (每次 rebuild 更新)
 
     /**
      * @brief 模块加载器回调：解析 import 路径，加载多文件
