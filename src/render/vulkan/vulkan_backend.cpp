@@ -12,7 +12,10 @@ import kwik.core.types;
 
 VulkanBackend::VulkanBackend(int w, int h) : width_(w), height_(h) {
 }
-VulkanBackend::~VulkanBackend() = default;
+VulkanBackend::~VulkanBackend() {
+    // ── 确保所有 GPU 命令在子模块销毁前完成 ──
+    if (ctx_.device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_.device()); }
+}
 // ================================================================
 // 初始化 / 关闭
 // ================================================================
@@ -38,9 +41,8 @@ bool VulkanBackend::initialize(void *native, int w, int h) {
     return true;
 }
 void VulkanBackend::shutdown() {
-    if (ctx_.device() != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(ctx_.device()); // ← 确保所有 GPU 命令完成
-    }
+    // vkDeviceWaitIdle 已由析构函数保证，此处可保留为显式调用场景的防御
+    if (ctx_.device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_.device()); }
     image_.destroy();
     glyph_.destroy();
     rect_.destroy();
