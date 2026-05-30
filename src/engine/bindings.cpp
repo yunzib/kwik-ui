@@ -396,6 +396,12 @@ static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return makeElement(ctx, "Checkbox", props, children);
 }
 
+static JSValue js_textarea(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "TextArea", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
+
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
@@ -413,6 +419,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("RadioButton", 2, js_radiobutton),
         JS_CFUNC_DEF("RadioGroup", 2, js_radiogroup),
         JS_CFUNC_DEF("Checkbox", 2, js_checkbox),
+        JS_CFUNC_DEF("TextArea", 2, js_textarea),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

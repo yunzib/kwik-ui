@@ -398,3 +398,28 @@ CheckboxProps parseCheckboxProps(const JSValueRef &props) {
     if (props.hasProperty("textSpacing")) { result.textSpacing = props.getProperty("textSpacing").toFloat(); }
     return result;
 }
+
+// ============================================================================
+// parseTextAreaProps
+// ============================================================================
+TextAreaProps parseTextAreaProps(const JSValueRef &props) {
+    TextAreaProps result;
+    if (!props.isObject()) return result;
+    if (props.hasProperty("value")) { result.value = props.getProperty("value").toString(); }
+    if (props.hasProperty("placeholder")) { result.placeholder = props.getProperty("placeholder").toString(); }
+    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
+    if (props.hasProperty("rows")) { result.rows = props.getProperty("rows").toInt(); }
+    if (props.hasProperty("textColor")) { result.textColor = parseColor(props.getProperty("textColor").toString()); }
+    if (props.hasProperty("placeholderColor")) {
+        result.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
+    }
+    if (props.hasProperty("cursorColor")) {
+        result.cursorColor = parseColor(props.getProperty("cursorColor").toString());
+    }
+    if (props.hasProperty("focusedBorderColor")) {
+        result.focusedBorderColor = parseColor(props.getProperty("focusedBorderColor").toString());
+    }
+    if (props.hasProperty("maxLength")) { result.maxLength = props.getProperty("maxLength").toInt(); }
+    if (props.hasProperty("readOnly")) { result.readOnly = props.getProperty("readOnly").toBool(); }
+    return result;
+}

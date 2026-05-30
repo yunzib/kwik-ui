@@ -24,6 +24,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "example") return "../../examples/example.js";
         if (arg == "radiobutton") return "../../examples/radiobutton.js";
         if (arg == "checkbox") return "../../examples/checkbox.js";
+        if (arg == "textarea") return "../../examples/textarea.js";
         return arg;
     }
     return "../../examples/example.js";

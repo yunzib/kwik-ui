@@ -26,6 +26,7 @@ import kwik.render.texture_manager;
 import kwik.element.image;
 import kwik.element.input;
 import kwik.bridge.prop_bus;
+import kwik.element.textarea;
 
 // ============================================================================
 // 构造 / 析构
@@ -70,7 +71,7 @@ bool Application::init() {
     auto &fm = FontManager::instance();
     for (auto &dir : config_.fontDirs) fm.addFontDir(dir);
 #if defined(_WIN32)
-    fm.addFontDir("C:/Windows/Fonts"); // 系统字体兜底
+    fm.addFontDir("C:/Windows/Fonts");    // 系统字体兜底
 #endif
 
     // ③ 加载 JS
@@ -136,6 +137,7 @@ void Application::rebuildTree() {
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();
     jsCtx_.clearRenderFlag();
+    focusedView_ = nullptr;   //  旧树已销毁，清空野指针
 }
 // ============================================================================
 // renderFrame — 录制并提交一帧
@@ -204,16 +206,24 @@ int Application::run() {
             }
         }
 
-        // ── 鼠标按下时更新 focusedView (Input 获取 / 失去焦点) ──
+        // ── 鼠标按下时更新 focusedView (Input / TextArea 获取 / 失去焦点) ──
         if (e.type == Event::Type::MouseDown) {
             Point pt{static_cast<float>(e.x), static_cast<float>(e.y)};
             View *target = tree_ ? tree_->hitTest(pt) : nullptr;
-            // 旧焦点失焦 (若目标不是当前聚焦 Input)
-            if (focusedView_ && focusedView_ != target && std::strcmp(focusedView_->typeName(), "Input") == 0) {
-                static_cast<Input *>(focusedView_)->blur();
+            // ── 旧焦点失焦 ──
+            if (focusedView_ && focusedView_ != target) {
+                auto tn = std::string(focusedView_->typeName());
+                if (tn == "Input") { static_cast<Input *>(focusedView_)->blur(); }
+                if (tn == "TextArea") { static_cast<TextArea *>(focusedView_)->blur(); }
             }
-            if (target && std::strcmp(target->typeName(), "Input") == 0) {
-                focusedView_ = target;
+            // ── 新焦点设置 ──
+            if (target) {
+                auto tn = std::string(target->typeName());
+                if (tn == "Input" || tn == "TextArea") {
+                    focusedView_ = target;
+                } else {
+                    focusedView_ = nullptr;
+                }
             } else {
                 focusedView_ = nullptr;
             }
@@ -222,7 +232,7 @@ int Application::run() {
         // ── ③ 窗口关闭 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowClose) {
             running_ = false;
-            renderThread_.stop(true); // 阻塞等待渲染线程完全退出，避免竞态
+            renderThread_.stop(true);    // 阻塞等待渲染线程完全退出，避免竞态
             return;
         }
         // ── ④ 窗口缩放 ────────────────────────────────────────────

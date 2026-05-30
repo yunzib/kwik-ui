@@ -560,10 +560,17 @@ bool VulkanContext::createVertexBuffer() {
 }
 
 bool VulkanContext::createCommandBuffers() {
+    // ── 先销毁旧池 (resize 场景下避免泄漏) ──
+    if (commandPool_ != VK_NULL_HANDLE) {
+        vkDestroyCommandPool(vkDevice_, commandPool_, nullptr);
+        commandPool_ = VK_NULL_HANDLE;
+    }
+
     VkCommandPoolCreateInfo cp{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     cp.queueFamilyIndex = queueFamilyIndex_;
     cp.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     if (vkCreateCommandPool(vkDevice_, &cp, nullptr, &commandPool_) != VK_SUCCESS) return false;
+
     commandBuffers_.resize(swapchainImageViews_.size());
     VkCommandBufferAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

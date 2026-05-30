@@ -198,13 +198,29 @@ export struct RadioGroupProps {
 // Checkbox 属性
 // ════════════════════════════════════════════════════════
 export struct CheckboxProps {
-    bool checked = false;                            // 选中状态
-    Color checkedColor{25, 118, 210, 255};           // 选中时边框颜色 (Material Blue 700)
-    Color uncheckedColor{158, 158, 158, 255};        // 未选中时边框颜色 (Material Grey 500)
-    Color checkedFillColor{25, 118, 210, 255};       // 选中时填充色
-    Color checkMarkColor{255, 255, 255, 255};        // ✓ 号颜色
-    float boxSize = 20.0f;                           // 方框边长 (像素)
-    float borderRadius = 4.0f;                       // 方框圆角半径
-    float ringWidth = 2.0f;                          // 边框线宽 (像素)
-    float textSpacing = 8.0f;                        // 方框与文字间距
+    bool checked = false;                         // 选中状态
+    Color checkedColor{25, 118, 210, 255};        // 选中时边框颜色 (Material Blue 700)
+    Color uncheckedColor{158, 158, 158, 255};     // 未选中时边框颜色 (Material Grey 500)
+    Color checkedFillColor{25, 118, 210, 255};    // 选中时填充色
+    Color checkMarkColor{255, 255, 255, 255};     // ✓ 号颜色
+    float boxSize = 20.0f;                        // 方框边长 (像素)
+    float borderRadius = 4.0f;                    // 方框圆角半径
+    float ringWidth = 2.0f;                       // 边框线宽 (像素)
+    float textSpacing = 8.0f;                     // 方框与文字间距
+};
+
+// ════════════════════════════════════════════════════════
+// TextArea 属性 — 多行文本输入
+// ════════════════════════════════════════════════════════
+export struct TextAreaProps {
+    std::string value;                              // 多行文本内容 (含 \n)
+    std::string placeholder;                        // 占位符文本 (value 为空时显示)
+    float fontSize = 16.0f;                         // 字号
+    int rows = 4;                                   // 可见行数
+    Color textColor{0, 0, 0, 255};                  // 文字颜色
+    Color placeholderColor{153, 153, 153, 255};     // 占位符颜色
+    Color cursorColor{66, 133, 244, 255};           // 光标颜色
+    Color focusedBorderColor{66, 133, 244, 255};    // 聚焦时边框色
+    int maxLength = 0;                              // 最大字符数 (0 = 不限)
+    bool readOnly = false;                          // 只读模式
 };
