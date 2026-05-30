@@ -38,11 +38,13 @@ int main(int argc, char *argv[]) {
     auto window = std::make_unique<PlatformWindowWin32>();
     if (!window || !window->Create("KwiK UI Demo", 800, 600)) return -1;
     window->Show();
+    int w, h;
+     window->GetSize(&w, &h);
     Application app(*window, {
                                  .jsPath = resolveDemo(argc, argv),
                                  .fontDirs = {"../../resources/fonts"},
-                                 .width = 800,
-                                 .height = 600,
+                                 .width = w,
+                                 .height = h,
                              });
     return app.run();
 }
