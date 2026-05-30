@@ -10,6 +10,8 @@ module;
 #include <hb-ft.h>
 #include "freetype/freetype.h"
 #include "freetype/fttypes.h"
+#include "freetype/ftmodapi.h"
+
 module kwik.render.font;
 import std;
 import kwik.core.types;
@@ -36,6 +38,13 @@ FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
     if (err) ftLib_ = nullptr;
     atlasData_.resize(kAtlasSize * kAtlasSize, 0);
+    // ── SDF 生成参数调优 ──────────────────────────────────
+    // spread: 控制 SDF 有效距离范围 (默认 8, 调高 → 边缘渐变更丰富)
+    // 16 时在 4× 超采样下等效 4px 距离场 → 更平滑的边缘过渡
+    if (ftLib_) {
+        FT_Int spread = 16;
+        FT_Property_Set(ftLib_, "bsdf", "spread", &spread);
+    }
 }
 FontManager::~FontManager() {
     if (hbFont_) {
@@ -249,19 +258,23 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     // ① FreeType 加载并渲染 SDF (不变)
     const int kSuperSample = 4;
     FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)(fontSize * kSuperSample));
+
+    // ── 启用轻量 hinting + 自动微调 ──────────────────────
+    // FT_LOAD_TARGET_NORMAL 保留原生轮廓对齐, 优于 FT_LOAD_DEFAULT
+    FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_TARGET_NORMAL);
+
     FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_DEFAULT);
     FT_Render_Glyph(ftFace_->glyph, FT_RENDER_MODE_SDF);
     FT_Bitmap &bmp = ftFace_->glyph->bitmap;
     int outW = bmp.width / kSuperSample;
-    int outH = bmp.rows  / kSuperSample;
+    int outH = bmp.rows / kSuperSample;
     std::vector<uint8_t> scaled(outW * outH);
     for (int y = 0; y < outH; ++y) {
         for (int x = 0; x < outW; ++x) {
             int sum = 0;
             for (int dy = 0; dy < kSuperSample; ++dy)
                 for (int dx = 0; dx < kSuperSample; ++dx)
-                    sum += bmp.buffer[(y * kSuperSample + dy) * bmp.pitch
-                                      + (x * kSuperSample + dx)];
+                    sum += bmp.buffer[(y * kSuperSample + dy) * bmp.pitch + (x * kSuperSample + dx)];
             scaled[y * outW + x] = (uint8_t)(sum / (kSuperSample * kSuperSample));
         }
     }
@@ -269,7 +282,7 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     info.atlasW = outW;
     info.atlasH = outH;
     info.bearingX = (float)ftFace_->glyph->bitmap_left / kSuperSample;
-    info.bearingY = (float)ftFace_->glyph->bitmap_top  / kSuperSample;
+    info.bearingY = (float)ftFace_->glyph->bitmap_top / kSuperSample;
     info.advanceX = ftFace_->glyph->advance.x / 64.0f / kSuperSample;
     uint32_t w = (uint32_t)outW;
     uint32_t h = (uint32_t)outH;
@@ -310,10 +323,10 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     }
     // ④ 将 SDF 位图写入图集 (不变)
     for (int y = 0; y < outH; y++) {
-            uint8_t *src = scaled.data() + y * outW;
-            uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
-            std::memcpy(dst, src, (size_t)outW);
-        }
+        uint8_t *src = scaled.data() + y * outW;
+        uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
+        std::memcpy(dst, src, (size_t)outW);
+    }
     // ⑤ 更新脏区域 (不变)
     markDirtyRegion(info.atlasY, info.atlasH);
 }

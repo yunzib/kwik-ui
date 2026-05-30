@@ -49,4 +49,8 @@ export default View({
             fontSize: 18, color: "#ddd", margin: [4, 0, 0, 0]
         }),
     ]),
+    Text({ 
+            text: "带背景颜色的字体",
+            fontSize: 18, color: "#ddd", margin: [4, 0, 0, 0], background: "0000FF"
+        }),
 ]);
