@@ -132,7 +132,7 @@ export default () => View({
 
 # 4. 组件说明
 组件系统整体结构可划分为组件和属性，组件是功能划分，属性则是组件对应的功能集合。
-# 4.1 通用属性
+## 4.1 通用属性
 ViewProps 是 View 的基础属性， 所有组件继承以下属性：
 ```
 {
@@ -240,7 +240,7 @@ Shadow（阴影）
 
 ```
 
-# 4.5 Input — 单行文本输入
+## 4.5 Input — 单行文本输入
 - 单行文本输入框。支持中文 IME 输入、密码遮罩模式 (●)、只读模式、
 光标闪烁、键盘导航（Backspace / Delete / 方向键 / Home / End）、
 聚焦蓝色边框反馈。
@@ -382,11 +382,37 @@ Shadow（阴影）
     "gap": "number"                                       // 子项间距 px (默认 0)
 }
 ```
-## 5. State 响应式状态
+## 4.14 Dropdown — 下拉选择
+- 下拉选择控件。点击触发区展开菜单，选中项高亮回显，点击外部或选中后自动收起。
+- 展开时自动提升 z 层级 (z=100)，确保菜单置顶且事件优先命中。
+- 支持滚动 (maxVisibleItems 控制可见窗口，鼠标滚轮浏览溢出项)。
+- 通过 getProp/setProp 读写选中值，支持 onChange 回调。
+
+- 属性:
+```
+{
+    "placeholder": "string",            // 占位符 (未选择时显示, 默认 "请选择...")
+    "items": "string[]",                // 选项列表 (默认 [])
+    "selectedIndex": "number",          // 选中索引 (-1=未选中, 默认 -1)
+    "fontSize": "number",              // 文字字号 px (默认 14)
+    "itemHeight": "number",            // 每个选项高度 px (默认 32)
+    "maxVisibleItems": "number",       // 同时可见最大选项数 (默认 5)
+    "textColor": "#rrggbb",            // 文字颜色 (默认 "#000000")
+    "placeholderColor": "#rrggbb",     // 占位符颜色 (默认 "#999999")
+    "arrowColor": "#rrggbb",           // 箭头 ▼ 颜色 (默认 "#999999")
+    "menuBackground": "#rrggbb",       // 菜单背景色 (默认 "#ffffff")
+    "hoverBackground": "#rrggbb",      // 悬停高亮色 (默认 "#E3F2FD")
+    "selectedBackground": "#rrggbb",   // 选中项背景色 (默认 "#E3F2FD")
+    "onChange": "(e) => {}"            // 选中回调 e={value, index}
+}
+```
+
+
+# 5. State 响应式状态
 State 是框架的响应式状态管理原语。写入 State 属性自动触发 UI 重建 (rebuildTree)，
 配合函数式导出实现声明式动态 UI。
 
-## 6. PropBus 属性总线
+# 6. PropBus 属性总线
 通过 id 和 getProp/setProp 直接读写组件属性，无需 State 参与，不触发 rebuildTree。
 适用于非受控模式 (如 TextArea) 或高频读写场景。
 - 示例：
