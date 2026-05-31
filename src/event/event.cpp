@@ -190,6 +190,9 @@ bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx)
         View *target = root->hitTest(event.position);
         if (target) {
             fireOnView(target, event, ctx);
+
+            target->applyWheel(event.wheelDelta * 30.0f);
+
             // 沿 parent 链向上查找 ListLayout (替代之前 hitTestWithPath + path 反向遍历)
             for (View *v = target; v; v = v->parent()) {
                 if (auto *list = dynamic_cast<ListLayout *>(v)) {

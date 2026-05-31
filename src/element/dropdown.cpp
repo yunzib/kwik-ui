@@ -38,13 +38,14 @@ int Dropdown::hitMenuItem(float localX, float localY) const {
     if (!open_) return -1;
     float itemY = frame.height;    // 菜单从触发区底部开始
     if (localY < itemY) return -1;
-    int idx = (int)((localY - itemY) / dp_.itemHeight);
+    int visualIdx = (int)((localY - itemY) / dp_.itemHeight);
+    int realIdx = visualIdx + (int)(scrollOffset_ / dp_.itemHeight);    // ← 滚动偏移
     float contentW = frame.width - props.padding.horizontal();
     if (localX < props.padding.left || localX > props.padding.left + contentW) return -1;
-    if (idx < 0 || idx >= (int)dp_.items.size()) return -1;
+    if (realIdx < 0 || realIdx >= (int)dp_.items.size()) return -1;
     int maxN = std::min((int)dp_.items.size(), dp_.maxVisibleItems);
-    if (idx >= maxN) return -1;
-    return idx;
+    if (visualIdx < 0 || visualIdx >= maxN) return -1;    // ← 视觉窗口检查
+    return realIdx;
 }
 
 // ════════════════════════════════════════════════════════
@@ -80,6 +81,7 @@ void Dropdown::setOpen(bool open) {
     props.z = open ? 100 : 0;
     //  std::print("[setOpen] open={} z={}\n", open_, props.z);  // ← 诊断行
     hoveredIndex_ = -1;
+    if (open) scrollOffset_ = 0;    // 每次打开时重置到顶部
 }
 
 void Dropdown::selectItem(int index) {
@@ -164,15 +166,21 @@ void Dropdown::onDraw(Graphics &graphics) {
     if (open_ && !dp_.items.empty()) {
         Rect menu = menuRect();
         float yCursor = menu.y;
-        int maxN = std::min((int)dp_.items.size(), dp_.maxVisibleItems);
+        int maxN = dp_.maxVisibleItems;
         float totalH = (float)maxN * dp_.itemHeight;
+        int skipItems = (int)(scrollOffset_ / dp_.itemHeight);
+        float subOff = scrollOffset_ - (float)skipItems * dp_.itemHeight;
 
         // 整体背景
         Rect menuFull{menu.x, menu.y, menu.width, totalH};
         graphics.drawRoundedRect(menuFull, 6.0f, dp_.menuBackground);
+        graphics.clipRoundedRect(menuFull, 6.0f);    // ← 裁剪滚动溢出
 
-        for (int i = 0; i < maxN; ++i) {
-            if (i == dp_.selectedIndex || i == hoveredIndex_) {
+        yCursor -= subOff;                      // ← 亚像素平滑偏移
+        for (int vi = 0; vi <= maxN; ++vi) {    // vi: 视觉索引
+            int i = skipItems + vi;             // i: 实际数据索引
+            if (i < 0 || i >= (int)dp_.items.size()) continue;
+            if (i == dp_.selectedIndex || i == hoveredIndex_) {            // ← 高亮
                 Rect itemRect{menu.x, yCursor, menu.width, dp_.itemHeight};
                 Color hl = (i == dp_.selectedIndex) ? dp_.selectedBackground : dp_.hoverBackground;
                 graphics.drawRoundedRect(itemRect, 0.0f, hl);
@@ -185,8 +193,18 @@ void Dropdown::onDraw(Graphics &graphics) {
             graphics.restore();
             yCursor += dp_.itemHeight;
         }
+        graphics.resetClip();    // ← 解除裁剪
+
         // 描边
         graphics.drawRoundedRectStroke(menuFull, 6.0f, {203, 213, 225, 255}, 1.0f);
+
+        // 滚动条
+        if ((int)dp_.items.size() > maxN) {
+            float barH = totalH * totalH / ((float)dp_.items.size() * dp_.itemHeight);
+            float barY = menu.y + scrollOffset_ * totalH / ((float)dp_.items.size() * dp_.itemHeight);
+            Rect barRect{menu.x + menu.width - 4.0f, barY, 3.0f, std::max(barH, 8.0f)};
+            graphics.drawRoundedRect(barRect, 1.5f, {180, 180, 180, 180});
+        }
     }
 }
 
@@ -250,4 +268,12 @@ bool Dropdown::setProperty(const char *name, const char *value) {
         return false;
     }
     return View::setProperty(name, value);
+}
+
+void Dropdown::applyWheel(float delta) {
+    if (!open_) return;
+    float totalH = (float)dp_.items.size() * dp_.itemHeight;
+    float visibleH = (float)dp_.maxVisibleItems * dp_.itemHeight;
+    float maxScroll = std::max(0.0f, totalH - visibleH);
+    scrollOffset_ = std::clamp(scrollOffset_ + delta, 0.0f, maxScroll);
 }

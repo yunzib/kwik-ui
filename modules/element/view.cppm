@@ -298,6 +298,8 @@ public:
         return handlers.dispatch(code, localX, localY, ctx);
     }
 
+    virtual void applyWheel(float delta) {}
+
 protected:
     /**
      * @brief 测量回调 (子类重写)

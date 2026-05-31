@@ -48,6 +48,8 @@ public:
 
     View *hitTest(Point point) override;
 
+    void applyWheel(float delta) override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

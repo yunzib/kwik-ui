@@ -29,7 +29,7 @@ public:
     std::unique_ptr<View> footer;
     Point scrollOffset;
     Size contentSize;
-    void applyWheel(float delta) {
+    void applyWheel(float delta) override {
         if (container_.scrollDir == ScrollDirection::Vertical) {
             float maxY = std::max(
                 0.0f, contentSize.height - (frame.height - props.padding.vertical() - headerHeight() - footerHeight()));
