@@ -10,6 +10,8 @@ module;
 #endif
 #include <vector>
 #include <cstdint>
+#include <vector>
+
 export module kwik.render.vulkan.context;
 import kwik.core.types;
 
@@ -21,7 +23,7 @@ export struct GlyphPushConstants {
     float colorR, colorG, colorB, colorA;
     float viewportW, viewportH;
     // ── 图片圆角裁剪 ─────────────────────────────────
-    float cornerRadius; // offset 56 — 圆角像素半径 (0=不裁剪)
+    float cornerRadius;    // offset 56 — 圆角像素半径 (0=不裁剪)
 };
 static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match shader layout");
 
@@ -40,7 +42,7 @@ public:
     void shutdown();
     bool resize(int width, int height);
     // 帧控制 — beginFrame 返回 false 时调用方应跳过本帧
-    bool beginFrame();
+    bool beginFrame(const Rect &dirtyRect);
     void endFrame();
     void present();
     // 访问器
@@ -62,9 +64,7 @@ public:
     VkExtent2D extent() const {
         return swapchainExtent_;
     }
-    VkSampleCountFlagBits msaaSamples() const {
-        return msaaSamples_;
-    }
+
     VkFormat swapchainFormat() const {
         return swapchainFormat_;
     }
@@ -88,16 +88,15 @@ public:
     static VkShaderModule createShaderModule(VkDevice device, const std::uint8_t *spv, std::size_t size);
 
     // ── Stencil 附件访问器 ──────────────────────────────────
-    VkImage stencilImage(size_t idx) const {
-        return stencilImages_[idx];
+    VkImage stencilImage() const {
+        return canvasStencilImage_;
     }
-    VkImageView stencilView(size_t idx) const {
-        return stencilViews_[idx];
+    VkImageView stencilView() const {
+        return canvasStencilView_;
     }
 
 private:
     int width_ = 0, height_ = 0;
-    VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_4_BIT;
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     // 核心
     VkInstance vkInstance_ = VK_NULL_HANDLE;
@@ -113,10 +112,6 @@ private:
     std::vector<VkImage> swapchainImages_;
     std::vector<VkImageView> swapchainImageViews_;
     std::vector<VkFramebuffer> framebuffers_;
-    // MSAA 颜色缓冲
-    std::vector<VkImage> msaaImages_;
-    std::vector<VkDeviceMemory> msaaMemories_;
-    std::vector<VkImageView> msaaViews_;
     // 渲染通道 + 共享管线布局
     VkRenderPass renderPass_ = VK_NULL_HANDLE;
     // 命令
@@ -131,23 +126,29 @@ private:
     // 改为数组（按 swapchain 图像索引）
     std::vector<VkSemaphore> imageAvailableSemaphores_;
     std::vector<VkSemaphore> renderFinishedSemaphores_;
-    std::vector<VkFence> inFlightFences_; // fence 也改为 per-frame
+    std::vector<VkFence> inFlightFences_;    // fence 也改为 per-frame
     uint32_t frameIndex_ = 0;
     uint32_t currentImageIndex_ = 0;
 
-    // ── Stencil 附件 (D24S8, 每 swapchain 图像一份) ──
-    std::vector<VkImage> stencilImages_;
-    std::vector<VkDeviceMemory> stencilMemories_;
-    std::vector<VkImageView> stencilViews_;
+    // ── Canvas 持久画布 + Stencil (单份, 不随 swapchain 轮转) ──
+    VkImage canvasImage_ = VK_NULL_HANDLE;
+    VkDeviceMemory canvasMemory_ = VK_NULL_HANDLE;
+    VkImageView canvasView_ = VK_NULL_HANDLE;
+    VkImage canvasStencilImage_ = VK_NULL_HANDLE;
+    VkDeviceMemory canvasStencilMemory_ = VK_NULL_HANDLE;
+    VkImageView canvasStencilView_ = VK_NULL_HANDLE;
+    VkFramebuffer canvasFramebuffer_ = VK_NULL_HANDLE;
 
     // 私有初始化
     bool createInstance(void *nativeHandle);
     bool pickPhysicalDevice();
     bool createLogicalDevice();
+    bool createCanvasImage();
+    void destroyCanvas();
     bool createSwapchain();
     void cleanupSwapchain();
     bool createRenderPass();
-    bool createFramebuffers();
+    bool createCanvasFramebuffer();
     bool createVertexBuffer();
     bool createCommandBuffers();
     bool createSyncObjects();

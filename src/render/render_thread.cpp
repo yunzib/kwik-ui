@@ -68,7 +68,7 @@ void RenderThread::stop(bool wait) {
         stateCv_.notify_all();
     }
 
-    commandQueue_.wake(); // 唤醒阻塞在 acquire() 的渲染线程
+    commandQueue_.wake();    // 唤醒阻塞在 acquire() 的渲染线程
     if (wait && thread_.joinable()) { thread_.join(); }
 }
 
@@ -152,12 +152,10 @@ void RenderThread::threadMain() {
             processWindowEvents();
 
             // 获取命令缓冲区
-            if (commandQueue_.acquire(false)) {      // Windows 上 WaitOnAddress 可能丢失 notify_one。当主线程 sleep 导致 ring 经常空时：
+            // // Windows 上 WaitOnAddress 可能丢失 notify_one。当主线程 sleep 导致 ring 经常空时：
+            if (commandQueue_.acquire(false)) {
                 // 处理命令
                 processCommands(commandQueue_.pendingBuffer());
-
-                // 执行后端呈现
-                if (backend_) { backend_->present(); }
 
                 // 释放命令缓冲区
                 commandQueue_.release();
@@ -166,7 +164,7 @@ void RenderThread::threadMain() {
                 updateFrameStats(frameStartTime);
             } else {
                 // 队列为空，短暂休眠避免忙等待
-                // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
 
@@ -274,13 +272,15 @@ void RenderThread::processCommands(const CommandBuffer &buffer) {
     if (!backend_) { return; }
 
     // 开始帧
-    if (!backend_->beginFrame()) { return; }
+    Rect dr = buffer.dirtyRect();
+    if (!backend_->beginFrame(dr)) return;
 
     // 执行所有命令
     for (const auto &cmd : buffer.commands()) { executeCommand(cmd); }
 
     // 结束帧
     backend_->endFrame();
+    backend_->present();
 }
 
 void RenderThread::executeCommand(const Command &cmd) {
@@ -360,7 +360,7 @@ void RenderThread::updateFrameStats(std::chrono::high_resolution_clock::time_poi
     if (currentDepth > frameStats_.maxQueueDepth) { frameStats_.maxQueueDepth = currentDepth; }
 
     // 检查是否丢帧（帧时间过长）
-    if (frameTime > 16.67f) { // 超过60Hz的帧时间
+    if (frameTime > 16.67f) {    // 超过60Hz的帧时间
         frameStats_.droppedFrames++;
     }
 }

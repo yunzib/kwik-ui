@@ -84,7 +84,6 @@ void Dropdown::setOpen(bool open) {
     props.z = open ? 100 : 0;
     if (open) {
         scrollOffset_ = 0;
-        // ── 预烘焙所有菜单项字形 ──
         auto &fm = FontManager::instance();
         cachedItemCount_ = (int)dp_.items.size();
         cachedMenuFontSize_ = dp_.fontSize;
@@ -92,6 +91,10 @@ void Dropdown::setOpen(bool open) {
         for (auto &item : dp_.items) { itemGlyphsCache_.push_back(fm.shapeText(item.c_str(), dp_.fontSize)); }
     }
     hoveredIndex_ = -1;
+    // ─ 完整可视区域 (trigger + 弹出菜单) 标记脏 ─
+    Rect full = frame;
+    full.height += menuHeight();
+    addDirtyRect(full);
 }
 
 void Dropdown::selectItem(int index) {
@@ -124,7 +127,14 @@ bool Dropdown::onEvent(int code, float localX, float localY, JSContext *ctx) {
         }
     }
     if (code == ViewEventCode::HoverMove) {
+        int prev = hoveredIndex_;
         if (open_) { hoveredIndex_ = hitMenuItem(localX, localY); }
+        if (open_ && hoveredIndex_ != prev) {
+            // ─ 菜单 hover 高亮变化 → 必须覆盖完整菜单可视区域 ─
+            Rect full = frame;
+            full.height += menuHeight();
+            addDirtyRect(full);
+        }
     }
     return View::onEvent(code, localX, localY, ctx);
 }
@@ -260,6 +270,7 @@ bool Dropdown::setProperty(const char *name, const char *value) {
         for (int i = 0; i < (int)dp_.items.size(); ++i) {
             if (dp_.items[i] == value) {
                 selectItem(i);
+                markDirty();
                 return true;
             }
         }
@@ -273,6 +284,7 @@ bool Dropdown::setProperty(const char *name, const char *value) {
                 reshapeText();
             } else
                 selectItem(idx);
+            markDirty();
             return true;
         }
         return false;
@@ -286,4 +298,5 @@ void Dropdown::applyWheel(float delta) {
     float visibleH = (float)dp_.maxVisibleItems * dp_.itemHeight;
     float maxScroll = std::max(0.0f, totalH - visibleH);
     scrollOffset_ = std::clamp(scrollOffset_ + delta, 0.0f, maxScroll);
+    markDirty();
 }

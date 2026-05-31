@@ -44,10 +44,22 @@ Size Button::onMeasure(Constraints constraints) {
 // ============================================================================
 bool Button::onEvent(int code, float localX, float localY, JSContext *ctx) {
     switch (code) {
-    case ViewEventCode::HoverEnter: state_ = ButtonState::Hovered; break;
-    case ViewEventCode::HoverLeave: state_ = ButtonState::Idle; break;
-    case ViewEventCode::PressBegin: state_ = ButtonState::Pressed; break;
-    case ViewEventCode::PressEnd: state_ = ButtonState::Idle; break;
+    case ViewEventCode::HoverEnter:
+        state_ = ButtonState::Hovered;
+        markDirty();
+        break;
+    case ViewEventCode::HoverLeave:
+        state_ = ButtonState::Idle;
+        markDirty();
+        break;
+    case ViewEventCode::PressBegin:
+        state_ = ButtonState::Pressed;
+        markDirty();
+        break;
+    case ViewEventCode::PressEnd:
+        state_ = ButtonState::Idle;
+        markDirty();
+        break;
     }
     return View::onEvent(code, localX, localY, ctx);
 }

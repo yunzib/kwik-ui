@@ -56,17 +56,18 @@ void VulkanBackend::resize(int w, int h) {
 // ================================================================
 // 帧控制
 // ================================================================
-bool VulkanBackend::beginFrame() {
+bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
+    if (!ctx_.beginFrame(dirtyRect)) return false;
+    clip_.beginFrame();
+    return true;
+}
+void VulkanBackend::endFrame() {
+    // ─ 所有 DrawGlyphCmd 已录制, 后置 atlas 上传确保中帧烘焙字形可见 ─
     auto &fm = FontManager::instance();
     if (fm.atlasDirty()) {
         glyph_.uploadAtlas(ctx_, fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
         fm.clearAtlasDirty();
     }
-    if (!ctx_.beginFrame()) return false;
-    clip_.beginFrame();
-    return true;
-}
-void VulkanBackend::endFrame() {
     ctx_.endFrame();
 }
 void VulkanBackend::present() {

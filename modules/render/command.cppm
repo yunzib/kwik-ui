@@ -14,23 +14,23 @@ import std;
  * 所有可能的渲染命令，对应Graphics类中的方法
  */
 export enum class CommandType {
-    Clear,             // clear()
-    FillRect,          // drawRect()
-    FillRoundedRect,   // drawRoundedRect()
-    StrokeRoundedRect, // drawRoundedRectStroke()
-    DrawShadow,        // drawShadow()
-    SaveState,         // save()
-    RestoreState,      // restore()
-    Translate,         // translate()
-    Scale,             // scale()
-    SetOpacity,        // setOpacity()
-    ClipRoundedRect,   // clipRoundedRect()
-    ResetClip,         // resetClip()
-    BeginFrame,        // beginFrame()
-    EndFrame,          // endFrame()
-    Present,           // present()
-    Resize,            // resize()
-    DrawImage          // drawImage()
+    Clear,                // clear()
+    FillRect,             // drawRect()
+    FillRoundedRect,      // drawRoundedRect()
+    StrokeRoundedRect,    // drawRoundedRectStroke()
+    DrawShadow,           // drawShadow()
+    SaveState,            // save()
+    RestoreState,         // restore()
+    Translate,            // translate()
+    Scale,                // scale()
+    SetOpacity,           // setOpacity()
+    ClipRoundedRect,      // clipRoundedRect()
+    ResetClip,            // resetClip()
+    BeginFrame,           // beginFrame()
+    EndFrame,             // endFrame()
+    Present,              // present()
+    Resize,               // resize()
+    DrawImage             // drawImage()
 };
 
 /**
@@ -83,10 +83,10 @@ export struct DrawShadowCmd {
  * 纹理由 VulkanBackend::createImageTexture() 创建，destroyImageTexture() 释放。
  */
 export struct DrawImageCmd {
-    uint32_t textureId; // GPU 纹理句柄
-    Rect rect;          // 绘制位置和尺寸 (逻辑坐标, 已变换)
-    float opacity;      // 绘制透明度 (0.0-1.0)
-    float cornerRadius;     //  图片圆角半径 (0=直角)
+    uint32_t textureId;    // GPU 纹理句柄
+    Rect rect;             // 绘制位置和尺寸 (逻辑坐标, 已变换)
+    float opacity;         // 绘制透明度 (0.0-1.0)
+    float cornerRadius;    //  图片圆角半径 (0=直角)
 };
 
 /**
@@ -159,15 +159,15 @@ export struct PresentCmd {};
  */
 export using Command =
     std::variant<ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd, DrawShadowCmd, DrawGlyphCmd,
-                 SaveStateCmd,    // 空结构体，仅作为标记
-                 RestoreStateCmd, // 空结构体，仅作为标记
+                 SaveStateCmd,       // 空结构体，仅作为标记
+                 RestoreStateCmd,    // 空结构体，仅作为标记
                  TranslateCmd, ScaleCmd, SetOpacityCmd, ClipRoundedRectCmd,
-                 ResetClipCmd,  // 空结构体，仅作为标记
-                 BeginFrameCmd, // 空结构体，仅作为标记
-                 EndFrameCmd,   // 空结构体，仅作为标记
-                 PresentCmd,    // 空结构体，仅作为标记
-                 ResizeCmd,     // resize()
-                 DrawImageCmd>; // drawImage()
+                 ResetClipCmd,     // 空结构体，仅作为标记
+                 BeginFrameCmd,    // 空结构体，仅作为标记
+                 EndFrameCmd,      // 空结构体，仅作为标记
+                 PresentCmd,       // 空结构体，仅作为标记
+                 ResizeCmd,        // resize()
+                 DrawImageCmd>;    // drawImage()
 
 /**
  * @brief 命令缓冲区
@@ -208,8 +208,23 @@ public:
      */
     void swap(CommandBuffer &other);
 
+    /**
+     * @brief 设置本帧脏矩形
+     * @param r 脏区域 (逻辑坐标，由主线程设置)
+     */
+    void setDirtyRect(const Rect &r) {
+        dirtyRect_ = r;
+    }
+    /**
+     * @brief 获取本帧脏矩形
+     */
+    Rect dirtyRect() const {
+        return dirtyRect_;
+    }
+
 private:
     std::vector<Command> commands_;
+    Rect dirtyRect_ = {};
 };
 
 /**

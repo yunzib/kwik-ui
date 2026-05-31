@@ -17,15 +17,15 @@ export enum class UIEventType {
     PressBegin,
     PressEnd,
     Wheel,
-    Custom // 自定义事件 (键盘 / 焦点等)
+    Custom    // 自定义事件 (键盘 / 焦点等)
 };
 
 /**
  * @brief 尺寸结构体
  */
 export struct Size {
-    float width = 0;  // 宽度
-    float height = 0; // 高度
+    float width = 0;     // 宽度
+    float height = 0;    // 高度
 
     constexpr Size() = default;
     constexpr Size(float w, float h) : width(w), height(h) {
@@ -42,8 +42,8 @@ export struct Size {
  * @brief 点结构体
  */
 export struct Point {
-    float x = 0; // X坐标
-    float y = 0; // Y坐标
+    float x = 0;    // X坐标
+    float y = 0;    // Y坐标
 
     constexpr Point() = default;
     constexpr Point(float x, float y) : x(x), y(y) {
@@ -54,10 +54,10 @@ export struct Point {
  * @brief 矩形结构体
  */
 export struct Rect {
-    float x = 0;      // 左上角X坐标
-    float y = 0;      // 左上角Y坐标
-    float width = 0;  // 宽度
-    float height = 0; // 高度
+    float x = 0;         // 左上角X坐标
+    float y = 0;         // 左上角Y坐标
+    float width = 0;     // 宽度
+    float height = 0;    // 高度
 
     constexpr Rect() = default;
     constexpr Rect(float x, float y, float w, float h) : x(x), y(y), width(w), height(h) {
@@ -94,16 +94,46 @@ export struct Rect {
     constexpr Rect inset(float left, float top, float right, float bottom) const {
         return {x + left, y + top, width - left - right, height - top - bottom};
     }
+
+    /**
+     * @brief 判断矩形是否为空 (宽或高 ≤ 0)
+     */
+    constexpr bool isEmpty() const {
+        return width <= 0.0f || height <= 0.0f;
+    }
+
+    /**
+     * @brief 判断矩形是否与另一矩形相交
+     */
+    constexpr bool intersects(const Rect &other) const {
+        if (isEmpty() || other.isEmpty()) return false;
+        if (x >= other.right() || right() <= other.x) return false;
+        if (y >= other.bottom() || bottom() <= other.y) return false;
+        return true;
+    }
+
+    /**
+     * @brief 两矩形并集 (最小包围矩形)
+     */
+    constexpr Rect unionRect(const Rect &other) const {
+        if (isEmpty()) return other;
+        if (other.isEmpty()) return *this;
+        float lx = std::min(x, other.x);
+        float ty = std::min(y, other.y);
+        float rx2 = std::max(right(), other.right());
+        float by2 = std::max(bottom(), other.bottom());
+        return {lx, ty, rx2 - lx, by2 - ty};
+    }
 };
 
 /**
  * @brief 颜色结构体（RGBA）
  */
 export struct Color {
-    uint8_t r = 0;   // 红色分量 (0-255)
-    uint8_t g = 0;   // 绿色分量 (0-255)
-    uint8_t b = 0;   // 蓝色分量 (0-255)
-    uint8_t a = 255; // 透明度 (0-255)
+    uint8_t r = 0;      // 红色分量 (0-255)
+    uint8_t g = 0;      // 绿色分量 (0-255)
+    uint8_t b = 0;      // 蓝色分量 (0-255)
+    uint8_t a = 255;    // 透明度 (0-255)
 
     constexpr Color() = default;
     constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : r(r), g(g), b(b), a(a) {
@@ -144,10 +174,10 @@ export struct Color {
  * 用于表示padding（内边距）和margin（外边距）
  */
 export struct EdgeInsets {
-    float left = 0;   // 左边距
-    float top = 0;    // 上边距
-    float right = 0;  // 右边距
-    float bottom = 0; // 下边距
+    float left = 0;      // 左边距
+    float top = 0;       // 上边距
+    float right = 0;     // 右边距
+    float bottom = 0;    // 下边距
 
     constexpr EdgeInsets() = default;
 
@@ -182,10 +212,10 @@ export struct EdgeInsets {
  * @brief 阴影结构体
  */
 export struct Shadow {
-    float offsetX = 0;    // X偏移
-    float offsetY = 0;    // Y偏移
-    float blurRadius = 0; // 模糊半径
-    Color color;          // 阴影颜色
+    float offsetX = 0;       // X偏移
+    float offsetY = 0;       // Y偏移
+    float blurRadius = 0;    // 模糊半径
+    Color color;             // 阴影颜色
 
     constexpr Shadow() = default;
     constexpr Shadow(float ox, float oy, float blur, Color col) :

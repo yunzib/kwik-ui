@@ -17,7 +17,7 @@ import kwik.core.log;
 namespace {
 const float kQuadVertices[] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
 const uint16_t kQuadIndices[] = {0, 1, 2, 0, 2, 3};
-} // namespace
+}    // namespace
 // ================================================================
 // 析构 / shutdown
 // ================================================================
@@ -27,6 +27,11 @@ VulkanContext::~VulkanContext() {
 void VulkanContext::shutdown() {
     if (vkDevice_ == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(vkDevice_);
+    destroyCanvas();
+    if (canvasFramebuffer_) {
+        vkDestroyFramebuffer(vkDevice_, canvasFramebuffer_, nullptr);
+        canvasFramebuffer_ = VK_NULL_HANDLE;
+    }
     for (auto &s : imageAvailableSemaphores_)
         if (s != VK_NULL_HANDLE) vkDestroySemaphore(vkDevice_, s, nullptr);
     imageAvailableSemaphores_.clear();
@@ -60,15 +65,7 @@ bool VulkanContext::initialize(void *nativeHandle, int width, int height) {
     height_ = height;
     if (!createInstance(nativeHandle)) return false;
     if (!pickPhysicalDevice()) return false;
-    VkPhysicalDeviceProperties props;
-    vkGetPhysicalDeviceProperties(vkPhysicalDevice_, &props);
-    VkSampleCountFlags counts = props.limits.framebufferColorSampleCounts;
-    if (counts & VK_SAMPLE_COUNT_4_BIT)
-        msaaSamples_ = VK_SAMPLE_COUNT_4_BIT;
-    else if (counts & VK_SAMPLE_COUNT_2_BIT)
-        msaaSamples_ = VK_SAMPLE_COUNT_2_BIT;
-    else
-        msaaSamples_ = VK_SAMPLE_COUNT_1_BIT;
+
     if (!createLogicalDevice()) {
         shutdown();
         return false;
@@ -82,11 +79,15 @@ bool VulkanContext::initialize(void *nativeHandle, int width, int height) {
         shutdown();
         return false;
     }
-    if (!createFramebuffers()) {
+    if (!createCommandBuffers()) {
         shutdown();
         return false;
     }
-    if (!createCommandBuffers()) {
+    if (!createCanvasImage()) {
+        shutdown();
+        return false;
+    }
+    if (!createCanvasFramebuffer()) {
         shutdown();
         return false;
     }
@@ -106,9 +107,11 @@ bool VulkanContext::resize(int w, int h) {
     width_ = w;
     height_ = h;
     vkDeviceWaitIdle(vkDevice_);
+    destroyCanvas();
     cleanupSwapchain();
     if (!createSwapchain()) return false;
-    if (!createFramebuffers()) return false;
+    if (!createCanvasImage()) return false;
+    if (!createCanvasFramebuffer()) return false;
     // ── 重建命令缓冲和同步对象 (swapchain 图像数可能变化) ──
     vkFreeCommandBuffers(vkDevice_, commandPool_, (uint32_t)commandBuffers_.size(), commandBuffers_.data());
     if (!createCommandBuffers()) return false;
@@ -224,10 +227,11 @@ bool VulkanContext::createLogicalDevice() {
 }
 
 // ================================================================
-// beginFrame — 获取交换链图像 + 开始渲染通道录制
-// 返回 true: 成功; false: 交换链失效需重建
+// beginFrame — 获取 swapchain + 开始 canvas render pass + 设 scissor
+// dirtyRect: 脏区域 (逻辑坐标, 已由调用方乘以 dpi 转换)
 // ================================================================
-bool VulkanContext::beginFrame() {
+bool VulkanContext::beginFrame(const Rect &dirtyRect) {
+    // ① 等待 fence + 获取 swapchain 图像
     VkResult fenceWait = vkWaitForFences(vkDevice_, 1, &inFlightFences_[frameIndex_], VK_TRUE, 1'000'000'000);
     if (fenceWait == VK_TIMEOUT) return false;
     VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, 1'000'000'000, imageAvailableSemaphores_[frameIndex_],
@@ -235,27 +239,37 @@ bool VulkanContext::beginFrame() {
     if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_ERROR_SURFACE_LOST_KHR) return false;
     if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) return false;
     vkResetFences(vkDevice_, 1, &inFlightFences_[frameIndex_]);
+
+    // ② 开始录制
     vkResetCommandBuffer(commandBuffers_[currentImageIndex_], 0);
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     vkBeginCommandBuffer(commandBuffers_[currentImageIndex_], &bi);
+
+    // ③ 开始 canvas render pass (LOAD_OP_LOAD, 全屏 renderArea)
     VkRenderPassBeginInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     rpInfo.renderPass = renderPass_;
-    rpInfo.framebuffer = framebuffers_[currentImageIndex_];
+    rpInfo.framebuffer = canvasFramebuffer_;
+    rpInfo.renderArea.offset = {0, 0};
     rpInfo.renderArea.extent = swapchainExtent_;
-    VkClearValue cvs[3];
-    cvs[0].color = {{0.96f, 0.96f, 0.96f, 1.0f}}; // 颜色附件清屏
-    cvs[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};    // resolve 附件
-    cvs[2].depthStencil = {1.0f, 0};              // stencil 清 0
-    rpInfo.clearValueCount = 3;                   // 2→3
+    VkClearValue cvs[2];
+    cvs[0].color = {{0.96f, 0.96f, 0.96f, 1.0f}};    // 备用
+    cvs[1].depthStencil = {1.0f, 0};
+    rpInfo.clearValueCount = 2;
     rpInfo.pClearValues = cvs;
     vkCmdBeginRenderPass(commandBuffers_[currentImageIndex_], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport vp{0, 0, (float)swapchainExtent_.width, (float)swapchainExtent_.height, 0.0f, 1.0f};
-    vkCmdSetViewport(commandBuffers_[currentImageIndex_], 0, 1, &vp);
-    VkRect2D scissor{{0, 0}, swapchainExtent_};
-    vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &scissor);
 
-    // ── 初始化 stencil 动态状态: compareMask=0 → EQUAL 恒成立 ──
-    // (stencilRef & 0x00) == (bufferStencil & 0x00) → 0==0 → always pass
+    // ④ viewport 全屏, scissor 脏区域
+    VkViewport vp{0.0f, 0.0f, static_cast<float>(swapchainExtent_.width), static_cast<float>(swapchainExtent_.height),
+                  0.0f, 1.0f};
+    vkCmdSetViewport(commandBuffers_[currentImageIndex_], 0, 1, &vp);
+    int32_t sx = std::max(0, static_cast<int32_t>(dirtyRect.x));
+    int32_t sy = std::max(0, static_cast<int32_t>(dirtyRect.y));
+    uint32_t sw = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.width)));
+    uint32_t sh = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.height)));
+    VkRect2D sc{{sx, sy}, {sw, sh}};
+    vkCmdSetScissor(commandBuffers_[currentImageIndex_], 0, 1, &sc);
+
+    // ⑤ 初始化 stencil 状态
     VkCommandBuffer cb = commandBuffers_[currentImageIndex_];
     vkCmdSetStencilReference(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
     vkCmdSetStencilCompareMask(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
@@ -263,9 +277,61 @@ bool VulkanContext::beginFrame() {
     return true;
 }
 
+// Vulkan 规范 (Vulkan 1.4.310, §8.3): vkCmdBlitImage 要求源图像在 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL、
+// 目标在 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL。VK_ACCESS_TRANSFER_READ_BIT 和 VK_ACCESS_TRANSFER_WRITE_BIT
+// 分别在源和目标阶段使用。 VK_PIPELINE_STAGE_TRANSFER_BIT 是 blit 的执行管线阶段。
 void VulkanContext::endFrame() {
-    vkCmdEndRenderPass(commandBuffers_[currentImageIndex_]);
-    vkEndCommandBuffer(commandBuffers_[currentImageIndex_]);
+    VkCommandBuffer cb = commandBuffers_[currentImageIndex_];
+
+    // ① 结束 canvas render pass (canvas → TRANSFER_SRC_OPTIMAL)
+    vkCmdEndRenderPass(cb);
+
+    // ② Swapchain barrier: UNDEFINED → TRANSFER_DST_OPTIMAL
+    VkImageMemoryBarrier swapBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    swapBarrier.srcAccessMask = 0;
+    swapBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    swapBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    swapBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    swapBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swapBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swapBarrier.image = swapchainImages_[currentImageIndex_];
+    swapBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(cb,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,    // render pass 保证完成
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &swapBarrier);
+
+    // ③ Blit: canvas → swapchain (全屏)
+    VkImageBlit blitRegion{};
+    blitRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    blitRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    VkExtent3D ext = {swapchainExtent_.width, swapchainExtent_.height, 1};
+    blitRegion.srcOffsets[1] = {static_cast<int32_t>(ext.width), static_cast<int32_t>(ext.height), 1};
+    blitRegion.dstOffsets[1] = {static_cast<int32_t>(ext.width), static_cast<int32_t>(ext.height), 1};
+    vkCmdBlitImage(cb, canvasImage_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImages_[currentImageIndex_],
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blitRegion, VK_FILTER_NEAREST);
+
+    // ④ Swapchain barrier: TRANSFER_DST → PRESENT_SRC
+    swapBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    swapBarrier.dstAccessMask = 0;
+    swapBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    swapBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &swapBarrier);
+
+    // ⑤ Canvas barrier: TRANSFER_SRC → COLOR_ATTACHMENT (下一帧 render pass 初始 layout)
+    VkImageMemoryBarrier canvasBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    canvasBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    canvasBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    canvasBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    canvasBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    canvasBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    canvasBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    canvasBarrier.image = canvasImage_;
+    canvasBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+                         nullptr, 0, nullptr, 1, &canvasBarrier);
+
+    vkEndCommandBuffer(cb);
 }
 void VulkanContext::present() {
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -329,7 +395,7 @@ bool VulkanContext::createSwapchain() {
     sci.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     sci.imageExtent = swapchainExtent_;
     sci.imageArrayLayers = 1;
-    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sci.preTransform = caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -351,71 +417,10 @@ bool VulkanContext::createSwapchain() {
         iv.subresourceRange.layerCount = 1;
         if (vkCreateImageView(vkDevice_, &iv, nullptr, &swapchainImageViews_[i]) != VK_SUCCESS) return false;
     }
-    // MSAA 颜色缓冲
-    msaaImages_.resize(n);
-    msaaMemories_.resize(n);
-    msaaViews_.resize(n);
-    for (uint32_t i = 0; i < n; i++) {
-        VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-        imgInfo.imageType = VK_IMAGE_TYPE_2D;
-        imgInfo.format = swapchainFormat_;
-        imgInfo.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
-        imgInfo.mipLevels = 1;
-        imgInfo.arrayLayers = 1;
-        imgInfo.samples = msaaSamples_;
-        imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imgInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (vkCreateImage(vkDevice_, &imgInfo, nullptr, &msaaImages_[i]) != VK_SUCCESS) return false;
-        VkMemoryRequirements mr;
-        vkGetImageMemoryRequirements(vkDevice_, msaaImages_[i], &mr);
-        VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
-                                findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
-        if (vkAllocateMemory(vkDevice_, &ai, nullptr, &msaaMemories_[i]) != VK_SUCCESS) return false;
-        vkBindImageMemory(vkDevice_, msaaImages_[i], msaaMemories_[i], 0);
-        VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        vi.image = msaaImages_[i];
-        vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        vi.format = swapchainFormat_;
-        vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        if (vkCreateImageView(vkDevice_, &vi, nullptr, &msaaViews_[i]) != VK_SUCCESS) return false;
-    }
-
-    // ── Stencil 附件 (D24_UNORM_S8_UINT, 每 swapchain 图像一份) ──
-    stencilImages_.resize(n);
-    stencilMemories_.resize(n);
-    stencilViews_.resize(n);
-    for (uint32_t i = 0; i < n; ++i) {
-        VkImageCreateInfo sImg{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-        sImg.imageType = VK_IMAGE_TYPE_2D;
-        sImg.format = VK_FORMAT_D24_UNORM_S8_UINT;
-        sImg.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
-        sImg.mipLevels = 1;
-        sImg.arrayLayers = 1;
-        sImg.samples = msaaSamples_; // ─ 与 MSAA 相同采样率
-        sImg.tiling = VK_IMAGE_TILING_OPTIMAL;
-        sImg.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        sImg.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (vkCreateImage(vkDevice_, &sImg, nullptr, &stencilImages_[i]) != VK_SUCCESS) return false;
-        VkMemoryRequirements mr;
-        vkGetImageMemoryRequirements(vkDevice_, stencilImages_[i], &mr);
-        VkMemoryAllocateInfo sAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
-                                    findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
-        if (vkAllocateMemory(vkDevice_, &sAlloc, nullptr, &stencilMemories_[i]) != VK_SUCCESS) return false;
-        vkBindImageMemory(vkDevice_, stencilImages_[i], stencilMemories_[i], 0);
-        VkImageViewCreateInfo sView{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        sView.image = stencilImages_[i];
-        sView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        sView.format = VK_FORMAT_D24_UNORM_S8_UINT;
-        sView.subresourceRange = {VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
-        if (vkCreateImageView(vkDevice_, &sView, nullptr, &stencilViews_[i]) != VK_SUCCESS) return false;
-    }
+    // (MSAA + stencil 多缓冲已移至 createCanvasImage，单份持久)
     return true;
 }
 void VulkanContext::cleanupSwapchain() {
-    for (auto &fb : framebuffers_)
-        if (fb) vkDestroyFramebuffer(vkDevice_, fb, nullptr);
-    framebuffers_.clear();
     for (auto &iv : swapchainImageViews_)
         if (iv) vkDestroyImageView(vkDevice_, iv, nullptr);
     swapchainImageViews_.clear();
@@ -424,86 +429,63 @@ void VulkanContext::cleanupSwapchain() {
         swapchain_ = VK_NULL_HANDLE;
     }
     swapchainImages_.clear();
-    for (auto &v : msaaViews_)
-        if (v) vkDestroyImageView(vkDevice_, v, nullptr);
-    msaaViews_.clear();
-    for (auto &img : msaaImages_)
-        if (img) vkDestroyImage(vkDevice_, img, nullptr);
-    msaaImages_.clear();
-    for (auto &m : msaaMemories_)
-        if (m) vkFreeMemory(vkDevice_, m, nullptr);
-    msaaMemories_.clear();
-    // ── Stencil 清理 ──────────────────────────────────────
-    for (auto &v : stencilViews_)
-        if (v) vkDestroyImageView(vkDevice_, v, nullptr);
-    stencilViews_.clear();
-    for (auto &img : stencilImages_)
-        if (img) vkDestroyImage(vkDevice_, img, nullptr);
-    stencilImages_.clear();
-    for (auto &m : stencilMemories_)
-        if (m) vkFreeMemory(vkDevice_, m, nullptr);
-    stencilMemories_.clear();
 }
 // ======================================================================
-// 渲染通道 — MSAA color + Resolve
+// 渲染通道 — Canvas 颜色 (1x, LOAD_OP_LOAD) + Stencil (1x, CLEAR)
 // ======================================================================
 bool VulkanContext::createRenderPass() {
-    VkAttachmentDescription msaaAtt{};
-    msaaAtt.format = swapchainFormat_;
-    msaaAtt.samples = msaaSamples_;
-    msaaAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    msaaAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    msaaAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    msaaAtt.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    VkAttachmentDescription resolveAtt{};
-    resolveAtt.format = swapchainFormat_;
-    resolveAtt.samples = VK_SAMPLE_COUNT_1_BIT;
-    resolveAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    resolveAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    resolveAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    resolveAtt.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    // ── Stencil 附件 (MSAA 分辨率, 仅关注 stencil 分量) ──
+    VkAttachmentDescription colorAtt{};
+    colorAtt.format = swapchainFormat_;
+    colorAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAtt.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;    // ─ 保留 canvas 内容 ─
+    colorAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAtt.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAtt.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;    // 后续 blit 用
+
     VkAttachmentDescription stencilAtt{};
     stencilAtt.format = VK_FORMAT_D24_UNORM_S8_UINT;
-    stencilAtt.samples = msaaSamples_;
+    stencilAtt.samples = VK_SAMPLE_COUNT_1_BIT;
     stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     stencilAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // 每帧清 0
+    stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;    // ─ 每帧清 0 ─
     stencilAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     stencilAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     stencilAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference resolveRef{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference stencilRef{2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference stencilRef{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorRef;
-    subpass.pResolveAttachments = &resolveRef;
-    subpass.pDepthStencilAttachment = &stencilRef;                      // ← 绑定
-    VkAttachmentDescription atts[] = {msaaAtt, resolveAtt, stencilAtt}; // 2→3
+    subpass.pDepthStencilAttachment = &stencilRef;
+    // ─ 无 resolve 附件 ─
+
+    VkAttachmentDescription atts[] = {colorAtt, stencilAtt};
     VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    rpInfo.attachmentCount = 3; // 2→3
+    rpInfo.attachmentCount = 2;
     rpInfo.pAttachments = atts;
     rpInfo.subpassCount = 1;
     rpInfo.pSubpasses = &subpass;
     return vkCreateRenderPass(vkDevice_, &rpInfo, nullptr, &renderPass_) == VK_SUCCESS;
 }
 
-bool VulkanContext::createFramebuffers() {
-    framebuffers_.resize(swapchainImageViews_.size());
-    for (size_t i = 0; i < swapchainImageViews_.size(); ++i) {
-        VkImageView atts[] = {msaaViews_[i], swapchainImageViews_[i], stencilViews_[i]}; // 2→3
-        VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-        fb.renderPass = renderPass_;
-        fb.attachmentCount = 3; // 2→3
-        fb.pAttachments = atts;
-        fb.width = swapchainExtent_.width;
-        fb.height = swapchainExtent_.height;
-        fb.layers = 1;
-        if (vkCreateFramebuffer(vkDevice_, &fb, nullptr, &framebuffers_[i]) != VK_SUCCESS) return false;
-    }
-    return true;
+// ======================================================================
+// createCanvasFramebuffer — 单份 (持久 canvas)
+// ======================================================================
+bool VulkanContext::createCanvasFramebuffer() {
+    VkImageView atts[] = {canvasView_, canvasStencilView_};
+    VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    fb.renderPass = renderPass_;
+    fb.attachmentCount = 2;
+    fb.pAttachments = atts;
+    fb.width = swapchainExtent_.width;
+    fb.height = swapchainExtent_.height;
+    fb.layers = 1;
+    return vkCreateFramebuffer(vkDevice_, &fb, nullptr, &canvasFramebuffer_) == VK_SUCCESS;
 }
 
 // ======================================================================
@@ -642,4 +624,166 @@ VkShaderModule VulkanContext::createShaderModule(VkDevice device, const std::uin
     VkShaderModule mod = VK_NULL_HANDLE;
     vkCreateShaderModule(device, &ci, nullptr, &mod);
     return mod;
+}
+
+// ================================================================
+// createCanvasImage — 创建持久画布 + Stencil (单份, 不随 swapchain 轮转)
+// ================================================================
+bool VulkanContext::createCanvasImage() {
+    VkExtent2D ext = swapchainExtent_;
+
+    // ① 颜色画布 (COLOR_ATTACHMENT | TRANSFER_SRC)
+    VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    imgInfo.imageType = VK_IMAGE_TYPE_2D;
+    imgInfo.format = swapchainFormat_;
+    imgInfo.extent = {ext.width, ext.height, 1};
+    imgInfo.mipLevels = 1;
+    imgInfo.arrayLayers = 1;
+    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;    // ─ 无 MSAA ─
+    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(vkDevice_, &imgInfo, nullptr, &canvasImage_) != VK_SUCCESS) return false;
+    VkMemoryRequirements mr;
+    vkGetImageMemoryRequirements(vkDevice_, canvasImage_, &mr);
+    VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
+                            findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+    if (vkAllocateMemory(vkDevice_, &ai, nullptr, &canvasMemory_) != VK_SUCCESS) return false;
+    vkBindImageMemory(vkDevice_, canvasImage_, canvasMemory_, 0);
+    VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    vi.image = canvasImage_;
+    vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vi.format = swapchainFormat_;
+    vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    if (vkCreateImageView(vkDevice_, &vi, nullptr, &canvasView_) != VK_SUCCESS) return false;
+
+    // ② Stencil 附件 (D24S8, 1x, 单份)
+    VkImageCreateInfo sImg{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    sImg.imageType = VK_IMAGE_TYPE_2D;
+    sImg.format = VK_FORMAT_D24_UNORM_S8_UINT;
+    sImg.extent = {ext.width, ext.height, 1};
+    sImg.mipLevels = 1;
+    sImg.arrayLayers = 1;
+    sImg.samples = VK_SAMPLE_COUNT_1_BIT;
+    sImg.tiling = VK_IMAGE_TILING_OPTIMAL;
+    sImg.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    sImg.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(vkDevice_, &sImg, nullptr, &canvasStencilImage_) != VK_SUCCESS) return false;
+    VkMemoryRequirements smr;
+    vkGetImageMemoryRequirements(vkDevice_, canvasStencilImage_, &smr);
+    VkMemoryAllocateInfo sAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, smr.size,
+                                findMemoryType(smr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+    if (vkAllocateMemory(vkDevice_, &sAlloc, nullptr, &canvasStencilMemory_) != VK_SUCCESS) return false;
+    vkBindImageMemory(vkDevice_, canvasStencilImage_, canvasStencilMemory_, 0);
+    VkImageViewCreateInfo sView{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    sView.image = canvasStencilImage_;
+    sView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    sView.format = VK_FORMAT_D24_UNORM_S8_UINT;
+    sView.subresourceRange = {VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
+    if (vkCreateImageView(vkDevice_, &sView, nullptr, &canvasStencilView_) != VK_SUCCESS) return false;
+
+    // ③ 首帧初始化: 清除 canvas 为白色 (提交一次性命令)
+    {
+        VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, commandPool_,
+                                         VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1};
+        VkCommandBuffer initCb;
+        vkAllocateCommandBuffers(vkDevice_, &cbai, &initCb);
+        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        vkBeginCommandBuffer(initCb, &bi);
+        // barrier: UNDEFINED → COLOR_ATTACHMENT_OPTIMAL
+        VkImageMemoryBarrier bar{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        bar.image = canvasImage_;
+        bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        bar.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        bar.srcAccessMask = 0;
+        bar.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        bar.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vkCmdPipelineBarrier(initCb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &bar);
+        // 临时 render pass (LOAD_OP_CLEAR)
+        VkAttachmentDescription ca{};
+        ca.format = swapchainFormat_;
+        ca.samples = VK_SAMPLE_COUNT_1_BIT;
+        ca.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        ca.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        ca.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        ca.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        VkAttachmentReference ref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        VkSubpassDescription sp{};
+        sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        sp.colorAttachmentCount = 1;
+        sp.pColorAttachments = &ref;
+        VkRenderPassCreateInfo rpci{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+        rpci.attachmentCount = 1;
+        rpci.pAttachments = &ca;
+        rpci.subpassCount = 1;
+        rpci.pSubpasses = &sp;
+        VkRenderPass initRP;
+        if (vkCreateRenderPass(vkDevice_, &rpci, nullptr, &initRP) == VK_SUCCESS) {
+            VkImageView atts[] = {canvasView_};
+            VkFramebufferCreateInfo fbi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+            fbi.renderPass = initRP;
+            fbi.attachmentCount = 1;
+            fbi.pAttachments = atts;
+            fbi.width = ext.width;
+            fbi.height = ext.height;
+            fbi.layers = 1;
+            VkFramebuffer initFB;
+            if (vkCreateFramebuffer(vkDevice_, &fbi, nullptr, &initFB) == VK_SUCCESS) {
+                VkRenderPassBeginInfo rpbi{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+                rpbi.renderPass = initRP;
+                rpbi.framebuffer = initFB;
+                rpbi.renderArea.extent = {ext.width, ext.height};
+                VkClearValue cv = {{{0.96f, 0.96f, 0.96f, 1.0f}}};
+                rpbi.clearValueCount = 1;
+                rpbi.pClearValues = &cv;
+                vkCmdBeginRenderPass(initCb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+                vkCmdEndRenderPass(initCb);
+                vkDestroyFramebuffer(vkDevice_, initFB, nullptr);
+            }
+            vkDestroyRenderPass(vkDevice_, initRP, nullptr);
+        }
+        vkEndCommandBuffer(initCb);
+        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &initCb;
+        vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
+        vkQueueWaitIdle(vkQueue_);
+        vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &initCb);
+    }
+    return true;
+}
+
+// ================================================================
+// destroyCanvas — 销毁 canvas 颜色 + Stencil + Framebuffer
+// ================================================================
+void VulkanContext::destroyCanvas() {
+    if (canvasFramebuffer_) {
+        vkDestroyFramebuffer(vkDevice_, canvasFramebuffer_, nullptr);
+        canvasFramebuffer_ = VK_NULL_HANDLE;
+    }
+    if (canvasStencilView_) {
+        vkDestroyImageView(vkDevice_, canvasStencilView_, nullptr);
+        canvasStencilView_ = VK_NULL_HANDLE;
+    }
+    if (canvasStencilImage_) {
+        vkDestroyImage(vkDevice_, canvasStencilImage_, nullptr);
+        canvasStencilImage_ = VK_NULL_HANDLE;
+    }
+    if (canvasStencilMemory_) {
+        vkFreeMemory(vkDevice_, canvasStencilMemory_, nullptr);
+        canvasStencilMemory_ = VK_NULL_HANDLE;
+    }
+    if (canvasView_) {
+        vkDestroyImageView(vkDevice_, canvasView_, nullptr);
+        canvasView_ = VK_NULL_HANDLE;
+    }
+    if (canvasImage_) {
+        vkDestroyImage(vkDevice_, canvasImage_, nullptr);
+        canvasImage_ = VK_NULL_HANDLE;
+    }
+    if (canvasMemory_) {
+        vkFreeMemory(vkDevice_, canvasMemory_, nullptr);
+        canvasMemory_ = VK_NULL_HANDLE;
+    }
 }

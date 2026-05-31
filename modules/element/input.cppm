@@ -56,9 +56,11 @@ public:
     void focus() {
         focused_ = true;
         cursorVisible_ = true;
+        markDirty();
     }
     void blur() {
         focused_ = false;
+        markDirty();
     }
 
     std::string getProperty(const char *name) const override;

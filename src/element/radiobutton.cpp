@@ -15,7 +15,6 @@ import kwik.render.font;
 import kwik.render.command;
 import kwik.engine.js_value;
 
-
 import std;
 // ════════════════════════════════════════════════════════
 // needReshapeText — 对齐 Button 模式: 仅检测文本/字号变化
@@ -51,12 +50,16 @@ Size RadioButton::onMeasure(Constraints constraints) {
 void RadioButton::setChecked(bool val) {
     if (radio_.checked == val) return;
     radio_.checked = val;
+    markDirty();
     if (val && !radio_.group.empty() && parent()) {
         for (auto &child : parent()->children) {
             if (child.get() == this) continue;
             if (std::strcmp(child->typeName(), "RadioButton") != 0) continue;
             auto *other = static_cast<RadioButton *>(child.get());
-            if (other->radio_.group == radio_.group && other->radio_.checked) { other->radio_.checked = false; }
+            if (other->radio_.group == radio_.group && other->radio_.checked) {
+                other->radio_.checked = false;
+                other->markDirty();    // ← 兄弟由 checked→unchecked 也需重绘
+            }
         }
     }
 }

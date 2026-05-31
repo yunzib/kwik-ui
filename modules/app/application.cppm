@@ -30,10 +30,10 @@ public:
      * @brief 运行配置
      */
     struct RunConfig {
-        std::string jsPath;                // JS 入口文件
-        std::vector<std::string> fontDirs; // 字体搜索目录
-        int width = 800;                   // 窗口逻辑宽度（仅在 screenRatio == 0 时生效）
-        int height = 600;                  // 窗口逻辑高度（仅在 screenRatio == 0 时生效）
+        std::string jsPath;                   // JS 入口文件
+        std::vector<std::string> fontDirs;    // 字体搜索目录
+        int width = 800;                      // 窗口逻辑宽度（仅在 screenRatio == 0 时生效）
+        int height = 600;                     // 窗口逻辑高度（仅在 screenRatio == 0 时生效）
         /**
          * @brief 窗口占主显示器工作区的比例（范围 0.0 ~ 1.0）
          *    - 0.0（默认）：使用 width/height 绝对像素值（向后兼容）
@@ -128,8 +128,10 @@ private:
     EventProcessor eventProc_;
     EventDispatcher eventDisp_;
     bool running_ = false;
-    bool cacheSaved_ = false; // 字形缓冲
-    View *focusedView_ = nullptr;   // 当前聚焦的 Input 控件 (接收键盘事件)
+    bool cacheSaved_ = false;        // 字形缓冲
+    View *focusedView_ = nullptr;    // 当前聚焦的 Input 控件 (接收键盘事件)
+    DirtyTracker dirtyTracker_;         // 脏矩形追踪器 (在 kwik.element.view 中定义)
+
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局
      * @return true 成功

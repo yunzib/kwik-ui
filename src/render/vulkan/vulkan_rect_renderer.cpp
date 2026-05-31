@@ -82,7 +82,7 @@ bool RectRenderer::create(VulkanContext &ctx) {
                                               0.0f,
                                               1.0f};
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = ctx.msaaSamples();
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;  // ─ canvas 1x, 不再取 ctx ─
     // ── 颜色混合 (fill / stroke / shadow 共用) ───────────
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;

@@ -115,7 +115,7 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = ctx.msaaSamples();
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;  // ─ canvas 1x, 不再取 ctx ─
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
     ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -178,9 +178,10 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
             VK_DYNAMIC_STATE_SCISSOR,
             VK_DYNAMIC_STATE_STENCIL_REFERENCE,
             VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+            VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
         };
         VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-        clipDyn.dynamicStateCount = 4;
+        clipDyn.dynamicStateCount = 5;
         clipDyn.pDynamicStates = clipDynStates;
         VkStencilOpState stencilTest{};
         stencilTest.failOp = VK_STENCIL_OP_KEEP;

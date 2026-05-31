@@ -182,6 +182,7 @@ bool Input::onEvent(int code, float localX, float localY, JSContext *ctx) {
         insertAtCursor(utf8);
         cursorVisible_ = true;
         fireChange(ctx);
+         markDirty();
         return true;
     }
     case ViewEventCode::KeyAction: {
@@ -206,6 +207,7 @@ bool Input::onEvent(int code, float localX, float localY, JSContext *ctx) {
         case 0x23: cursorToHome(); break;    // VK_HOME
         }
         cursorVisible_ = true;
+         markDirty();
         return true;
     }
     default:
@@ -322,22 +324,27 @@ std::string Input::getProperty(const char *name) const {
 bool Input::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
         setValue(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "placeholder") == 0) {
         input_.placeholder = value;
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "fontSize") == 0) {
         input_.fontSize = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "readOnly") == 0) {
         input_.readOnly = (std::string(value) == "true");
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "isPassword") == 0) {
         input_.isPassword = (std::string(value) == "true");
+        markDirty();
         return true;
     }
     return View::setProperty(name, value); // 回退基类

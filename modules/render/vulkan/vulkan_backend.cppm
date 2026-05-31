@@ -25,7 +25,7 @@ public:
     bool initialize(void *nativeHandle, int width, int height) override;
     void shutdown() override;
     void resize(int width, int height) override;
-    bool beginFrame() override;
+    bool beginFrame(const Rect &dirtyRect) override;    // dirtyRect 为物理像素坐标
     void endFrame() override;
     void present() override;
     // 形状

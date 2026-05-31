@@ -24,6 +24,8 @@ export default View({
     TextArea({
         id: "textarea1",
         placeholder: "请输入第一段内容...",
+        placeholderColor: "#000000",  // 与 textColor 同色
+        textColor: "#000000",
         fontSize: 14,
         rows: 4,
         width: 600,

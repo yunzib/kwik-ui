@@ -18,9 +18,9 @@ export class ListLayout : public View {
 public:
     ListLayout() = default;
     explicit ListLayout(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
-         if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
-           props.background = Color::transparent();
-       }
+        if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
+            props.background = Color::transparent();
+        }
     }
     const char *typeName() const override {
         return "ListLayout";
@@ -39,6 +39,7 @@ public:
                 0.0f, contentSize.width - (frame.width - props.padding.horizontal() - headerWidth() - footerWidth()));
             scrollOffset.x = std::clamp(scrollOffset.x + delta, 0.0f, maxX);
         }
+        markDirty();
     }
 
 protected:

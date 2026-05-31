@@ -114,6 +114,70 @@ private:
      */
     void moveFrom(ViewEventHandlers &other);
 };
+
+// ============================================================================
+// DirtyTracker — 脏矩形追踪器 (解耦 View ↔ Application 避免循环依赖)
+// ============================================================================
+/**
+ * @brief 脏矩形追踪器
+ *
+ * 职责:
+ *   - 接收 View::markDirty() 上报的脏区域并求并集
+ *   - 供 View::draw() 查询当前脏矩形以跳过干净子树
+ *   - 供 Application 取走脏矩形(consume) / 标记全量重绘(markFull)
+ */
+export class DirtyTracker {
+public:
+    /**
+     * @brief 累加脏矩形到并集
+     * @param r 新脏区域 (逻辑坐标)
+     */
+    void add(Rect r) {
+        if (dirtyRect_.isEmpty())
+            dirtyRect_ = r;
+        else
+            dirtyRect_ = dirtyRect_.unionRect(r);
+        needsRedraw_ = true;
+    }
+
+    /**
+     * @brief 获取当前脏矩形 (只读, 不清空)
+     */
+    Rect current() const {
+        return dirtyRect_;
+    }
+
+    /**
+     * @brief 取走脏矩形并重置状态
+     * @return 脏矩形 (空 = 全屏)
+     */
+    Rect consume() {
+        Rect r = dirtyRect_;
+        dirtyRect_ = {};
+        needsRedraw_ = false;
+        return r;
+    }
+
+    /**
+     * @brief 是否有待绘制的脏帧
+     */
+    bool needsRedraw() const {
+        return needsRedraw_;
+    }
+
+    /**
+     * @brief 标记下帧全屏重绘 (resize / rebuildTree 时调用)
+     */
+    void markFull() {
+        dirtyRect_ = {};
+        needsRedraw_ = true;
+    }
+
+private:
+    Rect dirtyRect_ = {};
+    bool needsRedraw_ = true;    // 首帧默认全画
+};
+
 // ============================================================================
 // View 控件类
 // ============================================================================
@@ -298,7 +362,36 @@ public:
         return handlers.dispatch(code, localX, localY, ctx);
     }
 
-    virtual void applyWheel(float delta) {}
+    virtual void applyWheel(float delta) {
+    }
+
+    // ==================== 脏标记接口 ====================
+    /**
+     * @brief 标记本控件为脏 (属性变更时自动调用)
+     */
+    void markDirty();
+
+    /**
+     * @brief 清空脏标记 (绘制完成后调用)
+     */
+    void clearDirty() {
+        dirty_ = false;
+    }
+
+    /**
+     * @brief 是否脏
+     */
+    bool isDirty() const {
+        return dirty_;
+    }
+
+    /**
+     * @brief 设置脏矩形追踪器 (由 Application 在 parse 后递归注入)
+     * @param t DirtyTracker 指针
+     */
+    void setTracker(DirtyTracker *t) {
+        tracker_ = t;
+    }
 
 protected:
     /**
@@ -317,8 +410,23 @@ protected:
      */
     virtual void onDraw(Graphics &graphics);
 
+    /**
+     * @brief 上报自定义脏矩形 (用于绘制区域超出 frame 的控件)
+     * @param r 脏区域 (逻辑坐标)
+     *
+     * 默认 markDirty() 仅上报 frame 范围。
+     * 子类若在 onDraw() 中绘制内容超出 frame (如 Dropdown 的弹出菜单),
+     * 应在状态变更时调用此方法确保完整可视区域被清理重绘。
+     */
+    void addDirtyRect(Rect r) {
+        dirty_ = true;
+        if (tracker_ && !r.isEmpty()) tracker_->add(r);
+    }
+
 private:
-    View *parent_ = nullptr;    // 父节点 (addChild 自动设置, 裸指针不参与所有权)
+    View *parent_ = nullptr;             // 父节点 (addChild 自动设置, 裸指针不参与所有权)
+    bool dirty_ = true;                  // 新建后默认脏 (首帧必画)
+    DirtyTracker *tracker_ = nullptr;    // 脏矩形追踪器 (由 Application 注入)
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针

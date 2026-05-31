@@ -51,6 +51,16 @@ Application::~Application() {
     FontManager::instance().saveAtlasCache("cache/font_atlas.bin", fp);
     TextureManager::instance().destroyAll();
 }
+
+// ============================================================================
+// setTracker — 递归注入 DirtyTracker 指针
+// ============================================================================
+static void setTracker(View *v, DirtyTracker *t) {
+    if (!v) return;
+    v->setTracker(t);
+    for (auto &c : v->children) setTracker(c.get(), t);
+}
+
 // ============================================================================
 // init — 启动渲染线程、加载字体、解析 JS、首次布局
 // ============================================================================
@@ -85,6 +95,8 @@ bool Application::init() {
         Log::error("View 树解析失败");
         return false;
     }
+
+    setTracker(tree_.get(), &dirtyTracker_);     // ─ 注入脏矩形追踪器 ─
 
     jsCtx_.setUserPointer(tree_.get());
 
@@ -126,7 +138,7 @@ bool Application::init() {
 void Application::rebuildTree() {
     jsCtx_.expandRootView();
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
-    jsCtx_.setUserPointer(tree_.get());
+    if (tree_) setTracker(tree_.get(), &dirtyTracker_);
     if (tree_) {
         int w, h;
         window_.GetSize(&w, &h);
@@ -137,19 +149,36 @@ void Application::rebuildTree() {
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();
     jsCtx_.clearRenderFlag();
-    focusedView_ = nullptr;   //  旧树已销毁，清空野指针
+    focusedView_ = nullptr;    //  旧树已销毁，清空野指针
+    dirtyTracker_.markFull();           // ─ 重建后下帧全屏重绘 ─
 }
+
 // ============================================================================
-// renderFrame — 录制并提交一帧
+// renderFrame — 录制并提交一帧 (脏区域跳过干净子树)
 // ============================================================================
 void Application::renderFrame() {
+    float dpi = window_.GetDpiScale();
+    Rect dr = dirtyTracker_.consume();          // 取走脏矩形 (逻辑坐标)
+    if (dr.isEmpty()) {
+        int w, h;
+        window_.GetSize(&w, &h);
+        dr = Rect{0, 0, static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
+    }
+
     auto &cmdBuffer = renderThread_.commandQueue().currentBuffer();
     Graphics canvas(&cmdBuffer);
     canvas.beginFrame();
-    canvas.clear(Color{255, 255, 255, 255});
-    canvas.scale(window_.GetDpiScale(), window_.GetDpiScale());
-    tree_->draw(canvas);
+    canvas.scale(dpi, dpi);
+
+    // ─ 只清空脏区域 — 非脏区域由 canvas 持久保留 ─
+    canvas.drawRect(dr, Color::white());
+
+    tree_->draw(canvas);                   // View::draw 内部跳过干净子树
     canvas.endFrame();
+
+    // ─ 转换为物理像素坐标传递渲染线程 ─
+    Rect physDirty = {dr.x * dpi, dr.y * dpi, dr.width * dpi, dr.height * dpi};
+    cmdBuffer.setDirtyRect(physDirty);
     renderThread_.commandQueue().submit();
 }
 
@@ -194,7 +223,7 @@ int Application::run() {
 
         // ── 键盘事件 → 聚焦 View 路由 ──
         if (focusedView_) {
-            Log::info("Key route: type={} keyCode={} charCode={}", static_cast<int>(e.type), e.keyCode, e.charCode);
+            // Log::info("Key route: type={} keyCode={} charCode={}", static_cast<int>(e.type), e.keyCode, e.charCode);
             if (e.type == Event::Type::KeyDown) {
                 focusedView_->onEvent(ViewEventCode::KeyAction, static_cast<float>(e.keyCode),
                                       static_cast<float>(e.modifiers), jsCtx_.getPtr());
@@ -243,6 +272,7 @@ int Application::run() {
                 auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
                 relayoutTree(sz);
                 eventProc_.reset();
+                 dirtyTracker_.markFull();
             }
             return;
         }
@@ -257,10 +287,17 @@ int Application::run() {
     int frameCount = 0;
     Log::info("渲染循环已启动");
 
-    while (running_) {
+     while (running_) {
         window_.PollEvents();
+
         if (jsCtx_.isRenderNeeded()) rebuildTree();
-        renderFrame();
+
+        if (dirtyTracker_.needsRedraw()) {
+            renderFrame();
+        } else {
+            // ─ UI 静止: 短暂休眠避免空转 ─
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        }
 
         frameCount++;
         auto now = std::chrono::high_resolution_clock::now();

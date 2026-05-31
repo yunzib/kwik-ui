@@ -199,8 +199,12 @@ void View::onLayout() {
 // ============================================================================
 void View::draw(Graphics &graphics) {
     if (!props.visible) return;
+
+    // ─ 非脏且 frame 与全局脏矩形无交集 → 跳过整棵子树 ─
+    if (!dirty_ && !tracker_->current().isEmpty() && !frame.intersects(tracker_->current())) { return; }
     onDraw(graphics);
 }
+
 void View::onDraw(Graphics &graphics) {
     graphics.save();
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
@@ -213,16 +217,11 @@ void View::onDraw(Graphics &graphics) {
     Rect contentRect = {frame.x + props.padding.left, frame.y + props.padding.top,
                         frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
-    // for (auto &child : children) { child->draw(graphics); }
 
-    // ── 按 z 升序排列子节点 (低 z 先画, 高 z 后画 → 高 z 置顶) ──
-    // ── 按 z 升序排列子节点 (仅在有 z!=0 的子节点时排序) ──
+    // ── 按 z 升序排列子节点 ──
     bool needSort = false;
     for (auto &c : children) {
-        if (c->props.z != 0) {
-            needSort = true;
-            break;
-        }
+        if (c->props.z != 0) { needSort = true; break; }
     }
     if (needSort) {
         std::vector<View *> sorted;
@@ -233,8 +232,10 @@ void View::onDraw(Graphics &graphics) {
         for (auto &c : children) { c->draw(graphics); }
     }
 
+    clearDirty();                   // ─ 绘制完成后标记干净 ─
     graphics.restore();
 }
+
 // ============================================================================
 // View 命中测试
 // ============================================================================
@@ -254,13 +255,15 @@ View *View::hitTest(Point point) {
     // ── 按 z 降序排列: 高 z 子节点优先命中 ──
     bool needSort = false;
     for (auto &c : children) {
-        if (c->props.z != 0) { needSort = true; break; }
+        if (c->props.z != 0) {
+            needSort = true;
+            break;
+        }
     }
     if (needSort) {
         std::vector<View *> sorted;
         for (auto &c : children) sorted.push_back(c.get());
-        std::stable_sort(sorted.begin(), sorted.end(),
-                         [](View *a, View *b) { return a->props.z > b->props.z; });
+        std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
         for (auto *c : sorted) {
             View *hit = c->hitTest(point);
             if (hit) return hit;
@@ -271,7 +274,7 @@ View *View::hitTest(Point point) {
             if (hit) return hit;
         }
     }
-    
+
     return this;
 }
 
@@ -351,35 +354,51 @@ std::string View::getProperty(const char *name) const {
 bool View::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "width") == 0) {
         props.width = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "height") == 0) {
         props.height = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "background") == 0) {
         props.background = parseHexColor(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "borderRadius") == 0) {
         props.borderRadius = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "borderWidth") == 0) {
         props.borderWidth = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "borderColor") == 0) {
         props.borderColor = parseHexColor(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "opacity") == 0) {
         props.opacity = std::stof(value);
+        markDirty();
         return true;
     }
     if (std::strcmp(name, "visible") == 0) {
         props.visible = (std::string(value) == "true");
+        markDirty();
         return true;
     }
     return false;    // 子类未覆写 → 未知属性
+}
+
+// ============================================================================
+// markDirty — 标记本控件区域为脏
+// ============================================================================
+void View::markDirty() {
+    dirty_ = true;
+    if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
 }

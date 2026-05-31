@@ -36,10 +36,10 @@ void SoftwareBackend::resize(int width, int height) {
     pixelBuffer_.resize(width * height);
 }
 
-bool SoftwareBackend::beginFrame() {
-    // 软件渲染不需要特殊处理
-    return true;
-}
+// bool SoftwareBackend::beginFrame() {
+//     // 软件渲染不需要特殊处理
+//     return true;
+// }
 
 void SoftwareBackend::endFrame() {
     // 软件渲染不需要特殊处理

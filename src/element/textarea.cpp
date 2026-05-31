@@ -178,9 +178,11 @@ void TextArea::moveCursorDown() {
 void TextArea::focus() {
     focused_ = true;
     cursorVisible_ = true;
+     markDirty();
 }
 void TextArea::blur() {
     focused_ = false;
+     markDirty();
 }
 void TextArea::setValue(const std::string &val) {
     text_ = val;
@@ -198,6 +200,7 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
         if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (size_t)props_.maxLength) return true;
         insertAtCursor(cp == '\n' ? "\n" : codepointToUtf8(cp));
         cursorVisible_ = true;
+         markDirty();
         return true;
     }
     if (code == ViewEventCode::KeyAction) {
@@ -221,6 +224,7 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
         case 0x23: cursorBytePos_ = 0; break;               // Home
         }
         cursorVisible_ = true;
+         markDirty();
         return true;
     }
     if (code == ViewEventCode::Tap || code == ViewEventCode::PressBegin) {
@@ -346,6 +350,7 @@ std::string TextArea::getProperty(const char *name) const {
 bool TextArea::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
         setValue(value);
+        markDirty();
         return true;
     }
     return View::setProperty(name, value);

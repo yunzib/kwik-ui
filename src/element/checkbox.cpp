@@ -50,6 +50,7 @@ Size Checkbox::onMeasure(Constraints constraints) {
 // ════════════════════════════════════════════════════════
 void Checkbox::setChecked(bool val) {
     check_.checked = val;
+     markDirty();
 }
 // ════════════════════════════════════════════════════════
 // onEvent — Tap 切换选中 + 触发 onChange

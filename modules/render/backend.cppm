@@ -12,10 +12,10 @@ import std;
  * @brief 渲染后端类型枚举
  */
 export enum class BackendType {
-    Software, // CPU软件渲染
-    Vulkan,   // Vulkan图形API
-    OpenGL,   // OpenGL图形API
-    Metal     // Metal图形API (macOS/iOS)
+    Software,    // CPU软件渲染
+    Vulkan,      // Vulkan图形API
+    OpenGL,      // OpenGL图形API
+    Metal        // Metal图形API (macOS/iOS)
 };
 
 /**
@@ -48,9 +48,10 @@ public:
 
     /**
      * @brief 开始一帧渲染
-     * @return 如果帧缓冲区准备就绪返回true
+     * @param dirtyRect 脏区域 (物理像素坐标), 空=全屏
+     * @return 帧缓冲区就绪返回 true
      */
-    virtual bool beginFrame() = 0;
+    virtual bool beginFrame(const Rect &dirtyRect) = 0;
 
     /**
      * @brief 结束一帧渲染
