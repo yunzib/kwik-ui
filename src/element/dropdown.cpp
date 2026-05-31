@@ -7,6 +7,9 @@
 module;
 #include "quickjs.h"
 #include <cstring>
+#include <string>
+#include <vector>
+
 module kwik.element.dropdown;
 import kwik.element.view;
 import kwik.element.props;
@@ -79,9 +82,16 @@ void Dropdown::setOpen(bool open) {
     if (open_ == open) return;
     open_ = open;
     props.z = open ? 100 : 0;
-    //  std::print("[setOpen] open={} z={}\n", open_, props.z);  // ← 诊断行
+    if (open) {
+        scrollOffset_ = 0;
+        // ── 预烘焙所有菜单项字形 ──
+        auto &fm = FontManager::instance();
+        cachedItemCount_ = (int)dp_.items.size();
+        cachedMenuFontSize_ = dp_.fontSize;
+        itemGlyphsCache_.clear();
+        for (auto &item : dp_.items) { itemGlyphsCache_.push_back(fm.shapeText(item.c_str(), dp_.fontSize)); }
+    }
     hoveredIndex_ = -1;
-    if (open) scrollOffset_ = 0;    // 每次打开时重置到顶部
 }
 
 void Dropdown::selectItem(int index) {
@@ -180,7 +190,7 @@ void Dropdown::onDraw(Graphics &graphics) {
         for (int vi = 0; vi <= maxN; ++vi) {    // vi: 视觉索引
             int i = skipItems + vi;             // i: 实际数据索引
             if (i < 0 || i >= (int)dp_.items.size()) continue;
-            if (i == dp_.selectedIndex || i == hoveredIndex_) {            // ← 高亮
+            if (i == dp_.selectedIndex || i == hoveredIndex_) {    // ← 高亮
                 Rect itemRect{menu.x, yCursor, menu.width, dp_.itemHeight};
                 Color hl = (i == dp_.selectedIndex) ? dp_.selectedBackground : dp_.hoverBackground;
                 graphics.drawRoundedRect(itemRect, 0.0f, hl);

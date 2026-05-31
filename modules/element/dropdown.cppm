@@ -64,6 +64,9 @@ private:
     std::string cachedText_;
     float cachedFontSize_ = 0;
     std::vector<ShapedGlyph> textGlyphs_;
+    std::vector<std::vector<ShapedGlyph>> itemGlyphsCache_;    // 菜单项字形缓存
+    int cachedItemCount_ = 0;
+    float cachedMenuFontSize_ = 0;
     // ── 辅助 ──
     float menuHeight() const;
     Rect menuRect() const;

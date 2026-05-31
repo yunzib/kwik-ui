@@ -216,11 +216,22 @@ void View::onDraw(Graphics &graphics) {
     // for (auto &child : children) { child->draw(graphics); }
 
     // ── 按 z 升序排列子节点 (低 z 先画, 高 z 后画 → 高 z 置顶) ──
-    std::vector<View *> sorted;
-    for (auto &c : children) sorted.push_back(c.get());
-    std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
-    
-    for (auto *c : sorted) { c->draw(graphics); }
+    // ── 按 z 升序排列子节点 (仅在有 z!=0 的子节点时排序) ──
+    bool needSort = false;
+    for (auto &c : children) {
+        if (c->props.z != 0) {
+            needSort = true;
+            break;
+        }
+    }
+    if (needSort) {
+        std::vector<View *> sorted;
+        for (auto &c : children) sorted.push_back(c.get());
+        std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
+        for (auto *c : sorted) { c->draw(graphics); }
+    } else {
+        for (auto &c : children) { c->draw(graphics); }
+    }
 
     graphics.restore();
 }
@@ -241,14 +252,26 @@ View *View::hitTest(Point point) {
     if (!frame.contains(point)) return nullptr;
 
     // ── 按 z 降序排列: 高 z 子节点优先命中 ──
-    std::vector<View *> sorted;
-    for (auto &c : children) sorted.push_back(c.get());
-    std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
-
-    for (auto *c : sorted) {
-        View *hit = c->hitTest(point);
-        if (hit) return hit;
+    bool needSort = false;
+    for (auto &c : children) {
+        if (c->props.z != 0) { needSort = true; break; }
     }
+    if (needSort) {
+        std::vector<View *> sorted;
+        for (auto &c : children) sorted.push_back(c.get());
+        std::stable_sort(sorted.begin(), sorted.end(),
+                         [](View *a, View *b) { return a->props.z > b->props.z; });
+        for (auto *c : sorted) {
+            View *hit = c->hitTest(point);
+            if (hit) return hit;
+        }
+    } else {
+        for (auto it = children.rbegin(); it != children.rend(); ++it) {
+            View *hit = (*it)->hitTest(point);
+            if (hit) return hit;
+        }
+    }
+    
     return this;
 }
 
