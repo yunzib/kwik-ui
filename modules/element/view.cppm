@@ -21,20 +21,20 @@ import std;
  * 用于 View::onEvent() 的 eventCode 参数
  */
 export namespace ViewEventCode {
-constexpr int Tap = 0;        // 快速点击
-constexpr int LongPress = 1;  // 长按
-constexpr int HoverEnter = 2; // 鼠标进入
-constexpr int HoverLeave = 3; // 鼠标离开
-constexpr int HoverMove = 4;  // 鼠标移动
-constexpr int PanBegin = 5;   // 拖拽开始
-constexpr int PanMove = 6;    // 拖拽中
-constexpr int PanEnd = 7;     // 拖拽结束
-constexpr int PressBegin = 8; // 按下开始
-constexpr int PressEnd = 9;   // 按下结束
-constexpr int Wheel = 10;     // 滚轮滚动
-constexpr int KeyAction = 20; // 键盘导航 (Backspace/Delete/方向键...)
-constexpr int CharInput = 21; // 字符输入 (含 IME 组合结果)
-} // namespace ViewEventCode
+constexpr int Tap = 0;           // 快速点击
+constexpr int LongPress = 1;     // 长按
+constexpr int HoverEnter = 2;    // 鼠标进入
+constexpr int HoverLeave = 3;    // 鼠标离开
+constexpr int HoverMove = 4;     // 鼠标移动
+constexpr int PanBegin = 5;      // 拖拽开始
+constexpr int PanMove = 6;       // 拖拽中
+constexpr int PanEnd = 7;        // 拖拽结束
+constexpr int PressBegin = 8;    // 按下开始
+constexpr int PressEnd = 9;      // 按下结束
+constexpr int Wheel = 10;        // 滚轮滚动
+constexpr int KeyAction = 20;    // 键盘导航 (Backspace/Delete/方向键...)
+constexpr int CharInput = 21;    // 字符输入 (含 IME 组合结果)
+}    // namespace ViewEventCode
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装
 // ============================================================================
@@ -50,12 +50,12 @@ constexpr int CharInput = 21; // 字符输入 (含 IME 组合结果)
  * 支持移动 (移动后源对象清空, 避免 double-free)
  */
 export struct ViewEventHandlers {
-    JSValue onClick = JS_NULL;      // 点击回调
-    JSValue onLongPress = JS_NULL;  // 长按回调
-    JSValue onHoverEnter = JS_NULL; // 鼠标进入回调
-    JSValue onHoverLeave = JS_NULL; // 鼠标离开回调
-    JSValue onChange = JS_NULL;     // Input 文本变更回调
-    JSContext *ctx = nullptr;       // QuickJS 上下文 (析构清理用)
+    JSValue onClick = JS_NULL;         // 点击回调
+    JSValue onLongPress = JS_NULL;     // 长按回调
+    JSValue onHoverEnter = JS_NULL;    // 鼠标进入回调
+    JSValue onHoverLeave = JS_NULL;    // 鼠标离开回调
+    JSValue onChange = JS_NULL;        // Input 文本变更回调
+    JSContext *ctx = nullptr;          // QuickJS 上下文 (析构清理用)
     ViewEventHandlers() = default;
     /**
      * @brief 析构: 释放所有持有的 JSValue 引用
@@ -133,10 +133,10 @@ private:
  */
 export class View {
 public:
-    ViewProps props;                             // 控件属性
-    std::vector<std::unique_ptr<View>> children; // 子控件列表
-    Rect frame;                                  // 布局后的位置和尺寸
-    ViewEventHandlers handlers;                  // 事件处理器
+    ViewProps props;                                // 控件属性
+    std::vector<std::unique_ptr<View>> children;    // 子控件列表
+    Rect frame;                                     // 布局后的位置和尺寸
+    ViewEventHandlers handlers;                     // 事件处理器
     View() = default;
 
     /**
@@ -280,7 +280,7 @@ public:
      *
      * 遍历策略: 从最后添加的子节点开始 (对应绘制 z-order 最上层)
      */
-    View *hitTest(Point point);
+    virtual View *hitTest(Point point);
 
     // ==================== 事件处理 ====================
     /**
@@ -316,7 +316,7 @@ protected:
     virtual void onDraw(Graphics &graphics);
 
 private:
-    View *parent_ = nullptr; // 父节点 (addChild 自动设置, 裸指针不参与所有权)
+    View *parent_ = nullptr;    // 父节点 (addChild 自动设置, 裸指针不参与所有权)
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针

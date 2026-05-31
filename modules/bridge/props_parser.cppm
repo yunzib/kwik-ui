@@ -69,3 +69,5 @@ export RadioGroupProps parseRadioGroupProps(const JSValueRef &props);
 export CheckboxProps parseCheckboxProps(const JSValueRef &props);
 
 export TextAreaProps parseTextAreaProps(const JSValueRef &props);
+
+export DropdownProps parseDropdownProps(const JSValueRef &props);

@@ -78,6 +78,7 @@ export struct ViewProps {
     int gridRowSpan = 1, gridColumnSpan = 1;
     bool absolute = false;
     float absTop = -1, absLeft = -1, absRight = -1, absBottom = -1;
+    int z = 0;    // 层叠优先级 (默认 0, 值越高越优先命中)
 };
 
 /**
@@ -223,4 +224,22 @@ export struct TextAreaProps {
     Color focusedBorderColor{66, 133, 244, 255};    // 聚焦时边框色
     int maxLength = 0;                              // 最大字符数 (0 = 不限)
     bool readOnly = false;                          // 只读模式
+};
+
+// ════════════════════════════════════════════════════════
+// Dropdown 属性 — 下拉选择
+// ════════════════════════════════════════════════════════
+export struct DropdownProps {
+    std::string placeholder = "请选择...";           // 占位符 (未选择时显示)
+    std::vector<std::string> items;                  // 选项列表
+    int selectedIndex = -1;                          // 选中索引 (-1 = 未选中)
+    float fontSize = 14.0f;                          // 文字字号
+    float itemHeight = 20.0f;                        // 每个选项高度 px
+    int maxVisibleItems = 5;                         // 同时可见最大选项数
+    Color textColor{0, 0, 0, 255};                   // 文字颜色
+    Color placeholderColor{153, 153, 153, 255};      // 占位符颜色
+    Color arrowColor{153, 153, 153, 255};            // 箭头 ▼ 颜色
+    Color menuBackground{255, 255, 255, 255};        // 菜单背景色
+    Color hoverBackground{227, 242, 253, 255};       // 悬停高亮 (Material Blue 50)
+    Color selectedBackground{227, 242, 253, 255};    // 选中项背景
 };

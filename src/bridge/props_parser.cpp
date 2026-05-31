@@ -423,3 +423,42 @@ TextAreaProps parseTextAreaProps(const JSValueRef &props) {
     if (props.hasProperty("readOnly")) { result.readOnly = props.getProperty("readOnly").toBool(); }
     return result;
 }
+
+// ============================================================================
+// parseDropdownProps
+// ============================================================================
+DropdownProps parseDropdownProps(const JSValueRef &props) {
+    DropdownProps result;
+    if (!props.isObject()) return result;
+    if (props.hasProperty("placeholder")) { result.placeholder = props.getProperty("placeholder").toString(); }
+    if (props.hasProperty("selectedIndex")) { result.selectedIndex = props.getProperty("selectedIndex").toInt(); }
+    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
+    if (props.hasProperty("itemHeight")) { result.itemHeight = props.getProperty("itemHeight").toFloat(); }
+    if (props.hasProperty("maxVisibleItems")) { result.maxVisibleItems = props.getProperty("maxVisibleItems").toInt(); }
+    if (props.hasProperty("textColor")) { result.textColor = parseColor(props.getProperty("textColor").toString()); }
+    if (props.hasProperty("placeholderColor")) {
+        result.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
+    }
+    if (props.hasProperty("arrowColor")) { result.arrowColor = parseColor(props.getProperty("arrowColor").toString()); }
+    if (props.hasProperty("menuBackground")) {
+        result.menuBackground = parseColor(props.getProperty("menuBackground").toString());
+    }
+    if (props.hasProperty("hoverBackground")) {
+        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
+    }
+    if (props.hasProperty("selectedBackground")) {
+        result.selectedBackground = parseColor(props.getProperty("selectedBackground").toString());
+    }
+    // 解析 items 数组
+    if (props.hasProperty("items")) {
+        auto itemsVal = props.getProperty("items");
+        if (itemsVal.isArray()) {
+            int len = itemsVal.getArrayLength();
+            for (int i = 0; i < len; ++i) {
+                auto item = itemsVal.getArrayElement(i);
+                if (item.isString()) result.items.push_back(item.toString());
+            }
+        }
+    }
+    return result;
+}

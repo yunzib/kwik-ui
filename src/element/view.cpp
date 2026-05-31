@@ -213,17 +213,40 @@ void View::onDraw(Graphics &graphics) {
     Rect contentRect = {frame.x + props.padding.left, frame.y + props.padding.top,
                         frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
-    for (auto &child : children) { child->draw(graphics); }
+    // for (auto &child : children) { child->draw(graphics); }
+
+    // ── 按 z 升序排列子节点 (低 z 先画, 高 z 后画 → 高 z 置顶) ──
+    std::vector<View *> sorted;
+    for (auto &c : children) sorted.push_back(c.get());
+    std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
+    
+    for (auto *c : sorted) { c->draw(graphics); }
+
     graphics.restore();
 }
 // ============================================================================
 // View 命中测试
 // ============================================================================
+// View *View::hitTest(Point point) {
+//     if (!props.visible) return nullptr;
+//     if (!frame.contains(point)) return nullptr;
+//     for (auto it = children.rbegin(); it != children.rend(); ++it) {
+//         View *hit = (*it)->hitTest(point);
+//         if (hit) return hit;
+//     }
+//     return this;
+// }
 View *View::hitTest(Point point) {
     if (!props.visible) return nullptr;
     if (!frame.contains(point)) return nullptr;
-    for (auto it = children.rbegin(); it != children.rend(); ++it) {
-        View *hit = (*it)->hitTest(point);
+
+    // ── 按 z 降序排列: 高 z 子节点优先命中 ──
+    std::vector<View *> sorted;
+    for (auto &c : children) sorted.push_back(c.get());
+    std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
+
+    for (auto *c : sorted) {
+        View *hit = c->hitTest(point);
         if (hit) return hit;
     }
     return this;
@@ -267,7 +290,7 @@ Color parseHexColor(const std::string &s) {
     }
     return {0, 0, 0, 255};
 }
-} // namespace
+}    // namespace
 
 View *View::findById(const std::string &id) {
     if (props.id == id) return this;
@@ -335,5 +358,5 @@ bool View::setProperty(const char *name, const char *value) {
         props.visible = (std::string(value) == "true");
         return true;
     }
-    return false; // 子类未覆写 → 未知属性
+    return false;    // 子类未覆写 → 未知属性
 }

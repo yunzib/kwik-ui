@@ -32,6 +32,7 @@ import kwik.element.radiobutton;
 import kwik.layout.radio_group;
 import kwik.element.checkbox;
 import kwik.element.textarea;
+import kwik.element.dropdown;
 
 import std;
 // ============================================================================
@@ -137,6 +138,10 @@ static struct InitBuiltinTypes {
         // ── 多行文本输入 ──────────────────────────────────
         ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
             return std::make_unique<TextArea>(parseViewProps(pv), parseTextAreaProps(pv));
+        });
+
+        ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
+            return std::make_unique<Dropdown>(parseViewProps(pv), parseDropdownProps(pv));
         });
     }
 } _init_builtin_types;
