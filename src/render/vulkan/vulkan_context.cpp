@@ -641,7 +641,8 @@ bool VulkanContext::createCanvasImage() {
     imgInfo.arrayLayers = 1;
     imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;    // ─ 无 MSAA ─
     imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imgInfo.usage =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     if (vkCreateImage(vkDevice_, &imgInfo, nullptr, &canvasImage_) != VK_SUCCESS) return false;
     VkMemoryRequirements mr;
@@ -682,7 +683,7 @@ bool VulkanContext::createCanvasImage() {
     sView.subresourceRange = {VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
     if (vkCreateImageView(vkDevice_, &sView, nullptr, &canvasStencilView_) != VK_SUCCESS) return false;
 
-    // ③ 首帧初始化: 清除 canvas 为白色 (提交一次性命令)
+    // ③ 首帧初始化: 用 vkCmdClearColorImage 清除 canvas (无临时 RP/FB)
     {
         VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, commandPool_,
                                          VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1};
@@ -690,63 +691,44 @@ bool VulkanContext::createCanvasImage() {
         vkAllocateCommandBuffers(vkDevice_, &cbai, &initCb);
         VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         vkBeginCommandBuffer(initCb, &bi);
-        // barrier: UNDEFINED → COLOR_ATTACHMENT_OPTIMAL
+
+        // barrier: UNDEFINED → TRANSFER_DST_OPTIMAL
         VkImageMemoryBarrier bar{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        bar.image = canvasImage_;
-        bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bar.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        bar.srcAccessMask = 0;
-        bar.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        bar.srcAccessMask    = 0;
+        bar.dstAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+        bar.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.image            = canvasImage_;
         bar.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkCmdPipelineBarrier(initCb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &bar);
-        // 临时 render pass (LOAD_OP_CLEAR)
-        VkAttachmentDescription ca{};
-        ca.format = swapchainFormat_;
-        ca.samples = VK_SAMPLE_COUNT_1_BIT;
-        ca.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        ca.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        ca.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        ca.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        VkAttachmentReference ref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        VkSubpassDescription sp{};
-        sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        sp.colorAttachmentCount = 1;
-        sp.pColorAttachments = &ref;
-        VkRenderPassCreateInfo rpci{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-        rpci.attachmentCount = 1;
-        rpci.pAttachments = &ca;
-        rpci.subpassCount = 1;
-        rpci.pSubpasses = &sp;
-        VkRenderPass initRP;
-        if (vkCreateRenderPass(vkDevice_, &rpci, nullptr, &initRP) == VK_SUCCESS) {
-            VkImageView atts[] = {canvasView_};
-            VkFramebufferCreateInfo fbi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-            fbi.renderPass = initRP;
-            fbi.attachmentCount = 1;
-            fbi.pAttachments = atts;
-            fbi.width = ext.width;
-            fbi.height = ext.height;
-            fbi.layers = 1;
-            VkFramebuffer initFB;
-            if (vkCreateFramebuffer(vkDevice_, &fbi, nullptr, &initFB) == VK_SUCCESS) {
-                VkRenderPassBeginInfo rpbi{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-                rpbi.renderPass = initRP;
-                rpbi.framebuffer = initFB;
-                rpbi.renderArea.extent = {ext.width, ext.height};
-                VkClearValue cv = {{{0.96f, 0.96f, 0.96f, 1.0f}}};
-                rpbi.clearValueCount = 1;
-                rpbi.pClearValues = &cv;
-                vkCmdBeginRenderPass(initCb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
-                vkCmdEndRenderPass(initCb);
-                vkDestroyFramebuffer(vkDevice_, initFB, nullptr);
-            }
-            vkDestroyRenderPass(vkDevice_, initRP, nullptr);
-        }
+        vkCmdPipelineBarrier(initCb,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                             0, nullptr, 0, nullptr, 1, &bar);
+
+        // clear canvas to background color
+        VkClearColorValue clearColor{};
+        clearColor.float32[0] = 0.96f;
+        clearColor.float32[1] = 0.96f;
+        clearColor.float32[2] = 0.96f;
+        clearColor.float32[3] = 1.0f;
+        VkImageSubresourceRange clearRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vkCmdClearColorImage(initCb, canvasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             &clearColor, 1, &clearRange);
+
+        // barrier: TRANSFER_DST_OPTIMAL → COLOR_ATTACHMENT_OPTIMAL
+        bar.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.newLayout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        bar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        vkCmdPipelineBarrier(initCb,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                             0, nullptr, 0, nullptr, 1, &bar);
+
         vkEndCommandBuffer(initCb);
         VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         si.commandBufferCount = 1;
-        si.pCommandBuffers = &initCb;
+        si.pCommandBuffers    = &initCb;
         vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
         vkQueueWaitIdle(vkQueue_);
         vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &initCb);

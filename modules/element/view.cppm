@@ -152,6 +152,11 @@ public:
      * @return 脏矩形 (空 = 全屏)
      */
     Rect consume() {
+        // 合并上一帧的延迟脏标记
+        if (!deferred_.isEmpty()) {
+            dirtyRect_ = dirtyRect_.isEmpty() ? deferred_ : dirtyRect_.unionRect(deferred_);
+            deferred_ = {};
+        }
         Rect r = dirtyRect_;
         dirtyRect_ = {};
         needsRedraw_ = false;

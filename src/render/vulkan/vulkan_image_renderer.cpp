@@ -33,7 +33,7 @@ void ImageRenderer::destroy() {
         vkDestroyPipeline(device_, imagePipeline_, nullptr);
         imagePipeline_ = VK_NULL_HANDLE;
     }
-    if (imageClipPipeline_ != VK_NULL_HANDLE) { // ← 新增
+    if (imageClipPipeline_ != VK_NULL_HANDLE) {    // ← 新增
         vkDestroyPipeline(device_, imageClipPipeline_, nullptr);
         imageClipPipeline_ = VK_NULL_HANDLE;
     }
@@ -97,7 +97,7 @@ bool ImageRenderer::create(VulkanContext &ctx) {
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;  // ─ canvas 1x, 不再取 ctx ─
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;    // ─ canvas 1x, 不再取 ctx ─
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
     ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -112,10 +112,8 @@ bool ImageRenderer::create(VulkanContext &ctx) {
     blend.attachmentCount = 1;
     blend.pAttachments = &ba;
     VkDynamicState dynStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
-        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
         VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
     };
     VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -134,6 +132,21 @@ bool ImageRenderer::create(VulkanContext &ctx) {
     pi.layout = imagePipelineLayout_;
     pi.renderPass = ctx.renderPass();
     pi.subpass = 0;
+
+    // ─ 管线需绑定 stencil state (当前 render pass 有 stencil 附件) ─
+    VkStencilOpState stencilNoWrite{};
+    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
+    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
+    stencilNoWrite.compareMask = 0xFF;
+    stencilNoWrite.writeMask = 0x00;
+    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    ds.stencilTestEnable = VK_TRUE;
+    ds.front = stencilNoWrite;
+    ds.back = stencilNoWrite;
+    pi.pDepthStencilState = &ds;
+
     VkResult r = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &imagePipeline_);
 
     if (r != VK_SUCCESS) {
@@ -144,10 +157,8 @@ bool ImageRenderer::create(VulkanContext &ctx) {
     // ── 创建 image stencil 测试变体管线 (同 shader, 追加 stencil 测试) ──
     {
         VkDynamicState clipDynStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_STENCIL_REFERENCE,
-            VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+            VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
             VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
         };
         VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -262,6 +273,19 @@ uint32_t ImageRenderer::createTexture(VulkanContext &ctx, const uint8_t *rgba, u
     region.imageExtent = {width, height, 1};
     vkCmdCopyBufferToImage(cmd, staging, tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     if (mipLevels > 1) {
+        // ─ 把所有 mip level > 0 从 UNDEFINED → TRANSFER_DST (blit target) ─
+        VkImageMemoryBarrier preBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        preBarrier.srcAccessMask = 0;
+        preBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        preBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        preBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        preBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBarrier.image = tex.image;
+        preBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 1, mipLevels - 1, 0, 1};
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &preBarrier);
+
         // Barrier level 0: DST → SRC
         barrier.subresourceRange.levelCount = 1;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -428,7 +452,7 @@ void ImageRenderer::drawImageClipped(VulkanContext &ctx, const DrawImageCmd &cmd
     if (it == textures_.end()) return;
     auto &t = it->second;
     VkCommandBuffer cb = ctx.commandBuffer();
-    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_); // ← 唯一差异
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_);    // ← 唯一差异
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
     GlyphPushConstants pc{};
     pc.posX = cmd.rect.x;

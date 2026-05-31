@@ -175,7 +175,7 @@ void Application::renderFrame() {
     canvas.drawRect(dr, Color::white());
 
     tree_->draw(canvas);              // View::draw 内部跳过干净子树
-    dirtyTracker_.flushDeferred();    // 合并 onDraw 中的延迟脏标记
+
     canvas.endFrame();
 
     // ─ 转换为物理像素坐标传递渲染线程 ─
