@@ -10,15 +10,7 @@ import kwik.render.graphics;
 import kwik.render.font;
 
 import std;
-// ============================================================================
-// Button::needReshapeText — 文字排版脏检测
-// ============================================================================
-bool Button::needReshapeText(const std::string &fontPath) const {
-    if (text_.text != cachedText_) return true;
-    if (text_.fontSize != cachedFontSize_) return true;
-    if (fontPath != cachedFontPath_) return true;
-    return false;
-}
+
 // ============================================================================
 // Button::onMeasure — 内容感知测量
 // ============================================================================
@@ -108,24 +100,22 @@ void Button::onDraw(Graphics &graphics) {
             fm.resolveFontPath(text_.fontFamily.empty() ? "NotoSansSC-Regular.otf" : text_.fontFamily);
         if (!fontPath.empty()) {
             fm.loadFont(fontPath.c_str());
-            if (needReshapeText(fontPath)) {
-                shapedGlyphsCache_ = fm.shapeText(text_.text.c_str(), text_.fontSize);
-                cachedText_ = text_.text;
-                cachedFontSize_ = text_.fontSize;
-                cachedFontPath_ = fontPath;
-                cachedMetrics_ = fm.getMetrics(text_.fontSize);
-            }
-            if (!shapedGlyphsCache_.empty()) {
+            if (!textCache_.valid(text_.text.c_str(), text_.fontSize, fm.atlasVersion())) {
+                textCache_.set(fm.shapeText(text_.text.c_str(), text_.fontSize),
+                             text_.text.c_str(), text_.fontSize, fm.atlasVersion());
+                cachedMetrics_ = fm.getMetrics(text_.fontSize);  // 保留度量缓存
+             }
+            if (!textCache_.glyphs.empty()) {
                 float contentW = frame.width - props.padding.horizontal();
                 float contentH = frame.height - props.padding.vertical();
                 float textW = 0;
-                for (auto &g : shapedGlyphsCache_) textW += g.advanceX;
+                for (auto &g : textCache_.glyphs) textW += g.advanceX;
                 float textX = frame.x + props.padding.left + (contentW - textW) * 0.5f;
                 float baselineY = frame.y + props.padding.top + (contentH - cachedMetrics_.lineHeight) * 0.5f
                                   + cachedMetrics_.ascender;
                 graphics.save();
                 graphics.translate(textX, baselineY);
-                graphics.drawTextCached(shapedGlyphsCache_, text_.textColor);
+                graphics.drawTextCached(textCache_.glyphs, text_.textColor);
                 graphics.restore();
             }
         }

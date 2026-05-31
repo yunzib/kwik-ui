@@ -59,7 +59,7 @@ private:
     bool cursorVisible_ = false;
     uint64_t lastBlinkTime_ = 0;
     // ── 占位符缓存 ──────────────────────────────────
-    std::vector<ShapedGlyph> placeholderGlyphs_;
+    ShapedTextCache placeholderCache_;
     
     // ── 私有方法 ────────────────────────────────────
     void insertAtCursor(const std::string &utf8);
@@ -69,8 +69,7 @@ private:
     void moveCursorRight();
     void moveCursorUp();
     void moveCursorDown();
-    void updateCursorBlink();
-    void reshapePlaceholder();
+    bool updateCursorBlink();
     void fireChange(JSContext *ctx);
     // ── 行工具 ──────────────────────────────────────
     float lineHeight() const;

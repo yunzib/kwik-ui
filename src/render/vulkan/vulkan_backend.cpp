@@ -10,6 +10,8 @@ import kwik.render.vulkan.clip_manager;
 import kwik.render.command;
 import kwik.core.types;
 
+import std;
+
 VulkanBackend::VulkanBackend(int w, int h) : width_(w), height_(h) {
 }
 VulkanBackend::~VulkanBackend() {
@@ -58,7 +60,10 @@ void VulkanBackend::resize(int w, int h) {
 // ================================================================
 bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     if (!ctx_.beginFrame(dirtyRect)) return false;
-    clip_.beginFrame();
+    VkRect2D initSc = {
+        {std::max(0, (int32_t)dirtyRect.x), std::max(0, (int32_t)dirtyRect.y)},
+        {std::max(1u, (uint32_t)std::ceil(dirtyRect.width)), std::max(1u, (uint32_t)std::ceil(dirtyRect.height))}};
+    clip_.beginFrame(ctx_.extent(), initSc);
     return true;
 }
 void VulkanBackend::endFrame() {

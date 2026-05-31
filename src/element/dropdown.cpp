@@ -51,18 +51,6 @@ int Dropdown::hitMenuItem(float localX, float localY) const {
     return realIdx;
 }
 
-// ════════════════════════════════════════════════════════
-// reshapeText — 排版触发区文字
-// ════════════════════════════════════════════════════════
-void Dropdown::reshapeText() {
-    auto &fm = FontManager::instance();
-    std::string display =
-        (dp_.selectedIndex >= 0 && dp_.selectedIndex < (int)dp_.items.size()) ? dp_.items[dp_.selectedIndex] : "";
-    if (display == cachedText_ && dp_.fontSize == cachedFontSize_) return;
-    textGlyphs_ = fm.shapeText(display.c_str(), dp_.fontSize);
-    cachedText_ = display;
-    cachedFontSize_ = dp_.fontSize;
-}
 
 // ════════════════════════════════════════════════════════
 // onMeasure — 仅返回触发区高度, 菜单不占布局空间
@@ -100,7 +88,6 @@ void Dropdown::setOpen(bool open) {
 void Dropdown::selectItem(int index) {
     if (index < 0 || index >= (int)dp_.items.size()) return;
     dp_.selectedIndex = index;
-    reshapeText();
     setOpen(false);
 }
 
@@ -165,10 +152,14 @@ void Dropdown::onDraw(Graphics &graphics) {
         graphics.drawTextCached(placeholder, dp_.placeholderColor);
         graphics.restore();
     } else {
-        reshapeText();
+        std::string display = dp_.items[dp_.selectedIndex];
+        if (!triggerCache_.valid(display.c_str(), dp_.fontSize, fm.atlasVersion())) {
+            triggerCache_.set(fm.shapeText(display.c_str(), dp_.fontSize), display.c_str(), dp_.fontSize,
+                              fm.atlasVersion());
+        }
         graphics.save();
         graphics.translate(inner.x + 8, textY);
-        graphics.drawTextCached(textGlyphs_, dp_.textColor);
+        graphics.drawTextCached(triggerCache_.glyphs, dp_.textColor);
         graphics.restore();
     }
 
@@ -281,7 +272,6 @@ bool Dropdown::setProperty(const char *name, const char *value) {
         if (idx >= -1 && idx < (int)dp_.items.size()) {
             if (idx == -1) {
                 dp_.selectedIndex = -1;
-                reshapeText();
             } else
                 selectItem(idx);
             markDirty();

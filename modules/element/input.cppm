@@ -56,6 +56,9 @@ public:
     void focus() {
         focused_ = true;
         cursorVisible_ = true;
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
         markDirty();
     }
     void blur() {
@@ -73,19 +76,14 @@ protected:
 
 private:
     InputProps input_;
-    std::string text_; // 实际文本缓冲区 (与 input_.value 初始同步)
+    std::string text_;    // 实际文本缓冲区 (与 input_.value 初始同步)
     bool focused_ = false;
-    size_t cursorPos_ = 0; // 光标在 text_ 中的字节偏移 (UTF-8)
+    size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
-    // 排版缓存 — 主文本
-    std::vector<ShapedGlyph> valueGlyphs_;
-    float cachedFontSize_ = -1.0f;
-    std::string cachedText_;
-    // 排版缓存 — 占位符
-    std::vector<ShapedGlyph> placeholderGlyphs_;
-    // 排版缓存 — 密码掩码
-    std::vector<ShapedGlyph> maskedGlyphs_;
+    // 排版缓存 (atlas 版本感知)
+    ShapedTextCache textCache_;
+    ShapedTextCache placeholderCache_;
     // ── 文本操作 ──
     void insertAtCursor(const std::string &utf8);
     void deleteBeforeCursor();
@@ -95,16 +93,12 @@ private:
     void cursorToHome();
     void cursorToEnd();
     // ── 渲染辅助 ──
-    /** 重新排版主文本 */
-    void reshapeText();
-    /** 重新排版占位符 */
-    void reshapePlaceholder();
     /** 获取字号对应的字体路径 */
     std::string resolveFontPath() const;
     /** 字节偏移 → glyph 序号转换 */
     size_t byteOffsetToGlyphIndex(size_t byteOffset) const;
     /** 更新光标闪烁计时器 */
-    void updateCursorBlink();
+    bool updateCursorBlink();
     /** 触发 JS onChange 回调 */
     void fireChange(JSContext *ctx);
 };

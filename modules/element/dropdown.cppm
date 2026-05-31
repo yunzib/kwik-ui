@@ -61,9 +61,7 @@ private:
     int hoveredIndex_ = -1;     // 当前悬停的菜单项 (-1=无)
     float scrollOffset_ = 0;    // 菜单滚动偏移 (px)
     // ── 文字缓存 ──
-    std::string cachedText_;
-    float cachedFontSize_ = 0;
-    std::vector<ShapedGlyph> textGlyphs_;
+    ShapedTextCache triggerCache_;
     std::vector<std::vector<ShapedGlyph>> itemGlyphsCache_;    // 菜单项字形缓存
     int cachedItemCount_ = 0;
     float cachedMenuFontSize_ = 0;

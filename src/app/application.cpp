@@ -159,6 +159,9 @@ void Application::rebuildTree() {
 void Application::renderFrame() {
     float dpi = window_.GetDpiScale();
     Rect dr = dirtyTracker_.consume();          // 取走脏矩形 (逻辑坐标)
+    // 临时诊断日志
+    Log::info("Render dirty rect: x={:.0f} y={:.0f} w={:.0f} h={:.0f} empty={}", 
+              dr.x, dr.y, dr.width, dr.height, dr.isEmpty());
     if (dr.isEmpty()) {
         int w, h;
         window_.GetSize(&w, &h);

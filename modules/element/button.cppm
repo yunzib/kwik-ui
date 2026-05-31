@@ -58,11 +58,6 @@ private:
     ButtonStateProps button_; // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
     // ── 文字排版缓存 ──
-    std::vector<ShapedGlyph> shapedGlyphsCache_;
-    float cachedFontSize_ = -1.0f;
-    std::string cachedText_;
-    std::string cachedFontPath_;
+    ShapedTextCache textCache_;
     FontMetrics cachedMetrics_;
-    uint32_t cachedAtlasVersion_ = 0;
-    bool needReshapeText(const std::string &fontPath) const;
 };

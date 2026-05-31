@@ -1,4 +1,5 @@
 module;
+#include <vulkan/vulkan.h>
 #include <vector>
 export module kwik.render.vulkan.clip_manager;
 import kwik.core.types;
@@ -12,7 +13,7 @@ import kwik.render.vulkan.context;
 export class ClipManager {
 public:
     ClipManager() = default;
-    void beginFrame();
+    void beginFrame(const VkExtent2D &extent, const VkRect2D &initialScissor);
     void pushClipRoundedRect(VulkanContext &ctx, const Rect &rect, float radius);
     void resetClip(VulkanContext &ctx);
     void saveState();
@@ -33,4 +34,5 @@ private:
     std::vector<std::vector<Rect>> clipSaveStack_;
     float globalAlpha_ = 1.0f;
     std::vector<float> alphaSaveStack_;
+    VkRect2D initialScissor_ = {{0, 0}, {0, 0}};
 };

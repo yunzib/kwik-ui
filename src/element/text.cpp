@@ -30,7 +30,7 @@ Size Text::onMeasure(Constraints constraints) {
     fm.loadFont(fontPath.c_str());
     // ③ 脏检测: 若文本/字号/字体未变, 复用缓存
     if (needReshape(fontPath)) {
-        metricsCache_ = fm.shapeMetrics(text_.text.c_str(), text_.fontSize); // ← 不含 SDF
+        metricsCache_ = fm.shapeMetrics(text_.text.c_str(), text_.fontSize);    // ← 不含 SDF
         cachedAdvance_ = 0;
         for (auto &m : metricsCache_) cachedAdvance_ += m.advanceX;
         cachedMetrics_ = fm.getMetrics(text_.fontSize);
@@ -38,7 +38,7 @@ Size Text::onMeasure(Constraints constraints) {
         cachedText_ = text_.text;
         cachedFontPath_ = fontPath;
         bakedCount_ = 0;
-        shapedGlyphsCache_.clear(); // ← 清空旧 UV
+        shapedGlyphsCache_.clear();    // ← 清空旧 UV
     }
     // 使用缓存的度量信息
     auto sz = constraints.constrain({cachedAdvance_, cachedMetrics_.lineHeight});
@@ -62,11 +62,24 @@ void Text::onDraw(Graphics &graphics) {
     // ── 增量烘焙：每帧最多烤 30 个字形 ──
     const size_t kBatchSize = 30;
     if (bakedCount_ < metricsCache_.size()) {
+        uint32_t startVer = fm.atlasVersion();
         size_t end = std::min(bakedCount_ + kBatchSize, metricsCache_.size());
         float scale = 1.0f;
         for (size_t i = bakedCount_; i < end; i++) {
             auto &m = metricsCache_[i];
             GlyphInfo info = fm.getGlyphInfo(m.glyphIndex, text_.fontSize);
+
+            // ─ 中途 atlas 回绕 → 清空缓存, 同帧从头重试 ─
+            if (fm.atlasVersion() != startVer) {
+                shapedGlyphsCache_.clear();
+                bakedCount_ = 0;
+                // ─ 不在 break 跳出, 而是重置后立即开始新一轮 ─
+                startVer = fm.atlasVersion();    // 记录新版本
+                i = 0;                           // 从头遍历
+                end = std::min(kBatchSize, metricsCache_.size());
+                continue;    // 同帧继续
+            }
+
             ShapedGlyph sg;
             sg.glyphIndex = m.glyphIndex;
             sg.x = m.x + info.bearingX * scale;
@@ -82,13 +95,14 @@ void Text::onDraw(Graphics &graphics) {
             sg.uvBottom = (float)(info.atlasY + info.atlasH) / fm.atlasHeight();
             shapedGlyphsCache_.push_back(sg);
         }
+        // 确定 batch 内全部烘焙成功 (不管是否发生过回绕)
         bakedCount_ = end;
         if (bakedCount_ >= metricsCache_.size()) { cachedAtlasVersion_ = fm.atlasVersion(); }
     }
 
     if (shapedGlyphsCache_.empty()) return;
     graphics.save();
-    graphics.translate(frame.x, frame.y + cachedMetrics_.ascender); // 使用缓存
+    graphics.translate(frame.x, frame.y + cachedMetrics_.ascender);    // 使用缓存
     graphics.drawTextCached(shapedGlyphsCache_, text_.textColor);
     graphics.restore();
 }

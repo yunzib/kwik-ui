@@ -35,7 +35,6 @@ Input::Input(ViewProps vp, InputProps ip) : View(std::move(vp)), input_(std::mov
     }
     if (props.borderWidth == 0) props.borderWidth = 1.0f;
     if (props.borderRadius == 0) props.borderRadius = 4.0f;
-    reshapePlaceholder();
 }
 // ============================================================================
 // onMeasure
@@ -46,10 +45,20 @@ Size Input::onMeasure(Constraints constraints) {
     auto metrics = fm.getMetrics(fs);
     float contentW = 0;
     if (!text_.empty()) {
-        reshapeText();
-        for (auto &g : valueGlyphs_) contentW += g.advanceX;
+        if (!textCache_.valid(text_.c_str(), fs, fm.atlasVersion())) {
+            std::string fp = resolveFontPath();
+            fm.loadFont(fp.c_str());
+            textCache_.set(fm.shapeText(text_.c_str(), fs), text_.c_str(), fs, fm.atlasVersion());
+        }
+        for (auto &g : textCache_.glyphs) contentW += g.advanceX;
     } else if (!input_.placeholder.empty()) {
-        for (auto &g : placeholderGlyphs_) contentW += g.advanceX;
+        if (!placeholderCache_.valid(input_.placeholder.c_str(), fs, fm.atlasVersion())) {
+            std::string fp = resolveFontPath();
+            fm.loadFont(fp.c_str());
+            placeholderCache_.set(fm.shapeText(input_.placeholder.c_str(), fs), input_.placeholder.c_str(), fs,
+                                  fm.atlasVersion());
+        }
+        for (auto &g : placeholderCache_.glyphs) contentW += g.advanceX;
     }
     float w = std::max(contentW + props.padding.horizontal(), fs * 0.75f);
     if (props.width.has_value()) w = std::max(w, *props.width);
@@ -76,18 +85,29 @@ void Input::onDraw(Graphics &graphics) {
     graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
     if (text_.empty()) {
-        reshapePlaceholder();
+        if (!placeholderCache_.valid(input_.placeholder.c_str(), fs, fm.atlasVersion())) {
+            std::string fp = resolveFontPath();
+            fm.loadFont(fp.c_str());
+            placeholderCache_.set(fm.shapeText(input_.placeholder.c_str(), fs), input_.placeholder.c_str(), fs,
+                                  fm.atlasVersion());
+        }
         graphics.save();
         graphics.translate(inner.x, baselineY);
-        graphics.drawTextCached(placeholderGlyphs_, input_.placeholderColor);
+        graphics.drawTextCached(placeholderCache_.glyphs, input_.placeholderColor);
         graphics.restore();
     } else {
-        reshapeText();
+        if (!textCache_.valid(text_.c_str(), fs, fm.atlasVersion())) {
+            std::string fp = resolveFontPath();
+            fm.loadFont(fp.c_str());
+            textCache_.set(fm.shapeText(text_.c_str(), fs), text_.c_str(), fs, fm.atlasVersion());
+        }
         graphics.save();
         graphics.translate(inner.x, baselineY);
-        std::vector<ShapedGlyph> *drawGlyphs = &valueGlyphs_;
+
+        // ─ 密码/普通统一: drawGlyphs 指向实际渲染字形, 供光标计算 ─
+        std::vector<ShapedGlyph> maskedCache;
+        const std::vector<ShapedGlyph> *drawGlyphs;
         if (input_.isPassword) {
-            // 统计 UTF-8 字符数 → 生成等量 ● 掩码
             size_t charCount = 0;
             for (size_t i = 0; i < text_.size();) {
                 unsigned char c = static_cast<unsigned char>(text_[i]);
@@ -103,22 +123,24 @@ void Input::onDraw(Graphics &graphics) {
             }
             std::string masked;
             for (size_t i = 0; i < charCount; i++) masked += "●";
-            maskedGlyphs_ = fm.shapeText(masked.c_str(), fs);
-            drawGlyphs = &maskedGlyphs_;
-            graphics.drawTextCached(maskedGlyphs_, input_.textColor);
+            maskedCache = fm.shapeText(masked.c_str(), fs);
+            graphics.drawTextCached(maskedCache, input_.textColor);
+            drawGlyphs = &maskedCache;
         } else {
-            graphics.drawTextCached(valueGlyphs_, input_.textColor);
+            graphics.drawTextCached(textCache_.glyphs, input_.textColor);
+            drawGlyphs = &textCache_.glyphs;
         }
+
         graphics.restore();
-        // ── 光标 (用 drawGlyphs 计算 advanceX, 密码/普通统一) ──
-        updateCursorBlink();
+
+        // ── 光标 ──
+        if (focused_ && updateCursorBlink()) markDirty();
         if (focused_ && cursorVisible_ && !input_.readOnly) {
             size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
             float cx = inner.x;
             for (size_t i = 0; i < glyphIdx && i < drawGlyphs->size(); i++) { cx += (*drawGlyphs)[i].advanceX; }
             cx = std::max(cx, inner.x);
             cx = std::min(cx, inner.x + inner.width - 1.5f);
-            // 光标高度 = 文字视觉高度, 顶部对齐文字
             float cy = inner.y + (inner.height - textH) / 2.0f;
             graphics.drawRect({cx, cy, 1.5f, textH}, input_.cursorColor);
         }
@@ -181,33 +203,39 @@ bool Input::onEvent(int code, float localX, float localY, JSContext *ctx) {
         }
         insertAtCursor(utf8);
         cursorVisible_ = true;
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
         fireChange(ctx);
-         markDirty();
+        markDirty();
         return true;
     }
     case ViewEventCode::KeyAction: {
         if (!focused_) return false;
         uint32_t vk = static_cast<uint32_t>(localX);
         switch (vk) {
-        case 0x08: // VK_BACK
+        case 0x08:    // VK_BACK
             if (!input_.readOnly) {
                 deleteBeforeCursor();
                 fireChange(ctx);
             }
             break;
-        case 0x2E: // VK_DELETE
+        case 0x2E:    // VK_DELETE
             if (!input_.readOnly) {
                 deleteAfterCursor();
                 fireChange(ctx);
             }
             break;
-        case 0x25: moveCursorLeft(); break;  // VK_LEFT
-        case 0x27: moveCursorRight(); break; // VK_RIGHT
-        case 0x24: cursorToEnd(); break;     // VK_END
-        case 0x23: cursorToHome(); break;    // VK_HOME
+        case 0x25: moveCursorLeft(); break;     // VK_LEFT
+        case 0x27: moveCursorRight(); break;    // VK_RIGHT
+        case 0x24: cursorToEnd(); break;        // VK_END
+        case 0x23: cursorToHome(); break;       // VK_HOME
         }
         cursorVisible_ = true;
-         markDirty();
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        markDirty();
         return true;
     }
     default:
@@ -257,22 +285,7 @@ void Input::cursorToHome() {
 void Input::cursorToEnd() {
     cursorPos_ = text_.size();
 }
-void Input::reshapeText() {
-    if (text_ == cachedText_ && input_.fontSize == cachedFontSize_) return;
-    auto &fm = FontManager::instance();
-    std::string fp = resolveFontPath();
-    fm.loadFont(fp.c_str());
-    valueGlyphs_ = fm.shapeText(text_.c_str(), input_.fontSize);
-    cachedText_ = text_;
-    cachedFontSize_ = input_.fontSize;
-}
-void Input::reshapePlaceholder() {
-    if (input_.placeholder.empty()) return;
-    auto &fm = FontManager::instance();
-    std::string fp = resolveFontPath();
-    fm.loadFont(fp.c_str());
-    placeholderGlyphs_ = fm.shapeText(input_.placeholder.c_str(), input_.fontSize);
-}
+
 std::string Input::resolveFontPath() const {
     return FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
 }
@@ -292,15 +305,18 @@ size_t Input::byteOffsetToGlyphIndex(size_t byteOffset) const {
     }
     return glyphIdx;
 }
-void Input::updateCursorBlink() {
+bool Input::updateCursorBlink() {
     auto now =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
             .count();
     if (now - lastBlinkTime_ > 530) {
         cursorVisible_ = !cursorVisible_;
         lastBlinkTime_ = now;
+        return true;
     }
+    return false;
 }
+
 void Input::fireChange(JSContext *ctx) {
     if (!ctx) return;
     if (js_is_null(handlers.onChange)) return;
@@ -319,7 +335,7 @@ std::string Input::getProperty(const char *name) const {
     if (std::strcmp(name, "fontSize") == 0) return std::to_string(input_.fontSize);
     if (std::strcmp(name, "readOnly") == 0) return input_.readOnly ? "true" : "false";
     if (std::strcmp(name, "isPassword") == 0) return input_.isPassword ? "true" : "false";
-    return View::getProperty(name); // 回退基类
+    return View::getProperty(name);    // 回退基类
 }
 bool Input::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
@@ -347,5 +363,5 @@ bool Input::setProperty(const char *name, const char *value) {
         markDirty();
         return true;
     }
-    return View::setProperty(name, value); // 回退基类
+    return View::setProperty(name, value);    // 回退基类
 }

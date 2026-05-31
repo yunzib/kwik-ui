@@ -31,13 +31,13 @@ export {
      */
     struct ShapedGlyph {
         uint32_t glyphIndex;
-        float x;        // 绘制原点 x (含 bearing 偏移)
-        float y;        // 绘制原点 y (含 bearing 偏移)
-        float advanceX; // 水平步进
-        float width;    // 像素宽度
-        float height;   // 像素高度
-        float bearingX; // 左边距
-        float bearingY; // 上边距
+        float x;           // 绘制原点 x (含 bearing 偏移)
+        float y;           // 绘制原点 y (含 bearing 偏移)
+        float advanceX;    // 水平步进
+        float width;       // 像素宽度
+        float height;      // 像素高度
+        float bearingX;    // 左边距
+        float bearingY;    // 上边距
         // ── 优化: 排版时顺带填充 UV, 避免 drawText 中二次 getGlyphInfo ──
         float uvLeft;
         float uvTop;
@@ -57,13 +57,54 @@ export {
 
     struct GlyphMetrics {
         uint32_t glyphIndex;
-        float x;        // HarfBuzz 排版 x
-        float y;        // HarfBuzz 排版 y
-        float advanceX; // 水平步进
-        float bearingX; // FT_Load_Glyph 获取（无 SDF）
+        float x;           // HarfBuzz 排版 x
+        float y;           // HarfBuzz 排版 y
+        float advanceX;    // 水平步进
+        float bearingX;    // FT_Load_Glyph 获取（无 SDF）
         float bearingY;
     };
 }
+
+/**
+ * @brief 排版字形本地缓存
+ *
+ * 每个 View 组件 持有一个实例。包含 atlas 版本检测，
+ * atlas 回绕后自动失效并触发 Widget 重排。
+ *
+ * 仅缓存一个 text/fontSize 组合，内容变更时原地覆盖，无内存增长。
+ */
+export struct ShapedTextCache {
+    std::vector<ShapedGlyph> glyphs;
+    uint32_t atlasVersion = 0;
+    std::string text;
+    float fontSize = 0;
+
+    /**
+     * @brief 检查缓存是否有效
+     * @param t      期望文本 (nullptr 或空 = 不检查文本)
+     * @param fs     期望字号
+     * @param atlasVer 当前 atlas 版本
+     * @return true 缓存命中
+     */
+    bool valid(const char *t, float fs, uint32_t atlasVer) const {
+        if (glyphs.empty()) return false;    // 首次未填充 → 强制重排
+        if (atlasVersion != atlasVer) return false;
+        if (fontSize != fs) return false;
+        if (t && text != t) return false;
+        return true;
+    }
+
+    /**
+     * @brief 写入缓存
+     */
+    void set(std::vector<ShapedGlyph> &&g, const char *t, float fs, uint32_t atlasVer) {
+        glyphs = std::move(g);
+        text = t ? t : "";
+        fontSize = fs;
+        atlasVersion = atlasVer;
+    }
+};
+
 /**
  * @brief SDF 字形管理器 — 字体加载 / HarfBuzz 排版 / 字形图集
  *
@@ -239,9 +280,9 @@ private:
     };
     // ── 货架分配器 (替换固定格子) ──
     struct ShelfRow {
-        uint32_t y;         // 本行在 atla 中的 Y 起点
-        uint32_t nextX;     // 下一个可用 X
-        uint32_t rowHeight; // 本行最大字形高度
+        uint32_t y;            // 本行在 atla 中的 Y 起点
+        uint32_t nextX;        // 下一个可用 X
+        uint32_t rowHeight;    // 本行最大字形高度
     };
 
     // ── 图集常量 ──
@@ -261,7 +302,7 @@ private:
     uint32_t atlasDirtyMaxRow_ = 0;
     // ── 字形缓存 ──
     std::unordered_map<GlyphKey, GlyphInfo, GlyphKeyHash> glyphCache_;
-    uint32_t atlasVersion_ = 0; // 绕回时递增, Text 用它检测 UV 失效
+    uint32_t atlasVersion_ = 0;    // 绕回时递增, Text 用它检测 UV 失效
     std::vector<ShelfRow> shelves_;
-    uint32_t shelfCurrentY_ = 0; // 无可匹配货架时, 新行的 Y 起点
+    uint32_t shelfCurrentY_ = 0;    // 无可匹配货架时, 新行的 Y 起点
 };

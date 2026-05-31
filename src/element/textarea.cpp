@@ -178,11 +178,14 @@ void TextArea::moveCursorDown() {
 void TextArea::focus() {
     focused_ = true;
     cursorVisible_ = true;
-     markDirty();
+    lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::high_resolution_clock::now().time_since_epoch())
+                         .count();
+    markDirty();
 }
 void TextArea::blur() {
     focused_ = false;
-     markDirty();
+    markDirty();
 }
 void TextArea::setValue(const std::string &val) {
     text_ = val;
@@ -200,21 +203,20 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
         if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (size_t)props_.maxLength) return true;
         insertAtCursor(cp == '\n' ? "\n" : codepointToUtf8(cp));
         cursorVisible_ = true;
-         markDirty();
+        lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::high_resolution_clock::now().time_since_epoch())
+                             .count();
+        markDirty();
         return true;
     }
     if (code == ViewEventCode::KeyAction) {
         int vk = (int)localX;
         switch (vk) {
         case 0x08:
-            if (!props_.readOnly) {
-                deleteBeforeCursor();
-            }
+            if (!props_.readOnly) { deleteBeforeCursor(); }
             break;
         case 0x2E:
-            if (!props_.readOnly) {
-                deleteAfterCursor();
-            }
+            if (!props_.readOnly) { deleteAfterCursor(); }
             break;
         case 0x25: moveCursorLeft(); break;
         case 0x27: moveCursorRight(); break;
@@ -224,10 +226,14 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
         case 0x23: cursorBytePos_ = 0; break;               // Home
         }
         cursorVisible_ = true;
-         markDirty();
+        lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::high_resolution_clock::now().time_since_epoch())
+                             .count();
+        markDirty();
         return true;
     }
-    if (code == ViewEventCode::Tap || code == ViewEventCode::PressBegin) {
+    // if (code == ViewEventCode::Tap || code == ViewEventCode::PressBegin) {
+    if (code == ViewEventCode::Tap) {
         focus();
         return true;
     }
@@ -247,12 +253,13 @@ void TextArea::onDraw(Graphics &graphics) {
     graphics.clipRoundedRect(inner, props.borderRadius);
     // ── 占位符 ────────────────────────────────────────
     if (text_.empty() && !props_.placeholder.empty()) {
-        if (placeholderGlyphs_.empty()) {
-            placeholderGlyphs_ = fm.shapeText(props_.placeholder.c_str(), props_.fontSize);
+        if (!placeholderCache_.valid(props_.placeholder.c_str(), props_.fontSize, fm.atlasVersion())) {
+            placeholderCache_.set(fm.shapeText(props_.placeholder.c_str(), props_.fontSize), props_.placeholder.c_str(),
+                                  props_.fontSize, fm.atlasVersion());
         }
         graphics.save();
         graphics.translate(inner.x, inner.y + fmtr.ascender);
-        graphics.drawTextCached(placeholderGlyphs_, props_.placeholderColor);
+        graphics.drawTextCached(placeholderCache_.glyphs, props_.placeholderColor);
         graphics.restore();
     } else {
         // ── 逐行换行渲染 (硬换行 + 宽度软换行) ──────────
@@ -297,7 +304,7 @@ void TextArea::onDraw(Graphics &graphics) {
     }
     // ── 光标 ──────────────────────────────────────────
     if (focused_ && !props_.readOnly) {
-        updateCursorBlink();
+        if (updateCursorBlink()) markDirty();
         if (cursorVisible_) {
             int line = 0, col = 0;
             cursorLineCol(line, col);
@@ -321,14 +328,16 @@ void TextArea::onDraw(Graphics &graphics) {
 // ════════════════════════════════════════════════════════
 // updateCursorBlink — ~530ms 周期闪烁
 // ════════════════════════════════════════════════════════
-void TextArea::updateCursorBlink() {
+bool TextArea::updateCursorBlink() {
     auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::high_resolution_clock::now().time_since_epoch())
                    .count();
     if (now - lastBlinkTime_ > 530) {
         cursorVisible_ = !cursorVisible_;
         lastBlinkTime_ = now;
+        return true;
     }
+    return false;
 }
 // ════════════════════════════════════════════════════════
 // fireChange — 调用 JS onChange 回调
