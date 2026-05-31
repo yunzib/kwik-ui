@@ -173,9 +173,34 @@ public:
         needsRedraw_ = true;
     }
 
+    /**
+     * @brief 延迟脏标记 (在 onDraw 中调用, 不影响当前帧的 skip 逻辑)
+     * @param r 脏区域
+     *
+     * 与 add() 的区别: 存入独立缓冲区, 不改变 current() 的返回值。
+     * 由 flushDeferred() 在 frame 结束后统一合并到主 dirtyRect_。
+     */
+    void addDeferred(Rect r) {
+        if (deferred_.isEmpty())
+            deferred_ = r;
+        else
+            deferred_ = deferred_.unionRect(r);
+        needsRedraw_ = true;
+    }
+    /**
+     * @brief 合并所有延迟脏标记到主 dirtyRect_ (在 renderFrame 末尾调用)
+     */
+    void flushDeferred() {
+        if (!deferred_.isEmpty()) {
+            dirtyRect_ = dirtyRect_.isEmpty() ? deferred_ : dirtyRect_.unionRect(deferred_);
+            deferred_ = {};
+        }
+    }
+
 private:
     Rect dirtyRect_ = {};
     bool needsRedraw_ = true;    // 首帧默认全画
+    Rect deferred_ = {};
 };
 
 // ============================================================================
@@ -421,6 +446,17 @@ protected:
     void addDirtyRect(Rect r) {
         dirty_ = true;
         if (tracker_ && !r.isEmpty()) tracker_->add(r);
+    }
+
+    /**
+     * @brief 延迟脏标记 (onDraw 内调用, 不影响当前帧 skip 逻辑)
+     *
+     * 将 frame 加入 deferred 缓冲区, 在 renderFrame 末尾 flushDeferred 合并。
+     * 与 markDirty() 的区别: 不修改 tracker_->current(), 不导致当前帧后续 Widget 被跳过。
+     */
+    void markDirtyDeferred() {
+        dirty_ = true;
+        if (tracker_ && !frame.isEmpty()) tracker_->addDeferred(frame);
     }
 
 private:

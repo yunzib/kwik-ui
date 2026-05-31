@@ -304,7 +304,8 @@ void TextArea::onDraw(Graphics &graphics) {
     }
     // ── 光标 ──────────────────────────────────────────
     if (focused_ && !props_.readOnly) {
-        if (updateCursorBlink()) markDirty();
+        if (updateCursorBlink()) markDirtyDeferred();
+
         if (cursorVisible_) {
             int line = 0, col = 0;
             cursorLineCol(line, col);

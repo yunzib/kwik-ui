@@ -96,7 +96,7 @@ bool Application::init() {
         return false;
     }
 
-    setTracker(tree_.get(), &dirtyTracker_);     // ─ 注入脏矩形追踪器 ─
+    setTracker(tree_.get(), &dirtyTracker_);    // ─ 注入脏矩形追踪器 ─
 
     jsCtx_.setUserPointer(tree_.get());
 
@@ -149,8 +149,8 @@ void Application::rebuildTree() {
     eventProc_.setRootTree(tree_.get());
     eventProc_.reset();
     jsCtx_.clearRenderFlag();
-    focusedView_ = nullptr;    //  旧树已销毁，清空野指针
-    dirtyTracker_.markFull();           // ─ 重建后下帧全屏重绘 ─
+    focusedView_ = nullptr;      //  旧树已销毁，清空野指针
+    dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
 }
 
 // ============================================================================
@@ -158,10 +158,8 @@ void Application::rebuildTree() {
 // ============================================================================
 void Application::renderFrame() {
     float dpi = window_.GetDpiScale();
-    Rect dr = dirtyTracker_.consume();          // 取走脏矩形 (逻辑坐标)
-    // 临时诊断日志
-    Log::info("Render dirty rect: x={:.0f} y={:.0f} w={:.0f} h={:.0f} empty={}", 
-              dr.x, dr.y, dr.width, dr.height, dr.isEmpty());
+    Rect dr = dirtyTracker_.consume();    // 取走脏矩形 (逻辑坐标)
+   
     if (dr.isEmpty()) {
         int w, h;
         window_.GetSize(&w, &h);
@@ -176,7 +174,8 @@ void Application::renderFrame() {
     // ─ 只清空脏区域 — 非脏区域由 canvas 持久保留 ─
     canvas.drawRect(dr, Color::white());
 
-    tree_->draw(canvas);                   // View::draw 内部跳过干净子树
+    tree_->draw(canvas);              // View::draw 内部跳过干净子树
+    dirtyTracker_.flushDeferred();    // 合并 onDraw 中的延迟脏标记
     canvas.endFrame();
 
     // ─ 转换为物理像素坐标传递渲染线程 ─
@@ -275,7 +274,7 @@ int Application::run() {
                 auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
                 relayoutTree(sz);
                 eventProc_.reset();
-                 dirtyTracker_.markFull();
+                dirtyTracker_.markFull();
             }
             return;
         }
@@ -290,7 +289,7 @@ int Application::run() {
     int frameCount = 0;
     Log::info("渲染循环已启动");
 
-     while (running_) {
+    while (running_) {
         window_.PollEvents();
 
         if (jsCtx_.isRenderNeeded()) rebuildTree();

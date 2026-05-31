@@ -134,7 +134,9 @@ void Input::onDraw(Graphics &graphics) {
         graphics.restore();
 
         // ── 光标 ──
-        if (focused_ && updateCursorBlink()) markDirty();
+        if (focused_ && updateCursorBlink()) {
+            markDirtyDeferred();
+        }
         if (focused_ && cursorVisible_ && !input_.readOnly) {
             size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
             float cx = inner.x;
