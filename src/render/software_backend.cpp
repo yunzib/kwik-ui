@@ -29,12 +29,12 @@ void SoftwareBackend::shutdown() {
     pixelBuffer_.clear();
 }
 
-void SoftwareBackend::resize(int width, int height) {
-    if (width_ == width && height_ == height) { return; }
-    width_ = width;
-    height_ = height;
-    pixelBuffer_.resize(width * height);
-}
+// void SoftwareBackend::resize(int width, int height) {
+//     if (width_ == width && height_ == height) { return; }
+//     width_ = width;
+//     height_ = height;
+//     pixelBuffer_.resize(width * height);
+// }
 
 // bool SoftwareBackend::beginFrame() {
 //     // 软件渲染不需要特殊处理

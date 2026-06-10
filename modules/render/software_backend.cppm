@@ -19,7 +19,7 @@ public:
 
     bool initialize(void *nativeHandle, int width, int height) override;
     void shutdown() override;
-    void resize(int width, int height) override;
+    // void resize(int width, int height) override;
     // bool beginFrame() override;
     void endFrame() override;
     void present() override;

@@ -3,28 +3,26 @@ module;
 #include <unordered_map>
 export module kwik.render.vulkan.image_renderer;
 import kwik.core.types;
-import kwik.render.vulkan.context;
 import kwik.render.command;
-/**
- * @brief 图片渲染器 — 独立纹理管线 (mipmap 自动生成)
- *
- * 复用 GlyphPushConstants(56 byte) 布局。
- * 每张纹理拥有独立的 VkImage / VkImageView / VkSampler / VkDescriptorSet。
- */
+import kwik.render.vulkan.context;
+
 export class ImageRenderer {
 public:
     ImageRenderer() = default;
     ~ImageRenderer();
-    bool create(VulkanContext &ctx);
+    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass,
+                VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
-    uint32_t createTexture(VulkanContext &ctx, const uint8_t *rgba, uint32_t width, uint32_t height);
+
+    uint32_t createTexture(const DeviceContext &dc, const uint8_t *rgba, uint32_t w, uint32_t h);
     void destroyTexture(uint32_t id);
-    void drawImage(VulkanContext &ctx, const DrawImageCmd &cmd, float globalAlpha);
-    void drawImageClipped(VulkanContext &ctx, const DrawImageCmd &cmd,
-                          float globalAlpha); // ← 新增: stencil 测试版
+    void drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha);
+    void drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha);
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;
+    VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
+    VkBuffer indexBuffer_ = VK_NULL_HANDLE;
     VkPipeline imagePipeline_ = VK_NULL_HANDLE;
     VkPipeline imageClipPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;

@@ -3,29 +3,27 @@ module;
 #include <vector>
 export module kwik.render.vulkan.glyph_renderer;
 import kwik.core.types;
-import kwik.render.vulkan.context;
 import kwik.render.command;
-/**
- * @brief 文字渲染器 — SDF 字形管线和图集
- *
- * 2048x2048 R8_UNORM 图集，GlyphPushConstants(56 byte) 布局。
- * 图集上传通过一次性命令提交，独立于主渲染通道。
- */
+import kwik.render.vulkan.context;
+
 export class GlyphRenderer {
 public:
     GlyphRenderer() = default;
     ~GlyphRenderer();
-    bool create(VulkanContext &ctx);
+    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass,
+                VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
-    void uploadAtlas(VulkanContext &ctx, const uint8_t *data, uint32_t width, uint32_t height);
-    void drawGlyph(VulkanContext &ctx, const DrawGlyphCmd &cmd, float globalAlpha);
-    void drawGlyphClipped(VulkanContext &ctx, const DrawGlyphCmd &cmd,
-                          float globalAlpha); // ← 新增: stencil 测试版
+
+    void uploadAtlas(const DeviceContext &dc, const uint8_t *data, uint32_t width, uint32_t height);
+    void drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
+    void drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;
+    VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
+    VkBuffer indexBuffer_ = VK_NULL_HANDLE;
     VkPipeline glyphPipeline_ = VK_NULL_HANDLE;
-    VkPipeline glyphClipPipeline_ = VK_NULL_HANDLE; // ← 新增: stencil 测试版
+    VkPipeline glyphClipPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout glyphPipelineLayout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout glyphDescSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool glyphDescPool_ = VK_NULL_HANDLE;

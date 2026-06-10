@@ -11,6 +11,9 @@ import kwik.render.vulkan.glyph_renderer;
 import kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.clip_manager;
 import kwik.core.types;
+
+import std;
+
 /**
  * @brief Vulkan 渲染后端聚合层
  *
@@ -20,12 +23,11 @@ import kwik.core.types;
 export class VulkanBackend : public RenderBackend {
 public:
     VulkanBackend() = default;
-    VulkanBackend(int width, int height);
     ~VulkanBackend() override;
     bool initialize(void *nativeHandle, int width, int height) override;
     void shutdown() override;
-    void resize(int width, int height) override;
-    bool beginFrame(const Rect &dirtyRect) override;    // dirtyRect 为物理像素坐标
+    bool resize(int width, int height) override;    // 返回 bool
+    bool beginFrame(const Rect &dirtyRect) override;
     void endFrame() override;
     void present() override;
     // 形状
@@ -58,11 +60,13 @@ public:
     }
 
 private:
-    int width_ = 0;
-    int height_ = 0;
     VulkanContext ctx_;
     RectRenderer rect_;
     GlyphRenderer glyph_;
     ImageRenderer image_;
     ClipManager clip_;
+    std::optional<FrameToken> currentToken_;
+    DeviceContext deviceCtx_;
+    int width_ = 0;
+    int height_ = 0;
 };

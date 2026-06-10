@@ -9,32 +9,34 @@ import kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.clip_manager;
 import kwik.render.command;
 import kwik.core.types;
-
 import std;
 
-VulkanBackend::VulkanBackend(int w, int h) : width_(w), height_(h) {
-}
 VulkanBackend::~VulkanBackend() {
-    // ── 确保所有 GPU 命令在子模块销毁前完成 ──
     if (ctx_.device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_.device()); }
 }
 // ================================================================
-// 初始化 / 关闭
+// initialize — 初始化 Context + 子渲染器
 // ================================================================
 bool VulkanBackend::initialize(void *native, int w, int h) {
-    width_ = w;
-    height_ = h;
     if (!ctx_.initialize(native, w, h)) return false;
-    if (!rect_.create(ctx_)) {
+
+    deviceCtx_ = DeviceContext{
+        .device = ctx_.device(),
+        .physicalDevice = ctx_.physicalDevice(),
+        .commandPool = ctx_.commandPool(),
+        .queue = ctx_.graphicsQueue(),
+    };
+
+    if (!rect_.create(ctx_.device(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         ctx_.shutdown();
         return false;
     }
-    if (!glyph_.create(ctx_)) {
+    if (!glyph_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         rect_.destroy();
         ctx_.shutdown();
         return false;
     }
-    if (!image_.create(ctx_)) {
+    if (!image_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         glyph_.destroy();
         rect_.destroy();
         ctx_.shutdown();
@@ -43,122 +45,106 @@ bool VulkanBackend::initialize(void *native, int w, int h) {
     return true;
 }
 void VulkanBackend::shutdown() {
-    // vkDeviceWaitIdle 已由析构函数保证，此处可保留为显式调用场景的防御
-    if (ctx_.device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_.device()); }
+    if (ctx_.device() != VK_NULL_HANDLE) vkDeviceWaitIdle(ctx_.device());
     image_.destroy();
     glyph_.destroy();
     rect_.destroy();
     ctx_.shutdown();
 }
-void VulkanBackend::resize(int w, int h) {
-    width_ = w;
-    height_ = h;
-    ctx_.resize(w, h);
+bool VulkanBackend::resize(int w, int h) {
+    return ctx_.resize(w, h);
 }
 // ================================================================
-// 帧控制
+// beginFrame — 获取 FrameToken + 设置裁剪初始状态
 // ================================================================
 bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
-    if (!ctx_.beginFrame(dirtyRect)) return false;
-    VkRect2D initSc = {
-        {std::max(0, (int32_t)dirtyRect.x), std::max(0, (int32_t)dirtyRect.y)},
-        {std::max(1u, (uint32_t)std::ceil(dirtyRect.width)), std::max(1u, (uint32_t)std::ceil(dirtyRect.height))}};
-    clip_.beginFrame(ctx_.extent(), initSc);
+    auto token = ctx_.beginFrame();
+    if (!token) return false;
+    currentToken_ = std::move(token);
+
+    int32_t sx = std::max(0, static_cast<int32_t>(dirtyRect.x));
+    int32_t sy = std::max(0, static_cast<int32_t>(dirtyRect.y));
+    uint32_t sw = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.width)));
+    uint32_t sh = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.height)));
+    VkRect2D sc{{sx, sy}, {sw, sh}};
+    vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
+
+    clip_.beginFrame(currentToken_->extent, sc);
     return true;
 }
 void VulkanBackend::endFrame() {
-    // ─ 所有 DrawGlyphCmd 已录制, 后置 atlas 上传确保中帧烘焙字形可见 ─
     auto &fm = FontManager::instance();
     if (fm.atlasDirty()) {
-        glyph_.uploadAtlas(ctx_, fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
+        glyph_.uploadAtlas(deviceCtx_, fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
         fm.clearAtlasDirty();
     }
     ctx_.endFrame();
 }
 void VulkanBackend::present() {
     ctx_.present();
+    currentToken_.reset();
 }
 // ================================================================
-// 委托
+// 委托 — 全部通过 currentToken_ 获取 Vulkan 句柄
 // ================================================================
 void VulkanBackend::clear(const Color &c) {
-    rect_.clear(ctx_, c);
+    rect_.clear(currentToken_->commandBuffer, currentToken_->extent, c);
 }
 void VulkanBackend::fillRect(const Rect &r, const Color &c) {
-    rect_.fillRect(ctx_, r, c);
+    rect_.fillRect(currentToken_->commandBuffer, currentToken_->extent, r, c);
 }
 void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c) {
-    rect_.fillRoundedRect(ctx_, r, rad, c, clip_.globalAlpha());
+    rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, clip_.globalAlpha());
 }
 void VulkanBackend::strokeRoundedRect(const Rect &r, float rad, const Color &c, float sw) {
-    rect_.strokeRoundedRect(ctx_, r, rad, c, sw, clip_.globalAlpha());
+    rect_.strokeRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, sw, clip_.globalAlpha());
 }
 void VulkanBackend::drawShadow(const Rect &r, float rad, const Shadow &s) {
-    rect_.drawShadow(ctx_, r, rad, s, clip_.globalAlpha());
+    rect_.drawShadow(currentToken_->commandBuffer, currentToken_->extent, r, rad, s, clip_.globalAlpha());
 }
-// ================================================================
-// drawGlyph — 根据裁剪状态选择管线
-// ================================================================
 void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
     if (clip_.level() > 0) {
-        glyph_.drawGlyphClipped(ctx_, cmd, clip_.globalAlpha());
+        glyph_.drawGlyphClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     } else {
-        glyph_.drawGlyph(ctx_, cmd, clip_.globalAlpha());
+        glyph_.drawGlyph(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     }
 }
 void VulkanBackend::uploadGlyphAtlas(const uint8_t *d, uint32_t w, uint32_t h) {
-    glyph_.uploadAtlas(ctx_, d, w, h);
+    glyph_.uploadAtlas(deviceCtx_, d, w, h);
 }
-// ================================================================
-// drawImage — 根据裁剪状态选择管线
-// ================================================================
 void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
     if (clip_.level() > 0) {
-        image_.drawImageClipped(ctx_, cmd, clip_.globalAlpha());
+        image_.drawImageClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     } else {
-        image_.drawImage(ctx_, cmd, clip_.globalAlpha());
+        image_.drawImage(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     }
 }
 uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
-    return image_.createTexture(ctx_, rgba, w, h);
+    return image_.createTexture(deviceCtx_, rgba, w, h);
 }
 void VulkanBackend::destroyImageTexture(uint32_t id) {
     image_.destroyTexture(id);
 }
-// ================================================================
-// pushClipRoundedRect — 第一层圆角裁剪写入 stencil mask
-// ================================================================
 void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad) {
     if (clip_.level() == 0) {
-        // ── 仅当尚无活跃裁剪时写入 stencil (单层 stencil MVP) ──
-        // 1. 写 stencil=mask: 用 fill shader 将圆角矩形写入 stencil bit=1
-        vkCmdSetStencilReference(ctx_.commandBuffer(), VK_STENCIL_FACE_FRONT_AND_BACK, 1);
-        vkCmdSetStencilWriteMask(ctx_.commandBuffer(), VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
-        rect_.writeStencilMask(ctx_, r, rad);
-        // 2. 启用 stencil 测试: 后续子元素绘制仅 stencil==1 处通过
-        vkCmdSetStencilCompareMask(ctx_.commandBuffer(), VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
-        vkCmdSetStencilReference(ctx_.commandBuffer(), VK_STENCIL_FACE_FRONT_AND_BACK, 1);
+        vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
+        vkCmdSetStencilWriteMask(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
+        rect_.writeStencilMask(currentToken_->commandBuffer, currentToken_->extent, r, rad);
+        vkCmdSetStencilCompareMask(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
+        vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
     }
-    // 3. 记录裁剪状态 (无论是否为第一层都要调, 保持 save/restore 栈一致)
-    clip_.pushClipRoundedRect(ctx_, r, rad);
+    clip_.pushClipRoundedRect(currentToken_->commandBuffer, r, rad);
 }
-// ================================================================
-// resetClip — 最后一层裁剪解除时关闭 stencil 测试
-// ================================================================
 void VulkanBackend::resetClip() {
-    clip_.resetClip(ctx_);
-    if (clip_.level() == 0) {
-        // ── 裁剪栈为空 → 关闭 stencil 测试 ──
-        rect_.disableStencilTest(ctx_);
-    }
+    clip_.resetClip(currentToken_->commandBuffer);
+    if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
 }
 void VulkanBackend::saveState() {
     clip_.saveState();
 }
 void VulkanBackend::restoreState() {
-    clip_.restoreState(ctx_);
-    // ── 裁剪栈恢复后若为空 → 关闭 stencil 测试 ──
-    if (clip_.level() == 0) { rect_.disableStencilTest(ctx_); }
+    clip_.restoreState(currentToken_->commandBuffer);
+    if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
 }
 void VulkanBackend::setGlobalAlpha(float a) {
     clip_.setGlobalAlpha(a);

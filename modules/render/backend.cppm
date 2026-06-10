@@ -44,7 +44,7 @@ public:
     /**
      * @brief 调整渲染尺寸
      */
-    virtual void resize(int width, int height) = 0;
+    virtual bool resize(int width, int height) = 0;
 
     /**
      * @brief 开始一帧渲染

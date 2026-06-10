@@ -47,7 +47,7 @@ void GlyphRenderer::destroy() {
         vkDestroyPipeline(device_, glyphPipeline_, nullptr);
         glyphPipeline_ = VK_NULL_HANDLE;
     }
-    if (glyphClipPipeline_ != VK_NULL_HANDLE) { // ← 新增
+    if (glyphClipPipeline_ != VK_NULL_HANDLE) {
         vkDestroyPipeline(device_, glyphClipPipeline_, nullptr);
         glyphClipPipeline_ = VK_NULL_HANDLE;
     }
@@ -59,8 +59,12 @@ void GlyphRenderer::destroy() {
 // ================================================================
 // create — glyph 管线 + 2048x2048 R8_UNORM 图集
 // ================================================================
-bool GlyphRenderer::create(VulkanContext &ctx) {
-    device_ = ctx.device();
+bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
+                           VkRenderPass renderPass,
+                           VkBuffer vertexBuffer, VkBuffer indexBuffer) {
+    device_      = device;
+    vertexBuffer_ = vertexBuffer;
+    indexBuffer_  = indexBuffer;
     VkShaderModule glyphVert =
         VulkanContext::createShaderModule(device_, kwik::shader::kGlyphVert, kwik::shader::kGlyphVertSize);
     VkShaderModule glyphFrag =
@@ -94,11 +98,10 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
         vkDestroyShaderModule(device_, glyphVert, nullptr);
         return false;
     }
+    // 管线 stages / 输入 / 视口 / 光栅化 / 混合
     VkPipelineShaderStageCreateInfo stages[] = {
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, glyphVert,
-         "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, glyphFrag,
-         "main"},
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, glyphVert, "main"},
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, glyphFrag, "main"},
     };
     VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
@@ -115,7 +118,7 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;  // ─ canvas 1x, 不再取 ctx ─
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
     ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -129,7 +132,6 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     blend.attachmentCount = 1;
     blend.pAttachments = &ba;
-    // ── Dynamic states (含 stencil 动态控制) ─────────────
     VkDynamicState dynStates[] = {
         VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
@@ -138,7 +140,6 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
     dyn.dynamicStateCount = 5;
     dyn.pDynamicStates = dynStates;
-    // ── Depth / Stencil — stencil 测试启用, 不写入 ───────
     VkStencilOpState stencilNoWrite{};
     stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
     stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
@@ -161,23 +162,22 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     pipeInfo.pColorBlendState = &blend;
     pipeInfo.pDynamicState = &dyn;
     pipeInfo.layout = glyphPipelineLayout_;
-    pipeInfo.renderPass = ctx.renderPass();
+    pipeInfo.renderPass = renderPass;
     pipeInfo.subpass = 0;
-    pipeInfo.pDepthStencilState = &ds; // ← 绑定 stencil 测试
-    bool ok = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphPipeline_) == VK_SUCCESS;
+    pipeInfo.pDepthStencilState = &ds;
+    bool ok = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr,
+                                        &glyphPipeline_) == VK_SUCCESS;
     if (!ok) {
         vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
         vkDestroyShaderModule(device_, glyphFrag, nullptr);
         vkDestroyShaderModule(device_, glyphVert, nullptr);
         return false;
     }
-    // ── 创建 glyph stencil 测试变体管线 (同 shader, 追加 stencil 测试) ──
+    // ── Stencil 测试变体管线 ─────────────────────────────
     {
         VkDynamicState clipDynStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_STENCIL_REFERENCE,
-            VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+            VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
             VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
         };
         VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -198,7 +198,6 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
         pipeInfo.pDepthStencilState = &dsClip;
         vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphClipPipeline_);
     }
-
     vkDestroyShaderModule(device_, glyphFrag, nullptr);
     vkDestroyShaderModule(device_, glyphVert, nullptr);
     if (!ok) {
@@ -219,16 +218,15 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     imgInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     if (vkCreateImage(device_, &imgInfo, nullptr, &glyphAtlasImage_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     VkMemoryRequirements mr;
     vkGetImageMemoryRequirements(device_, glyphAtlasImage_, &mr);
     VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
-                            ctx.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+                            VulkanContext::findMemoryType(physDevice, mr.memoryTypeBits,
+                                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
     if (vkAllocateMemory(device_, &ai, nullptr, &glyphAtlasMemory_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0);
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -237,8 +235,7 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     vi.format = VK_FORMAT_R8_UNORM;
     vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     if (vkCreateImageView(device_, &vi, nullptr, &glyphAtlasView_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     VkSamplerCreateInfo si{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     si.magFilter = VK_FILTER_LINEAR;
@@ -247,20 +244,17 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     si.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     if (vkCreateSampler(device_, &si, nullptr, &glyphAtlasSampler_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     // Descriptor pool
     VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
-
     VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     pi.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pi.poolSizeCount = 1;
     pi.pPoolSizes = &ps;
     pi.maxSets = 1;
     if (vkCreateDescriptorPool(device_, &pi, nullptr, &glyphDescPool_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     // Descriptor set
     VkDescriptorSetAllocateInfo sa{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
@@ -268,8 +262,7 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
     sa.descriptorSetCount = 1;
     sa.pSetLayouts = &glyphDescSetLayout_;
     if (vkAllocateDescriptorSets(device_, &sa, &glyphDescSet_) != VK_SUCCESS) {
-        destroy();
-        return false;
+        destroy(); return false;
     }
     VkDescriptorImageInfo di{glyphAtlasSampler_, glyphAtlasView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -284,38 +277,39 @@ bool GlyphRenderer::create(VulkanContext &ctx) {
 // ================================================================
 // drawGlyph
 // ================================================================
-void GlyphRenderer::drawGlyph(VulkanContext &ctx, const DrawGlyphCmd &cmd, float globalAlpha) {
-    VkCommandBuffer cb = ctx.commandBuffer();
+void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent,
+                              const DrawGlyphCmd &cmd, float globalAlpha) {
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipeline_);
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,
-                            nullptr);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_,
+                            0, 1, &glyphDescSet_, 0, nullptr);
     GlyphPushConstants pc{};
-    pc.posX = cmd.x;
-    pc.posY = cmd.y;
+    pc.posX  = cmd.x;
+    pc.posY  = cmd.y;
     pc.sizeX = cmd.width;
     pc.sizeY = cmd.height;
-    pc.uvU0 = cmd.uvLeft;
-    pc.uvV0 = cmd.uvTop;
-    pc.uvU1 = cmd.uvRight;
-    pc.uvV1 = cmd.uvBottom;
+    pc.uvU0  = cmd.uvLeft;
+    pc.uvV0  = cmd.uvTop;
+    pc.uvU1  = cmd.uvRight;
+    pc.uvV1  = cmd.uvBottom;
     pc.colorR = cmd.color.r / 255.f;
     pc.colorG = cmd.color.g / 255.f;
     pc.colorB = cmd.color.b / 255.f;
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
-    pc.viewportW = (float)ctx.extent().width;
-    pc.viewportH = (float)ctx.extent().height;
-    vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    vkCmdPushConstants(cb, glyphPipelineLayout_,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;
-    VkBuffer vb = ctx.vertexBuffer();
-    vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
-    vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);
+    vkCmdBindIndexBuffer(cb, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }
 // ================================================================
 // uploadAtlas — 增量上传脏区域到 glyph atlas
 // ================================================================
-void GlyphRenderer::uploadAtlas(VulkanContext &ctx, const uint8_t *data, uint32_t width, uint32_t height) {
+void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
+                                const uint8_t *data, uint32_t width, uint32_t height) {
     auto &fm = FontManager::instance();
     uint32_t dirtyMin = fm.atlasDirtyMinRow();
     uint32_t dirtyMax = fm.atlasDirtyMaxRow();
@@ -325,26 +319,28 @@ void GlyphRenderer::uploadAtlas(VulkanContext &ctx, const uint8_t *data, uint32_
     }
     uint32_t dirtyH = dirtyMax - dirtyMin;
     VkDeviceSize size = (VkDeviceSize)width * dirtyH;
-    // Staging buffer
+    // ── Staging buffer ──
     VkBuffer staging;
     VkDeviceMemory stagingMem;
-    if (!ctx.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging,
-                          stagingMem)) {
+    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
+                                     size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                                     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     staging, stagingMem)) {
         std::print("uploadGlyphAtlas: createBuffer failed\n");
         return;
     }
     void *mapped;
-    vkMapMemory(device_, stagingMem, 0, size, 0, &mapped);
+    vkMapMemory(dc.device, stagingMem, 0, size, 0, &mapped);
     std::memcpy(mapped, data + dirtyMin * width, (size_t)size);
-    vkUnmapMemory(device_, stagingMem);
-    // One-time command
+    vkUnmapMemory(dc.device, stagingMem);
+    // ── One-time command ──
     VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    cai.commandPool = ctx.commandPool();
+    cai.commandPool = dc.commandPool;
     cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cai.commandBufferCount = 1;
     VkCommandBuffer cmd;
-    vkAllocateCommandBuffers(device_, &cai, &cmd);
+    vkAllocateCommandBuffers(dc.device, &cai, &cmd);
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
@@ -359,62 +355,63 @@ void GlyphRenderer::uploadAtlas(VulkanContext &ctx, const uint8_t *data, uint32_
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                         0, nullptr, 0, nullptr, 1, &barrier);
     // Copy dirty rows
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
     region.imageOffset = {0, (int32_t)dirtyMin, 0};
     region.imageExtent = {width, dirtyH, 1};
-    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     // TRANSFER_DST → SHADER_READ_ONLY
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrier);
-    // Submit + wait
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                         0, nullptr, 0, nullptr, 1, &barrier);
     vkEndCommandBuffer(cmd);
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
     si.commandBufferCount = 1;
     si.pCommandBuffers = &cmd;
-    vkQueueSubmit(ctx.graphicsQueue(), 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(ctx.graphicsQueue());
-    vkFreeCommandBuffers(device_, ctx.commandPool(), 1, &cmd);
-    vkDestroyBuffer(device_, staging, nullptr);
-    vkFreeMemory(device_, stagingMem, nullptr);
+    vkQueueSubmit(dc.queue, 1, &si, VK_NULL_HANDLE);
+    vkQueueWaitIdle(dc.queue);
+    vkFreeCommandBuffers(dc.device, dc.commandPool, 1, &cmd);
+    vkDestroyBuffer(dc.device, staging, nullptr);
+    vkFreeMemory(dc.device, stagingMem, nullptr);
 }
-
 // ================================================================
-// drawGlyphClipped — stencil 测试版 (裁剪区域内使用)
+// drawGlyphClipped — stencil 测试版
 // ================================================================
-void GlyphRenderer::drawGlyphClipped(VulkanContext &ctx, const DrawGlyphCmd &cmd, float globalAlpha) {
-    VkCommandBuffer cb = ctx.commandBuffer();
-    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphClipPipeline_); // ← 唯一差异
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,
-                            nullptr);
+void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent,
+                                     const DrawGlyphCmd &cmd, float globalAlpha) {
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphClipPipeline_);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_,
+                            0, 1, &glyphDescSet_, 0, nullptr);
     GlyphPushConstants pc{};
-    pc.posX = cmd.x;
-    pc.posY = cmd.y;
+    pc.posX  = cmd.x;
+    pc.posY  = cmd.y;
     pc.sizeX = cmd.width;
     pc.sizeY = cmd.height;
-    pc.uvU0 = cmd.uvLeft;
-    pc.uvV0 = cmd.uvTop;
-    pc.uvU1 = cmd.uvRight;
-    pc.uvV1 = cmd.uvBottom;
+    pc.uvU0  = cmd.uvLeft;
+    pc.uvV0  = cmd.uvTop;
+    pc.uvU1  = cmd.uvRight;
+    pc.uvV1  = cmd.uvBottom;
     pc.colorR = cmd.color.r / 255.f;
     pc.colorG = cmd.color.g / 255.f;
     pc.colorB = cmd.color.b / 255.f;
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
-    pc.viewportW = (float)ctx.extent().width;
-    pc.viewportH = (float)ctx.extent().height;
-    vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    vkCmdPushConstants(cb, glyphPipelineLayout_,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;
-    VkBuffer vb = ctx.vertexBuffer();
-    vkCmdBindVertexBuffers(cb, 0, 1, &vb, &off);
-    vkCmdBindIndexBuffer(cb, ctx.indexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);
+    vkCmdBindIndexBuffer(cb, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }
