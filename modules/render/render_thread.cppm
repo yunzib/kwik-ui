@@ -15,13 +15,6 @@ import std;
  */
 export struct RenderThreadCallbacks {
     /**
-     * @brief 窗口大小改变回调
-     * @param width 新宽度
-     * @param height 新高度
-     */
-    std::function<void(int width, int height)> onResize;
-
-    /**
      * @brief 渲染错误回调
      * @param error 错误信息
      */
@@ -119,16 +112,6 @@ public:
      */
     BackendType backendType() const;
 
-    /**
-     * @brief 获取当前尺寸
-     */
-    void getSize(int *width, int *height) const;
-
-    /**
-     * @brief 提交窗口事件到渲染线程
-     * @param event 窗口事件
-     */
-    void submitWindowEvent(const Event &event);
 
     /**
      * @brief 获取帧统计信息
@@ -173,20 +156,11 @@ private:
      */
     void processCommands(const CommandBuffer &buffer);
 
-    /**
-     * @brief 处理窗口事件
-     */
-    void processWindowEvent(const Event &event);
 
     /**
      * @brief 执行单个命令
      */
     void executeCommand(const Command &cmd);
-
-    /**
-     * @brief 处理所有待处理的窗口事件
-     */
-    void processWindowEvents();
 
     /**
      * @brief 更新帧统计信息
@@ -204,8 +178,6 @@ private:
 
     // 渲染资源
     std::unique_ptr<RenderBackend> backend_;
-    int width_ = 0;
-    int height_ = 0;
 
     // 命令系统
     CommandQueue commandQueue_;
@@ -214,10 +186,6 @@ private:
     std::thread thread_;
     mutable std::mutex stateMutex_;
     std::condition_variable stateCv_;
-
-    // 窗口事件队列
-    std::queue<Event> windowEvents_;
-    mutable std::mutex windowEventsMutex_;
 
     // 帧统计
     mutable std::mutex statsMutex_;

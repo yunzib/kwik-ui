@@ -159,7 +159,7 @@ void Application::rebuildTree() {
 void Application::renderFrame() {
     float dpi = window_.GetDpiScale();
     Rect dr = dirtyTracker_.consume();    // 取走脏矩形 (逻辑坐标)
-   
+
     if (dr.isEmpty()) {
         int w, h;
         window_.GetSize(&w, &h);
@@ -174,7 +174,7 @@ void Application::renderFrame() {
     // ─ 只清空脏区域 — 非脏区域由 canvas 持久保留 ─
     canvas.drawRect(dr, Color::white());
 
-    tree_->draw(canvas);              // View::draw 内部跳过干净子树
+    tree_->draw(canvas);    // View::draw 内部跳过干净子树
 
     canvas.endFrame();
 
@@ -269,12 +269,20 @@ int Application::run() {
         // ── ④ 窗口缩放 ────────────────────────────────────────────
         if (e.type == Event::Type::WindowResize) {
             if (e.width > 0 && e.height > 0) {
-                renderThread_.submitWindowEvent(e);
+                // 单独提交 ResizeCmd（保证在下一帧绘制命令之前被处理）
+                auto &buf = renderThread_.commandQueue().currentBuffer();
+                buf.add(ResizeCmd{e.width, e.height});
+                buf.setDirtyRect({0, 0, static_cast<float>(e.width), static_cast<float>(e.height)});
+                renderThread_.commandQueue().submit();
+
                 float dpi = window_.GetDpiScale();
                 auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
                 relayoutTree(sz);
                 eventProc_.reset();
                 dirtyTracker_.markFull();
+
+                Log::info("[App] resize requested: {}x{} (logical {:.0f}x{:.0f})", e.width, e.height,
+                          (float)e.width / dpi, (float)e.height / dpi);
             }
             return;
         }

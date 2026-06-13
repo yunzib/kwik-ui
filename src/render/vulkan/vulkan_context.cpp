@@ -17,8 +17,22 @@ import kwik.core.log;
 namespace {
 const float kQuadVertices[] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
 const uint16_t kQuadIndices[] = {0, 1, 2, 0, 2, 3};
-constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 }    // namespace
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                    VkDebugUtilsMessageTypeFlagsEXT /*type*/,
+                                                    const VkDebugUtilsMessengerCallbackDataEXT *data,
+                                                    void * /*userData*/) {
+    if (!data) return VK_FALSE;
+    switch (severity) {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: Log::error("[VK] {}", data->pMessage); break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: Log::warn("[VK] {}", data->pMessage); break;
+    default: Log::debug("[VK] {}", data->pMessage); break;
+    }
+    return VK_FALSE;
+}
+
 // ================================================================
 // 析构 / shutdown
 // ================================================================
@@ -52,9 +66,15 @@ void VulkanContext::shutdown() {
         vkFreeMemory(vkDevice_, vertexBufferMemory_, nullptr);
     }
     if (renderPass_ != VK_NULL_HANDLE) vkDestroyRenderPass(vkDevice_, renderPass_, nullptr);
+
     cleanupSwapchain();
     if (vkSurface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
     if (vkDevice_ != VK_NULL_HANDLE) vkDestroyDevice(vkDevice_, nullptr);
+    if (debugMessenger_ != VK_NULL_HANDLE) {
+        auto destroyFn =
+            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vkInstance_, "vkDestroyDebugUtilsMessengerEXT");
+        if (destroyFn) destroyFn(vkInstance_, debugMessenger_, nullptr);
+    }
     if (vkInstance_ != VK_NULL_HANDLE) vkDestroyInstance(vkInstance_, nullptr);
     vkDevice_ = VK_NULL_HANDLE;
 }
@@ -110,17 +130,12 @@ bool VulkanContext::resize(int w, int h) {
     Log::info("VulkanContext::resize: {}x{} → {}x{}", swapchainExtent_.width, swapchainExtent_.height, w, h,
               std::source_location::current());
 
+    // 仅释放 + 重建 swapchain 和 canvas（不碰 sync objects / command buffers / frameIndex）
     destroyCanvas();
     cleanupSwapchain();
 
     if (!createSwapchain()) {
         Log::error("resize: createSwapchain failed ({}x{})", w, h, std::source_location::current());
-        return false;
-    }
-    // ── 重建命令缓冲和同步对象（swapchain 图像数可能变化）──
-    vkFreeCommandBuffers(vkDevice_, commandPool_, (uint32_t)commandBuffers_.size(), commandBuffers_.data());
-    if (!createCommandBuffers()) {
-        Log::error("resize: createCommandBuffers failed", std::source_location::current());
         return false;
     }
     if (!createCanvasImage()) {
@@ -131,37 +146,28 @@ bool VulkanContext::resize(int w, int h) {
         Log::error("resize: createCanvasFramebuffer failed", std::source_location::current());
         return false;
     }
-    for (auto &s : imageAvailableSemaphores_)
-        if (s != VK_NULL_HANDLE) vkDestroySemaphore(vkDevice_, s, nullptr);
-    for (auto &s : renderFinishedSemaphores_)
-        if (s != VK_NULL_HANDLE) vkDestroySemaphore(vkDevice_, s, nullptr);
-    for (auto &f : inFlightFences_)
-        if (f != VK_NULL_HANDLE) vkDestroyFence(vkDevice_, f, nullptr);
-    imageAvailableSemaphores_.clear();
-    renderFinishedSemaphores_.clear();
-    inFlightFences_.clear();
 
-    if (!createSyncObjects()) {
-        Log::error("resize: createSyncObjects failed", std::source_location::current());
-        return false;
-    }
-    frameIndex_ = 0;
-    currentImageIndex_ = 0;
+    // frameIndex_ 和 currentImageIndex_ 保持不变
+    // fence 已在 beginFrame 的 wait 中消耗，之后会被 reset
+    // semaphore 未 signaled，稍后 beginFrame retry acquire 会重新使用
+
     return true;
 }
+
 // ================================================================
 // createInstance — Vulkan 实例 + 平台 Surface
 // ================================================================
 bool VulkanContext::createInstance(void *nativeHandle) {
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app.pApplicationName = "KwiK UI";
-    app.apiVersion = VK_API_VERSION_1_0;
+    app.apiVersion = VK_API_VERSION_1_1;
     std::vector<const char *> ext = {VK_KHR_SURFACE_EXTENSION_NAME};
 #if defined(_WIN32)
     ext.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
     ext.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
 #endif
+    ext.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     VkInstanceCreateInfo ci{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     ci.pApplicationInfo = &app;
     ci.enabledExtensionCount = (uint32_t)ext.size();
@@ -185,7 +191,28 @@ bool VulkanContext::createInstance(void *nativeHandle) {
         ci.ppEnabledLayerNames = validationLayers;
     }
 
-    if (vkCreateInstance(&ci, nullptr, &vkInstance_) != VK_SUCCESS) return false;
+    // 创建实例（若不支持 VK_EXT_debug_utils 则降级重试）
+    VkResult instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);
+    if (instResult == VK_ERROR_EXTENSION_NOT_PRESENT) {
+        ext.pop_back();    // 去掉 VK_EXT_debug_utils
+        ci.enabledExtensionCount = (uint32_t)ext.size();
+        instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);
+    }
+    if (instResult != VK_SUCCESS) return false;
+
+    // ── 注册 Debug Messenger ──
+    auto vkCreateDebugUtilsMessengerEXT =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vkInstance_, "vkCreateDebugUtilsMessengerEXT");
+    if (vkCreateDebugUtilsMessengerEXT && hasValidation) {
+        VkDebugUtilsMessengerCreateInfoEXT dci{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+        dci.messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        dci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                          | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dci.pfnUserCallback = debugCallback;
+        vkCreateDebugUtilsMessengerEXT(vkInstance_, &dci, nullptr, &debugMessenger_);
+    }
+
 #if defined(_WIN32)
     VkWin32SurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
     si.hinstance = GetModuleHandle(nullptr);
@@ -264,20 +291,20 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
                                        VK_NULL_HANDLE, &currentImageIndex_);
 
-    // ── @fix: swapchain out-of-date 时重建后重试 ──
-    if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR) {
+    // ── swapchain out-of-date → 重建后重试 ──
+    if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+        Log::warn("beginFrame: swapchain out-of-date, recreating", std::source_location::current());
         VkSurfaceCapabilitiesKHR caps;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
         if (caps.currentExtent.width == 0 || caps.currentExtent.height == 0) {
-            Log::warn("beginFrame: surface not visible after out-of-date", std::source_location::current());
-            return std::nullopt;
+            return std::nullopt;    // 窗口最小化/不可见，跳过帧
         }
-        Log::info("beginFrame: swapchain out-of-date, recreating ({}x{})", caps.currentExtent.width,
-                  caps.currentExtent.height, std::source_location::current());
-        if (!resize(static_cast<int>(caps.currentExtent.width), static_cast<int>(caps.currentExtent.height))) {
-            return std::nullopt;
-        }
-        // 重建后 fence 为 VK_FENCE_CREATE_SIGNALED，无需 wait / reset
+
+        Log::warn("[VK] OUT_OF_DATE: swapchain {}x{} → surface {}x{}, recreating", swapchainExtent_.width,
+                  swapchainExtent_.height, caps.currentExtent.width, caps.currentExtent.height);
+        resize(static_cast<int>(caps.currentExtent.width), static_cast<int>(caps.currentExtent.height));
+        // 重建后 fence 仍处于 signaled（在 wait 中消耗后未 reset），无需再次 wait
+        // semaphore 未 signaled（acquire 失败时 sem 未提交），需要重新 acquire
         r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
                                   VK_NULL_HANDLE, &currentImageIndex_);
     }
@@ -286,6 +313,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
         Log::error("beginFrame: VK_ERROR_SURFACE_LOST_KHR", std::source_location::current());
         return std::nullopt;
     }
+    // VK_SUBOPTIMAL_KHR 视为成功，不触发 resize
     if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
         Log::error("beginFrame: vkAcquireNextImageKHR failed: {}", static_cast<int>(r),
                    std::source_location::current());
@@ -297,6 +325,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     // ── ③ 开始录制 ──
     vkResetCommandBuffer(commandBuffers_[frameIndex_], 0);
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(commandBuffers_[frameIndex_], &bi);
 
     // ── ④ 开始 canvas render pass（LOAD_OP_LOAD，全屏 renderArea）──
@@ -335,56 +364,71 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
 // ================================================================
 void VulkanContext::endFrame() {
     VkCommandBuffer cb = commandBuffers_[frameIndex_];
-
-    // ── 结束 canvas render pass（canvas → TRANSFER_SRC_OPTIMAL）──
     vkCmdEndRenderPass(cb);
 
-    // ── Swapchain barrier: UNDEFINED → TRANSFER_DST_OPTIMAL ──
-    VkImageMemoryBarrier swapBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    swapBarrier.srcAccessMask = 0;
-    swapBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    swapBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    swapBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    swapBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    swapBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    swapBarrier.image = swapchainImages_[currentImageIndex_];
-    swapBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    // ── 合并 barrier: canvas(COLOR→TRANSFER_SRC) + swapchain(UNDEF→TRANSFER_DST) ──
+    VkImageMemoryBarrier preBarriers[2]{};
+    preBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    // ── oldLayout/newLayout 改为 TRANSFER_SRC（render pass 已将 canvas 转换到此）──
+    preBarriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    preBarriers[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    preBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    preBarriers[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    preBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preBarriers[0].image = canvasImage_;
+    preBarriers[0].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    preBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    preBarriers[1].srcAccessMask = 0;
+    preBarriers[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    preBarriers[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    preBarriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    preBarriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preBarriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preBarriers[1].image = swapchainImages_[currentImageIndex_];
+    preBarriers[1].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
-                         nullptr, 0, nullptr, 1, &swapBarrier);
+                         nullptr, 0, nullptr, 2, preBarriers);
 
-    // ── Blit: canvas → swapchain（全屏）──
-    VkImageBlit blitRegion{};
-    blitRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    blitRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    VkExtent3D ext = {swapchainExtent_.width, swapchainExtent_.height, 1};
-    blitRegion.srcOffsets[1] = {static_cast<int32_t>(ext.width), static_cast<int32_t>(ext.height), 1};
-    blitRegion.dstOffsets[1] = {static_cast<int32_t>(ext.width), static_cast<int32_t>(ext.height), 1};
-    vkCmdBlitImage(cb, canvasImage_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImages_[currentImageIndex_],
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blitRegion, VK_FILTER_NEAREST);
+    // ── Copy（全屏）──
+    VkImageCopy copyRegion{};
+    copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copyRegion.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
+    vkCmdCopyImage(cb, canvasImage_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImages_[currentImageIndex_],
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    // ── Swapchain barrier: TRANSFER_DST → PRESENT_SRC ──
-    swapBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    swapBarrier.dstAccessMask = 0;
-    swapBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    swapBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &swapBarrier);
+    // ── 合并 barrier: canvas(TRANSFER_SRC→COLOR) + swapchain(TRANSFER_DST→PRESENT_SRC) ──
+    VkImageMemoryBarrier postBarriers[2]{};
+    postBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    postBarriers[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    postBarriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    postBarriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    postBarriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    postBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postBarriers[0].image = canvasImage_;
+    postBarriers[0].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
-    // ── Canvas barrier: TRANSFER_SRC → COLOR_ATTACHMENT ──
-    VkImageMemoryBarrier canvasBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    canvasBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    canvasBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    canvasBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    canvasBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    canvasBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    canvasBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    canvasBarrier.image = canvasImage_;
-    canvasBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
-                         nullptr, 0, nullptr, 1, &canvasBarrier);
+    postBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    postBarriers[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    postBarriers[1].dstAccessMask = 0;
+    postBarriers[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    postBarriers[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    postBarriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postBarriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postBarriers[1].image = swapchainImages_[currentImageIndex_];
+    postBarriers[1].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
+                         nullptr, 0, nullptr, 2, postBarriers);
 
     vkEndCommandBuffer(cb);
 }
+
 // ================================================================
 // present — 提交 + 呈现，内含 out-of-date 自愈
 // ================================================================
@@ -413,17 +457,8 @@ bool VulkanContext::present() {
     pi.pImageIndices = &currentImageIndex_;
 
     VkResult presentResult = vkQueuePresentKHR(vkQueue_, &pi);
-    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-        VkSurfaceCapabilitiesKHR caps;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
-        if (caps.currentExtent.width != 0 && caps.currentExtent.height != 0) {
-            uint32_t newW =
-                (caps.currentExtent.width == UINT32_MAX) ? swapchainExtent_.width : caps.currentExtent.width;
-            uint32_t newH =
-                (caps.currentExtent.height == UINT32_MAX) ? swapchainExtent_.height : caps.currentExtent.height;
-            resize(static_cast<int>(newW), static_cast<int>(newH));
-        }
-    }
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR) { Log::warn("present: OUT_OF_DATE (will heal in next beginFrame)"); }
+    // VK_SUBOPTIMAL_KHR 不触发任何动作
 
     frameIndex_ = (frameIndex_ + 1) % MAX_FRAMES_IN_FLIGHT;
     return presentResult == VK_SUCCESS || presentResult == VK_SUBOPTIMAL_KHR;

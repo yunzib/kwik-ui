@@ -29,7 +29,7 @@ import std;
 // ============================================================================
 
 RenderThread::RenderThread(PlatformWindow &window, const RenderThreadConfig &config) :
-    window_(window), config_(config), width_(config.initialWidth), height_(config.initialHeight) {
+    window_(window), config_(config) {
     // 获取原生窗口句柄（必须在主线程调用）
     nativeHandle_ = window_.GetNativeHandle();
 
@@ -91,16 +91,6 @@ BackendType RenderThread::backendType() const {
     return config_.backendType;
 }
 
-void RenderThread::getSize(int *width, int *height) const {
-    if (width) *width = width_;
-    if (height) *height = height_;
-}
-
-void RenderThread::submitWindowEvent(const Event &event) {
-    std::lock_guard<std::mutex> lock(windowEventsMutex_);
-    windowEvents_.push(event);
-}
-
 RenderThread::FrameStats RenderThread::getFrameStats() const {
     std::lock_guard<std::mutex> lock(statsMutex_);
     return frameStats_;
@@ -147,9 +137,6 @@ void RenderThread::threadMain() {
             }
 
             auto frameStartTime = std::chrono::high_resolution_clock::now();
-
-            // 处理窗口事件
-            processWindowEvents();
 
             // 获取命令缓冲区
             // // Windows 上 WaitOnAddress 可能丢失 notify_one。当主线程 sleep 导致 ring 经常空时：
@@ -208,7 +195,7 @@ bool RenderThread::initBackend() {
         }
 
         // 初始化后端
-        if (!backend_->initialize(nativeHandle_, width_, height_)) {
+        if (!backend_->initialize(nativeHandle_, config_.initialWidth, config_.initialHeight)) {
             backend_.reset();
             return false;
         }
@@ -225,58 +212,21 @@ void RenderThread::cleanup() {
     backend_.reset();
 }
 
-void RenderThread::processWindowEvents() {
-    std::queue<Event> events;
-
-    // 获取所有待处理事件
-    {
-        std::lock_guard<std::mutex> lock(windowEventsMutex_);
-        events.swap(windowEvents_);
-    }
-
-    // 处理每个事件
-    while (!events.empty()) {
-        const auto &event = events.front();
-        processWindowEvent(event);
-        events.pop();
-    }
-}
-
-void RenderThread::processWindowEvent(const Event &event) {
-    switch (event.type) {
-    case Event::Type::WindowResize: {
-        // 处理窗口大小改变
-        if (event.width > 0 && event.height > 0) {
-            width_ = event.width;
-            height_ = event.height;
-
-            if (backend_) { backend_->resize(width_, height_); }
-
-            // 通知主线程
-            if (config_.callbacks.onResize) { config_.callbacks.onResize(width_, height_); }
-        }
-        break;
-    }
-
-    case Event::Type::WindowClose:
-        // 窗口关闭事件，由主线程处理
-        break;
-
-    default:
-        // 其他事件暂不处理
-        break;
-    }
-}
-
 void RenderThread::processCommands(const CommandBuffer &buffer) {
     if (!backend_) { return; }
+
+    // 先处理 resize 命令（必须在 beginFrame 之前）
+    for (const auto &cmd : buffer.commands()) {
+        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { backend_->resize(rc->width, rc->height); }
+    }
 
     // 开始帧
     Rect dr = buffer.dirtyRect();
     if (!backend_->beginFrame(dr)) return;
-
     // 执行所有命令
-    for (const auto &cmd : buffer.commands()) { executeCommand(cmd); }
+    for (const auto &cmd : buffer.commands()) {
+        if (!std::holds_alternative<ResizeCmd>(cmd)) { executeCommand(cmd); }
+    }
 
     // 结束帧
     backend_->endFrame();
@@ -329,11 +279,7 @@ void RenderThread::executeCommand(const Command &cmd) {
                 // 已由threadMain处理
             } else if constexpr (std::is_same_v<T, ResizeCmd>) {
                 // 窗口resize事件处理
-                if (arg.width > 0 && arg.height > 0) {
-                    width_ = arg.width;
-                    height_ = arg.height;
-                    backend_->resize(width_, height_);
-                }
+                if (arg.width > 0 && arg.height > 0) { backend_->resize(arg.width, arg.height); }
             }
         },
         cmd);

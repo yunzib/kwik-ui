@@ -81,6 +81,7 @@ private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     VkInstance vkInstance_ = VK_NULL_HANDLE;
     VkSurfaceKHR vkSurface_ = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT debugMessenger_ = VK_NULL_HANDLE;
     VkPhysicalDevice vkPhysicalDevice_ = VK_NULL_HANDLE;
     VkDevice vkDevice_ = VK_NULL_HANDLE;
     VkQueue vkQueue_ = VK_NULL_HANDLE;
