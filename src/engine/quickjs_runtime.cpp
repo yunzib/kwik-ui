@@ -6,6 +6,7 @@ module kwik.engine.runtime;
 
     QuickJSRuntime::QuickJSRuntime() {
         runtime = JS_NewRuntime();
+        JS_SetMemoryLimit(runtime, 16 * 1024 * 1024);  // 16MB 上限，防止无限制膨胀
     }
 
     QuickJSRuntime::~QuickJSRuntime() {
