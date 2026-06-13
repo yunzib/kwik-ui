@@ -8,7 +8,7 @@ import std;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.backend;
-import kwik.render.software_backend;
+// import kwik.render.software_backend;
 import kwik.render.vulkan_backend;
 import kwik.render.font;
 

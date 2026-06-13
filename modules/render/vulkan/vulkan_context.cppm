@@ -49,7 +49,7 @@ public:
     ~VulkanContext();
 
     // ── 生命周期 ──
-    bool initialize(void *nativeHandle, int width, int height);
+    bool initialize(void *nativeHandle);
     void shutdown();
     bool resize(int width, int height);    // 返回 bool
 

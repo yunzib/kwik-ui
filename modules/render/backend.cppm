@@ -30,11 +30,9 @@ public:
     /**
      * @brief 初始化后端
      * @param nativeHandle 原生窗口句柄
-     * @param width 初始宽度
-     * @param height 初始高度
      * @return 初始化是否成功
      */
-    virtual bool initialize(void *nativeHandle, int width, int height) = 0;
+    virtual bool initialize(void *nativeHandle) = 0;
 
     /**
      * @brief 清理后端资源

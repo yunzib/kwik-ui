@@ -17,7 +17,7 @@ public:
     SoftwareBackend(int width, int height);
     ~SoftwareBackend() override;
 
-    bool initialize(void *nativeHandle, int width, int height) override;
+    // bool initialize(void *nativeHandle, int width, int height) override;
     void shutdown() override;
     // void resize(int width, int height) override;
     // bool beginFrame() override;

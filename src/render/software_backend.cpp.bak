@@ -18,12 +18,12 @@ SoftwareBackend::~SoftwareBackend() {
     shutdown();
 }
 
-bool SoftwareBackend::initialize(void * /*nativeHandle*/, int width, int height) {
-    width_ = width;
-    height_ = height;
-    pixelBuffer_.resize(width * height);
-    return true;
-}
+// bool SoftwareBackend::initialize(void * /*nativeHandle*/, int width, int height) {
+//     width_ = width;
+//     height_ = height;
+//     pixelBuffer_.resize(width * height);
+//     return true;
+// }
 
 void SoftwareBackend::shutdown() {
     pixelBuffer_.clear();

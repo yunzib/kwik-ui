@@ -29,6 +29,7 @@ int uiEventTypeToCode(UIEventType t) {
     case UIEventType::PressBegin: return 8;
     case UIEventType::PressEnd: return 9;
     case UIEventType::Wheel: return 10;
+    case UIEventType::Custom: return 11;
     }
     return -1;
 }

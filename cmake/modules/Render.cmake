@@ -2,7 +2,7 @@
 
 # 渲染后端选项
 option(KWIK_RENDER_VULKAN "Enable Vulkan rendering backend" ON)
-option(KWIK_RENDER_SOFTWARE "Enable software rendering backend" ON)
+option(KWIK_RENDER_SOFTWARE "Enable software rendering backend" OFF)
 
 # 动态构建模块文件列表
 set(RENDER_PUBLIC_MODULES

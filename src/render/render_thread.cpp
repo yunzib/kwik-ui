@@ -18,7 +18,7 @@ import kwik.core.types;
 import kwik.platform.window;
 import kwik.render.backend;
 import kwik.render.command;
-import kwik.render.software_backend;
+// import kwik.render.software_backend;
 import kwik.render.vulkan_backend;
 import kwik.core.log;
 
@@ -195,7 +195,7 @@ bool RenderThread::initBackend() {
         }
 
         // 初始化后端
-        if (!backend_->initialize(nativeHandle_, config_.initialWidth, config_.initialHeight)) {
+        if (!backend_->initialize(nativeHandle_)) {
             backend_.reset();
             return false;
         }

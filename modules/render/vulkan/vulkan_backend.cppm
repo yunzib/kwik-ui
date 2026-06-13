@@ -24,7 +24,7 @@ export class VulkanBackend : public RenderBackend {
 public:
     VulkanBackend() = default;
     ~VulkanBackend() override;
-    bool initialize(void *nativeHandle, int width, int height) override;
+    bool initialize(void *nativeHandle) override;
     void shutdown() override;
     bool resize(int width, int height) override;    // 返回 bool
     bool beginFrame(const Rect &dirtyRect) override;

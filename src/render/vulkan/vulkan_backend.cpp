@@ -17,8 +17,8 @@ VulkanBackend::~VulkanBackend() {
 // ================================================================
 // initialize — 初始化 Context + 子渲染器
 // ================================================================
-bool VulkanBackend::initialize(void *native, int w, int h) {
-    if (!ctx_.initialize(native, w, h)) return false;
+bool VulkanBackend::initialize(void *native) {
+    if (!ctx_.initialize(native)) return false;
 
     deviceCtx_ = DeviceContext{
         .device = ctx_.device(),

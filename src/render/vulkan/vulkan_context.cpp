@@ -81,7 +81,7 @@ void VulkanContext::shutdown() {
 // ================================================================
 // initialize — 核心初始化（Instance → Device → Swapchain → ...）
 // ================================================================
-bool VulkanContext::initialize(void *nativeHandle, int width, int height) {
+bool VulkanContext::initialize(void *nativeHandle) {
     if (!createInstance(nativeHandle)) return false;
     if (!pickPhysicalDevice()) return false;
     if (!createLogicalDevice()) {
@@ -291,22 +291,19 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
                                        VK_NULL_HANDLE, &currentImageIndex_);
 
-    // ── swapchain out-of-date → 重建后重试 ──
+    // ── swapchain out-of-date → 重建后跳过当前帧 ──
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
-        Log::warn("beginFrame: swapchain out-of-date, recreating", std::source_location::current());
         VkSurfaceCapabilitiesKHR caps;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
         if (caps.currentExtent.width == 0 || caps.currentExtent.height == 0) {
-            return std::nullopt;    // 窗口最小化/不可见，跳过帧
+            return std::nullopt;    // 窗口最小化/不可见
         }
-
-        Log::warn("[VK] OUT_OF_DATE: swapchain {}x{} → surface {}x{}, recreating", swapchainExtent_.width,
-                  swapchainExtent_.height, caps.currentExtent.width, caps.currentExtent.height);
+        Log::debug("beginFrame: swapchain out-of-date, {}x{} → {}x{}, recreating + skip frame", swapchainExtent_.width,
+                   swapchainExtent_.height, caps.currentExtent.width, caps.currentExtent.height,
+                   std::source_location::current());
         resize(static_cast<int>(caps.currentExtent.width), static_cast<int>(caps.currentExtent.height));
-        // 重建后 fence 仍处于 signaled（在 wait 中消耗后未 reset），无需再次 wait
-        // semaphore 未 signaled（acquire 失败时 sem 未提交），需要重新 acquire
-        r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
-                                  VK_NULL_HANDLE, &currentImageIndex_);
+        // ── 已重建 swapchain，但当前帧命令仍按旧尺寸录制 → 跳过，下帧尺寸匹配 ──
+        return std::nullopt;
     }
 
     if (r == VK_ERROR_SURFACE_LOST_KHR) {

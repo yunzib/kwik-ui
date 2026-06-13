@@ -74,7 +74,7 @@ void Image::loadFromSvg(const std::string &path) {
     int targetW = props.width.has_value() ? static_cast<int>(*props.width) : 0;
     int targetH = props.height.has_value() ? static_cast<int>(*props.height) : 0;
     // 用 std::filesystem::u8path 读取文件 (解决 Windows 下中文路径问题)
-    std::ifstream file(std::filesystem::u8path(path), std::ios::binary | std::ios::ate);
+    std::ifstream file(std::filesystem::path(path), std::ios::binary | std::ios::ate);
     if (!file) {
         errorMsg_ = "cannot open SVG file: " + path;
         return;

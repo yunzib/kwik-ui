@@ -43,9 +43,7 @@ int main(int argc, char *argv[]) {
      window->GetSize(&w, &h);
     Application app(*window, {
                                  .jsPath = resolveDemo(argc, argv),
-                                 .fontDirs = {"../../resources/fonts"},
-                                 .width = w,
-                                 .height = h,
+                                 .fontDirs = {"../../resources/fonts"}
                              });
     return app.run();
 }
