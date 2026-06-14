@@ -38,9 +38,11 @@ public:
         if (props.borderRadius == 0) props.borderRadius = 6.0f;
     }
     ~Button() override = default;
-    const char *typeName() const override {
-        return "Button";
+
+    ElementType type() const override {
+        return ElementType::Button;
     }
+
     const TextContent &textContent() const {
         return text_;
     }
@@ -54,8 +56,8 @@ protected:
     bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
 
 private:
-    TextContent text_;        // 文字内容属性
-    ButtonStateProps button_; // 按钮交互状态属性
+    TextContent text_;           // 文字内容属性
+    ButtonStateProps button_;    // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
     // ── 文字排版缓存 ──
     ShapedTextCache textCache_;

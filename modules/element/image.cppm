@@ -28,9 +28,11 @@ public:
         loadImage();
     }
     ~Image() override;
-    const char *typeName() const override {
-        return "Image";
+
+    ElementType type() const override {
+        return ElementType::Image;
     }
+
     const ImageProps &imageProps() const {
         return imageProps_;
     }
@@ -57,14 +59,14 @@ protected:
 
 private:
     ImageProps imageProps_;
-    std::vector<uint8_t> pixels_; // 解码后的 RGBA 像素数据
+    std::vector<uint8_t> pixels_;    // 解码后的 RGBA 像素数据
     int decodedWidth_ = 0;
     int decodedHeight_ = 0;
     bool loaded_ = false;
     std::string errorMsg_;
-    uint32_t textureId_ = 0; // GPU 纹理句柄 (0=未上传)
+    uint32_t textureId_ = 0;    // GPU 纹理句柄 (0=未上传)
     void loadImage();
     void loadFromFile(const std::string &path);
     void loadFromBuffer();
-    void loadFromSvg(const std::string &path); // SVG 矢量解码 (nanosvg)
+    void loadFromSvg(const std::string &path);    // SVG 矢量解码 (nanosvg)
 };

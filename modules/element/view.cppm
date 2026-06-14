@@ -11,6 +11,44 @@ import kwik.render.graphics;
 import kwik.engine.js_value;
 
 import std;
+
+export enum class ElementType : uint8_t {
+    View,
+    Button,
+    Text,
+    Input,
+    Image,
+    Checkbox,
+    RadioButton,
+    Dropdown,
+    TextArea,
+    FlexLayout,
+    GridLayout,
+    ListLayout,
+    StackLayout,
+    RadioGroup
+};
+
+export inline std::string_view to_string(ElementType t) {
+    switch (t) {
+    case ElementType::View: return "View";
+    case ElementType::Button: return "Button";
+    case ElementType::Text: return "Text";
+    case ElementType::Input: return "Input";
+    case ElementType::Image: return "Image";
+    case ElementType::Checkbox: return "Checkbox";
+    case ElementType::RadioButton: return "RadioButton";
+    case ElementType::Dropdown: return "Dropdown";
+    case ElementType::TextArea: return "TextArea";
+    case ElementType::FlexLayout: return "FlexLayout";
+    case ElementType::GridLayout: return "GridLayout";
+    case ElementType::ListLayout: return "ListLayout";
+    case ElementType::StackLayout: return "StackLayout";
+    case ElementType::RadioGroup: return "RadioGroup";
+    }
+    return "Unknown";
+}
+
 // ============================================================================
 // 事件类型码常量
 // ============================================================================
@@ -359,11 +397,11 @@ public:
     void removeFromParent();
 
     /**
-     * @brief 获取控件类型名称
-     * @return 类型字符串 ("View" / "Text" / "Button" ...)
+     * @brief 获取控件类型
+     * @return 类型枚举
      */
-    virtual const char *typeName() const {
-        return "View";
+    virtual ElementType type() const {
+        return ElementType::View;
     }
 
     // ==================== 命中测试 ====================

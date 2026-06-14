@@ -35,8 +35,9 @@ public:
     Input();
     explicit Input(ViewProps vp, InputProps ip = {});
     ~Input() override = default;
-    const char *typeName() const override {
-        return "Input";
+
+    ElementType type() const override {
+        return ElementType::Input;
     }
     const InputProps &inputProps() const {
         return input_;

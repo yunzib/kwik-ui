@@ -22,9 +22,10 @@ public:
             props.background = Color::transparent();
         }
     }
-    const char *typeName() const override {
-        return "ListLayout";
+    ElementType type() const override {
+        return ElementType::ListLayout;
     }
+
     std::unique_ptr<View> header;
     std::unique_ptr<View> footer;
     Point scrollOffset;

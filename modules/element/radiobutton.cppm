@@ -20,9 +20,10 @@ public:
     }
     ~RadioButton() override = default;
     /// 组件类型标识 (JS 侧 type 字段匹配)
-    const char *typeName() const override {
-        return "RadioButton";
+    ElementType type() const override {
+        return ElementType::RadioButton;
     }
+
     /// Radio 专属属性访问器
     const RadioButtonProps &radioProps() const {
         return radio_;

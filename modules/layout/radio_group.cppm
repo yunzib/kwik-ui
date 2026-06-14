@@ -24,9 +24,10 @@ public:
     RadioGroup() = default;
     explicit RadioGroup(ViewProps vp, RadioGroupProps rp) : View(std::move(vp)), group_(std::move(rp)) {
     }
-    const char *typeName() const override {
-        return "RadioGroup";
+    ElementType type() const override {
+        return ElementType::RadioGroup;
     }
+
     const RadioGroupProps &groupProps() const {
         return group_;
     }

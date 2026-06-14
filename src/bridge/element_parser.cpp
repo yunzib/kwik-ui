@@ -241,7 +241,7 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
 void ElementParser::printTree(const View *view, int depth, const std::string &prefix) {
     if (!view) return;
     const auto &p = view->props;
-    std::print("{}{} [{:.0f}x{:.0f}]", prefix, view->typeName(), view->frame.width, view->frame.height);
+    std::print("{}{} [{:.0f}x{:.0f}]", prefix, to_string(view->type()), view->frame.width, view->frame.height);
     if (p.background.isVisible())
         std::print(" bg=#{:02X}{:02X}{:02X} a={}", p.background.r, p.background.g, p.background.b, p.background.a);
     if (p.borderRadius > 0) std::print(" radius={}", p.borderRadius);

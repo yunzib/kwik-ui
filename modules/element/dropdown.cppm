@@ -31,8 +31,8 @@ public:
     explicit Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
     }
 
-    const char *typeName() const override {
-        return "Dropdown";
+    ElementType type() const override {
+        return ElementType::Dropdown;
     }
 
     const DropdownProps &dropdownProps() const {

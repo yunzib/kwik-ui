@@ -54,7 +54,7 @@ void RadioButton::setChecked(bool val) {
     if (val && !radio_.group.empty() && parent()) {
         for (auto &child : parent()->children) {
             if (child.get() == this) continue;
-            if (std::strcmp(child->typeName(), "RadioButton") != 0) continue;
+            if (child->type() != ElementType::RadioButton) continue;
             auto *other = static_cast<RadioButton *>(child.get());
             if (other->radio_.group == radio_.group && other->radio_.checked) {
                 other->radio_.checked = false;

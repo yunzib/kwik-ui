@@ -243,14 +243,12 @@ int Application::run() {
             View *target = tree_ ? tree_->hitTest(pt) : nullptr;
             // ── 旧焦点失焦 ──
             if (focusedView_ && focusedView_ != target) {
-                auto tn = std::string(focusedView_->typeName());
-                if (tn == "Input") { static_cast<Input *>(focusedView_)->blur(); }
-                if (tn == "TextArea") { static_cast<TextArea *>(focusedView_)->blur(); }
+                if (focusedView_->type() == ElementType::Input) static_cast<Input *>(focusedView_)->blur();
+                if (focusedView_->type() == ElementType::TextArea) static_cast<TextArea *>(focusedView_)->blur();
             }
             // ── 新焦点设置 ──
             if (target) {
-                auto tn = std::string(target->typeName());
-                if (tn == "Input" || tn == "TextArea") {
+                if (target->type() == ElementType::Input || target->type() == ElementType::TextArea) {
                     focusedView_ = target;
                 } else {
                     focusedView_ = nullptr;

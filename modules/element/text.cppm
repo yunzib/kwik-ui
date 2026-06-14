@@ -24,9 +24,11 @@ public:
     explicit Text(ViewProps p, TextContent tc = {}) : View(std::move(p)), text_(std::move(tc)) {
     }
     ~Text() override = default;
-    const char *typeName() const override {
-        return "Text";
+
+    ElementType type() const override {
+        return ElementType::Text;
     }
+
     const TextContent &textContent() const {
         return text_;
     }
@@ -36,17 +38,17 @@ protected:
     void onDraw(Graphics &graphics) override;
 
 private:
-    TextContent text_; // 文字内容属性
+    TextContent text_;    // 文字内容属性
     // ── 排版缓存 ──
-    std::vector<ShapedGlyph> shapedGlyphsCache_; // 上次版面结果
-    float cachedFontSize_ = -1.0f;               // 缓存时的字号
-    std::string cachedText_;                     // 缓存时的文本
-    std::string cachedFontPath_;                 // 缓存时的字体路径
-    float cachedAdvance_ = 0;                    // 缓存的总宽度
-    FontMetrics cachedMetrics_;                  // 缓存的度量信息
+    std::vector<ShapedGlyph> shapedGlyphsCache_;    // 上次版面结果
+    float cachedFontSize_ = -1.0f;                  // 缓存时的字号
+    std::string cachedText_;                        // 缓存时的文本
+    std::string cachedFontPath_;                    // 缓存时的字体路径
+    float cachedAdvance_ = 0;                       // 缓存的总宽度
+    FontMetrics cachedMetrics_;                     // 缓存的度量信息
     uint32_t cachedAtlasVersion_ = 0;
     std::vector<GlyphMetrics> metricsCache_;
-    size_t bakedCount_ = 0; // 已烘焙字形数 (< metricsCache_.size() 表示未完)
+    size_t bakedCount_ = 0;    // 已烘焙字形数 (< metricsCache_.size() 表示未完)
 
     /**
      * @brief 检查是否需要重新排版

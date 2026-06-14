@@ -10,14 +10,14 @@ export class StackLayout : public View {
 public:
     StackLayout() = default;
     explicit StackLayout(ViewProps p) : View(std::move(p)) {
-         if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
-           props.background = Color::transparent();
-       }
+        if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
+            props.background = Color::transparent();
+        }
     }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
 
-    const char *typeName() const override {
-        return "StackLayout";
+    ElementType type() const override {
+        return ElementType::StackLayout;
     }
 };

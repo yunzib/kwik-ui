@@ -25,13 +25,14 @@ import std;
 export class TextArea : public View {
 public:
     TextArea() = default;
-    explicit TextArea(ViewProps vp, TextAreaProps tp) :
-        View(std::move(vp)), props_(std::move(tp)) {
+    explicit TextArea(ViewProps vp, TextAreaProps tp) : View(std::move(vp)), props_(std::move(tp)) {
         text_ = props_.value;
     }
-    const char *typeName() const override {
-        return "TextArea";
+
+    ElementType type() const override {
+        return ElementType::TextArea;
     }
+
     const TextAreaProps &textAreaProps() const {
         return props_;
     }
@@ -46,21 +47,23 @@ public:
     void blur();
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
     bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+
 private:
     TextAreaProps props_;
     // ── 编辑状态 ────────────────────────────────────
-    std::string text_;                      // 含 \n 的完整文本
+    std::string text_;    // 含 \n 的完整文本
     bool focused_ = false;
-    size_t cursorBytePos_ = 0;              // 光标位置 (UTF-8 字节偏移)
+    size_t cursorBytePos_ = 0;    // 光标位置 (UTF-8 字节偏移)
     bool cursorVisible_ = false;
     uint64_t lastBlinkTime_ = 0;
     // ── 占位符缓存 ──────────────────────────────────
     ShapedTextCache placeholderCache_;
-    
+
     // ── 私有方法 ────────────────────────────────────
     void insertAtCursor(const std::string &utf8);
     void deleteBeforeCursor();

@@ -28,9 +28,11 @@ public:
     explicit Checkbox(ViewProps vp, TextContent tc, CheckboxProps cp) :
         View(std::move(vp)), text_(std::move(tc)), check_(std::move(cp)) {
     }
-    const char *typeName() const override {
-        return "Checkbox";
+
+    ElementType type() const override {
+        return ElementType::Checkbox;
     }
+
     const CheckboxProps &checkProps() const {
         return check_;
     }

@@ -23,7 +23,7 @@ void RadioGroup::onLayout() {
     View::onLayout();
     // 将当前 selected 值同步到子 RadioButton
     for (auto &child : children) {
-        if (std::strcmp(child->typeName(), "RadioButton") != 0) continue;
+        if (child->type() != ElementType::RadioButton) continue;
         // RadioButton 在 kwik.element.radiobutton 模块, 此处通过友元无法直接
         // 访问私有成员, 改用"关闭 → 仅开启匹配项"的策略
         // 注意: RadioGroup 不直接访问 radio_ 成员, 通过子元素的独立 onEvent+setChecked 间接管理
@@ -39,7 +39,7 @@ bool RadioGroup::onEvent(int code, float localX, float localY, JSContext *ctx) {
     if (code == ViewEventCode::Tap) {
         // 遍历子节点, 找到刚被选中的 RadioButton (checked==true 且匹配 group)
         for (auto &child : children) {
-            if (std::strcmp(child->typeName(), "RadioButton") != 0) continue;
+            if (child->type() != ElementType::RadioButton) continue;
             // RadioButton 在独立模块中, 无法直接 static_cast。
             // 通过 group_ 匹配逻辑: 子节点的 group 字段 == group_.name
             // 由于模块边界, 此处在实际链接时需要 kwik.element.radiobutton 模块配合。
