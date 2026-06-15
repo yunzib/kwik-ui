@@ -62,6 +62,10 @@ message(STATUS "===== 完成引入 quickjs =====")
 #vulkan
 # find_package(Vulkan REQUIRED)
 #   target_link_libraries(project_target PRIVATE Vulkan::Vulkan)
+option(KWIK_ENABLE_VALIDATION "Enable Vulkan validation layer" OFF)
+if(KWIK_ENABLE_VALIDATION)
+    target_compile_definitions(kwik_render PRIVATE KWIK_ENABLE_VALIDATION)
+endif()
 
 # FreeType — 先关闭 HarfBuzz 动态加载，关闭不必要的外部依赖
 set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "")

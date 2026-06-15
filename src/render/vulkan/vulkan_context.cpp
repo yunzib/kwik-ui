@@ -186,10 +186,12 @@ bool VulkanContext::createInstance(void *nativeHandle) {
             break;
         }
     }
+#ifdef KWIK_ENABLE_VALIDATION
     if (hasValidation) {
         ci.enabledLayerCount = 1;
         ci.ppEnabledLayerNames = validationLayers;
     }
+#endif
 
     // 创建实例（若不支持 VK_EXT_debug_utils 则降级重试）
     VkResult instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);
@@ -494,7 +496,7 @@ bool VulkanContext::createSwapchain() {
         swapchainExtent_ = {
             std::clamp((uint32_t)swapchainExtent_.width, caps.minImageExtent.width, caps.maxImageExtent.width),
             std::clamp((uint32_t)swapchainExtent_.height, caps.minImageExtent.height, caps.maxImageExtent.height)};
-    uint32_t imgCount = caps.minImageCount + 1;
+    uint32_t imgCount = caps.minImageCount;
     if (caps.maxImageCount > 0 && imgCount > caps.maxImageCount) imgCount = caps.maxImageCount;
     VkSwapchainCreateInfoKHR sci{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     sci.surface = vkSurface_;

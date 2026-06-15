@@ -79,11 +79,16 @@ QuickJSContext::QuickJSContext() : runtime(QuickJSRuntime::getInstance()), rootV
 }
 QuickJSContext::~QuickJSContext() {
     if (context) {
+        // 先释放 expandedRoot（可能独立于 rootView）
+        if (JS_IsFunction(context, rootView) && !JS_IsUndefined(expandedRoot)) {
+            JS_FreeValue(context, expandedRoot);
+            expandedRoot = JS_NULL;
+        }
         JS_FreeValue(context, rootView);
+        rootView = JS_NULL;
         JS_FreeContext(context);
+        context = nullptr;
     }
-    // 仅当 rootView 是函数时 expandedRoot 才是独立对象 (调用产物), 需要额外释放
-    if (JS_IsFunction(context, rootView) && !JS_IsUndefined(expandedRoot)) { JS_FreeValue(context, expandedRoot); }
 }
 QuickJSContext::QuickJSContext(QuickJSContext &&other) noexcept :
     runtime(std::move(other.runtime)), context(other.context) {

@@ -116,7 +116,9 @@ bool Application::init() {
     if (!cacheHit) { Log::info("图集缓存未命中，实时渲染 SDF..."); }
     // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
     relayoutTree(sz);
-    ElementParser::printTree(tree_.get());
+
+    // 调试用结构查看
+    // ElementParser::printTree(tree_.get());
 
     // 预创建所有 Image 纹理 — 在渲染循环启动前完成, 避免
     // createImageTexture() 与渲染线程的 present() 并发提交 vkQueue,

@@ -261,7 +261,7 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
 
     // ── 启用轻量 hinting + 自动微调 ──────────────────────
     // FT_LOAD_TARGET_NORMAL 保留原生轮廓对齐, 优于 FT_LOAD_DEFAULT
-    FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_TARGET_NORMAL);
+    // FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_TARGET_NORMAL);
 
     FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_DEFAULT);
     FT_Render_Glyph(ftFace_->glyph, FT_RENDER_MODE_SDF);

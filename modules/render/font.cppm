@@ -119,6 +119,9 @@ export struct ShapedTextCache {
  */
 export class FontManager {
 public:
+    // ── 图集常量 ──
+    static constexpr uint32_t kAtlasSize = 1024;
+
     static FontManager &instance();
     // ═══════════════ 字体加载 ═══════════════
     /**
@@ -285,8 +288,6 @@ private:
         uint32_t rowHeight;    // 本行最大字形高度
     };
 
-    // ── 图集常量 ──
-    static constexpr uint32_t kAtlasSize = 2048;
     // ── FreeType / HarfBuzz ──
     FT_Library ftLib_ = nullptr;
     FT_Face ftFace_ = nullptr;

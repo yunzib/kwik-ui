@@ -205,7 +205,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
         return false;
     }
     // ── Glyph atlas 2048x2048 R8_UNORM ─────────────────────
-    uint32_t atlasW = 2048, atlasH = 2048;
+    uint32_t atlasW = FontManager::kAtlasSize, atlasH = FontManager::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
     imgInfo.format = VK_FORMAT_R8_UNORM;
