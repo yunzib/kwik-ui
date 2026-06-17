@@ -1,0 +1,184 @@
+Date : 2026-06-17 22:04:20
+Directory : c:\ws-code\ws-kwik\kwik-ui
+Total : 116 files,  9845 codes, 1367 comments, 998 blanks, all 12210 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| C++        |         75 |      7,465 |      1,223 |        831 |      9,519 |
+| JavaScript |         11 |      1,142 |         89 |         12 |      1,243 |
+| XML        |         10 |        857 |          2 |          5 |        864 |
+| C          |          2 |        241 |         41 |         47 |        329 |
+| CMake      |          6 |        103 |          0 |         23 |        126 |
+| Lua        |          1 |         42 |          0 |         15 |         57 |
+| GLSL       |          3 |         23 |         12 |          5 |         40 |
+| Markdown   |          8 |        -28 |          0 |         60 |         32 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                        | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                           |        116 |      9,845 |      1,367 |        998 |     12,210 |
+| . (Files)                                                                   |          2 |        116 |          0 |          2 |        118 |
+| cmake                                                                       |          3 |         35 |          0 |          2 |         37 |
+| cmake\modules                                                               |          3 |         35 |          0 |          2 |         37 |
+| doc                                                                         |          5 |       -237 |          0 |         17 |       -220 |
+| examples                                                                    |         22 |      1,322 |         99 |         36 |      1,457 |
+| examples (Files)                                                            |         15 |      1,315 |         99 |         36 |      1,450 |
+| examples\image                                                              |          7 |          7 |          0 |          0 |          7 |
+| include                                                                     |          1 |         12 |         14 |          1 |         27 |
+| modules                                                                     |         35 |        717 |        413 |         95 |      1,225 |
+| modules\app                                                                 |          1 |          3 |          9 |          2 |         14 |
+| modules\bridge                                                              |          2 |         10 |          6 |          7 |         23 |
+| modules\core                                                                |          1 |         19 |          9 |          3 |         31 |
+| modules\element                                                             |         10 |        441 |        188 |         56 |        685 |
+| modules\engine                                                              |          1 |         22 |         22 |          3 |         47 |
+| modules\event                                                               |          1 |          3 |          1 |          2 |          6 |
+| modules\layout                                                              |          5 |         37 |         11 |          6 |         54 |
+| modules\platform                                                            |          1 |          2 |          0 |          0 |          2 |
+| modules\render                                                              |         13 |        180 |        167 |         16 |        363 |
+| modules\render (Files)                                                      |          7 |       -120 |        150 |        -11 |         19 |
+| modules\render\vulkan                                                       |          6 |        300 |         17 |         27 |        344 |
+| shaders                                                                     |          3 |         23 |         12 |          5 |         40 |
+| src                                                                         |         33 |      2,367 |        354 |         81 |      2,802 |
+| src\app                                                                     |          1 |         69 |         19 |         26 |        114 |
+| src\bridge                                                                  |          3 |        204 |         28 |         15 |        247 |
+| src\element                                                                 |         10 |      1,302 |        243 |         52 |      1,597 |
+| src\engine                                                                  |          3 |         58 |          2 |          7 |         67 |
+| src\event                                                                   |          1 |          6 |          1 |          2 |          9 |
+| src\layout                                                                  |          2 |         46 |         42 |          0 |         88 |
+| src\platform                                                                |          1 |          1 |          1 |          1 |          3 |
+| src\render                                                                  |         12 |        681 |         18 |        -22 |        677 |
+| src\render (Files)                                                          |          6 |     -1,427 |       -148 |        -84 |     -1,659 |
+| src\render\vulkan                                                           |          6 |      2,108 |        166 |         62 |      2,336 |
+| third_party                                                                 |         12 |      5,490 |        475 |        759 |      6,724 |
+| third_party\nanosvg                                                         |         12 |      5,490 |        475 |        759 |      6,724 |
+| third_party\nanosvg (Files)                                                 |          4 |        201 |          0 |         74 |        275 |
+| third_party\nanosvg\example                                                 |          6 |      1,479 |        116 |        103 |      1,698 |
+| third_party\nanosvg\src                                                     |          2 |      3,810 |        359 |        582 |      4,751 |
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                    | language   | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\ws-code\ws-kwik\kwik-ui\CMakeLists.txt                                   | CMake      |          7 |          0 |          2 |          9 |
+| c:\ws-code\ws-kwik\kwik-ui\README.md                                        | Markdown   |        109 |          0 |          0 |        109 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Bridge.cmake                       | CMake      |          2 |          0 |          0 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Element.cmake                      | CMake      |         19 |          0 |          1 |         20 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Render.cmake                       | CMake      |         14 |          0 |          1 |         15 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\1. 提示词.md                                    | Markdown   |        -56 |          0 |         -2 |        -58 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\1.kwik-ui 组件.md                              | Markdown   |        277 |          0 |         24 |        301 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\Text渲染流程.md                                  | Markdown   |       -156 |          0 |          0 |       -156 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\事件处理流程.md                                    | Markdown   |       -193 |          0 |          0 |       -193 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\渲染流程.md                                      | Markdown   |       -109 |          0 |         -5 |       -114 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\CMakeLists.txt                          | CMake      |          2 |          0 |          3 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\checkbox.js                             | JavaScript |         38 |          2 |          0 |         40 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\dropdown.js                             | JavaScript |         65 |          3 |          4 |         72 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\example.cpp                             | C++        |          7 |          0 |          0 |          7 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\example.js                              | JavaScript |        408 |         29 |          0 |        437 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\example1.js                             | JavaScript |        248 |         20 |          0 |        268 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image.js                                | JavaScript |        133 |          7 |          0 |        140 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\Web Analytics.svg                 | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\Web Application.svg               | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\home.svg                          | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\查询统计.svg                          | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\系统管理.svg                          | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\菜单 (1).svg                        | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\image\菜单.svg                            | XML        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\input.js                                | JavaScript |         84 |         19 |          0 |        103 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\radiobutton.js                          | JavaScript |         32 |          2 |          3 |         37 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\stack.js                                | JavaScript |         18 |          0 |          0 |         18 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\text.js                                 | JavaScript |          4 |          0 |          0 |          4 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\textarea.js                             | JavaScript |        104 |          6 |          2 |        112 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\view.js                                 | JavaScript |          8 |          1 |          3 |         12 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\vk_resize_test.cpp                      | C++        |        146 |         12 |         20 |        178 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\win32_window_example.cpp                | C++        |         18 |         -2 |          1 |         17 |
+| c:\ws-code\ws-kwik\kwik-ui\include\svg_decoder.h                            | C++        |         12 |         14 |          1 |         27 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\app\application.cppm                     | C++        |          3 |          9 |          2 |         14 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\bridge\prop_bus.cppm                     | C++        |          4 |          6 |          1 |         11 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\bridge\props_parser.cppm                 | C++        |          6 |          0 |          6 |         12 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\core\types.cppm                          | C++        |         19 |          9 |          3 |         31 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\button.cppm                      | C++        |         -5 |          0 |          2 |         -3 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\checkbox.cppm                    | C++        |         41 |         15 |          4 |         60 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\dropdown.cppm                    | C++        |         51 |         16 |          7 |         74 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\image.cppm                       | C++        |          5 |          0 |          1 |          6 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\input.cppm                       | C++        |         73 |         28 |          4 |        105 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\props.cppm                       | C++        |         67 |         16 |          6 |         89 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\radiobutton.cppm                 | C++        |         40 |          5 |          6 |         51 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\text.cppm                        | C++        |          0 |          0 |          2 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\textarea.cppm                    | C++        |         59 |         17 |          5 |         81 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\view.cppm                        | C++        |        110 |         91 |         19 |        220 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\engine\quickjs_context.cppm              | C++        |         22 |         22 |          3 |         47 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\event\event.cppm                         | C++        |          3 |          1 |          2 |          6 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\flex_layout.cppm                  | C++        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\grid_layout.cppm                  | C++        |          3 |          0 |          1 |          4 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\list_layout.cppm                  | C++        |          4 |          0 |          1 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\radio_group.cppm                  | C++        |         26 |         11 |          4 |         41 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\stack_layout.cppm                 | C++        |          3 |          0 |          0 |          3 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\platform\window.cppm                     | C++        |          2 |          0 |          0 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\backend.cppm                      | C++        |          0 |         -1 |          0 |         -1 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\command.cppm                      | C++        |          6 |         10 |        -12 |          4 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\font.cppm                         | C++        |         19 |         18 |          5 |         42 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\graphics.cppm                     | C++        |          0 |          1 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\render_thread.cppm                | C++        |         -9 |        -19 |         -4 |        -32 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\software_backend.cppm             | C++        |         -3 |          3 |          0 |          0 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_backend.cppm        | C++        |         59 |         10 |          3 |         72 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_clip_manager.cppm   | C++        |         27 |          0 |          2 |         29 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_context.cppm        | C++        |        110 |          7 |         12 |        129 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_glyph_renderer.cppm | C++        |         32 |          0 |          3 |         35 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_image_renderer.cppm | C++        |         39 |          0 |          3 |         42 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan\vulkan_rect_renderer.cppm  | C++        |         33 |          0 |          4 |         37 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\render\vulkan_backend.cppm               | C++        |       -133 |        138 |          0 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\shaders\glyph.frag                               | GLSL       |          1 |          7 |          0 |          8 |
+| c:\ws-code\ws-kwik\kwik-ui\shaders\image.frag                               | GLSL       |         17 |          5 |          5 |         27 |
+| c:\ws-code\ws-kwik\kwik-ui\shaders\image.vert                               | GLSL       |          5 |          0 |          0 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\src\app\application.cpp                          | C++        |         69 |         19 |         26 |        114 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\element_parser.cpp                    | C++        |         31 |          4 |          7 |         42 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\prop_bus.cpp                          | C++        |         58 |          3 |          1 |         62 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\props_parser.cpp                      | C++        |        115 |         21 |          7 |        143 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\button.cpp                           | C++        |          4 |         -3 |          1 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\checkbox.cpp                         | C++        |        107 |         28 |          0 |        135 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\dropdown.cpp                         | C++        |        226 |         40 |         26 |        292 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\image.cpp                            | C++        |         39 |         18 |          0 |         57 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\input.cpp                            | C++        |        328 |         35 |          6 |        369 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\radiobutton.cpp                      | C++        |         99 |         24 |          1 |        124 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\svg_decoder.cpp                      | C++        |         51 |         20 |          1 |         72 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\text.cpp                             | C++        |          9 |          3 |          2 |         14 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\textarea.cpp                         | C++        |        308 |         56 |          3 |        367 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\view.cpp                             | C++        |        131 |         22 |         12 |        165 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\bindings.cpp                          | C++        |         43 |          0 |          7 |         50 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\quickjs_context.cpp                   | C++        |         14 |          2 |          0 |         16 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\quickjs_runtime.cpp                   | C++        |          1 |          0 |          0 |          1 |
+| c:\ws-code\ws-kwik\kwik-ui\src\event\event.cpp                              | C++        |          6 |          1 |          2 |          9 |
+| c:\ws-code\ws-kwik\kwik-ui\src\layout\radio_group.cpp                       | C++        |         24 |         39 |          0 |         63 |
+| c:\ws-code\ws-kwik\kwik-ui\src\layout\stack_layout.cpp                      | C++        |         22 |          3 |          0 |         25 |
+| c:\ws-code\ws-kwik\kwik-ui\src\platform\window_win32.cpp                    | C++        |          1 |          1 |          1 |          3 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\command.cpp                           | C++        |        -12 |          7 |        -24 |        -29 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\font.cpp                              | C++        |          4 |          6 |          3 |         13 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\graphics.cpp                          | C++        |        -11 |          2 |         -2 |        -11 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\render_thread.cpp                     | C++        |        -33 |         -5 |        -12 |        -50 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\software_backend.cpp                  | C++        |        -79 |        -14 |        -22 |       -115 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_backend.cpp             | C++        |        137 |          9 |          5 |        151 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_clip_manager.cpp        | C++        |         58 |          0 |          2 |         60 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_context.cpp             | C++        |        782 |         82 |         49 |        913 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_glyph_renderer.cpp      | C++        |        389 |         27 |          1 |        417 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_image_renderer.cpp      | C++        |        443 |         28 |          3 |        474 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan\vulkan_rect_renderer.cpp       | C++        |        299 |         20 |          2 |        321 |
+| c:\ws-code\ws-kwik\kwik-ui\src\render\vulkan_backend.cpp                    | C++        |     -1,296 |       -144 |        -27 |     -1,467 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\AI_POLICY.md                 | Markdown   |         22 |          0 |          8 |         30 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\CMakeLists.txt               | CMake      |         59 |          0 |         16 |         75 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\README.md                    | Markdown   |         78 |          0 |         35 |        113 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\23.svg               | XML        |        729 |          0 |          2 |        731 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\drawing.svg          | XML        |         95 |          1 |          2 |         98 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\example1.c           | C          |        198 |         24 |         37 |        259 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\example2.c           | C          |         43 |         17 |         10 |         70 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\nano.svg             | XML        |         26 |          1 |          1 |         28 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\example\stb_image_write.h    | C++        |        388 |         73 |         51 |        512 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\premake4.lua                 | Lua        |         42 |          0 |         15 |         57 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\src\nanosvg.h                | C++        |      2,712 |        195 |        371 |      3,278 |
+| c:\ws-code\ws-kwik\kwik-ui\third_party\nanosvg\src\nanosvgrast.h            | C++        |      1,098 |        164 |        211 |      1,473 |
+| Total                                                                       |            |      9,845 |      1,367 |        998 |     12,210 |
++-----------------------------------------------------------------------------+------------+------------+------------+------------+------------+

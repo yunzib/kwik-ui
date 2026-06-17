@@ -132,12 +132,23 @@ bool VulkanContext::resize(int w, int h) {
 
     // 仅释放 + 重建 swapchain 和 canvas（不碰 sync objects / command buffers / frameIndex）
     destroyCanvas();
-    cleanupSwapchain();
+    // 保存旧 swapchain handle，释放 image views
+    VkSwapchainKHR oldSwapchain = swapchain_;
+    swapchain_ = VK_NULL_HANDLE;
+    for (auto &iv : swapchainImageViews_) {
+        if (iv) vkDestroyImageView(vkDevice_, iv, nullptr);
+    }
+    swapchainImageViews_.clear();
+    swapchainImages_.clear();
 
+    // 带 oldSwapchain 创建新 swapchain（关键修复）
     if (!createSwapchain()) {
         Log::error("resize: createSwapchain failed ({}x{})", w, h, std::source_location::current());
         return false;
     }
+
+    // 安全销毁旧的
+    if (oldSwapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(vkDevice_, oldSwapchain, nullptr); }
     if (!createCanvasImage()) {
         Log::error("resize: createCanvasImage failed", std::source_location::current());
         return false;
@@ -147,9 +158,8 @@ bool VulkanContext::resize(int w, int h) {
         return false;
     }
 
-    // frameIndex_ 和 currentImageIndex_ 保持不变
-    // fence 已在 beginFrame 的 wait 中消耗，之后会被 reset
-    // semaphore 未 signaled，稍后 beginFrame retry acquire 会重新使用
+    currentImageIndex_ = 0;
+    frameIndex_ = 0;
 
     return true;
 }
@@ -496,8 +506,11 @@ bool VulkanContext::createSwapchain() {
         swapchainExtent_ = {
             std::clamp((uint32_t)swapchainExtent_.width, caps.minImageExtent.width, caps.maxImageExtent.width),
             std::clamp((uint32_t)swapchainExtent_.height, caps.minImageExtent.height, caps.maxImageExtent.height)};
-    uint32_t imgCount = caps.minImageCount;
+
+    uint32_t imgCount = caps.minImageCount + 1;
     if (caps.maxImageCount > 0 && imgCount > caps.maxImageCount) imgCount = caps.maxImageCount;
+    if (imgCount < 3) imgCount = 3;
+
     VkSwapchainCreateInfoKHR sci{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     sci.surface = vkSurface_;
     sci.minImageCount = imgCount;

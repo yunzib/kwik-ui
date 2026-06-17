@@ -217,7 +217,9 @@ void RenderThread::processCommands(const CommandBuffer &buffer) {
 
     // 先处理 resize 命令（必须在 beginFrame 之前）
     for (const auto &cmd : buffer.commands()) {
-        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { backend_->resize(rc->width, rc->height); }
+        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { 
+            executeCommand(cmd);
+        }
     }
 
     // 开始帧

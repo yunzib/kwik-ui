@@ -56,9 +56,14 @@ if(KWIK_BUILD_EXAMPLES)
     # add_executable(win32_window_example ${CMAKE_SOURCE_DIR}/examples/win32_window_example.cpp)
     # target_link_libraries(win32_window_example PRIVATE kwik)
 
+    # add_executable(vk_resize_test ${CMAKE_SOURCE_DIR}/examples/vk_resize_test.cpp)
+    # target_link_libraries(vk_resize_test PRIVATE kwik)
+
     # example
     add_executable(example ${CMAKE_SOURCE_DIR}/examples/example.cpp)
     target_link_libraries(example PRIVATE kwik)
+
+    
 
 
 endif()
