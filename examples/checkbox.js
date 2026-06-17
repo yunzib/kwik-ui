@@ -1,40 +1,99 @@
-import { View, Checkbox, Text, State, Button } from 'kwikui';
-// State 定义在模块顶层 (每次 rebuild 复用同一个实例)
+import { View, Checkbox, Text, State, Button, ref, getProp, setProp } from 'kwikui';
+
+// State 实例（模块级，每次 rebuild 复用）
 const form = new State({
-    agree: false, news: true, promo: false,
-    email: true, sms: false, analytics: false, terms: false,
+    agree: false, terms: false, marketing: true,
 });
-// 函数式导出: rebuildTree 时重新调用 → checked 值重新求值
+
 export default () => View({
-    width: 800, height: 600, background: "#f5f5f5", padding: 24
+    id: "root", width: 800, height: 600,
+    background: "#f5f5f5", padding: 24
 }, [
-    Text({ text: "用户偏好设置", fontSize: 22, color: "#333333", margin: [0, 0, 20, 0] }),
-    Text({ text: "通知", fontSize: 16, color: "#666666", margin: [0, 0, 12, 0] }),
-    Checkbox({ text: "接收新闻推送", checked: form.news, onChange: (e) => form.news = e.checked }),
-    Checkbox({ text: "接收促销活动通知", checked: form.promo, onChange: (e) => form.promo = e.checked }),
-    Checkbox({ text: "接收邮件通知", checked: form.email, onChange: (e) => form.email = e.checked }),
-    Checkbox({ text: "接收短信通知", checked: form.sms, onChange: (e) => form.sms = e.checked }),
-    Text({ text: "隐私", fontSize: 16, color: "#666666", margin: [0, 0, 12, 0] }),
-    Checkbox({ text: "共享使用数据分析", checked: form.analytics, onChange: (e) => form.analytics = e.checked }),
-    Checkbox({ text: "同意用户服务条款", checked: form.terms, onChange: (e) => form.terms = e.checked }),
-    Text({ text: "法律", fontSize: 16, color: "#666666", margin: [0, 0, 12, 0] }),
+    Text({ text: "ref 双向绑定测试", fontSize: 20, color: "#333", margin: [0, 0, 16, 0] }),
+
+    // ── ref 绑定 Checkbox ──────────────────────────
+    Checkbox({ id: "chkAgree",    text: "同意用户协议", checked: ref(form, "agree") }),
+    Checkbox({ id: "chkTerms",    text: "接受服务条款", checked: ref(form, "terms") }),
     Checkbox({
-        text: "已阅读并同意《用户协议》", checked: form.agree,
+        id: "chkMarketing",
+        text: "接收营销邮件", checked: ref(form, "marketing"),
         checkedColor: "#E53935", checkedFillColor: "#E53935",
-        onChange: (e) => form.agree = e.checked
+        onChange: (e) => { console.log("[onchange] chkMarketing.checked =", e.checked); }
+    }),
+
+    Text({ text: " ", fontSize: 6, margin: [0, 0, 10, 0] }),
+
+    // ── getProp 测试 ───────────────────────────────
+    Text({ text: "getProp / setProp", fontSize: 16, color: "#666", margin: [0, 0, 8, 0] }),
+
+    Button({
+        text: "getProp: chkAgree.checked", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => {
+            let v = getProp("chkAgree", "checked");
+            console.log("[getProp] chkAgree.checked =", v, "| form.agree =", form.agree);
+        }
     }),
     Button({
-        text: "保存设置", width: 120, height: 44, borderRadius: 8,
-        margin: [0, 24, 0, 0],
+        text: "setProp: chkAgree.checked = true", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
         onClick: () => {
-            console.log("已勾选:");
-            if (form.agree) console.log("  - 用户协议");
-            if (form.news) console.log("  - 新闻推送");
-            if (form.promo) console.log("  - 促销通知");
-            if (form.email) console.log("  - 邮件通知");
-            if (form.sms) console.log("  - 短信通知");
-            if (form.analytics) console.log("  - 数据分析");
-            if (form.terms) console.log("  - 服务条款");
+            setProp("chkAgree", "checked", "true");
+            console.log("[setProp] chkAgree.checked → true | form.agree =", form.agree);
+        }
+    }),
+    Button({
+        text: "setProp: chkAgree.checked = false", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => {
+            setProp("chkAgree", "checked", "false");
+            console.log("[setProp] chkAgree.checked → false | form.agree =", form.agree);
+        }
+    }),
+
+    Text({ text: " ", fontSize: 6, margin: [0, 0, 10, 0] }),
+
+    // ── State 直接修改 → ref 自动重建 ──────────────
+    Text({ text: "State 直接写入（触发 rebuild，ref 自动同步）", fontSize: 16, color: "#666", margin: [0, 0, 8, 0] }),
+
+    Button({
+        text: "State: form.terms = true", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => { form.terms = true; }
+    }),
+    Button({
+        text: "State: form.terms = false", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => { form.terms = false; }
+    }),
+    Button({
+        text: "State: form.marketing = true", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => { form.marketing = true; }
+    }),
+    Button({
+        text: "State: form.marketing = false", width: 280, height: 36, borderRadius: 6,
+        margin: [0, 0, 6, 0],
+        onClick: () => { form.marketing = false; }
+    }),
+
+    Text({ text: " ", fontSize: 6, margin: [0, 0, 10, 0] }),
+
+    // ── 汇总 ───────────────────────────────────────
+    Button({
+        text: "打印所有状态（getProp + State）", width: 280, height: 36, borderRadius: 6,
+        background: "#1976D2", textColor: "white",
+        onClick: () => {
+            console.log("═══════════ 状态快照 ═══════════");
+            console.log("State:");
+            console.log("  agree:    ", form.agree);
+            console.log("  terms:    ", form.terms);
+            console.log("  marketing:", form.marketing);
+            console.log("getProp:");
+            console.log("  chkAgree:    ", getProp("chkAgree", "checked"));
+            console.log("  chkTerms:    ", getProp("chkTerms", "checked"));
+            console.log("  chkMarketing:", getProp("chkMarketing", "checked"));
+            console.log("══════════════════════════════════");
         }
     }),
 ]);

@@ -2,12 +2,14 @@
 // checkbox.cpp — Checkbox 控件实现
 //
 // 视觉: 圆角方框 + 选中时填充蓝色 + 白色 ✓ 号 + 右侧文字标签
-// 交互: Tap 切换 checked → 触发 onChange 回调
+// 交互: Tap 切换 checked → 触发绑定回调 → 触发 onChange 回调
 // ============================================================================
+
 module;
 #include "quickjs.h"
 #include <cstring>
 module kwik.element.checkbox;
+
 import kwik.element.view;
 import kwik.element.props;
 import kwik.core.types;
@@ -16,22 +18,24 @@ import kwik.render.graphics;
 import kwik.render.font;
 import kwik.render.command;
 import kwik.engine.js_value;
+import kwik.engine.state_binding;
 import std;
-// ════════════════════════════════════════════════════════
-// needReshapeText — 对齐 Button 模式: 仅检测文本/字号变化
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
+// needReshapeText — 文字标签缓存失效检测
+// ============================================================================
 bool Checkbox::needReshapeText() const {
     return shapedCache_.empty() || cachedFontSize_ != text_.fontSize || cachedText_ != text_.text;
 }
-// ════════════════════════════════════════════════════════
-// onMeasure — 方框 + 文字宽度
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
+// onMeasure — 测量尺寸
+// ============================================================================
 Size Checkbox::onMeasure(Constraints constraints) {
     float w = check_.boxSize + check_.textSpacing;
     float h = check_.boxSize;
     if (!text_.text.empty()) {
         auto &fm = FontManager::instance();
-        // shapeMetrics 内部自动加载默认字体，无需显式 loadFont
         auto metrics = fm.shapeMetrics(text_.text.c_str(), text_.fontSize > 0 ? text_.fontSize : 16.0f);
         float textW = 0;
         for (auto &m : metrics) textW += m.advanceX;
@@ -45,24 +49,64 @@ Size Checkbox::onMeasure(Constraints constraints) {
     if (props.height.has_value()) h = *props.height;
     return constraints.constrain({w, h});
 }
-// ════════════════════════════════════════════════════════
-// setChecked — 选中状态切换
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
+// setChecked — 设置选中状态
+// ============================================================================
 void Checkbox::setChecked(bool val) {
     check_.checked = val;
-     markDirty();
+    markDirty();
 }
-// ════════════════════════════════════════════════════════
-// onEvent — Tap 切换选中 + 触发 onChange
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
+// getProperty — getProp("chkId", "checked") 支持
+// ============================================================================
+std::string Checkbox::getProperty(const char *name) const {
+    if (std::strcmp(name, "checked") == 0) {
+        return check_.checked ? "true" : "false";
+    }
+    return View::getProperty(name);
+}
+
+// ============================================================================
+// setProperty — setProp("chkId", "checked", "true") 支持
+// ============================================================================
+bool Checkbox::setProperty(const char *name, const char *value) {
+    if (std::strcmp(name, "checked") == 0) {
+        setChecked(std::strcmp(value, "true") == 0);
+        return true;
+    }
+    return View::setProperty(name, value);
+}
+
+// ============================================================================
+// setBinding — 设置双向绑定
+// ============================================================================
+void Checkbox::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+    binding_ = std::move(binding);
+    bindKey_ = key;
+}
+
+// ============================================================================
+// onEvent — Tap 切换选中 + 自动更新绑定 + 触发 onChange
+// ============================================================================
 bool Checkbox::onEvent(int code, float localX, float localY, JSContext *ctx) {
     if (code == ViewEventCode::Tap) {
-        bool before = check_.checked;
-        setChecked(!check_.checked);
-        // std::print("Checkbox onEvent: {} -> {}\n", before, check_.checked);
+        bool newVal = !check_.checked;
+        setChecked(newVal);
+
+        // ① 双向绑定：自动更新 State（纯 C++ 接口，无 JS 依赖）
+        if (binding_) {
+            binding_->setBool(bindKey_, newVal);
+            // → JSStateBinding::setBool → JS_SetPropertyStr
+            // → State.set_property exotic hook → render_callback() → rebuild
+        }
+
+        // ② 显式 onChange 回调（向下兼容）
         if (!js_is_null(handlers.onChange) && handlers.ctx) {
             JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, check_.checked));
+            JS_SetPropertyStr(handlers.ctx, eventObj, "checked",
+                              JS_NewBool(handlers.ctx, check_.checked));
             JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
             if (JS_IsException(ret)) {
                 JSValue exc = JS_GetException(handlers.ctx);
@@ -74,24 +118,29 @@ bool Checkbox::onEvent(int code, float localX, float localY, JSContext *ctx) {
     }
     return View::onEvent(code, localX, localY, ctx);
 }
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
 // onDraw — 绘制方框 + 选中填充 + ✓ 号 + 文字
-// ════════════════════════════════════════════════════════
+// ============================================================================
 void Checkbox::onDraw(Graphics &graphics) {
-    // ── 基类背景 (默认透明) ──
+    // 基类背景（默认透明）
     if (props.background.isVisible()) { graphics.drawRoundedRect(frame, props.borderRadius, props.background); }
+
     float contentH = frame.height - props.padding.vertical();
     float boxX = frame.x + props.padding.left;
     float boxY = frame.y + props.padding.top + (contentH - check_.boxSize) * 0.5f;
     float halfR = check_.borderRadius;
     Rect boxRect{boxX, boxY, check_.boxSize, check_.boxSize};
-    // ① 方框填充 (未选中白底 / 选中品牌色)
+
+    // 方框填充
     Color fillColor = check_.checked ? check_.checkedFillColor : Color::white();
     graphics.drawRoundedRect(boxRect, halfR, fillColor);
-    // ② 方框边框
+
+    // 方框边框
     Color borderColor = check_.checked ? check_.checkedColor : check_.uncheckedColor;
     graphics.drawRoundedRectStroke(boxRect, halfR, borderColor, check_.ringWidth);
-    // ③ ✓ 号 (仅选中时 — U+2713 CHECK MARK, UTF-8: E2 9C 93)
+
+    // ✓ 号（仅选中时）
     if (check_.checked) {
         auto &fm = FontManager::instance();
         float markSize = std::round(check_.boxSize * 0.75f);
@@ -116,7 +165,8 @@ void Checkbox::onDraw(Graphics &graphics) {
             graphics.restore();
         }
     }
-    // ④ 文字标签 (对齐 Button 模式: shapeText 一步完成排版+烘焙)
+
+    // 文字标签
     if (!text_.text.empty()) {
         auto &fm = FontManager::instance();
         if (needReshapeText()) {

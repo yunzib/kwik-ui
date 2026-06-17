@@ -29,6 +29,66 @@ struct ChannelData {
     bool closed = false;
 };
 
+// ============================================================================
+// resolveRefProp — 检测并展开组件 props 中指定属性的 ref 绑定
+//
+// 如果 props[propName] 是由 ref() 创建的标记数组，则：
+//   1. 读取 State 的当前值: props[propName] = state[key]
+//   2. 注入隐藏属性供 element_parser 消费:
+//      __bind_{propName}State = state
+//      __bind_{propName}Key   = key
+//
+// 如果不是 ref 标记，不做任何操作（O(1) 快速路径）。
+//
+// 每个 js_xxx 函数只需调用一次：
+//   resolveRefProp(ctx, props, "checked");   // Checkbox
+//   resolveRefProp(ctx, props, "value");      // Input
+// ============================================================================
+static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propName) {
+    if (!propName || !JS_IsObject(props)) return;
+
+    JSValue val = JS_GetPropertyStr(ctx, props, propName);
+    if (JS_IsUndefined(val) || !JS_IsArray(val)) {
+        JS_FreeValue(ctx, val);
+        return;
+    }
+
+    // 检查标记
+    JSValue tag = JS_GetPropertyUint32(ctx, val, 0);
+    if (!JS_IsString(tag)) { JS_FreeValue(ctx, tag); JS_FreeValue(ctx, val); return; }
+    const char *tagStr = JS_ToCString(ctx, tag);
+    bool isBind = tagStr && std::strcmp(tagStr, "__kwik_bind__") == 0;
+    JS_FreeCString(ctx, tagStr);
+    JS_FreeValue(ctx, tag);
+    if (!isBind) { JS_FreeValue(ctx, val); return; }
+
+    // 提取 stateObj 和 key（各获得一个 ref）
+    JSValue stateObj = JS_GetPropertyUint32(ctx, val, 1);
+    JSValue keyVal   = JS_GetPropertyUint32(ctx, val, 2);
+    JS_FreeValue(ctx, val);  // 先释放数组，不再碰 stateObj/keyVal 通过数组的隐式 ref
+
+    if (!JS_IsString(keyVal)) { JS_FreeValue(ctx, stateObj); JS_FreeValue(ctx, keyVal); return; }
+
+    // 读取当前值
+    const char *stateKey = JS_ToCString(ctx, keyVal);
+    JSValue current = JS_GetPropertyStr(ctx, stateObj, stateKey);
+
+    // 替换 prop 为当前值（使用显式 dup，不依赖 SetProperty 的 ref 约定）
+    JS_SetPropertyStr(ctx, props, propName, JS_DupValue(ctx, current));
+    JS_FreeValue(ctx, current);
+
+    // 注入隐藏属性（先 dup 确保 stateObj/keyVal 不被误释放）
+    std::string sName = "__bind_" + std::string(propName) + "State";
+    std::string kName = "__bind_" + std::string(propName) + "Key";
+    JS_SetPropertyStr(ctx, props, sName.c_str(), JS_DupValue(ctx, stateObj));
+    JS_SetPropertyStr(ctx, props, kName.c_str(), JS_DupValue(ctx, keyVal));
+
+    // 释放从数组提取的 ref
+    JS_FreeValue(ctx, stateObj);
+    JS_FreeValue(ctx, keyVal);
+    JS_FreeCString(ctx, stateKey);
+}
+
 /**
  * @brief 通用的组件创建：返回一个普通 JS 对象 { type, props, children }
  * @param ctx      QuickJS 上下文
@@ -393,6 +453,8 @@ static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JS
 static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+
+    resolveRefProp(ctx, props, "checked");      // 处理 ref 绑定
     return makeElement(ctx, "Checkbox", props, children);
 }
 
@@ -405,6 +467,35 @@ static JSValue js_dropdown(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Dropdown", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
+
+// ============================================================================
+// ref(state, key) — 创建双向绑定标记
+//
+// 返回一个标记数组 ["__kwik_bind__", state, key]，供 resolveRefProp 识别。
+// state 必须是一个 State exotic 对象，key 是 state 上的属性名。
+//
+// 用法:
+//   Checkbox({ text: "同意", checked: ref(form, "agree") })
+//   Input({ value: ref(form, "name") })
+// ============================================================================
+static JSValue js_ref(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2 || JS_IsUndefined(argv[0]) || JS_IsUndefined(argv[1]))
+        return JS_UNDEFINED;
+
+    JSValue arr = JS_NewArray(ctx);
+    // 索引 0: 标记字符串
+    JS_SetPropertyUint32(ctx, arr, 0, JS_NewString(ctx, "__kwik_bind__"));
+    // 索引 1: State 对象（增加引用，供下游消费）
+    JS_SetPropertyUint32(ctx, arr, 1, JS_DupValue(ctx, argv[0]));
+    // 索引 2: 属性名字符串
+    JS_SetPropertyUint32(ctx, arr, 2, JS_DupValue(ctx, argv[1]));
+
+    return arr;
+}
+
+
+
+
 
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
@@ -425,6 +516,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("Checkbox", 2, js_checkbox),
         JS_CFUNC_DEF("TextArea", 2, js_textarea),
         JS_CFUNC_DEF("Dropdown", 2, js_dropdown),
+        JS_CFUNC_DEF("ref", 2, js_ref), 
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

@@ -153,6 +153,8 @@ void Application::rebuildTree() {
     jsCtx_.clearRenderFlag();
     focusedView_ = nullptr;      //  旧树已销毁，清空野指针
     dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
+
+    jsCtx_.setUserPointer(tree_.get());
 }
 
 // ============================================================================

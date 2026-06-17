@@ -33,6 +33,7 @@ import kwik.layout.radio_group;
 import kwik.element.checkbox;
 import kwik.element.textarea;
 import kwik.element.dropdown;
+import kwik.engine.state_binding;
 
 import std;
 // ============================================================================
@@ -132,7 +133,24 @@ static struct InitBuiltinTypes {
 
         // ── 复选框 ───────────────────────────────────────
         ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
-            return std::make_unique<Checkbox>(parseViewProps(pv), parseTextContent(pv), parseCheckboxProps(pv));
+            auto checkbox =
+                std::make_unique<Checkbox>(parseViewProps(pv), parseTextContent(pv), parseCheckboxProps(pv));
+
+            // ── 检测双向绑定 ──────────────────────────────────
+            // resolveRefProp 已在 js_checkbox 中处理 ref() 标记，
+            // 并将 State 引用和 Key 注入为隐藏属性。
+            // 此处只需读取注入的属性，创建 JSStateBinding。
+            if (pv.hasProperty("__bind_checkedKey")) {
+                JSContext *ctx = pv.context();
+                auto stateVal = pv.getProperty("__bind_checkedState");
+                auto keyVal = pv.getProperty("__bind_checkedKey");
+                Log::debug("Checkbox binding: key={}, stateIsValid={}", keyVal.toString(),
+                           JS_IsObject(stateVal.raw()) ? "yes" : "no");    // ← 验证
+                checkbox->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+            }
+            // 验证 id 是否读取成功
+            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));    // ← 验证
+            return checkbox;
         });
 
         // ── 多行文本输入 ──────────────────────────────────

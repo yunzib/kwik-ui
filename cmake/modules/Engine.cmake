@@ -12,6 +12,7 @@ target_sources(kwik_engine
             modules/engine/quickjs_context.cppm
             modules/engine/js_value.cppm
             modules/engine/bindings.cppm
+            modules/engine/state_binding.cppm
     
     # 添加私有实现源文件（PRIVATE_SOURCES）
     PRIVATE
@@ -19,6 +20,7 @@ target_sources(kwik_engine
         src/engine/quickjs_context.cpp
         src/engine/js_value.cpp
         src/engine/bindings.cpp
+        src/engine/state_binding.cpp
 
 
 )
