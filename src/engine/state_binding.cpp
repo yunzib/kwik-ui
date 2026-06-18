@@ -69,6 +69,19 @@ public:
         JS_SetPropertyStr(ctx_, stateObj_, key.c_str(), newBool);
         // JS_SetPropertyStr 消费 newBool 的引用
     }
+
+    /**
+     * @brief 设置字符串值
+     * @param key   State 上的属性名
+     * @param value 字符串值
+     *
+     * 等价于 JS: stateObj[key] = value
+     * 用于 RadioGroup.selected 等字符串类型属性的双向绑定。
+     */
+    void setString(const std::string &key, const std::string &value) override {
+        JSValue newStr = JS_NewString(ctx_, value.c_str());
+        JS_SetPropertyStr(ctx_, stateObj_, key.c_str(), newStr);
+    }
 };
 
 // ── 工厂函数 ──

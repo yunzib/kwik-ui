@@ -128,7 +128,17 @@ static struct InitBuiltinTypes {
 
         // ── 单选按钮组 ───────────────────────────────────────
         ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
-            return std::make_unique<RadioGroup>(parseViewProps(pv), parseRadioGroupProps(pv));
+            auto rg = std::make_unique<RadioGroup>(parseViewProps(pv), parseRadioGroupProps(pv));
+
+            // 检测双向绑定：resolveRefProp 已在 js_radiogroup 中处理 ref() 标记，
+            // 并将 State 引用和 Key 注入为 __bind_selectedState / __bind_selectedKey。
+            if (pv.hasProperty("__bind_selectedKey")) {
+                JSContext *ctx = pv.context();
+                auto stateVal = pv.getProperty("__bind_selectedState");
+                auto keyVal = pv.getProperty("__bind_selectedKey");
+                rg->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+            }
+            return rg;
         });
 
         // ── 复选框 ───────────────────────────────────────

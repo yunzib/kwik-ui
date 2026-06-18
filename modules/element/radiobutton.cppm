@@ -34,6 +34,10 @@ public:
     /// 切换选中状态 (并取消同组其他 Radio)
     void setChecked(bool val);
 
+    // ─── 属性读写（RadioGroup 通过此接口读取 checked/value） ───
+    std::string getProperty(const char *name) const override;
+    bool setProperty(const char *name, const char *value) override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

@@ -122,3 +122,27 @@ void RadioButton::onDraw(Graphics &graphics) {
         graphics.restore();
     }
 }
+
+// ════════════════════════════════════════════════════════
+// getProperty — 供 RadioGroup::onEvent 跨模块访问子项属性
+//
+// RadioGroup 通过 View::getProperty 读取 RadioButton 的
+// checked 和 value，无需打破模块边界进行 static_cast。
+// ════════════════════════════════════════════════════════
+std::string RadioButton::getProperty(const char *name) const {
+    if (std::strcmp(name, "checked") == 0) {
+        return radio_.checked ? "true" : "false";
+    }
+    if (std::strcmp(name, "value") == 0) {
+        return radio_.value;
+    }
+    return View::getProperty(name);
+}
+
+bool RadioButton::setProperty(const char *name, const char *value) {
+    if (std::strcmp(name, "checked") == 0) {
+        setChecked(std::strcmp(value, "true") == 0);
+        return true;
+    }
+    return View::setProperty(name, value);
+}

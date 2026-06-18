@@ -21,6 +21,8 @@ import std;
  */
 export class StateBinding {
 public:
+    virtual ~StateBinding() = default;
+
     /**
      * @brief 设置绑定的布尔值
      * @param key   State 上的属性名
@@ -31,7 +33,15 @@ public:
      */
     virtual void setBool(const std::string &key, bool value) = 0;
 
-    virtual ~StateBinding() = default;
+    /**
+     * @brief 设置绑定的字符串值
+     * @param key   State 上的属性名
+     * @param value 要设置的字符串值
+     *
+     * 用于 RadioGroup.selected 等字符串类型属性的双向绑定。
+     */
+    virtual void setString(const std::string &key, const std::string &value) = 0;
+
 };
 
 /**

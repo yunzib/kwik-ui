@@ -132,6 +132,8 @@ bool Application::init() {
 
     // ⑥ 事件系统
     eventProc_.setRootTree(tree_.get());
+
+    dirtyTracker_.markFull();    // 首帧必须全屏重绘
     return true;
 }
 // ============================================================================

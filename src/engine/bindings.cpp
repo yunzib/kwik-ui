@@ -447,6 +447,7 @@ static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "selected");      // 处理 ref 绑定（selected: ref(form, "size")）
     return makeElement(ctx, "RadioGroup", props, children);
 }
 
