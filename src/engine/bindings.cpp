@@ -462,6 +462,7 @@ static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
 static JSValue js_textarea(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "TextArea", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 

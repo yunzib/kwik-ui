@@ -174,7 +174,16 @@ static struct InitBuiltinTypes {
 
         // ── 多行文本输入 ──────────────────────────────────
         ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
-            return std::make_unique<TextArea>(parseViewProps(pv), parseTextAreaProps(pv));
+            auto ta = std::make_unique<TextArea>(parseViewProps(pv), parseTextAreaProps(pv));
+
+            // ── 检测双向绑定 ──
+            if (pv.hasProperty("__bind_valueKey")) {
+                JSContext *ctx = pv.context();
+                auto stateVal = pv.getProperty("__bind_valueState");
+                auto keyVal = pv.getProperty("__bind_valueKey");
+                ta->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+            }
+            return ta;
         });
 
         ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {

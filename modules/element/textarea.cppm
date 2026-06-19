@@ -8,6 +8,8 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.font;
+import kwik.engine.state_binding;
+
 import std;
 /**
  * @brief 多行文本输入控件
@@ -47,6 +49,10 @@ public:
     void blur();
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+        binding_ = std::move(binding);
+        bindKey_ = key;
+    }
 
 protected:
     Size onMeasure(Constraints constraints) override;
@@ -63,6 +69,9 @@ private:
     uint64_t lastBlinkTime_ = 0;
     // ── 占位符缓存 ──────────────────────────────────
     ShapedTextCache placeholderCache_;
+
+    std::unique_ptr<StateBinding> binding_;
+    std::string bindKey_;
 
     // ── 私有方法 ────────────────────────────────────
     void insertAtCursor(const std::string &utf8);

@@ -185,6 +185,7 @@ void TextArea::focus() {
 }
 void TextArea::blur() {
     focused_ = false;
+    if (binding_) binding_->setString(bindKey_, text_);
     markDirty();
 }
 void TextArea::setValue(const std::string &val) {
@@ -360,6 +361,7 @@ std::string TextArea::getProperty(const char *name) const {
 bool TextArea::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
         setValue(value);
+        if (binding_) binding_->setString(bindKey_, text_);
         markDirty();
         return true;
     }
