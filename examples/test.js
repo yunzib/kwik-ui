@@ -1,27 +1,3 @@
-<div align="center">
-<h1>kwik-ui(c++ 声明式UI库)</h1>
-</div>
-
-<p align="center">
-<img alt="" src="https://img.shields.io/badge/release-v0.0.0-brightgreen" style="display: inline-block;" />
-<img alt="" src="https://img.shields.io/badge/c++-26-brightgreen" style="display: inline-block;" />
-<img alt="" src="https://img.shields.io/badge/js engine-quickjs ng-brightgreen" style="display: inline-block;" />
-</p>
-
-# 1. 项目描述
-基于 C++26 Modules、QuickJS 与 Vulkan 的声明式跨平台 UI 框架。Vulkan GPU 硬件加速渲染，QuickJS 驱动 JS 声明组件树，实现高性能、低延迟的原生 UI 体验。低开销 C++ 内核 + 灵活 JS 逻辑，适用于嵌入式 Linux 及跨平台应用开发。
-
-# 2. 开发环境
-- IDE: VSCODE
-    - 插件： clangd, CMake, CMake Tools, opencode
-- 操作系统： Windows11
-- 编译器： llvm-mingw-20260421-ucrt-x86_64
-- 构建系统： cmake 4.3.2
-- 构建工具： ninja 1.13.2
-
-# 3. 项目效果展示
-## 3.1 代码示例
-```
 import { View, Text, Button, Input, TextArea, Checkbox,
          Flex, State, ref, getProp, setProp } from 'kwikui';
 
@@ -128,8 +104,3 @@ export default () => View({
         }),
     ]),
 ]);
-```
-## 3.2 效果示例
-![alt text](doc/image/examle.png)
-- 更多示例可参考:  examples/
-- 更多组件相关参考:  doc/1.kwik-ui 组件.md
