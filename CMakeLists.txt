@@ -52,6 +52,20 @@ add_link_options(
 )
 
 
+# ── MinGW + libc++ C++26: operator new(size, align_val_t) 歧义 ──
+# llvm-mingw 的 libc++ 在分配 vector<View*> 等类型时生成的
+# __builtin_operator_new(size, align_val_t) 与 MinGW CRT 提供的
+# 全局 operator new 产生重载歧义，导致编译失败。
+#
+# 参考: https://github.com/llvm/llvm-project/issues/58908
+#
+# -fno-aligned-allocation 禁止编译器生成 aligned 重载调用，
+# 回退到普通 operator new(size_t)，对齐由标准库内部保证。
+if(MINGW AND CMAKE_CXX_STANDARD GREATER_EQUAL 26)
+    add_compile_options(-fno-aligned-allocation)
+endif()
+
+
 
 ####################### 三方库配置 ##########################################
 message(STATUS "===== 开始引入三方库 =====")

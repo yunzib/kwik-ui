@@ -10,6 +10,7 @@ target_sources(kwik_element
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/element
         FILES
             modules/element/props.cppm
+            modules/element/typed_prop.cppm
             modules/element/view.cppm
             modules/element/text.cppm
             modules/element/button.cppm
@@ -19,6 +20,7 @@ target_sources(kwik_element
             modules/element/checkbox.cppm
             modules/element/textarea.cppm
             modules/element/dropdown.cppm
+
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES

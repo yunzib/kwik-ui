@@ -9,449 +9,369 @@ import kwik.bridge.color_parser;
 import kwik.core.types;
 import kwik.element.props;
 import kwik.engine.js_value;
+import kwik.bridge.color_parser;
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseEdgeInsets — 多重形态解析（数值/数组/对象）
+// ═══════════════════════════════════════════════════════════════════════════
 
 EdgeInsets parseEdgeInsets(const JSValueRef &value) {
     if (value.isNull() || value.isUndefined()) { return EdgeInsets{}; }
-
-    // 数值：四边相同
     if (value.isNumber()) { return EdgeInsets(value.toFloat()); }
-
-    // 数组
     if (value.isArray()) {
         int len = value.getArrayLength();
-        if (len == 1) {
-            return EdgeInsets(value.getArrayElement(0).toFloat());
-        } else if (len == 2) {
+        if (len == 1) return EdgeInsets(value.getArrayElement(0).toFloat());
+        if (len == 2) {
             float h = value.getArrayElement(0).toFloat();
             float v = value.getArrayElement(1).toFloat();
             return EdgeInsets(h, v);
-        } else if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(1).toFloat(),     // top
-                              value.getArrayElement(2).toFloat(),     // right
-                              value.getArrayElement(3).toFloat(),     // bottom
-                              value.getArrayElement(0).toFloat());    // left
+        }
+        if (len >= 4) {
+            return EdgeInsets(value.getArrayElement(1).toFloat(),
+                              value.getArrayElement(2).toFloat(),
+                              value.getArrayElement(3).toFloat(),
+                              value.getArrayElement(0).toFloat());
         }
     }
-
-    // 对象
     if (value.isObject()) {
-        return EdgeInsets(value.getProperty("left").toFloat(), value.getProperty("top").toFloat(),
-                          value.getProperty("right").toFloat(), value.getProperty("bottom").toFloat());
+        return EdgeInsets(value.getProperty("left").toFloat(),
+                          value.getProperty("top").toFloat(),
+                          value.getProperty("right").toFloat(),
+                          value.getProperty("bottom").toFloat());
     }
-
     return EdgeInsets{};
 }
-Shadow parseShadow(const std::string &str) {
-    Shadow shadow;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// parseShadow — "offsetX offsetY blurRadius color" 字符串解析
+// ═══════════════════════════════════════════════════════════════════════════
+
+Shadow parseShadow(const std::string &str) {
+    if (str.empty()) return Shadow{};
+    Shadow shadow;
     std::istringstream iss(str);
     std::string token;
     std::vector<std::string> parts;
-
     while (iss >> token) { parts.push_back(token); }
-
     if (parts.size() >= 2) {
         shadow.offsetX = std::stof(parts[0]);
         shadow.offsetY = std::stof(parts[1]);
     }
-
     if (parts.size() >= 3) {
-        // 移除 'px' 后缀
         std::string blurStr = parts[2];
-        if (blurStr.size() > 2 && blurStr.substr(blurStr.size() - 2) == "px") {
+        if (blurStr.size() > 2 && blurStr.substr(blurStr.size() - 2) == "px")
             blurStr = blurStr.substr(0, blurStr.size() - 2);
-        }
         shadow.blurRadius = std::stof(blurStr);
     }
-
     if (parts.size() >= 4) {
-        // 剩余部分组成颜色字符串
         std::string colorStr;
-        for (size_t i = 3; i < parts.size(); i++) { colorStr += parts[i]; }
+        for (size_t i = 3; i < parts.size(); i++) colorStr += parts[i];
         shadow.color = parseColor(colorStr);
     }
-
     return shadow;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseBorderStyle
+// ═══════════════════════════════════════════════════════════════════════════
+
 BorderStyle parseBorderStyle(const std::string &str) {
     if (str == "solid") return BorderStyle::Solid;
     if (str == "dashed") return BorderStyle::Dashed;
     return BorderStyle::None;
 }
 
-ViewProps parseViewProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// parseViewProps
+// ═══════════════════════════════════════════════════════════════════════════
+
+ViewProps parseViewProps(PropsExtractor& ex) {
     ViewProps result;
-    if (!props.isObject()) { return result; }
-    if (props.hasProperty("id")) { result.id = props.getProperty("id").toString(); }
-    // 尺寸
-    if (props.hasProperty("width")) {
-        auto w = props.getProperty("width");
-        if (!w.isNull() && !w.isUndefined()) { result.width = w.toFloat(); }
+    ex.get("id", result.id);
+    {
+        float tmp = 0;
+        if (ex.get("width", tmp)) result.width = tmp;
     }
-    if (props.hasProperty("height")) {
-        auto h = props.getProperty("height");
-        if (!h.isNull() && !h.isUndefined()) { result.height = h.toFloat(); }
+    {
+        float tmp = 0;
+        if (ex.get("height", tmp)) result.height = tmp;
     }
-    // 背景
-    if (props.hasProperty("background")) { result.background = parseColor(props.getProperty("background").toString()); }
-    // 圆角
-    if (props.hasProperty("borderRadius")) { result.borderRadius = props.getProperty("borderRadius").toFloat(); }
-    // 边框
-    if (props.hasProperty("borderWidth")) { result.borderWidth = props.getProperty("borderWidth").toFloat(); }
-    if (props.hasProperty("borderColor")) {
-        result.borderColor = parseColor(props.getProperty("borderColor").toString());
+    ex.get("background", result.background);
+    ex.get("borderRadius", result.borderRadius);
+    ex.get("borderWidth", result.borderWidth);
+    ex.get("borderColor", result.borderColor);
+    if (ex.has("borderStyle"))
+        result.borderStyle = parseBorderStyle(ex.raw().getProperty("borderStyle").toString());
+    if (ex.has("padding")) result.padding = parseEdgeInsets(ex.raw().getProperty("padding"));
+    if (ex.has("margin"))  result.margin  = parseEdgeInsets(ex.raw().getProperty("margin"));
+    ex.get("visible", result.visible);
+    ex.get("opacity", result.opacity);
+    if (ex.has("shadow"))
+        result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
+    ex.get("flexGrow", result.flexGrow);
+    {
+        float tmp = 0;
+        if (ex.get("flex", tmp)) result.flexGrow = tmp;
     }
-    if (props.hasProperty("borderStyle")) {
-        result.borderStyle = parseBorderStyle(props.getProperty("borderStyle").toString());
+    ex.get("flexBasis", result.flexBasis);
+    {
+        int tmp = 0;
+        if (ex.get("gridRow", tmp)) result.gridRow = tmp;
+        if (ex.get("gridColumn", tmp)) result.gridColumn = tmp;
+        if (ex.get("gridRowSpan", tmp)) result.gridRowSpan = std::max(1, tmp);
+        if (ex.get("gridColumnSpan", tmp)) result.gridColumnSpan = std::max(1, tmp);
     }
-    // 间距
-    if (props.hasProperty("padding")) { result.padding = parseEdgeInsets(props.getProperty("padding")); }
-    if (props.hasProperty("margin")) { result.margin = parseEdgeInsets(props.getProperty("margin")); }
-    // 可见性
-    if (props.hasProperty("visible")) { result.visible = props.getProperty("visible").toBool(); }
-    // 透明度
-    if (props.hasProperty("opacity")) { result.opacity = props.getProperty("opacity").toFloat(); }
-    // 阴影
-    if (props.hasProperty("shadow")) { result.shadow = parseShadow(props.getProperty("shadow").toString()); }
-    // ── Flex 子项 ──
-    if (props.hasProperty("flexGrow")) result.flexGrow = props.getProperty("flexGrow").toFloat();
-    if (props.hasProperty("flex")) result.flexGrow = props.getProperty("flex").toFloat();
-    if (props.hasProperty("flexBasis")) result.flexBasis = props.getProperty("flexBasis").toFloat();
-    // ── Grid 子项 ──
-    if (props.hasProperty("gridRow")) result.gridRow = (int)props.getProperty("gridRow").toFloat();
-    if (props.hasProperty("gridColumn")) result.gridColumn = (int)props.getProperty("gridColumn").toFloat();
-    if (props.hasProperty("gridRowSpan"))
-        result.gridRowSpan = std::max(1, (int)props.getProperty("gridRowSpan").toFloat());
-    if (props.hasProperty("gridColumnSpan"))
-        result.gridColumnSpan = std::max(1, (int)props.getProperty("gridColumnSpan").toFloat());
-    // ── Stack 子项 ──
-    if (props.hasProperty("position")) { result.absolute = (props.getProperty("position").toString() == "absolute"); }
-    if (props.hasProperty("top")) result.absTop = props.getProperty("top").toFloat();
-    if (props.hasProperty("left")) result.absLeft = props.getProperty("left").toFloat();
-    if (props.hasProperty("right")) result.absRight = props.getProperty("right").toFloat();
-    if (props.hasProperty("bottom")) result.absBottom = props.getProperty("bottom").toFloat();
-    // ── 通用对齐 ──
-    if (props.hasProperty("align")) {
-        auto a = props.getProperty("align").toString();
-        if (a == "topLeft")
-            result.align = Align::TopLeft;
-        else if (a == "topCenter")
-            result.align = Align::TopCenter;
-        else if (a == "topRight")
-            result.align = Align::TopRight;
-        else if (a == "centerLeft")
-            result.align = Align::CenterLeft;
-        else if (a == "center")
-            result.align = Align::Center;
-        else if (a == "centerRight")
-            result.align = Align::CenterRight;
-        else if (a == "bottomLeft")
-            result.align = Align::BottomLeft;
-        else if (a == "bottomCenter")
-            result.align = Align::BottomCenter;
-        else if (a == "bottomRight")
-            result.align = Align::BottomRight;
-    }
-    if (props.hasProperty("x")) {
-        result.x = props.getProperty("x").toFloat();
-        result.hasExplicitX = true;
-    }
-    if (props.hasProperty("y")) {
-        result.y = props.getProperty("y").toFloat();
-        result.hasExplicitY = true;
+    if (ex.has("position"))
+        result.absolute = (ex.raw().getProperty("position").toString() == "absolute");
+    ex.get("top", result.absTop);
+    ex.get("left", result.absLeft);
+    ex.get("right", result.absRight);
+    ex.get("bottom", result.absBottom);
+    ex.getEnum("align", result.align, {
+        {"topLeft", Align::TopLeft},
+        {"topCenter", Align::TopCenter},
+        {"topRight", Align::TopRight},
+        {"centerLeft", Align::CenterLeft},
+        {"center", Align::Center},
+        {"centerRight", Align::CenterRight},
+        {"bottomLeft", Align::BottomLeft},
+        {"bottomCenter", Align::BottomCenter},
+        {"bottomRight", Align::BottomRight},
+    });
+    {
+        float tmp = 0;
+        if (ex.get("x", tmp)) { result.x = tmp; result.hasExplicitX = true; }
+        if (ex.get("y", tmp)) { result.y = tmp; result.hasExplicitY = true; }
     }
     return result;
 }
 
-TextContent parseTextContent(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// parseTextContent
+// ═══════════════════════════════════════════════════════════════════════════
+
+TextContent parseTextContent(PropsExtractor& ex) {
     TextContent result;
-    if (!props.isObject()) { return result; }
-    if (props.hasProperty("text")) { result.text = props.getProperty("text").toString(); }
-    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
-    if (props.hasProperty("fontFamily")) { result.fontFamily = props.getProperty("fontFamily").toString(); }
-    if (props.hasProperty("color")) { result.textColor = parseColor(props.getProperty("color").toString()); }
-    if (props.hasProperty("fontWeight")) {
-        auto fw = props.getProperty("fontWeight").toString();
-        if (fw == "bold")
-            result.fontWeight = FontWeight::Bold;
-        else if (fw == "light")
-            result.fontWeight = FontWeight::Light;
-        else if (fw == "medium")
-            result.fontWeight = FontWeight::Medium;
-    }
-    if (props.hasProperty("fontStyle")) {
-        auto fs = props.getProperty("fontStyle").toString();
-        if (fs == "italic")
-            result.fontStyle = FontStyle::Italic;
-        else if (fs == "oblique")
-            result.fontStyle = FontStyle::Oblique;
-    }
-    if (props.hasProperty("textAlign")) {
-        auto ta = props.getProperty("textAlign").toString();
-        if (ta == "center")
-            result.textAlign = TextAlign::Center;
-        else if (ta == "right")
-            result.textAlign = TextAlign::Right;
-        else if (ta == "justify")
-            result.textAlign = TextAlign::Justify;
-    }
+    ex.get("text", result.text);
+    ex.get("fontSize", result.fontSize);
+    ex.get("fontFamily", result.fontFamily);
+    ex.get("color", result.textColor);
+    ex.getEnum("fontWeight", result.fontWeight, {
+        {"bold", FontWeight::Bold},
+        {"light", FontWeight::Light},
+        {"medium", FontWeight::Medium},
+    });
+    ex.getEnum("fontStyle", result.fontStyle, {
+        {"italic", FontStyle::Italic},
+        {"oblique", FontStyle::Oblique},
+    });
+    ex.getEnum("textAlign", result.textAlign, {
+        {"center", TextAlign::Center},
+        {"right", TextAlign::Right},
+        {"justify", TextAlign::Justify},
+    });
     return result;
 }
-ButtonStateProps parseButtonState(const JSValueRef &props) {
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseButtonState
+// ═══════════════════════════════════════════════════════════════════════════
+
+ButtonStateProps parseButtonState(PropsExtractor& ex) {
     ButtonStateProps result;
-    if (!props.isObject()) { return result; }
-    if (props.hasProperty("hoverBackground")) {
-        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
-    }
-    if (props.hasProperty("pressedBackground")) {
-        result.pressedBackground = parseColor(props.getProperty("pressedBackground").toString());
-    }
-    if (props.hasProperty("pressedScale")) { result.pressedScale = props.getProperty("pressedScale").toFloat(); }
-    if (props.hasProperty("hoverBorderColor")) {
-        result.hoverBorderColor = parseColor(props.getProperty("hoverBorderColor").toString());
-    }
-    if (props.hasProperty("pressedBorderColor")) {
-        result.pressedBorderColor = parseColor(props.getProperty("pressedBorderColor").toString());
-    }
-    if (props.hasProperty("hoverShadow")) {
-        result.hoverShadow = parseShadow(props.getProperty("hoverShadow").toString());
-    }
-    if (props.hasProperty("pressedShadow")) {
-        result.pressedShadow = parseShadow(props.getProperty("pressedShadow").toString());
-    }
+    ex.get("hoverBackground", result.hoverBackground);
+    ex.get("pressedBackground", result.pressedBackground);
+    ex.get("pressedScale", result.pressedScale);
+    ex.get("hoverBorderColor", result.hoverBorderColor);
+    ex.get("pressedBorderColor", result.pressedBorderColor);
+    if (ex.has("hoverShadow"))
+        result.hoverShadow = parseShadow(ex.raw().getProperty("hoverShadow").toString());
+    if (ex.has("pressedShadow"))
+        result.pressedShadow = parseShadow(ex.raw().getProperty("pressedShadow").toString());
     return result;
 }
 
-ContainerProps parseContainerProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// parseContainerProps
+// ═══════════════════════════════════════════════════════════════════════════
+
+ContainerProps parseContainerProps(PropsExtractor& ex) {
     ContainerProps result;
-    if (!props.isObject()) { return result; }
-    if (props.hasProperty("direction")) {
+    if (ex.has("direction"))
         result.flexDirection =
-            (props.getProperty("direction").toString() == "column") ? FlexDirection::Column : FlexDirection::Row;
+            (ex.raw().getProperty("direction").toString() == "column") ? FlexDirection::Column : FlexDirection::Row;
+    ex.getEnum("justifyContent", result.mainAxisAlignment, {
+        {"center", LayoutAlign::Center},
+        {"end", LayoutAlign::End},
+        {"spaceBetween", LayoutAlign::SpaceBetween},
+        {"spaceAround", LayoutAlign::SpaceAround},
+        {"spaceEvenly", LayoutAlign::SpaceEvenly},
+    });
+    ex.getEnum("alignItems", result.crossAxisAlignment, {
+        {"center", CrossAlign::Center},
+        {"end", CrossAlign::End},
+        {"stretch", CrossAlign::Stretch},
+    });
+    ex.get("gap", result.gap);
+    {
+        int tmp = 0;
+        if (ex.get("columns", tmp)) result.gridCols = std::max(1, tmp);
+        if (ex.get("rows", tmp)) result.gridRows = std::max(1, tmp);
     }
-    if (props.hasProperty("justifyContent")) {
-        auto a = props.getProperty("justifyContent").toString();
-        if (a == "center")
-            result.mainAxisAlignment = LayoutAlign::Center;
-        else if (a == "end")
-            result.mainAxisAlignment = LayoutAlign::End;
-        else if (a == "spaceBetween")
-            result.mainAxisAlignment = LayoutAlign::SpaceBetween;
-        else if (a == "spaceAround")
-            result.mainAxisAlignment = LayoutAlign::SpaceAround;
-        else if (a == "spaceEvenly")
-            result.mainAxisAlignment = LayoutAlign::SpaceEvenly;
-    }
-    if (props.hasProperty("alignItems")) {
-        auto a = props.getProperty("alignItems").toString();
-        if (a == "center")
-            result.crossAxisAlignment = CrossAlign::Center;
-        else if (a == "end")
-            result.crossAxisAlignment = CrossAlign::End;
-        else if (a == "stretch")
-            result.crossAxisAlignment = CrossAlign::Stretch;
-    }
-    if (props.hasProperty("gap")) result.gap = props.getProperty("gap").toFloat();
-    if (props.hasProperty("columns")) result.gridCols = std::max(1, (int)props.getProperty("columns").toFloat());
-    if (props.hasProperty("rows")) result.gridRows = std::max(1, (int)props.getProperty("rows").toFloat());
-    if (props.hasProperty("columnGap")) result.columnGap = props.getProperty("columnGap").toFloat();
-    if (props.hasProperty("rowGap")) result.rowGap = props.getProperty("rowGap").toFloat();
-    if (props.hasProperty("scrollDirection")) {
-        auto d = props.getProperty("scrollDirection").toString();
-        if (d == "horizontal")
-            result.scrollDir = ScrollDirection::Horizontal;
-        else if (d == "both")
-            result.scrollDir = ScrollDirection::Both;
-    }
-
-    if (props.hasProperty("dividerColor")) {
-        result.dividerColor = parseColor(props.getProperty("dividerColor").toString());
-    }
-    if (props.hasProperty("dividerHeight")) { result.dividerHeight = props.getProperty("dividerHeight").toFloat(); }
-
+    ex.get("columnGap", result.columnGap);
+    ex.get("rowGap", result.rowGap);
+    ex.getEnum("scrollDirection", result.scrollDir, {
+        {"horizontal", ScrollDirection::Horizontal},
+        {"both", ScrollDirection::Both},
+    });
+    ex.get("dividerColor", result.dividerColor);
+    ex.get("dividerHeight", result.dividerHeight);
     return result;
 }
 
-ImageProps parseImageProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// parseImageProps
+// ═══════════════════════════════════════════════════════════════════════════
+
+ImageProps parseImageProps(PropsExtractor& ex) {
     ImageProps result;
-    if (!props.isObject()) return result;
-    // 文件路径
-    if (props.hasProperty("src")) {
-        result.src = props.getProperty("src").toString();
+    if (ex.has("src")) {
+        result.src = ex.raw().getProperty("src").toString();
         result.source = ImageSource::File;
     }
-    // 填充模式
-    if (props.hasProperty("fit")) {
-        auto f = props.getProperty("fit").toString();
-        if (f == "fill")
-            result.fit = ImageFit::Fill;
-        else if (f == "contain")
-            result.fit = ImageFit::Contain;
-        else if (f == "none")
-            result.fit = ImageFit::None;
-    }
-    // 透明度
-    if (props.hasProperty("opacity")) { result.imageOpacity = props.getProperty("opacity").toFloat(); }
-    // 像素缓冲区 (ArrayBuffer)
-    if (props.hasProperty("data")) {
-        auto dataVal = props.getProperty("data");
+    ex.getEnum("fit", result.fit, {
+        {"fill", ImageFit::Fill},
+        {"contain", ImageFit::Contain},
+        {"none", ImageFit::None},
+    });
+    ex.get("opacity", result.imageOpacity);
+    if (ex.has("data")) {
+        auto dataVal = ex.raw().getProperty("data");
         JSContext *ctx = dataVal.context();
         JSValue raw = dataVal.raw();
         if (!JS_IsNull(raw) && !JS_IsUndefined(raw)) {
-            // 支持 ArrayBuffer 和 TypedArray (Uint8Array 等)
             size_t byteLen = 0;
-            uint8_t *buf = nullptr;
-            if (JS_IsArrayBuffer(raw)) { buf = JS_GetArrayBuffer(ctx, &byteLen, raw); }
-            // TODO: TypedArray 支持 (JS_GetTypedArrayBuffer)
+            uint8_t *buf = JS_GetArrayBuffer(ctx, &byteLen, raw);
             if (buf && byteLen > 0) {
                 result.data.assign(buf, buf + byteLen);
                 result.source = ImageSource::Buffer;
             }
         }
     }
-    if (props.hasProperty("width")) { result.bufferWidth = props.getProperty("width").toInt(); }
-    if (props.hasProperty("height")) { result.bufferHeight = props.getProperty("height").toInt(); }
+    {
+        int tmp = 0;
+        if (ex.get("width", tmp)) result.bufferWidth = tmp;
+        if (ex.get("height", tmp)) result.bufferHeight = tmp;
+    }
     return result;
 }
 
-InputProps parseInputProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+// parseInputProps
+// ═══════════════════════════════════════════════════════════════════════════
+
+InputProps parseInputProps(PropsExtractor& ex) {
     InputProps ip;
-    if (!props.isObject()) return ip;
-    // 文本内容
-    if (props.hasProperty("value")) ip.value = props.getProperty("value").toString();
-    if (props.hasProperty("placeholder")) ip.placeholder = props.getProperty("placeholder").toString();
-    // 字号
-    if (props.hasProperty("fontSize")) ip.fontSize = props.getProperty("fontSize").toFloat();
-    // 颜色 — 通过 parseColor 解析十六进制 / CSS 颜色字符串
-    if (props.hasProperty("textColor")) ip.textColor = parseColor(props.getProperty("textColor").toString());
-    if (props.hasProperty("placeholderColor"))
-        ip.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
-    if (props.hasProperty("cursorColor")) ip.cursorColor = parseColor(props.getProperty("cursorColor").toString());
-    if (props.hasProperty("focusedBorderColor"))
-        ip.focusedBorderColor = parseColor(props.getProperty("focusedBorderColor").toString());
-    // 限制
-    if (props.hasProperty("maxLength")) ip.maxLength = props.getProperty("maxLength").toInt();
-    if (props.hasProperty("readOnly")) ip.readOnly = props.getProperty("readOnly").toBool();
-    // type: "password" → 密码模式
-    if (props.hasProperty("type")) {
-        std::string type = props.getProperty("type").toString();
-        ip.isPassword = (type == "password");
-    }
+    ex.get("value", ip.value);
+    ex.get("placeholder", ip.placeholder);
+    ex.get("fontSize", ip.fontSize);
+    ex.get("textColor", ip.textColor);
+    ex.get("placeholderColor", ip.placeholderColor);
+    ex.get("cursorColor", ip.cursorColor);
+    ex.get("focusedBorderColor", ip.focusedBorderColor);
+    ex.get("maxLength", ip.maxLength);
+    ex.get("readOnly", ip.readOnly);
+    if (ex.has("type"))
+        ip.isPassword = (ex.raw().getProperty("type").toString() == "password");
     return ip;
 }
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // parseRadioButtonProps
-// ============================================================================
-RadioButtonProps parseRadioButtonProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+
+RadioButtonProps parseRadioButtonProps(PropsExtractor& ex) {
     RadioButtonProps result;
-    if (!props.isObject()) return result;
-    if (props.hasProperty("checked")) { result.checked = props.getProperty("checked").toBool(); }
-    if (props.hasProperty("group")) { result.group = props.getProperty("group").toString(); }
-    if (props.hasProperty("checkedColor")) {
-        result.checkedColor = parseColor(props.getProperty("checkedColor").toString());
-    }
-    if (props.hasProperty("uncheckedColor")) {
-        result.uncheckedColor = parseColor(props.getProperty("uncheckedColor").toString());
-    }
-    if (props.hasProperty("dotColor")) { result.dotColor = parseColor(props.getProperty("dotColor").toString()); }
-    if (props.hasProperty("radioSize")) { result.radioSize = props.getProperty("radioSize").toFloat(); }
-    if (props.hasProperty("dotSize")) { result.dotSize = props.getProperty("dotSize").toFloat(); }
-    if (props.hasProperty("ringWidth")) { result.ringWidth = props.getProperty("ringWidth").toFloat(); }
-    if (props.hasProperty("value")) { result.value = props.getProperty("value").toString(); }
+    ex.get("checked", result.checked);
+    ex.get("group", result.group);
+    ex.get("checkedColor", result.checkedColor);
+    ex.get("uncheckedColor", result.uncheckedColor);
+    ex.get("dotColor", result.dotColor);
+    ex.get("radioSize", result.radioSize);
+    ex.get("dotSize", result.dotSize);
+    ex.get("ringWidth", result.ringWidth);
+    ex.get("value", result.value);
     return result;
 }
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // parseRadioGroupProps
-// ============================================================================
-RadioGroupProps parseRadioGroupProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+
+RadioGroupProps parseRadioGroupProps(PropsExtractor& ex) {
     RadioGroupProps result;
-    if (!props.isObject()) return result;
-    if (props.hasProperty("name")) { result.name = props.getProperty("name").toString(); }
-    if (props.hasProperty("selected")) { result.selected = props.getProperty("selected").toString(); }
+    ex.get("name", result.name);
+    ex.get("selected", result.selected);
     return result;
 }
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // parseCheckboxProps
-// ============================================================================
-CheckboxProps parseCheckboxProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+
+CheckboxProps parseCheckboxProps(PropsExtractor& ex) {
     CheckboxProps result;
-    if (!props.isObject()) return result;
-    if (props.hasProperty("checked")) { result.checked = props.getProperty("checked").toBool(); }
-    if (props.hasProperty("checkedColor")) {
-        result.checkedColor = parseColor(props.getProperty("checkedColor").toString());
-    }
-    if (props.hasProperty("uncheckedColor")) {
-        result.uncheckedColor = parseColor(props.getProperty("uncheckedColor").toString());
-    }
-    if (props.hasProperty("checkedFillColor")) {
-        result.checkedFillColor = parseColor(props.getProperty("checkedFillColor").toString());
-    }
-    if (props.hasProperty("checkMarkColor")) {
-        result.checkMarkColor = parseColor(props.getProperty("checkMarkColor").toString());
-    }
-    if (props.hasProperty("boxSize")) { result.boxSize = props.getProperty("boxSize").toFloat(); }
-    if (props.hasProperty("borderRadius")) { result.borderRadius = props.getProperty("borderRadius").toFloat(); }
-    if (props.hasProperty("ringWidth")) { result.ringWidth = props.getProperty("ringWidth").toFloat(); }
-    if (props.hasProperty("textSpacing")) { result.textSpacing = props.getProperty("textSpacing").toFloat(); }
+    ex.get("checked", result.checked);
+    ex.get("checkedColor", result.checkedColor);
+    ex.get("uncheckedColor", result.uncheckedColor);
+    ex.get("checkedFillColor", result.checkedFillColor);
+    ex.get("checkMarkColor", result.checkMarkColor);
+    ex.get("boxSize", result.boxSize);
+    ex.get("borderRadius", result.borderRadius);
+    ex.get("ringWidth", result.ringWidth);
+    ex.get("textSpacing", result.textSpacing);
     return result;
 }
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // parseTextAreaProps
-// ============================================================================
-TextAreaProps parseTextAreaProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+
+TextAreaProps parseTextAreaProps(PropsExtractor& ex) {
     TextAreaProps result;
-    if (!props.isObject()) return result;
-    if (props.hasProperty("value")) { result.value = props.getProperty("value").toString(); }
-    if (props.hasProperty("placeholder")) { result.placeholder = props.getProperty("placeholder").toString(); }
-    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
-    if (props.hasProperty("rows")) { result.rows = props.getProperty("rows").toInt(); }
-    if (props.hasProperty("textColor")) { result.textColor = parseColor(props.getProperty("textColor").toString()); }
-    if (props.hasProperty("placeholderColor")) {
-        result.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
-    }
-    if (props.hasProperty("cursorColor")) {
-        result.cursorColor = parseColor(props.getProperty("cursorColor").toString());
-    }
-    if (props.hasProperty("focusedBorderColor")) {
-        result.focusedBorderColor = parseColor(props.getProperty("focusedBorderColor").toString());
-    }
-    if (props.hasProperty("maxLength")) { result.maxLength = props.getProperty("maxLength").toInt(); }
-    if (props.hasProperty("readOnly")) { result.readOnly = props.getProperty("readOnly").toBool(); }
+    ex.get("value", result.value);
+    ex.get("placeholder", result.placeholder);
+    ex.get("fontSize", result.fontSize);
+    ex.get("rows", result.rows);
+    ex.get("textColor", result.textColor);
+    ex.get("placeholderColor", result.placeholderColor);
+    ex.get("cursorColor", result.cursorColor);
+    ex.get("focusedBorderColor", result.focusedBorderColor);
+    ex.get("maxLength", result.maxLength);
+    ex.get("readOnly", result.readOnly);
     return result;
 }
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // parseDropdownProps
-// ============================================================================
-DropdownProps parseDropdownProps(const JSValueRef &props) {
+// ═══════════════════════════════════════════════════════════════════════════
+
+DropdownProps parseDropdownProps(PropsExtractor& ex) {
     DropdownProps result;
-    if (!props.isObject()) return result;
-    if (props.hasProperty("placeholder")) { result.placeholder = props.getProperty("placeholder").toString(); }
-    if (props.hasProperty("selectedIndex")) { result.selectedIndex = props.getProperty("selectedIndex").toInt(); }
-    if (props.hasProperty("fontSize")) { result.fontSize = props.getProperty("fontSize").toFloat(); }
-    if (props.hasProperty("itemHeight")) { result.itemHeight = props.getProperty("itemHeight").toFloat(); }
-    if (props.hasProperty("maxVisibleItems")) { result.maxVisibleItems = props.getProperty("maxVisibleItems").toInt(); }
-    if (props.hasProperty("textColor")) { result.textColor = parseColor(props.getProperty("textColor").toString()); }
-    if (props.hasProperty("placeholderColor")) {
-        result.placeholderColor = parseColor(props.getProperty("placeholderColor").toString());
-    }
-    if (props.hasProperty("arrowColor")) { result.arrowColor = parseColor(props.getProperty("arrowColor").toString()); }
-    if (props.hasProperty("menuBackground")) {
-        result.menuBackground = parseColor(props.getProperty("menuBackground").toString());
-    }
-    if (props.hasProperty("hoverBackground")) {
-        result.hoverBackground = parseColor(props.getProperty("hoverBackground").toString());
-    }
-    if (props.hasProperty("selectedBackground")) {
-        result.selectedBackground = parseColor(props.getProperty("selectedBackground").toString());
-    }
-    // 解析 items 数组
-    if (props.hasProperty("items")) {
-        auto itemsVal = props.getProperty("items");
+    ex.get("placeholder", result.placeholder);
+    ex.get("selectedIndex", result.selectedIndex);
+    ex.get("fontSize", result.fontSize);
+    ex.get("itemHeight", result.itemHeight);
+    ex.get("maxVisibleItems", result.maxVisibleItems);
+    ex.get("textColor", result.textColor);
+    ex.get("placeholderColor", result.placeholderColor);
+    ex.get("arrowColor", result.arrowColor);
+    ex.get("menuBackground", result.menuBackground);
+    ex.get("hoverBackground", result.hoverBackground);
+    ex.get("selectedBackground", result.selectedBackground);
+    if (ex.has("items")) {
+        auto itemsVal = ex.raw().getProperty("items");
         if (itemsVal.isArray()) {
             int len = itemsVal.getArrayLength();
             for (int i = 0; i < len; ++i) {
@@ -461,4 +381,8 @@ DropdownProps parseDropdownProps(const JSValueRef &props) {
         }
     }
     return result;
+}
+
+template<> Color convertTo<Color>(const JSValueRef& v) {
+    return parseColor(v.toString());
 }

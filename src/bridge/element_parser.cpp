@@ -34,8 +34,50 @@ import kwik.element.checkbox;
 import kwik.element.textarea;
 import kwik.element.dropdown;
 import kwik.engine.state_binding;
+import kwik.element.typed_prop;
 
 import std;
+
+/**
+ * @brief 统一绑定注入
+ *
+ * 遍历 View::propMeta 中 hasBinding=true 的属性，逐一从 JS props
+ * 读取 __bind_{propName}State / __bind_{propName}Key，
+ * 调用 View::setBinding() 建立双向绑定。
+ *
+ * 替代原先 Input/Checkbox/RadioGroup/TextArea/Dropdown 各自手写的
+ * if (pv.hasProperty("__bind_*Key")) 检测分支，消除重复代码。
+ *
+ * Dropdown 特殊处理：resolveRefProp 已将 value 替换为 State 当前值，
+ * 但 Dropdown 初始化时需通过 setProperty("value", ...) 将字符串值
+ * 映射为 selectedIndex，否则绑定值正确但索引未同步。
+ *
+ *（模板版本）
+ *
+ * T 必须是 Input / Checkbox / RadioGroup / TextArea / Dropdown 之一，
+ * 它们都有 setBinding() 方法。View 基类没有此方法。
+ *
+ * propMeta 是 View 的公共成员，通过 view->propMeta 访问。
+ */
+template<typename T>
+static void applyBindings(T* view, const JSValueRef& pv) {
+    auto& meta = view->propMeta;       // public 成员，非函数
+    JSContext* ctx = pv.context();
+    meta.forEachBinding([&](const std::string& propName, const PropEntry&) {
+        std::string stateName = "__bind_" + propName + "State";
+        std::string keyName = "__bind_" + propName + "Key";
+        auto stateVal = pv.getProperty(stateName.c_str());
+        auto keyVal = pv.getProperty(keyName.c_str());
+        if (!stateVal.isUndefined() && !keyVal.isUndefined() && !JS_IsNull(stateVal.raw())) {
+            view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+            if (view->type() == ElementType::Dropdown && pv.hasProperty("value")) {
+                std::string val = pv.getProperty("value").toString();
+                if (!val.empty()) view->setProperty("value", val.c_str());
+            }
+        }
+    });
+}
+
 // ============================================================================
 // 类型注册表 — Meyer's Singleton
 //
@@ -68,143 +110,135 @@ void ElementParser::registerType(const std::string &name, TypeCreator creator) {
 //   静态初始化区调用 ElementParser::registerType() 即可，
 //   无需修改本文件。
 // ============================================================================
+// ═══════════════════════════════════════════════════════════════════════
+// TypeCreator 列表 — 全部改为 PropsExtractor + applyBindings
+// ═══════════════════════════════════════════════════════════════════════
+
 static struct InitBuiltinTypes {
     InitBuiltinTypes() {
-        ElementParser::registerType("View",
-                                    [](const JSValueRef &pv) { return std::make_unique<View>(parseViewProps(pv)); });
-        ElementParser::registerType("Text", [](const JSValueRef &pv) {
-            return std::make_unique<Text>(parseViewProps(pv), parseTextContent(pv));
+        ElementParser::registerType("View", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<View>(parseViewProps(ex));
         });
-        ElementParser::registerType("Button", [](const JSValueRef &pv) {
-            return std::make_unique<Button>(parseViewProps(pv), parseTextContent(pv), parseButtonState(pv));
-        });
-        // ── 布局容器 ───────────────────────────────────────
-        ElementParser::registerType("Flex", [](const JSValueRef &pv) {
-            return std::make_unique<FlexLayout>(parseViewProps(pv), parseContainerProps(pv));
-        });
-        ElementParser::registerType("Grid", [](const JSValueRef &pv) {
-            return std::make_unique<GridLayout>(parseViewProps(pv), parseContainerProps(pv));
-        });
-        ElementParser::registerType(
-            "Stack", [](const JSValueRef &pv) { return std::make_unique<StackLayout>(parseViewProps(pv)); });
 
-        // ── 列表布局 ───────────────────────────────────────
+        ElementParser::registerType("Text", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
+        });
+
+        ElementParser::registerType("Button", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
+        });
+
+        ElementParser::registerType("Flex", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<FlexLayout>(parseViewProps(ex), parseContainerProps(ex));
+        });
+
+        ElementParser::registerType("Grid", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<GridLayout>(parseViewProps(ex), parseContainerProps(ex));
+        });
+
+        ElementParser::registerType("Stack", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<StackLayout>(parseViewProps(ex));
+        });
+
         ElementParser::registerType("List", [](const JSValueRef &pv) {
-            auto list = std::make_unique<ListLayout>(parseViewProps(pv), parseContainerProps(pv));
-            if (pv.hasProperty("header")) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto list = std::make_unique<ListLayout>(parseViewProps(ex), parseContainerProps(ex));
+            if (pv.hasProperty("header") && pv.getProperty("header").isObject()) {
                 auto hdr = pv.getProperty("header");
-                if (hdr.isObject()) {
-                    JSContext *c = hdr.context();
-                    JSValue dup = JS_DupValue(c, hdr.raw());
-                    JSValueRef node(c, dup);
-                    list->header = ElementParser::parseNode(node);
-                }
+                JSContext *c = hdr.context();
+                JSValue dup = JS_DupValue(c, hdr.raw());
+                JSValueRef node(c, dup);
+                list->header = ElementParser::parseNode(node);
             }
-            if (pv.hasProperty("footer")) {
+            if (pv.hasProperty("footer") && pv.getProperty("footer").isObject()) {
                 auto ftr = pv.getProperty("footer");
-                if (ftr.isObject()) {
-                    JSContext *c = ftr.context();
-                    JSValue dup = JS_DupValue(c, ftr.raw());
-                    JSValueRef node(c, dup);
-                    list->footer = ElementParser::parseNode(node);
-                }
+                JSContext *c = ftr.context();
+                JSValue dup = JS_DupValue(c, ftr.raw());
+                JSValueRef node(c, dup);
+                list->footer = ElementParser::parseNode(node);
             }
             return list;
         });
 
-        // ── 图像组件 ───────────────────────────────────────
         ElementParser::registerType("Image", [](const JSValueRef &pv) {
-            return std::make_unique<Image>(parseViewProps(pv), parseImageProps(pv));
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Image>(parseViewProps(ex), parseImageProps(ex));
         });
 
+        // ── Input — 绑定注入统一由 applyBindings 处理 ──
         ElementParser::registerType("Input", [](const JSValueRef &pv) {
-            auto input = std::make_unique<Input>(parseViewProps(pv), parseInputProps(pv));
-
-            // ── 检测双向绑定 ──
-            if (pv.hasProperty("__bind_valueKey")) {
-                JSContext *ctx = pv.context();
-                auto stateVal = pv.getProperty("__bind_valueState");
-                auto keyVal = pv.getProperty("__bind_valueKey");
-                input->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-            }
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto input = std::make_unique<Input>(parseViewProps(ex), parseInputProps(ex));
+            input->propMeta = std::move(meta);
+            applyBindings(input.get(), pv);
             return input;
         });
 
-        // ── 单选按钮 ───────────────────────────────────────
         ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
-            return std::make_unique<RadioButton>(parseViewProps(pv), parseTextContent(pv), parseRadioButtonProps(pv));
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
         });
 
-        // ── 单选按钮组 ───────────────────────────────────────
+        // ── RadioGroup ──
         ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
-            auto rg = std::make_unique<RadioGroup>(parseViewProps(pv), parseRadioGroupProps(pv));
-
-            // 检测双向绑定：resolveRefProp 已在 js_radiogroup 中处理 ref() 标记，
-            // 并将 State 引用和 Key 注入为 __bind_selectedState / __bind_selectedKey。
-            if (pv.hasProperty("__bind_selectedKey")) {
-                JSContext *ctx = pv.context();
-                auto stateVal = pv.getProperty("__bind_selectedState");
-                auto keyVal = pv.getProperty("__bind_selectedKey");
-                rg->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-            }
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto rg = std::make_unique<RadioGroup>(parseViewProps(ex), parseRadioGroupProps(ex));
+            rg->propMeta = std::move(meta);
+            applyBindings(rg.get(), pv);
             return rg;
         });
 
-        // ── 复选框 ───────────────────────────────────────
+        // ── Checkbox ──
         ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
             auto checkbox =
-                std::make_unique<Checkbox>(parseViewProps(pv), parseTextContent(pv), parseCheckboxProps(pv));
-
-            // ── 检测双向绑定 ──────────────────────────────────
-            // resolveRefProp 已在 js_checkbox 中处理 ref() 标记，
-            // 并将 State 引用和 Key 注入为隐藏属性。
-            // 此处只需读取注入的属性，创建 JSStateBinding。
-            if (pv.hasProperty("__bind_checkedKey")) {
-                JSContext *ctx = pv.context();
-                auto stateVal = pv.getProperty("__bind_checkedState");
-                auto keyVal = pv.getProperty("__bind_checkedKey");
-                Log::debug("Checkbox binding: key={}, stateIsValid={}", keyVal.toString(),
-                           JS_IsObject(stateVal.raw()) ? "yes" : "no");    // ← 验证
-                checkbox->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-            }
-            // 验证 id 是否读取成功
-            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));    // ← 验证
+                std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
+            checkbox->propMeta = std::move(meta);
+            applyBindings(checkbox.get(), pv);
+            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
             return checkbox;
         });
 
-        // ── 多行文本输入 ──────────────────────────────────
+        // ── TextArea ──
         ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
-            auto ta = std::make_unique<TextArea>(parseViewProps(pv), parseTextAreaProps(pv));
-
-            // ── 检测双向绑定 ──
-            if (pv.hasProperty("__bind_valueKey")) {
-                JSContext *ctx = pv.context();
-                auto stateVal = pv.getProperty("__bind_valueState");
-                auto keyVal = pv.getProperty("__bind_valueKey");
-                ta->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-            }
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto ta = std::make_unique<TextArea>(parseViewProps(ex), parseTextAreaProps(ex));
+            ta->propMeta = std::move(meta);
+            applyBindings(ta.get(), pv);
             return ta;
         });
 
+        // ── Dropdown ──
         ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
-            auto dd = std::make_unique<Dropdown>(parseViewProps(pv), parseDropdownProps(pv));
-
-            if (pv.hasProperty("__bind_valueKey")) {
-                JSContext *ctx = pv.context();
-                auto stateVal = pv.getProperty("__bind_valueState");
-                auto keyVal = pv.getProperty("__bind_valueKey");
-                dd->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-
-                // 初始值同步：resolveRefProp 已将 value 替换为 State 当前值
-                if (pv.hasProperty("value")) {
-                    std::string val = pv.getProperty("value").toString();
-                    if (!val.empty()) dd->setProperty("value", val.c_str());
-                }
-            }
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto dd = std::make_unique<Dropdown>(parseViewProps(ex), parseDropdownProps(ex));
+            dd->propMeta = std::move(meta);
+            applyBindings(dd.get(), pv);
             return dd;
         });
     }
 } _init_builtin_types;
+
 // ============================================================================
 // 公开接口 - parse(JSContext* ctx, JSValueConst value)
 //
@@ -266,7 +300,9 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         if (!element) { Log::error("parseNode: 组件 '{}' 工厂函数返回 null", type); }
     } else {
         Log::warn("parseNode: 未注册的类型 '{}' — 降级为 View", type);
-        element = std::make_unique<View>(parseViewProps(propsVal));
+        TypedPropMap meta;
+        PropsExtractor ex(propsVal, &meta);
+        element = std::make_unique<View>(parseViewProps(ex));
     }
     // ── 4. 递归解析子节点 ────────────────────────────────────────────
     auto childrenVal = jsVal.getProperty("children");

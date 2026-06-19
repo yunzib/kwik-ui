@@ -9,10 +9,11 @@ import kwik.core.constraints;
 import kwik.element.props;
 import kwik.render.graphics;
 import kwik.engine.js_value;
+import kwik.element.typed_prop;
 
 import std;
 
-export enum class ElementType : uint8_t {
+export enum class ElementType : std::uint8_t {
     View,
     Button,
     Text,
@@ -269,6 +270,9 @@ public:
     std::vector<std::unique_ptr<View>> children;    // 子控件列表
     Rect frame;                                     // 布局后的位置和尺寸
     ViewEventHandlers handlers;                     // 事件处理器
+    TypedPropMap propMeta;                          // 属性类型元数据
+
+
     View() = default;
 
     /**
@@ -300,7 +304,7 @@ public:
      */
     View(View &&other) noexcept :
         props(std::move(other.props)), children(std::move(other.children)), frame(other.frame),
-        handlers(std::move(other.handlers)), parent_(other.parent_) {
+        handlers(std::move(other.handlers)), propMeta(std::move(other.propMeta)), parent_(other.parent_) {
         fixChildrenParent();
         other.parent_ = nullptr;
     }
