@@ -101,6 +101,7 @@ bool Dropdown::onEvent(int code, float localX, float localY, JSContext *ctx) {
             int idx = hitMenuItem(localX, localY);
             if (idx >= 0) {
                 selectItem(idx);
+                if (binding_) binding_->setString(bindKey_, dp_.items[idx]);
                 fireChange(ctx);
                 return true;
             }
@@ -261,6 +262,7 @@ bool Dropdown::setProperty(const char *name, const char *value) {
         for (int i = 0; i < (int)dp_.items.size(); ++i) {
             if (dp_.items[i] == value) {
                 selectItem(i);
+                if (binding_) binding_->setString(bindKey_, dp_.items[i]);
                 markDirty();
                 return true;
             }
@@ -274,6 +276,7 @@ bool Dropdown::setProperty(const char *name, const char *value) {
                 dp_.selectedIndex = -1;
             } else
                 selectItem(idx);
+            if (binding_) binding_->setString(bindKey_, dp_.items[idx]);
             markDirty();
             return true;
         }

@@ -9,6 +9,8 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.font;
+import kwik.engine.state_binding;
+
 import std;
 
 /**
@@ -45,6 +47,10 @@ public:
     void selectItem(int index);
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+        binding_ = std::move(binding);
+        bindKey_ = key;
+    }
 
     View *hitTest(Point point) override;
 
@@ -65,6 +71,10 @@ private:
     std::vector<std::vector<ShapedGlyph>> itemGlyphsCache_;    // 菜单项字形缓存
     int cachedItemCount_ = 0;
     float cachedMenuFontSize_ = 0;
+
+    std::unique_ptr<StateBinding> binding_;
+    std::string bindKey_;
+
     // ── 辅助 ──
     float menuHeight() const;
     Rect menuRect() const;

@@ -187,7 +187,21 @@ static struct InitBuiltinTypes {
         });
 
         ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
-            return std::make_unique<Dropdown>(parseViewProps(pv), parseDropdownProps(pv));
+            auto dd = std::make_unique<Dropdown>(parseViewProps(pv), parseDropdownProps(pv));
+
+            if (pv.hasProperty("__bind_valueKey")) {
+                JSContext *ctx = pv.context();
+                auto stateVal = pv.getProperty("__bind_valueState");
+                auto keyVal = pv.getProperty("__bind_valueKey");
+                dd->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+
+                // 初始值同步：resolveRefProp 已将 value 替换为 State 当前值
+                if (pv.hasProperty("value")) {
+                    std::string val = pv.getProperty("value").toString();
+                    if (!val.empty()) dd->setProperty("value", val.c_str());
+                }
+            }
+            return dd;
         });
     }
 } _init_builtin_types;
