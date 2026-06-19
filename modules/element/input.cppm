@@ -14,6 +14,8 @@ import kwik.core.types;
 import kwik.render.graphics;
 import kwik.render.font;
 import kwik.core.constraints;
+import kwik.engine.state_binding;
+
 import std;
 /**
  * @brief Input 单行输入控件
@@ -64,11 +66,17 @@ public:
     }
     void blur() {
         focused_ = false;
+        if (binding_) binding_->setString(bindKey_, text_);
         markDirty();
     }
 
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+        binding_ = std::move(binding);
+        bindKey_ = key;
+    }
 
 protected:
     Size onMeasure(Constraints constraints) override;
@@ -85,6 +93,10 @@ private:
     // 排版缓存 (atlas 版本感知)
     ShapedTextCache textCache_;
     ShapedTextCache placeholderCache_;
+
+    std::unique_ptr<StateBinding> binding_;
+    std::string bindKey_;
+
     // ── 文本操作 ──
     void insertAtCursor(const std::string &utf8);
     void deleteBeforeCursor();

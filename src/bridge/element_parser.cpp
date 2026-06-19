@@ -118,7 +118,16 @@ static struct InitBuiltinTypes {
         });
 
         ElementParser::registerType("Input", [](const JSValueRef &pv) {
-            return std::make_unique<Input>(parseViewProps(pv), parseInputProps(pv));
+            auto input = std::make_unique<Input>(parseViewProps(pv), parseInputProps(pv));
+
+            // ── 检测双向绑定 ──
+            if (pv.hasProperty("__bind_valueKey")) {
+                JSContext *ctx = pv.context();
+                auto stateVal = pv.getProperty("__bind_valueState");
+                auto keyVal = pv.getProperty("__bind_valueKey");
+                input->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+            }
+            return input;
         });
 
         // ── 单选按钮 ───────────────────────────────────────

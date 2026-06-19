@@ -342,6 +342,7 @@ std::string Input::getProperty(const char *name) const {
 bool Input::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
         setValue(value);
+        if (binding_) binding_->setString(bindKey_, text_);
         markDirty();
         return true;
     }

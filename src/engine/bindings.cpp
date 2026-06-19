@@ -282,6 +282,7 @@ JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *
 
 JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "value");      // 处理 ref 绑定
     return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 

@@ -23,7 +23,7 @@ static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             View *target = root->findById(id);
             if (target) {
                 std::string val = target->getProperty(prop);
-                if (!val.empty()) ret = JS_NewString(ctx, val.c_str());
+                ret = JS_NewString(ctx, val.c_str());  // 无条件创建字符串，空字符串即 ""
             }
         }
     }
