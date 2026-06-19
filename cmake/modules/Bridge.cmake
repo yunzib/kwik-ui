@@ -8,11 +8,13 @@ target_sources(kwik_bridge
             modules/bridge/props_parser.cppm
             modules/bridge/element_parser.cppm
             modules/bridge/prop_bus.cppm
+            modules/bridge/binding_registry.cppm
     PRIVATE
         src/bridge/color_parser.cpp
         src/bridge/props_parser.cpp
         src/bridge/element_parser.cpp
         src/bridge/prop_bus.cpp
+        src/bridge/binding_registry.cpp
 )
 target_link_libraries(kwik_bridge
     PRIVATE

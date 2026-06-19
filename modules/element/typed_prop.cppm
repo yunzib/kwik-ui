@@ -1,8 +1,34 @@
 module;
 
 export module kwik.element.typed_prop;
+import kwik.core.types;
 
 import std;
+
+/**
+ * @brief 类型安全的属性值变体
+ *
+ * 用于增量更新路径。
+ * BindingRegistry::notify 将 JSValue 按 PropType 转为对应的
+ * C++ 类型存入此变体，然后调用 View::setPropertyTyped 直接写入属性，
+ * 避免 setProperty(const char*, const char*) 的 float/bool/Color → string 往返。
+ *
+ * 变体成员与 PropType 对应关系：
+ *   monostate → Unknown
+ *   bool      → Bool
+ *   int64_t   → Int
+ *   double    → Float
+ *   string    → String
+ *   Color     → Color
+ */
+export using TypedProp = std::variant<
+    std::monostate,
+    bool,
+    std::int64_t,
+    double,
+    std::string,
+    Color
+>;
 
 /**
  * @brief 属性原始 C++ 类型枚举

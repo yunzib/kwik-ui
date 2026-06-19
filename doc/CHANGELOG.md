@@ -1,5 +1,28 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-20
+### 新增
+- 增量更新系统
+  - `BindingRegistry` 绑定注册表 `(statePtr, key) → [(View*, propName)]`
+    （`modules/bridge/binding_registry.cppm` / `src/bridge/binding_registry.cpp`）
+  - `TypedProp` 类型安全属性变体 + `setPropertyTyped` 虚方法
+    （`modules/element/typed_prop.cppm`）
+  - `jsValueToTypedProp()` 按类型枚举将 JSValue 转为 C++ 原生类型
+    （Bool / Int / Float / String / Color）
+  - Input / Checkbox / TextArea / Dropdown / RadioGroup / RadioButton
+    覆写 `setPropertyTyped`，跳过 `binding_` 写回，消除增量→全量循环
+  - `IncrementalCallback` 增量回调优先于 `render_callback`，
+    `state_set_property` 先走增量路径，失败才回退全量重建
+  - `setRegisteredRegistry` 单一全局桥接点，
+    消除 Application 层对 QuickJS 类型的直接依赖
+
+### 变更
+- `state_set_property` exotic hook 中插入增量回调检查：
+  先查 `BindingRegistry`，命中则调用 `setPropertyTyped` + `markDirty`，
+  跳过 `render_callback` → `rebuildTree`
+- `applyBindings<T>()` 注册绑定到 `BindingRegistry` 和 `JSStateBinding` 双通道
+- RadioButton 模块新增 `setPropertyTyped` 覆盖声明与实现
+
 ## [0.0.0] — 2026-06-19
 
 ### 新增

@@ -379,6 +379,22 @@ public:
     virtual bool setProperty(const char *name, const char *value);
 
     /**
+     * @brief 设置属性值（类型安全版本）
+     * @param name  属性名（如 "value"、"fontSize"、"checked"）
+     * @param value TypedProp 变体，携带该属性的原始 C++ 类型值
+     * @return true  属性已识别并设置
+     *
+     * 增量更新路径的入口。与 setProperty(const char*, const char*) 的区别：
+     *   - 不经过 string 序列化/反序列化往返
+     *   - 不触发 binding_->setBool/setString 写回 State（避免循环）
+     *
+     * 默认实现将 TypedProp 按类型转换为 string 后调用 setProperty。
+     * 子类（Input/Checkbox/TextArea/Dropdown/RadioGroup）建议覆写，
+     * 直接使用 TypedProp 中的原始类型值操作内部成员，避免 string 转换。
+     */
+    virtual bool setPropertyTyped(const char* name, const TypedProp& value);
+
+    /**
      * @brief 添加子控件 (转移所有权)
      * @param child 子控件, 所有权转移至本控件
      *

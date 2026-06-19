@@ -19,6 +19,9 @@ import kwik.render.font;
 import kwik.render.command;
 import kwik.engine.js_value;
 import kwik.engine.state_binding;
+import kwik.element.typed_prop;
+
+
 import std;
 
 // ============================================================================
@@ -182,4 +185,15 @@ void Checkbox::onDraw(Graphics &graphics) {
         graphics.drawTextCached(shapedCache_, text_.textColor);
         graphics.restore();
     }
+}
+
+bool Checkbox::setPropertyTyped(const char* name, const TypedProp& value) {
+    if (std::strcmp(name, "checked") == 0) {
+        if (auto* b = std::get_if<bool>(&value)) {
+            setChecked(*b);
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

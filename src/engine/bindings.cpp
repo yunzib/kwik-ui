@@ -16,6 +16,7 @@ import std;
 static JSClassID state_class_id = 0;
 static JSClassID channel_class_id = 0;
 static RenderCallback render_callback = nullptr;
+static IncrementalCallback incremental_callback = nullptr;
 
 // ---------- State 内部数据结构 ----------
 struct StateData {
@@ -141,14 +142,25 @@ static JSValue state_get_property(JSContext *ctx, JSValueConst obj, JSAtom atom,
     return method;
 }
 
-static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSValueConst value, JSValueConst receiver,
-                              int flags) {
+static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSValueConst value,
+                              JSValueConst receiver, int flags) {
     Log::debug("State set_property called");
     StateData *sd = static_cast<StateData *>(JS_GetOpaque2(ctx, obj, state_class_id));
     if (!sd) return -1;
     int ret = JS_SetProperty(ctx, sd->data, atom, JS_DupValue(ctx, value));
-    if (ret >= 0 && render_callback) {
-        render_callback();    // 触发重绘
+    if (ret >= 0) {
+        // 增量更新路径：查 BindingRegistry，若已处理则跳过全量重建
+        bool handled = false;
+        if (incremental_callback) {
+            const char* key = JS_AtomToCString(ctx, atom);
+            if (key) {
+                handled = incremental_callback(static_cast<void*>(sd), key, ctx, value);
+                JS_FreeCString(ctx, key);
+            }
+        }
+        if (!handled && render_callback) {
+            render_callback();
+        }
     }
     return ret;
 }
@@ -229,6 +241,10 @@ JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, 
 
 void set_render_callback(RenderCallback callback) {
     render_callback = std::move(callback);
+}
+
+void set_incremental_callback(IncrementalCallback callback) {
+    incremental_callback = callback;
 }
 
 // ---------- 导出的 JS 绑定函数实现 ----------

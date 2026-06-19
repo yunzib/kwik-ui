@@ -17,6 +17,8 @@ import kwik.render.graphics;
 import kwik.render.font;
 import kwik.core.log;
 import kwik.engine.js_value;
+import kwik.element.typed_prop;
+
 import std;
 // ============================================================================
 // 构造
@@ -367,4 +369,25 @@ bool Input::setProperty(const char *name, const char *value) {
         return true;
     }
     return View::setProperty(name, value);    // 回退基类
+}
+
+bool Input::setPropertyTyped(const char* name, const TypedProp& value) {
+    if (std::strcmp(name, "value") == 0) {
+        if (auto* s = std::get_if<std::string>(&value)) {
+            setValue(*s);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "fontSize") == 0) {
+        if (auto* d = std::get_if<double>(&value)) {
+            input_.fontSize = static_cast<float>(*d);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    // placeholder / readOnly / isPassword 保持 string/float 降级
+    return View::setPropertyTyped(name, value);
 }

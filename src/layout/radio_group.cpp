@@ -14,6 +14,8 @@ import kwik.element.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.engine.js_value;
+import kwik.element.typed_prop;
+
 import std;
 
 // ════════════════════════════════════════════════════════
@@ -113,4 +115,21 @@ bool RadioGroup::setProperty(const char *name, const char *value) {
 void RadioGroup::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
     binding_ = std::move(binding);
     bindKey_ = key;
+}
+
+bool RadioGroup::setPropertyTyped(const char* name, const TypedProp& value) {
+    if (std::strcmp(name, "selected") == 0) {
+        if (auto* s = std::get_if<std::string>(&value)) {
+            if (group_.selected == *s) return true;
+            group_.selected = *s;
+            for (auto &child : children) {
+                if (child->type() != ElementType::RadioButton) continue;
+                child->setProperty("checked", group_.selected == child->getProperty("value") ? "true" : "false");
+            }
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

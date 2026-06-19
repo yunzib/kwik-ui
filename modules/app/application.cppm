@@ -23,7 +23,12 @@ import kwik.element.view;
 import kwik.bridge.element_parser;
 import kwik.core.types;
 import kwik.core.constraints;
+import kwik.bridge.binding_registry;
+
+
 import std;
+
+
 export class Application {
 public:
     /**
@@ -131,6 +136,7 @@ private:
     bool cacheSaved_ = false;        // 字形缓冲
     View *focusedView_ = nullptr;    // 当前聚焦的 Input 控件 (接收键盘事件)
     DirtyTracker dirtyTracker_;         // 脏矩形追踪器 (在 kwik.element.view 中定义)
+    BindingRegistry bindingRegistry_;     // 绑定注册表（增量更新用）
 
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局

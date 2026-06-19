@@ -402,3 +402,24 @@ void View::markDirty() {
     dirty_ = true;
     if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
 }
+
+bool View::setPropertyTyped(const char* name, const TypedProp& value) {
+    return std::visit([this, name](auto&& arg) -> bool {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            return false;
+        } else if constexpr (std::is_same_v<T, bool>) {
+            return setProperty(name, arg ? "true" : "false");
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            return setProperty(name, std::to_string(arg).c_str());
+        } else if constexpr (std::is_same_v<T, double>) {
+            return setProperty(name, std::to_string(arg).c_str());
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            return setProperty(name, arg.c_str());
+        } else if constexpr (std::is_same_v<T, Color>) {
+            char buf[10];
+            std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", arg.r, arg.g, arg.b);
+            return setProperty(name, buf);
+        }
+    }, value);
+}

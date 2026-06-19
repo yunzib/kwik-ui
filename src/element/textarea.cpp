@@ -367,3 +367,31 @@ bool TextArea::setProperty(const char *name, const char *value) {
     }
     return View::setProperty(name, value);
 }
+
+bool TextArea::setPropertyTyped(const char* name, const TypedProp& value) {
+    if (std::strcmp(name, "value") == 0) {
+        if (auto* s = std::get_if<std::string>(&value)) {
+            setValue(*s);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "fontSize") == 0) {
+        if (auto* d = std::get_if<double>(&value)) {
+            props_.fontSize = static_cast<float>(*d);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "rows") == 0) {
+        if (auto* i = std::get_if<int64_t>(&value)) {
+            props_.rows = static_cast<int>(*i);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
+}

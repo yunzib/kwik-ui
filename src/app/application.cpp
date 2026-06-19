@@ -27,6 +27,11 @@ import kwik.element.image;
 import kwik.element.input;
 import kwik.bridge.prop_bus;
 import kwik.element.textarea;
+import kwik.bridge.binding_registry;
+
+
+
+
 
 // ============================================================================
 // 构造 / 析构
@@ -133,6 +138,9 @@ bool Application::init() {
     // ⑥ 事件系统
     eventProc_.setRootTree(tree_.get());
 
+    // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
+    setRegisteredRegistry(&bindingRegistry_);
+
     dirtyTracker_.markFull();    // 首帧必须全屏重绘
     return true;
 }
@@ -140,6 +148,9 @@ bool Application::init() {
 // rebuildTree — State 变更后重建树
 // ============================================================================
 void Application::rebuildTree() {
+    // 清除 BindingRegistry 中旧 View 的映射
+    bindingRegistry_.clear();
+
     jsCtx_.expandRootView();
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     if (tree_) setTracker(tree_.get(), &dirtyTracker_);

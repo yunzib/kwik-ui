@@ -19,6 +19,9 @@ import kwik.render.graphics;
 import kwik.render.font;
 import kwik.render.command;
 import kwik.engine.js_value;
+import kwik.element.typed_prop;
+
+
 import std;
 
 // ════════════════════════════════════════════════════════
@@ -292,4 +295,32 @@ void Dropdown::applyWheel(float delta) {
     float maxScroll = std::max(0.0f, totalH - visibleH);
     scrollOffset_ = std::clamp(scrollOffset_ + delta, 0.0f, maxScroll);
     markDirty();
+}
+
+bool Dropdown::setPropertyTyped(const char* name, const TypedProp& value) {
+    if (std::strcmp(name, "value") == 0) {
+        if (auto* s = std::get_if<std::string>(&value)) {
+            for (int i = 0; i < (int)dp_.items.size(); ++i) {
+                if (dp_.items[i] == *s) {
+                    selectItem(i);
+                    markDirty();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    if (std::strcmp(name, "index") == 0) {
+        if (auto* i = std::get_if<int64_t>(&value)) {
+            int idx = static_cast<int>(*i);
+            if (idx >= -1 && idx < (int)dp_.items.size()) {
+                if (idx == -1) dp_.selectedIndex = -1;
+                else selectItem(idx);
+                markDirty();
+                return true;
+            }
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

@@ -9,6 +9,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.font;
+import kwik.element.typed_prop;
 import kwik.engine.state_binding;
 
 import std;
@@ -47,6 +48,8 @@ public:
     void selectItem(int index);
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+    bool setPropertyTyped(const char* name, const TypedProp& value) override;
+
     void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
         binding_ = std::move(binding);
         bindKey_ = key;

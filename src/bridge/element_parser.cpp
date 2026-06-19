@@ -35,8 +35,11 @@ import kwik.element.textarea;
 import kwik.element.dropdown;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
+import kwik.bridge.binding_registry;
+
 
 import std;
+
 
 /**
  * @brief 统一绑定注入
@@ -61,7 +64,7 @@ import std;
  */
 template<typename T>
 static void applyBindings(T* view, const JSValueRef& pv) {
-    auto& meta = view->propMeta;       // public 成员，非函数
+    auto& meta = view->propMeta;
     JSContext* ctx = pv.context();
     meta.forEachBinding([&](const std::string& propName, const PropEntry&) {
         std::string stateName = "__bind_" + propName + "State";
@@ -70,6 +73,13 @@ static void applyBindings(T* view, const JSValueRef& pv) {
         auto keyVal = pv.getProperty(keyName.c_str());
         if (!stateVal.isUndefined() && !keyVal.isUndefined() && !JS_IsNull(stateVal.raw())) {
             view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
+
+            // 注册到 BindingRegistry，使 state 变更可增量更新到此 View
+            if (auto* reg = getRegisteredRegistry()) {
+                void* statePtr = JS_VALUE_GET_PTR(stateVal.raw());
+                reg->bind(statePtr, keyVal.toString(), view, propName);
+            }
+
             if (view->type() == ElementType::Dropdown && pv.hasProperty("value")) {
                 std::string val = pv.getProperty("value").toString();
                 if (!val.empty()) view->setProperty("value", val.c_str());

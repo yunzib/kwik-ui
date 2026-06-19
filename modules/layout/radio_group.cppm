@@ -8,6 +8,7 @@ import kwik.element.view;
 import kwik.element.props;
 import kwik.core.types;
 import kwik.core.constraints;
+import kwik.element.typed_prop;
 import kwik.engine.state_binding;
 import std;
 
@@ -53,6 +54,7 @@ public:
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
+    bool setPropertyTyped(const char* name, const TypedProp& value) override;
 
     // ─── 双向绑定 ─────────────────────────────────────
     /**
