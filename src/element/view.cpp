@@ -221,7 +221,10 @@ void View::onDraw(Graphics &graphics) {
     // ── 按 z 升序排列子节点 ──
     bool needSort = false;
     for (auto &c : children) {
-        if (c->props.z != 0) { needSort = true; break; }
+        if (c->props.z != 0) {
+            needSort = true;
+            break;
+        }
     }
     if (needSort) {
         std::vector<View *> sorted;
@@ -232,7 +235,7 @@ void View::onDraw(Graphics &graphics) {
         for (auto &c : children) { c->draw(graphics); }
     }
 
-    clearDirty();                   // ─ 绘制完成后标记干净 ─
+    clearDirty();    // ─ 绘制完成后标记干净 ─
     graphics.restore();
 }
 
@@ -249,10 +252,11 @@ void View::onDraw(Graphics &graphics) {
 //     return this;
 // }
 View *View::hitTest(Point point) {
-    if (!props.visible) return nullptr;
-    if (!frame.contains(point)) return nullptr;
+    if (!props.visible) return nullptr;    // 不可见 → 跳过整棵子树
 
-    // ── 按 z 降序排列: 高 z 子节点优先命中 ──
+    // ── 先遍历子节点 ──
+    // 子节点可能视觉上溢出当前 frame（如 Flex 布局中 gap 使子节点超出容器），
+    // 但点击时仍应命中该子节点（等同 CSS overflow: visible 语义）。
     bool needSort = false;
     for (auto &c : children) {
         if (c->props.z != 0) {
@@ -261,6 +265,7 @@ View *View::hitTest(Point point) {
         }
     }
     if (needSort) {
+        // 有 z-index → 按 z 降序（高 z 优先）
         std::vector<View *> sorted;
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
@@ -269,12 +274,17 @@ View *View::hitTest(Point point) {
             if (hit) return hit;
         }
     } else {
+        // 无 z-index → 逆序（后添加的在上层）
         for (auto it = children.rbegin(); it != children.rend(); ++it) {
             View *hit = (*it)->hitTest(point);
             if (hit) return hit;
         }
     }
 
+    // ── 子节点无命中，才用 frame 判断自身 ──
+    // 移到此位置后，溢出父容器的子节点不被当前 frame 阻拦；
+    // 只有没有任何子节点命中时，才判断点击是否落在自身区域内。
+    if (!frame.contains(point)) return nullptr;
     return this;
 }
 
@@ -403,23 +413,25 @@ void View::markDirty() {
     if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
 }
 
-bool View::setPropertyTyped(const char* name, const TypedProp& value) {
-    return std::visit([this, name](auto&& arg) -> bool {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-            return false;
-        } else if constexpr (std::is_same_v<T, bool>) {
-            return setProperty(name, arg ? "true" : "false");
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            return setProperty(name, std::to_string(arg).c_str());
-        } else if constexpr (std::is_same_v<T, double>) {
-            return setProperty(name, std::to_string(arg).c_str());
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            return setProperty(name, arg.c_str());
-        } else if constexpr (std::is_same_v<T, Color>) {
-            char buf[10];
-            std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", arg.r, arg.g, arg.b);
-            return setProperty(name, buf);
-        }
-    }, value);
+bool View::setPropertyTyped(const char *name, const TypedProp &value) {
+    return std::visit(
+        [this, name](auto &&arg) -> bool {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                return false;
+            } else if constexpr (std::is_same_v<T, bool>) {
+                return setProperty(name, arg ? "true" : "false");
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                return setProperty(name, std::to_string(arg).c_str());
+            } else if constexpr (std::is_same_v<T, double>) {
+                return setProperty(name, std::to_string(arg).c_str());
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                return setProperty(name, arg.c_str());
+            } else if constexpr (std::is_same_v<T, Color>) {
+                char buf[10];
+                std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", arg.r, arg.g, arg.b);
+                return setProperty(name, buf);
+            }
+        },
+        value);
 }

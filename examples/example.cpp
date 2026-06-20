@@ -93,6 +93,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "textarea") return "../../examples/textarea.js";
         if (arg == "dropdown") return "../../examples/dropdown.js";
         if (arg == "test") return "../../examples/test.js";
+        if (arg == "test_gap") return "../../examples/ui/test_gap_click.js";
         return arg;
     }
     return "../../examples/example.js";
