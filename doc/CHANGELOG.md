@@ -1,5 +1,14 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-20 
+
+### 新增
+- SDK 安装与外部项目使用
+  - `KwiKUIConfig.cmake.in` — 通过 `find_package(kwik-ui)` 发现 SDK
+  - `file(GLOB libkwik_*.a)` 自动发现所有子库链接
+  - `file(GLOB_RECURSE kwik-ui_MODULE_FILES)` 导出 .cppm 模块列表
+  - 外部项目通过 `target_sources(FILE_SET cxx_modules)` 自行编译模块
+
 ## [0.0.0] — 2026-06-20
 
 ### 新增

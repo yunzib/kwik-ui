@@ -24,3 +24,10 @@ target_compile_definitions(kwik_app
     PRIVATE
         KWIK_APP_MODULE
 )
+
+
+install(TARGETS kwik_app
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/app
+    ARCHIVE DESTINATION lib
+)

@@ -134,7 +134,7 @@ export default () => View({
 - 更多示例可参考:  examples/
 - 更多组件相关参考:  doc/1.kwik-ui 组件.md
 
-### 3.3 Channel 通信示例
+## 3.3 Channel 通信示例
 
 Channel 提供 JS 与 C++ 之间的双向通信，支持单向通知和请求-响应两种模式（详见 `doc/2. State和channel.md`）。
 
@@ -189,4 +189,66 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
     co_await Channel::main_thread();
     co_return Channel::Data(content);
 });
+```
+
+# 4. 运行和安装
+# 4. 运行和安装
+新字符串 (newString)
+# 4. 运行和安装
+
+## 4.1 前置依赖
+
+| 依赖 | 最低版本 |
+|---|---|
+| CMake | 4.3.2 |
+| Ninja | 1.13 |
+| 编译器 | llvm-mingw-20260421-ucrt-x86_64 (或 Clang ≥ 18，需支持 C++26 Modules) |
+| Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
+
+## 4.2 构建
+
+```bash
+cmake -B build -G Ninja
+cmake --build build
+```
+## 4.3 安装 SDK
+- cmake --install build --prefix build/install
+
+## 4.4 在外部项目中使用
+```
+cmake_minimum_required(VERSION 4.3.2)
+set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+# 启用 C++ 模块支持
+set(CMAKE_CXX_MODULE_STD ON)
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+# 生成 compile_command.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# 启用 C++23 标准库模块导入
+set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD  "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
+set(CMAKE_EXPERIMENTAL_MAPPED_PACKAGE_INFO "ababa1b5-7099-495f-a9cd-e22d38f274f2")
+set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
+
+project(kwik-demo LANGUAGES C CXX)
+
+find_package(kwik-ui REQUIRED)
+
+add_executable(kwik-demo main.cpp)
+target_link_libraries(kwik-demo PRIVATE kwik-ui::kwik)
+
+target_sources(kwik-demo PRIVATE
+  FILE_SET cxx_modules TYPE CXX_MODULES
+  BASE_DIRS "${kwik-ui_MODULES_DIR}"
+  FILES ${kwik-ui_MODULE_FILES}
+)
+``` 
+```
+配置时通过 CMAKE_PREFIX_PATH 指向 SDK 安装目录：
+cmake -B build -G Ninja \
+  -DCMAKE_PREFIX_PATH=/path/to/kwik-ui/build/install
+cmake --build build
 ```

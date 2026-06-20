@@ -19,3 +19,9 @@ target_compile_definitions(kwik_event
     PRIVATE
         KWIK_EVENT_MODULE
 )
+
+install(TARGETS kwik_event
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/event
+    ARCHIVE DESTINATION lib
+)

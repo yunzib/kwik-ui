@@ -1,4 +1,5 @@
 module;
+export module kwik.platform.fbdev_window;
 #if defined(__linux__) && defined(USE_FBDEV)
 #include <linux/fb.h>
 #include <linux/input.h>
@@ -11,7 +12,7 @@ module;
 #include <thread>
 #include <mutex>
 #include <vector>
-export module kwik.platform.fbdev_window;
+
 import kwik.platform.window;
 import kwik.core.types;
 import std;

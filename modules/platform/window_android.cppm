@@ -1,5 +1,7 @@
 module;
 
+
+export module kwik.platform.android_window;
 #if defined(__ANDROID__)
 #include <android/native_activity.h>
 #include <android/input.h>
@@ -9,7 +11,7 @@ module;
 #include <cstring>
 #include <mutex>
 #include <condition_variable>
-export module kwik.platform.android_window;
+
 import kwik.platform.platform_window;
 import kwik.core.types;
 import std;

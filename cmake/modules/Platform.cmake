@@ -128,3 +128,9 @@ target_compile_definitions(kwik_platform
     PRIVATE
         KWIK_PLATFORM_${KWIK_PLATFORM_BACKEND}
 )
+
+install(TARGETS kwik_platform
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/platform
+    ARCHIVE DESTINATION lib
+)

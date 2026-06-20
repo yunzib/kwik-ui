@@ -29,3 +29,9 @@ target_compile_definitions(kwik_bridge
     PRIVATE
         KWIK_BRIDGE_MODULE
 )
+
+install(TARGETS kwik_bridge
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/bridge
+    ARCHIVE DESTINATION lib
+)

@@ -1,5 +1,5 @@
 module;
-
+export module kwik.platform.wayland_window;
 #if defined(__linux__) && !defined(USE_DRM) && !defined(USE_FBDEV)
 #include <wayland-client.h>
 #include <wayland-cursor.h>
@@ -10,7 +10,7 @@ module;
 #include <fcntl.h>
 #include <mutex>
 
-export module kwik.platform.wayland_window;
+
 
 import kwik.platform.platform_window;
 import kwik.platform.platform_window;

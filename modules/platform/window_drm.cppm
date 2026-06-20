@@ -1,5 +1,5 @@
 module;
-
+export module kwik.platform.drm_window;
 #if defined(__linux__) && defined(USE_DRM)
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -14,7 +14,7 @@ module;
 #include <thread>
 #include <mutex>
 #include <map>
-export module kwik.platform.drm_window;
+
 import kwik.platform.platform_window;
 import kwik.core.types;
 import std;

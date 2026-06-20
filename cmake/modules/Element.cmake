@@ -71,3 +71,8 @@ target_compile_definitions(kwik_element
     PRIVATE
         KWIK_ELEMENT_MODULE
 )
+
+install(TARGETS kwik_element
+    ARCHIVE DESTINATION lib
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/element
+)

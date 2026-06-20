@@ -24,3 +24,8 @@ target_sources(kwik_core
 # 4. 添加编译定义（COMPILE_DEFINITIONS）
 target_compile_definitions(kwik_core PRIVATE KWIK_CORE_MODULE)
 
+install(TARGETS kwik_core
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/core
+    ARCHIVE DESTINATION lib
+)

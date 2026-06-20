@@ -45,3 +45,11 @@ target_compile_definitions(kwik_engine
     PRIVATE
         KWIK_ENGINE_MODULE
 )
+
+
+install(TARGETS kwik_engine
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/engine
+    ARCHIVE DESTINATION lib
+)
+

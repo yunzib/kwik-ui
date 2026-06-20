@@ -1,0 +1,59 @@
+@PACKAGE_INIT@
+
+macro(kwik_stub_tgt _name)
+  if(NOT TARGET "${_name}")
+    if("${_name}" MATCHES "::")
+      add_library("${_name}" INTERFACE IMPORTED)
+    else()
+      add_library("${_name}" UNKNOWN IMPORTED)
+    endif()
+  endif()
+endmacro()
+
+kwik_stub_tgt(qjs)
+kwik_stub_tgt(freetype)
+kwik_stub_tgt(harfbuzz::harfbuzz)
+kwik_stub_tgt(NanoSVG::nanosvg)
+kwik_stub_tgt(NanoSVG::nanosvgrast)
+
+add_library(kwik-ui::kwik INTERFACE IMPORTED)
+
+set(KWIK_INC
+    "${PACKAGE_PREFIX_DIR}/include"
+    "${PACKAGE_PREFIX_DIR}/include/quickjs"
+    "${PACKAGE_PREFIX_DIR}/include/freetype2"
+    "${PACKAGE_PREFIX_DIR}/include/harfbuzz"
+)
+
+find_package(Threads REQUIRED)
+target_link_libraries(kwik-ui::kwik INTERFACE Threads::Threads)
+
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+  list(APPEND KWIK_INC "${Vulkan_INCLUDE_DIRS}")
+  target_link_libraries(kwik-ui::kwik INTERFACE Vulkan::Vulkan)
+else()
+  kwik_stub_tgt(Vulkan::Vulkan)
+endif()
+
+target_include_directories(kwik-ui::kwik INTERFACE ${KWIK_INC})
+unset(KWIK_INC)
+
+file(GLOB _kwik_libs "${PACKAGE_PREFIX_DIR}/lib/libkwik_*.a")
+list(SORT _kwik_libs)
+list(APPEND _kwik_libs
+    "${PACKAGE_PREFIX_DIR}/lib/libqjs.a"
+    "${PACKAGE_PREFIX_DIR}/lib/libfreetyped.a"
+    "${PACKAGE_PREFIX_DIR}/lib/libharfbuzz.a"
+    "${PACKAGE_PREFIX_DIR}/lib/libnanosvg.a"
+    "${PACKAGE_PREFIX_DIR}/lib/libnanosvgrast.a"
+)
+target_link_libraries(kwik-ui::kwik INTERFACE ${_kwik_libs})
+unset(_kwik_libs)
+
+target_compile_features(kwik-ui::kwik INTERFACE cxx_std_26)
+
+set(kwik-ui_MODULES_DIR "${PACKAGE_PREFIX_DIR}/share/kwik-ui/modules")
+file(GLOB_RECURSE kwik-ui_MODULE_FILES "${kwik-ui_MODULES_DIR}/**/*.cppm")
+set(kwik-ui_LIBRARIES kwik-ui::kwik)
+check_required_components(kwik-ui)

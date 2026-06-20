@@ -153,3 +153,10 @@ add_custom_command(
     COMMENT "Compiling image shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/image_shaders.h)
+
+
+install(TARGETS kwik_render
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/render
+    ARCHIVE DESTINATION lib
+)

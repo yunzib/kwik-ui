@@ -17,6 +17,9 @@ set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 
 project(KwiKUI LANGUAGES C CXX)
 
+# ── 安装前缀（默认 build/install）──
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix")
+
 # ============================================================================
 # 构建类型配置
 #
@@ -68,6 +71,9 @@ endif()
 
 
 ####################### 三方库配置 ##########################################
+# L72 前关闭 quickjs install：
+set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+
 message(STATUS "===== 开始引入三方库 =====")
 #quickjs
 add_subdirectory(third_party/quickjs)
@@ -163,9 +169,33 @@ message(STATUS "聚合库: kwik")
 message(STATUS "Examples: ${KWIK_BUILD_EXAMPLES}")
 message(STATUS "========================================")
 
+# ==================== 安装 / 导出 ====================
+# ==================== 三方库头文件 ====================
+install(FILES third_party/quickjs/quickjs.h DESTINATION include/quickjs)
+install(DIRECTORY third_party/freetype/include/ DESTINATION include)
+install(DIRECTORY third_party/harfbuzz/src/
+    DESTINATION include/harfbuzz
+    FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY third_party/nanosvg/src/
+    DESTINATION include/nanosvg
+    FILES_MATCHING PATTERN "*.h")
 
-##################### test #############################################
+install(FILES "$<TARGET_FILE:qjs>" DESTINATION lib)
+# ==================== CMake Config ====================
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    cmake/KwiKUIConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
+    INSTALL_DESTINATION share/cmake/kwik-ui
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
+    DESTINATION share/cmake/kwik-ui
+)
+
+# ==================== 编译定义 ====================
+# 如果存在 build 目录的 shaders 等需要保留，在此追加 install 规则
 
 
+## 安装命令   cmake --install build --prefix build/install
 
 
