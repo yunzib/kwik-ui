@@ -51,29 +51,21 @@ public:
      * @brief 获取原始 QuickJS 上下文指针
      *        供 ElementFactory 等外部模块使用
      */
-    JSContext *getPtr() const {
-        return context;
-    }
+    JSContext *getPtr() const { return context; }
     /**
      * @brief 存储用户指针 (Application 注入 View 树根)
      * @param ptr 任意不透明指针
      */
-    void setUserPointer(void *ptr) {
-        userPtr_ = ptr;
-    }
+    void setUserPointer(void *ptr) { userPtr_ = ptr; }
     /**
      * @brief 取回用户指针
      */
-    void *getUserPointer() const {
-        return userPtr_;
-    }
+    void *getUserPointer() const { return userPtr_; }
     /**
      * @brief 获取 JS 执行结果（根组件树 JS 对象）
      *        供 ElementFactory::parse() 消费
      */
-    JSValue getRootView() const {
-        return expandedRoot;
-    }
+    JSValue getRootView() const { return expandedRoot; }
 
     /**
      * @brief 展开根视图 — 若导出为函数则调用获取最新树
@@ -84,9 +76,7 @@ public:
      */
     void expandRootView();
 
-    JSModuleDef *getKwikuiModule() const {
-        return kwikuiModule_;
-    }
+    JSModuleDef *getKwikuiModule() const { return kwikuiModule_; }
 
     // ── 渲染控制 ──────────────────────────────────────────────────
     /**
@@ -94,26 +84,32 @@ public:
      */
     void requestRender();
 
-    bool isRenderNeeded() const {
-        return needRender;
-    }
-    void clearRenderFlag() {
-        needRender = false;
-    }
+    bool isRenderNeeded() const { return needRender; }
+    void clearRenderFlag() { needRender = false; }
 
     /**
      * @brief 判断 JS 值是否可调用 (函数)
      */
-    bool isFunction(JSValue v) const {
-        return JS_IsFunction(context, v);
-    }
+    bool isFunction(JSValue v) const { return JS_IsFunction(context, v); }
     /**
      * @brief 以 undefined 为 this 调用 JS 函数
      * @param func 函数值
      * @return 调用结果 JS 值, 调用方负责释放
      */
-    JSValue callFunction(JSValue func) const {
-        return JS_Call(context, func, JS_UNDEFINED, 0, nullptr);
+    JSValue callFunction(JSValue func) const { return JS_Call(context, func, JS_UNDEFINED, 0, nullptr); }
+
+    /**
+     * @brief 处理 JS 微任务队列（Promise.then / async 函数恢复）
+     *
+     * QuickJS 的 Promise resolve 不会自动消费微任务队列。
+     * 调用 channel.call() 等异步操作后，必须在触发渲染前
+     * 执行此方法，否则 async 函数的 await 续体永远不会执行。
+     */
+    void processMicrotasks() {
+        JSRuntime *rt = JS_GetRuntime(context);
+        JSContext *pctx;
+        // 循环执行所有待处理微任务，直到队列清空或出错
+        while (JS_ExecutePendingJob(rt, &pctx) > 0);
     }
 
 private:

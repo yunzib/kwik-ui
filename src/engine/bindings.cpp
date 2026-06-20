@@ -9,6 +9,7 @@ module kwik.engine.bindings;
 
 import kwik.core.log;
 import kwik.engine.context; //  访问 QuickJSContext::getUserPointer
+import kwik.engine.channel;
 
 import std;
 
@@ -56,19 +57,30 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
 
     // 检查标记
     JSValue tag = JS_GetPropertyUint32(ctx, val, 0);
-    if (!JS_IsString(tag)) { JS_FreeValue(ctx, tag); JS_FreeValue(ctx, val); return; }
+    if (!JS_IsString(tag)) {
+        JS_FreeValue(ctx, tag);
+        JS_FreeValue(ctx, val);
+        return;
+    }
     const char *tagStr = JS_ToCString(ctx, tag);
     bool isBind = tagStr && std::strcmp(tagStr, "__kwik_bind__") == 0;
     JS_FreeCString(ctx, tagStr);
     JS_FreeValue(ctx, tag);
-    if (!isBind) { JS_FreeValue(ctx, val); return; }
+    if (!isBind) {
+        JS_FreeValue(ctx, val);
+        return;
+    }
 
     // 提取 stateObj 和 key（各获得一个 ref）
     JSValue stateObj = JS_GetPropertyUint32(ctx, val, 1);
-    JSValue keyVal   = JS_GetPropertyUint32(ctx, val, 2);
-    JS_FreeValue(ctx, val);  // 先释放数组，不再碰 stateObj/keyVal 通过数组的隐式 ref
+    JSValue keyVal = JS_GetPropertyUint32(ctx, val, 2);
+    JS_FreeValue(ctx, val);    // 先释放数组，不再碰 stateObj/keyVal 通过数组的隐式 ref
 
-    if (!JS_IsString(keyVal)) { JS_FreeValue(ctx, stateObj); JS_FreeValue(ctx, keyVal); return; }
+    if (!JS_IsString(keyVal)) {
+        JS_FreeValue(ctx, stateObj);
+        JS_FreeValue(ctx, keyVal);
+        return;
+    }
 
     // 读取当前值
     const char *stateKey = JS_ToCString(ctx, keyVal);
@@ -142,8 +154,8 @@ static JSValue state_get_property(JSContext *ctx, JSValueConst obj, JSAtom atom,
     return method;
 }
 
-static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSValueConst value,
-                              JSValueConst receiver, int flags) {
+static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSValueConst value, JSValueConst receiver,
+                              int flags) {
     Log::debug("State set_property called");
     StateData *sd = static_cast<StateData *>(JS_GetOpaque2(ctx, obj, state_class_id));
     if (!sd) return -1;
@@ -152,15 +164,13 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
         // 增量更新路径：查 BindingRegistry，若已处理则跳过全量重建
         bool handled = false;
         if (incremental_callback) {
-            const char* key = JS_AtomToCString(ctx, atom);
+            const char *key = JS_AtomToCString(ctx, atom);
             if (key) {
-                handled = incremental_callback(static_cast<void*>(sd), key, ctx, value);
+                handled = incremental_callback(static_cast<void *>(sd), key, ctx, value);
                 JS_FreeCString(ctx, key);
             }
         }
-        if (!handled && render_callback) {
-            render_callback();
-        }
+        if (!handled && render_callback) { render_callback(); }
     }
     return ret;
 }
@@ -213,31 +223,31 @@ JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_UNDEFINED;
 }
 
-JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if (channel_class_id == 0) {
-        JS_NewClassID(JS_GetRuntime(ctx), &channel_class_id);
-        static JSClassDef class_def = {
-            .class_name = "Channel",
-            .finalizer = channel_finalizer,
-            .gc_mark = nullptr,
-            .call = nullptr,
-            .exotic = nullptr,
-        };
-        if (JS_NewClass(JS_GetRuntime(ctx), channel_class_id, &class_def) != 0) return JS_UNDEFINED;
+// JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+//     if (channel_class_id == 0) {
+//         JS_NewClassID(JS_GetRuntime(ctx), &channel_class_id);
+//         static JSClassDef class_def = {
+//             .class_name = "Channel",
+//             .finalizer = channel_finalizer,
+//             .gc_mark = nullptr,
+//             .call = nullptr,
+//             .exotic = nullptr,
+//         };
+//         if (JS_NewClass(JS_GetRuntime(ctx), channel_class_id, &class_def) != 0) return JS_UNDEFINED;
 
-        // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
-        JSValue proto = JS_NewObject(ctx);
-        JS_SetPropertyStr(ctx, proto, "send", JS_NewCFunction(ctx, js_channel_send, "send", 1));
-        JS_SetPropertyStr(ctx, proto, "receive", JS_NewCFunction(ctx, js_channel_receive, "receive", 0));
+//         // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
+//         JSValue proto = JS_NewObject(ctx);
+//         JS_SetPropertyStr(ctx, proto, "send", JS_NewCFunction(ctx, js_channel_send, "send", 1));
+//         JS_SetPropertyStr(ctx, proto, "receive", JS_NewCFunction(ctx, js_channel_receive, "receive", 0));
 
-        JSValue ctor = JS_NewCFunction2(ctx, js_channel_constructor, "Channel", 0, JS_CFUNC_constructor, 0);
-        JS_SetConstructor(ctx, ctor, proto);
-        JS_SetClassProto(ctx, channel_class_id, proto);
+//         JSValue ctor = JS_NewCFunction2(ctx, js_channel_constructor, "Channel", 0, JS_CFUNC_constructor, 0);
+//         JS_SetConstructor(ctx, ctor, proto);
+//         JS_SetClassProto(ctx, channel_class_id, proto);
 
-        return ctor;
-    }
-    return JS_UNDEFINED;
-}
+//         return ctor;
+//     }
+//     return JS_UNDEFINED;
+// }
 
 void set_render_callback(RenderCallback callback) {
     render_callback = std::move(callback);
@@ -298,7 +308,7 @@ JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *
 
 JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");      // 处理 ref 绑定
+    resolveRefProp(ctx, props, "value");    // 处理 ref 绑定
     return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
@@ -364,96 +374,96 @@ JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
-JSValue js_channel_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
-    Log::info("Creating Channel instance");
-    ChannelData *cd;
-    JSValue obj = JS_UNDEFINED;
-    JSValue proto;
+// JSValue js_channel_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+//     Log::info("Creating Channel instance");
+//     ChannelData *cd;
+//     JSValue obj = JS_UNDEFINED;
+//     JSValue proto;
 
-    cd = (ChannelData *)js_mallocz(ctx, sizeof(*cd));
-    if (!cd) return JS_EXCEPTION;
-    cd->closed = false;
+//     cd = (ChannelData *)js_mallocz(ctx, sizeof(*cd));
+//     if (!cd) return JS_EXCEPTION;
+//     cd->closed = false;
 
-    proto = JS_GetPropertyStr(ctx, new_target, "prototype");
-    if (JS_IsException(proto)) goto fail;
+//     proto = JS_GetPropertyStr(ctx, new_target, "prototype");
+//     if (JS_IsException(proto)) goto fail;
 
-    obj = JS_NewObjectProtoClass(ctx, proto, channel_class_id);
-    JS_FreeValue(ctx, proto);
-    if (JS_IsException(obj)) goto fail;
+//     obj = JS_NewObjectProtoClass(ctx, proto, channel_class_id);
+//     JS_FreeValue(ctx, proto);
+//     if (JS_IsException(obj)) goto fail;
 
-    JS_SetOpaque(obj, cd);
-    return obj;
+//     JS_SetOpaque(obj, cd);
+//     return obj;
 
-fail:
-    js_free(ctx, cd);
-    JS_FreeValue(ctx, obj);
-    return JS_EXCEPTION;
-}
+// fail:
+//     js_free(ctx, cd);
+//     JS_FreeValue(ctx, obj);
+//     return JS_EXCEPTION;
+// }
 
-JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
-    if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
-    if (argc < 1) return JS_ThrowTypeError(ctx, "missing argument");
-    JSValue msg = JS_DupValue(ctx, argv[0]);
-    // 有等待接收者时，直接 resolve 消息
-    if (!cd->pendingReceivers.empty()) {
-        JSValue resolve = cd->pendingReceivers.front();
-        cd->pendingReceivers.pop();
-        JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
-        JS_FreeValue(ctx, resolve);
-        JS_FreeValue(ctx, msg);
-        if (JS_IsException(ret)) {
-            JS_FreeValue(ctx, ret);
-            return JS_EXCEPTION;
-        }
-        JS_FreeValue(ctx, ret);
-        return JS_UNDEFINED;
-    } else {
-        // 暂无接收者，放入消息队列等待
-        cd->messages.push(msg);
-        return JS_UNDEFINED;
-    }
-}
+// JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+//     ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
+//     if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
+//     if (argc < 1) return JS_ThrowTypeError(ctx, "missing argument");
+//     JSValue msg = JS_DupValue(ctx, argv[0]);
+//     // 有等待接收者时，直接 resolve 消息
+//     if (!cd->pendingReceivers.empty()) {
+//         JSValue resolve = cd->pendingReceivers.front();
+//         cd->pendingReceivers.pop();
+//         JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
+//         JS_FreeValue(ctx, resolve);
+//         JS_FreeValue(ctx, msg);
+//         if (JS_IsException(ret)) {
+//             JS_FreeValue(ctx, ret);
+//             return JS_EXCEPTION;
+//         }
+//         JS_FreeValue(ctx, ret);
+//         return JS_UNDEFINED;
+//     } else {
+//         // 暂无接收者，放入消息队列等待
+//         cd->messages.push(msg);
+//         return JS_UNDEFINED;
+//     }
+// }
 
-JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
-    if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
-    // 队列中有消息：立即resolve 的Promise
-    if (!cd->messages.empty()) {
-        JSValue msg = cd->messages.front();
-        cd->messages.pop();
-        JSValue resolving_funcs[2];
-        JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-        if (JS_IsException(promise)) {
-            JS_FreeValue(ctx, msg);
-            return promise;
-        }
-        JSValue resolve = resolving_funcs[0];
-        JSValue reject = resolving_funcs[1];
-        JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
-        JS_FreeValue(ctx, resolve);
-        JS_FreeValue(ctx, reject);
-        JS_FreeValue(ctx, msg);
-        if (JS_IsException(ret)) {
-            JS_FreeValue(ctx, ret);
-            JS_FreeValue(ctx, promise);
-            return JS_EXCEPTION;
-        }
-        JS_FreeValue(ctx, ret);
-        return promise;
-    } else {
-        // 无消息，将 resolve 放入等待队列
-        JSValue resolving_funcs[2];
-        JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-        if (JS_IsException(promise)) return promise;
-        JSValue resolve = resolving_funcs[0];
-        JSValue reject = resolving_funcs[1];
-        cd->pendingReceivers.push(JS_DupValue(ctx, resolve));
-        JS_FreeValue(ctx, resolve);
-        JS_FreeValue(ctx, reject);
-        return promise;
-    }
-}
+// JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+//     ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
+//     if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
+//     // 队列中有消息：立即resolve 的Promise
+//     if (!cd->messages.empty()) {
+//         JSValue msg = cd->messages.front();
+//         cd->messages.pop();
+//         JSValue resolving_funcs[2];
+//         JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+//         if (JS_IsException(promise)) {
+//             JS_FreeValue(ctx, msg);
+//             return promise;
+//         }
+//         JSValue resolve = resolving_funcs[0];
+//         JSValue reject = resolving_funcs[1];
+//         JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
+//         JS_FreeValue(ctx, resolve);
+//         JS_FreeValue(ctx, reject);
+//         JS_FreeValue(ctx, msg);
+//         if (JS_IsException(ret)) {
+//             JS_FreeValue(ctx, ret);
+//             JS_FreeValue(ctx, promise);
+//             return JS_EXCEPTION;
+//         }
+//         JS_FreeValue(ctx, ret);
+//         return promise;
+//     } else {
+//         // 无消息，将 resolve 放入等待队列
+//         JSValue resolving_funcs[2];
+//         JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+//         if (JS_IsException(promise)) return promise;
+//         JSValue resolve = resolving_funcs[0];
+//         JSValue reject = resolving_funcs[1];
+//         cd->pendingReceivers.push(JS_DupValue(ctx, resolve));
+//         JS_FreeValue(ctx, resolve);
+//         JS_FreeValue(ctx, reject);
+//         return promise;
+//     }
+// }
 
 static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
@@ -464,7 +474,7 @@ static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "selected");      // 处理 ref 绑定（selected: ref(form, "size")）
+    resolveRefProp(ctx, props, "selected");    // 处理 ref 绑定（selected: ref(form, "size")）
     return makeElement(ctx, "RadioGroup", props, children);
 }
 
@@ -472,7 +482,7 @@ static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
 
-    resolveRefProp(ctx, props, "checked");      // 处理 ref 绑定
+    resolveRefProp(ctx, props, "checked");    // 处理 ref 绑定
     return makeElement(ctx, "Checkbox", props, children);
 }
 
@@ -484,7 +494,7 @@ static JSValue js_textarea(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
 static JSValue js_dropdown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value"); 
+    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "Dropdown", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
@@ -499,8 +509,7 @@ static JSValue js_dropdown(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 //   Input({ value: ref(form, "name") })
 // ============================================================================
 static JSValue js_ref(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if (argc < 2 || JS_IsUndefined(argv[0]) || JS_IsUndefined(argv[1]))
-        return JS_UNDEFINED;
+    if (argc < 2 || JS_IsUndefined(argv[0]) || JS_IsUndefined(argv[1])) return JS_UNDEFINED;
 
     JSValue arr = JS_NewArray(ctx);
     // 索引 0: 标记字符串
@@ -513,9 +522,63 @@ static JSValue js_ref(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     return arr;
 }
 
+// ============================================================================
+// Channel JS 绑定函数
+// ============================================================================
 
+static JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 1) { return JS_ThrowTypeError(ctx, "channel.send: missing topic argument"); }
+    const char *topic = JS_ToCString(ctx, argv[0]);
+    if (!topic) return JS_ThrowTypeError(ctx, "channel.send: topic must be a string");
 
+    JSValue data = argc > 1 ? argv[1] : JS_UNDEFINED;
+    Channel::jsSend(ctx, topic, data);
 
+    JS_FreeCString(ctx, topic);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_channel_on(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2) { return JS_ThrowTypeError(ctx, "channel.on: requires topic and handler"); }
+    const char *topic = JS_ToCString(ctx, argv[0]);
+    if (!topic) return JS_ThrowTypeError(ctx, "channel.on: topic must be a string");
+
+    if (!JS_IsFunction(ctx, argv[1])) {
+        JS_FreeCString(ctx, topic);
+        return JS_ThrowTypeError(ctx, "channel.on: second argument must be a function");
+    }
+
+    Channel::jsOn(ctx, topic, argv[1]);
+    JS_FreeCString(ctx, topic);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_channel_call(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 1) { return JS_ThrowTypeError(ctx, "channel.call: missing topic argument"); }
+    const char *topic = JS_ToCString(ctx, argv[0]);
+    if (!topic) return JS_ThrowTypeError(ctx, "channel.call: topic must be a string");
+
+    JSValue data = argc > 1 ? argv[1] : JS_UNDEFINED;
+    JSValue promise = Channel::jsCall(ctx, topic, data);
+
+    JS_FreeCString(ctx, topic);
+    return promise;
+}
+
+static JSValue js_channel_handle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2) { return JS_ThrowTypeError(ctx, "channel.handle: requires topic and handler"); }
+    const char *topic = JS_ToCString(ctx, argv[0]);
+    if (!topic) return JS_ThrowTypeError(ctx, "channel.handle: topic must be a string");
+
+    if (!JS_IsFunction(ctx, argv[1])) {
+        JS_FreeCString(ctx, topic);
+        return JS_ThrowTypeError(ctx, "channel.handle: second argument must be a function");
+    }
+
+    Channel::jsHandle(ctx, topic, argv[1]);
+    JS_FreeCString(ctx, topic);
+    return JS_UNDEFINED;
+}
 
 JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
@@ -536,7 +599,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("Checkbox", 2, js_checkbox),
         JS_CFUNC_DEF("TextArea", 2, js_textarea),
         JS_CFUNC_DEF("Dropdown", 2, js_dropdown),
-        JS_CFUNC_DEF("ref", 2, js_ref), 
+        JS_CFUNC_DEF("ref", 2, js_ref),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
@@ -549,9 +612,17 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_SetModuleExport(ctx, m, "State", state_ctor);    // 此时 state_ctor 的引用被模块接管, ref - 1
 
         // 3. 导出 Channel 类
-        JSValue channel_ctor = register_channel_class(ctx, JS_UNDEFINED, 0, nullptr);
-        if (JS_IsException(channel_ctor)) return -1;
-        JS_SetModuleExport(ctx, m, "Channel", channel_ctor);
+        // JSValue channel_ctor = register_channel_class(ctx, JS_UNDEFINED, 0, nullptr);
+        // if (JS_IsException(channel_ctor)) return -1;
+        // JS_SetModuleExport(ctx, m, "Channel", channel_ctor);
+
+        // ── 创建并导出 channel 单例对象 ──
+        JSValue channelObj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, channelObj, "send", JS_NewCFunction(ctx, js_channel_send, "send", 1));
+        JS_SetPropertyStr(ctx, channelObj, "on", JS_NewCFunction(ctx, js_channel_on, "on", 2));
+        JS_SetPropertyStr(ctx, channelObj, "call", JS_NewCFunction(ctx, js_channel_call, "call", 1));
+        JS_SetPropertyStr(ctx, channelObj, "handle", JS_NewCFunction(ctx, js_channel_handle, "handle", 2));
+        JS_SetModuleExport(ctx, m, "channel", channelObj);
 
         return 0;
     });
@@ -561,7 +632,8 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 声明所有导出的名称（顺序与数量无关）
     JS_AddModuleExportList(ctx, m, ui_exports, std::size(ui_exports));
     JS_AddModuleExport(ctx, m, "State");
-    JS_AddModuleExport(ctx, m, "Channel");
+    // JS_AddModuleExport(ctx, m, "Channel");
+    JS_AddModuleExport(ctx, m, "channel");    // 导出 channel 单例对象， 原有预留Channel类接口后续可废弃
 
     Log::info("Registering kwikui module done");
     return m;

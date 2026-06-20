@@ -1,6 +1,38 @@
 # 更新日志
 
 ## [0.0.0] — 2026-06-20
+
+### 新增
+- 协程基础设施
+  - `kwik.core.coroutine` — `Task<T>` 通用协程返回类型（`modules/core/coroutine.cppm`）
+  - `kwik.core.task_queue` — `TaskQueue` 主线程任务队列 + `MainThreadAwaitable`
+    （`modules/core/task_queue.cppm`）
+  - `kwik.core.thread_pool` — `ThreadPool` 线程池 + `ThreadPoolAwaitable`
+    （`modules/core/thread_pool.cppm`）
+  - `kwik.core.scheduler` — `Scheduler` 协程调度器单例，聚合线程池/主线程切换
+    （`modules/core/scheduler.cppm` / `src/core/scheduler.cpp`）
+- Channel 双向通信框架
+  - `CoroTask` 协程返回类型（fire-and-forget，自动 respond + 自销毁）
+  - 模板 `handle()` 三重重载：`Data(Data)` 同步 / `void(Data, Responder)` 异步 / `CoroTask(Data)` 协程
+  - `Channel::thread_pool()` / `Channel::main_thread()` 转发到 `Scheduler`
+  - `channel.send()` / `channel.on()` / `channel.call()` JS ↔ C++ 双向通信
+  - `channel.js` 终端风格测试界面（深色主题 `#0d1117`、2×2 操作面板、传感器面板、操作日志）
+  - `QuickJSContext::processMicrotasks()` 微任务队列消费
+
+### 变更
+- `Application` 集成 Scheduler + Channel 生命周期
+  - `Scheduler::init(threadPool_, mainThreadTaskQueue_)` 在 `Application::init()` 中初始化
+  - `Channel::init()` 签名增加 `TaskQueue*` 第三参数
+  - 主循环增加 `mainThreadTaskQueue_.flush()` 消费协程恢复和 respond 回调
+  - `Channel::flush()` 在每帧重建树前处理 dispatch 队列 + 通知 JS handler + 定时器
+- `ViewEventHandlers::dispatch()` 后增加微任务处理（`JS_ExecutePendingJob`）
+
+### 修复
+- JS 微任务未处理导致 async `onClick` 中 `await channel.call()` 续体不执行
+- 协程 handler 参数 `const Data& d` 在 `co_await thread_pool()` 后悬挂（示例中首次挂起前复制数据）
+- 关闭时 `JS_FreeRuntime` 断言 `gc_obj_list` 非空（`Channel::shutdown()` 释放所有 C++ 持有的 JSValue）
+
+## [0.0.0] — 2026-06-20
 ### 新增
 - 增量更新系统
   - `BindingRegistry` 绑定注册表 `(statePtr, key) → [(View*, propName)]`

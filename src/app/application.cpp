@@ -28,10 +28,7 @@ import kwik.element.input;
 import kwik.bridge.prop_bus;
 import kwik.element.textarea;
 import kwik.bridge.binding_registry;
-
-
-
-
+import kwik.engine.channel;
 
 // ============================================================================
 // 构造 / 析构
@@ -49,9 +46,11 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
                           .onStopped = []() { Log::info("渲染线程停止"); },
                       },
                   }),
-    jsCtx_{} {
-}
+    jsCtx_{} {}
 Application::~Application() {
+    // 释放 Channel 持有的 JSValue（必须在 jsCtx_ 析构前执行）
+    Channel::shutdown(jsCtx_.getPtr());
+    
     std::string fp = FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
     FontManager::instance().saveAtlasCache("cache/font_atlas.bin", fp);
     TextureManager::instance().destroyAll();
@@ -140,6 +139,12 @@ bool Application::init() {
 
     // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
     setRegisteredRegistry(&bindingRegistry_);
+
+    // ⑥ 初始化 Channel（必须在线程池和队列就绪后）
+    Channel::init(
+        jsCtx_.getPtr(), [this](std::function<void()> task) { mainThreadTaskQueue_.post(std::move(task)); },
+        &mainThreadTaskQueue_);
+    Scheduler::init(threadPool_, mainThreadTaskQueue_);
 
     dirtyTracker_.markFull();    // 首帧必须全屏重绘
     return true;
@@ -314,6 +319,15 @@ int Application::run() {
 
     while (running_) {
         window_.PollEvents();
+
+        // ── ① 消费跨线程任务（协程恢复、respond 回调）──
+        mainThreadTaskQueue_.flush();
+        // ── ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）──
+        Channel::flush(jsCtx_.getPtr());
+        // ── ③ 处理微任务（Promise.then / async 函数恢复）──
+        // 事件 dispatch 和 Channel flush 都可能 queued JS microtask
+        // 必须在 rebuildTree 之前全部消费，确保状态变更被渲染捕获
+        jsCtx_.processMicrotasks();
 
         if (jsCtx_.isRenderNeeded()) rebuildTree();
 

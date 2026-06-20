@@ -12,8 +12,13 @@ target_sources(kwik_core
             modules/core/types.cppm
             modules/core/constraints.cppm
             modules/core/log.cppm
+            modules/core/task_queue.cppm       
+            modules/core/thread_pool.cppm    
+            modules/core/coroutine.cppm
+            modules/core/scheduler.cppm
     PRIVATE
         src/core/log.cpp
+        src/core/scheduler.cpp
 )
 
 # 4. 添加编译定义（COMPILE_DEFINITIONS）

@@ -73,6 +73,6 @@ export JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
 export JSValue js_state_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 export JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-export JSValue js_channel_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-export JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-export JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+// export JSValue js_channel_constructor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+// export JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+// export JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);

@@ -133,3 +133,60 @@ export default () => View({
 ![alt text](doc/image/examle.png)
 - 更多示例可参考:  examples/
 - 更多组件相关参考:  doc/1.kwik-ui 组件.md
+
+### 3.3 Channel 通信示例
+
+Channel 提供 JS 与 C++ 之间的双向通信，支持单向通知和请求-响应两种模式（详见 `doc/2. State和channel.md`）。
+
+**JS 端：**
+```js
+import { channel } from 'kwikui';
+
+// ① 通知 C++（发后即忘，无返回值）
+channel.send('button_click', { id: Date.now() });
+
+// ② 接收 C++ 通知
+channel.on('sensor:temp', function(data) {
+    console.log('温度传感器:', data);
+});
+
+// ③ 调用 C++ handler（返回 Promise）
+const result = await channel.call('get_config', { key: 'theme' });
+console.log('配置:', result);  // "dark_theme"
+```
+**C++ 端（examples/example.cpp）：**
+```c++
+// 发送通知到 JS（线程安全）
+Channel::send("sensor:temp", "temp:25.3,humidity:68.5");
+
+// ── ① 通知: JS → C++ ──
+Channel::on("button_click",
+            [](const Channel::Data &d) { Log::info("[通知] JS → C++ send 'button_click': {}", d.asString()); });
+
+// ── ② 同步调用 ──
+Channel::handle("get_config", [](const Channel::Data &d) -> Channel::Data {
+    Log::info("[同步] JS → C++ call 'get_config': {}", d.asString());
+    return Channel::Data("dark_theme");
+});
+
+// ── ③ 异步线程调用 ──
+Channel::handle("start_download", [](const Channel::Data &d, auto respond) {
+    Log::info("[异步线程] JS → C++ call 'start_download': {}", d.asString());
+    std::thread([d, respond] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        Channel::getMainThreadQueue().post(
+            [respond, result = std::string(d.asString())] { respond(Channel::Data("Downloaded: " + result)); });
+    }).detach();
+});
+
+// ── ④ 异步协程调用 ──
+Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask {
+    Log::info("[协程] JS → C++ call 'process_file': {}", d.asString());
+    Channel::Data dataCopy = d;    // ← 在 co_await 之前复制，协程帧拥有此副本
+    co_await Channel::thread_pool();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::string content = "Processed: " + std::string(dataCopy.asString());
+    co_await Channel::main_thread();
+    co_return Channel::Data(content);
+});
+```

@@ -63,7 +63,4 @@ if(KWIK_BUILD_EXAMPLES)
     add_executable(example ${CMAKE_SOURCE_DIR}/examples/example.cpp)
     target_link_libraries(example PRIVATE kwik)
 
-    
-
-
 endif()

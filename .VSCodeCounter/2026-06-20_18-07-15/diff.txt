@@ -1,0 +1,98 @@
+Date : 2026-06-20 18:07:15
+Directory : c:\ws-code\ws-kwik\kwik-ui
+Total : 52 files,  2061 codes, 906 comments, 521 blanks, all 3488 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| C++        |         35 |      1,311 |        861 |        401 |      2,573 |
+| JavaScript |          7 |        399 |         45 |         52 |        496 |
+| Markdown   |          4 |        327 |          0 |         68 |        395 |
+| CMake      |          6 |         24 |          0 |          0 |         24 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                            | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                               |         52 |      2,061 |        906 |        521 |      3,488 |
+| . (Files)                                                       |          2 |         57 |          0 |         17 |         74 |
+| cmake                                                           |          4 |         12 |          0 |          1 |         13 |
+| cmake\modules                                                   |          4 |         12 |          0 |          1 |         13 |
+| doc                                                             |          3 |        282 |          0 |         53 |        335 |
+| examples                                                        |          9 |        451 |         37 |         56 |        544 |
+| modules                                                         |         19 |        610 |        553 |        197 |      1,360 |
+| modules\app                                                     |          1 |          7 |          0 |          5 |         12 |
+| modules\bridge                                                  |          2 |        136 |        168 |         33 |        337 |
+| modules\core                                                    |          4 |        215 |        109 |         54 |        378 |
+| modules\element                                                 |          7 |         81 |        110 |         36 |        227 |
+| modules\engine                                                  |          4 |        166 |        139 |         62 |        367 |
+| modules\layout                                                  |          1 |          5 |         27 |          7 |         39 |
+| src                                                             |         15 |        649 |        316 |        197 |      1,162 |
+| src\app                                                         |          1 |         13 |          9 |          7 |         29 |
+| src\bridge                                                      |          3 |         67 |         50 |         44 |        161 |
+| src\core                                                        |          1 |         15 |          4 |          6 |         25 |
+| src\element                                                     |          6 |        150 |         18 |         29 |        197 |
+| src\engine                                                      |          3 |        339 |        241 |         98 |        678 |
+| src\layout                                                      |          1 |         65 |         -6 |         13 |         72 |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                        | language   | code       | comment    | blank      | total      |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\ws-code\ws-kwik\kwik-ui\CMakeLists.txt                       | CMake      |         12 |          0 |          2 |         14 |
+| c:\ws-code\ws-kwik\kwik-ui\README.md                            | Markdown   |         45 |          0 |         15 |         60 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Bridge.cmake           | CMake      |          2 |          0 |          0 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Core.cmake             | CMake      |          5 |          0 |          0 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Element.cmake          | CMake      |          1 |          0 |          1 |          2 |
+| c:\ws-code\ws-kwik\kwik-ui\cmake\modules\Engine.cmake           | CMake      |          4 |          0 |          0 |          4 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\1.kwik-ui 组件.md                  | Markdown   |         -4 |          0 |          3 |         -1 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\2. State和channel.md              | Markdown   |        202 |          0 |         36 |        238 |
+| c:\ws-code\ws-kwik\kwik-ui\doc\CHANGELOG.md                     | Markdown   |         84 |          0 |         14 |         98 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\CMakeLists.txt              | CMake      |          0 |          0 |         -3 |         -3 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\channel.js                  | JavaScript |        169 |          6 |         10 |        185 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\checkbox.js                 | JavaScript |         45 |          3 |         11 |         59 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\dropdown.js                 | JavaScript |         42 |         12 |          4 |         58 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\example.cpp                 | C++        |         52 |         -8 |          7 |         51 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\input.js                    | JavaScript |         20 |         -7 |          7 |         20 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\radiobutton.js              | JavaScript |         34 |         12 |          8 |         54 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\test.js                     | JavaScript |         81 |         18 |          7 |        106 |
+| c:\ws-code\ws-kwik\kwik-ui\examples\textarea.js                 | JavaScript |          8 |          1 |          5 |         14 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\app\application.cppm         | C++        |          7 |          0 |          5 |         12 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\bridge\binding_registry.cppm | C++        |         35 |         73 |         16 |        124 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\bridge\props_parser.cppm     | C++        |        101 |         95 |         17 |        213 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\core\coroutine.cppm          | C++        |         89 |         17 |         18 |        124 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\core\scheduler.cppm          | C++        |         23 |         35 |         10 |         68 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\core\task_queue.cppm         | C++        |         36 |         33 |         12 |         81 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\core\thread_pool.cppm        | C++        |         67 |         24 |         14 |        105 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\checkbox.cppm        | C++        |          1 |         22 |          9 |         32 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\dropdown.cppm        | C++        |          9 |          0 |          4 |         13 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\input.cppm           | C++        |         10 |          0 |          4 |         14 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\radiobutton.cppm     | C++        |          2 |          1 |          2 |          5 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\textarea.cppm        | C++        |          9 |          0 |          3 |         12 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\typed_prop.cppm      | C++        |         47 |         73 |         11 |        131 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\element\view.cppm            | C++        |          3 |         14 |          3 |         20 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\engine\bindings.cppm         | C++        |          0 |         23 |          2 |         25 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\engine\channel.cppm          | C++        |        168 |         72 |         51 |        291 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\engine\quickjs_context.cppm  | C++        |        -13 |          8 |          1 |         -4 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\engine\state_binding.cppm    | C++        |         11 |         36 |          8 |         55 |
+| c:\ws-code\ws-kwik\kwik-ui\modules\layout\radio_group.cppm      | C++        |          5 |         27 |          7 |         39 |
+| c:\ws-code\ws-kwik\kwik-ui\src\app\application.cpp              | C++        |         13 |          9 |          7 |         29 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\binding_registry.cpp      | C++        |         78 |         29 |         25 |        132 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\element_parser.cpp        | C++        |         70 |         23 |         13 |        106 |
+| c:\ws-code\ws-kwik\kwik-ui\src\bridge\props_parser.cpp          | C++        |        -81 |         -2 |          6 |        -77 |
+| c:\ws-code\ws-kwik\kwik-ui\src\core\scheduler.cpp               | C++        |         15 |          4 |          6 |         25 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\checkbox.cpp             | C++        |         33 |         11 |         20 |         64 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\dropdown.cpp             | C++        |         31 |          0 |          3 |         34 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\input.cpp                | C++        |         21 |          1 |          2 |         24 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\radiobutton.cpp          | C++        |         16 |          6 |          2 |         24 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\textarea.cpp             | C++        |         29 |          0 |          1 |         30 |
+| c:\ws-code\ws-kwik\kwik-ui\src\element\view.cpp                 | C++        |         20 |          0 |          1 |         21 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\bindings.cpp              | C++        |         13 |        143 |         28 |        184 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\channel.cpp               | C++        |        294 |         50 |         60 |        404 |
+| c:\ws-code\ws-kwik\kwik-ui\src\engine\state_binding.cpp         | C++        |         32 |         48 |         10 |         90 |
+| c:\ws-code\ws-kwik\kwik-ui\src\layout\radio_group.cpp           | C++        |         65 |         -6 |         13 |         72 |
+| Total                                                           |            |      2,061 |        906 |        521 |      3,488 |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
