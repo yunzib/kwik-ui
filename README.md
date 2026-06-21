@@ -192,10 +192,6 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 ```
 
 # 4. 运行和安装
-# 4. 运行和安装
-新字符串 (newString)
-# 4. 运行和安装
-
 ## 4.1 前置依赖
 
 | 依赖 | 最低版本 |
@@ -205,50 +201,25 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 | 编译器 | llvm-mingw-20260421-ucrt-x86_64 (或 Clang ≥ 18，需支持 C++26 Modules) |
 | Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
 
-## 4.2 构建
-
-```bash
-cmake -B build -G Ninja
-cmake --build build
+## 4.2 工程编译
+```
+cmake -DCMAKE_BUILD_TYPE:STRING=Debug 
+-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE 
+-DCMAKE_C_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang.exe 
+-DCMAKE_CXX_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang++.exe 
+--no-warn-unused-cli 
+-S C:/ws-code/ws-kwik/kwik-ui 
+-B c:/ws-code/ws-kwik/kwik-ui/build 
+-G Ninja 
+&& cmake --build build --config Debug --target all
 ```
 ## 4.3 安装 SDK
-- cmake --install build --prefix build/install
-
-## 4.4 在外部项目中使用
 ```
-cmake_minimum_required(VERSION 4.3.2)
-set(CMAKE_C_STANDARD 23)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 26)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-# 启用 C++ 模块支持
-set(CMAKE_CXX_MODULE_STD ON)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
-# 生成 compile_command.json
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# 启用 C++23 标准库模块导入
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD  "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
-set(CMAKE_EXPERIMENTAL_MAPPED_PACKAGE_INFO "ababa1b5-7099-495f-a9cd-e22d38f274f2")
-set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
-
-project(kwik-demo LANGUAGES C CXX)
-
-find_package(kwik-ui REQUIRED)
-
-add_executable(kwik-demo main.cpp)
-target_link_libraries(kwik-demo PRIVATE kwik-ui::kwik)
-
-target_sources(kwik-demo PRIVATE
-  FILE_SET cxx_modules TYPE CXX_MODULES
-  BASE_DIRS "${kwik-ui_MODULES_DIR}"
-  FILES ${kwik-ui_MODULE_FILES}
-)
-``` 
+cmake --install build --prefix build/install
 ```
-配置时通过 CMAKE_PREFIX_PATH 指向 SDK 安装目录：
-cmake -B build -G Ninja \
-  -DCMAKE_PREFIX_PATH=/path/to/kwik-ui/build/install
-cmake --build build
+## 4.4 新建工程
+
+```bash
+工程参考：examples\external\
+构建： examples\external\build.bat
 ```
