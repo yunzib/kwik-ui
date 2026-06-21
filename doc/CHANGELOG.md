@@ -1,5 +1,35 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-21
+
+### 新增
+- Slider 滑动条组件
+  - 水平轨道 + 圆形滑块，支持拖拽 / 键盘方向键 / Tap 跳转
+  - `SliderProps`：value / min / max / step / color / trackColor / thumbSize / trackHeight
+  - `onChange` 回调在拖拽中持续触发 `e={value: number}`
+  - `setBinding` 支持 `ref(state, key)` 双向绑定
+
+### 修复
+- State 增量更新无法匹配绑定的 bug
+  - 根因：`state_set_property` 中用 `StateData*` 作为 BindingRegistry 查找键，
+    与 `element_parser` 注册时用的 `JSObject*` 类型不一致，导致 `notify` 永远查不到绑定，
+    回退全量重建 → `eventProc_.reset()` 丢失指针跟踪 → 拖拽中断。
+  - 修复：改用 `JS_VALUE_GET_PTR(obj)` 保持注册与查找 key 一致。
+- WM_MOUSEMOVE 未设置 e.button
+  - 根因：Win32 平台 MouseMove 事件未填充 `button` 字段（默认 `None`），
+    pid 不匹配导致 Pan 检测永远不执行。
+  - 修复：从 `wParam` 解析 `MK_LBUTTON`/`MK_RBUTTON`/`MK_MBUTTON`。
+- Pan 事件缺失 targetView
+  - 根因：PanBegin/PanMove/PanEnd 未设置 `targetView`，
+    导致 dispatch 跳过预设目标路径，重新 hitTest 可能命中非预期 View。
+  - 修复：在 `EventProcessor::process` 中设置 `targetView = pressTarget`。
+- `View::setProperty("background")` 使用 `parseHexColor` 不支持 `rgb()` 格式
+  - 修复：改用 `parseColor`（来自 `color_parser`），支持 `#RGB` / `#RRGGBB` / `rgb()` / `rgba()` / 颜色名称。
+
+### 变更
+- `state_set_property` exotic hook 中增量回调走通后，拖拽不再触发全量重建。
+- 长按轮询移至主循环（`Application::run`），不依赖 Windows 事件触发。
+
 ## [0.0.0] — 2026-06-20 
 
 ### 新增

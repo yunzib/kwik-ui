@@ -82,6 +82,11 @@ public:
         JSValue newStr = JS_NewString(ctx_, value.c_str());
         JS_SetPropertyStr(ctx_, stateObj_, key.c_str(), newStr);
     }
+
+    void setFloat(const std::string &key, float value) override {
+        JSValue newFloat = JS_NewFloat64(ctx_, value);
+        JS_SetPropertyStr(ctx_, stateObj_, key.c_str(), newFloat);
+    }
 };
 
 // ── 工厂函数 ──

@@ -284,3 +284,4 @@ export RadioGroupProps parseRadioGroupProps(PropsExtractor& ex);
 export CheckboxProps parseCheckboxProps(PropsExtractor& ex);
 export TextAreaProps parseTextAreaProps(PropsExtractor& ex);
 export DropdownProps parseDropdownProps(PropsExtractor& ex);
+export SliderProps parseSliderProps(PropsExtractor& ex);

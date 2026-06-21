@@ -96,6 +96,19 @@ public:
      * @return 本帧产出的高级事件 (可能 0~N 个)
      */
     std::vector<UIEvent> process(const Event &rawEvent);
+
+    /**
+     * @brief 独立长按轮询（每帧末尾调用）
+     *
+     * 不依赖 Windows 事件触发。检查所有按下中的 pointer 是否超时
+     * 且未大幅移动（距离 < kTapDistance），是则生成长按事件。
+     *
+     * 与 process() 分离的原因是：手指静止时 Windows 不产生
+     * MouseMove，process() 不会被调用，造成长按等待碰运气。
+     * 放在主循环每帧调用的 poll 函数中，确保精确 600ms 触发。
+     */
+    std::vector<UIEvent> pollLongPress();
+
     /**
      * @brief 清空所有内部状态
      *

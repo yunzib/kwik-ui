@@ -66,7 +66,7 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
                 leaveEvt.type = UIEventType::HoverLeave;
                 leaveEvt.position = pos;
                 leaveEvt.timestamp = ts;
-                leaveEvt.targetView = lastHoverView_; // ← 关键: 预设目标
+                leaveEvt.targetView = lastHoverView_;    // ← 关键: 预设目标
                 result.push_back(leaveEvt);
             }
             // 进入新的: 事件具体发给 currentHover
@@ -75,23 +75,36 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
                 enterEvt.type = UIEventType::HoverEnter;
                 enterEvt.position = pos;
                 enterEvt.timestamp = ts;
-                enterEvt.targetView = currentHover; // ← 关键: 预设目标
+                enterEvt.targetView = currentHover;    // ← 关键: 预设目标
                 result.push_back(enterEvt);
             }
             lastHoverView_ = currentHover;
         }
         // ▶ Pan 检测: 仅当按键按下中
         auto it = pointers_.find(pid);
-        if (it != pointers_.end() && !it->second.panStarted) {
-            float dx = pos.x - it->second.downPos.x;
-            float dy = pos.y - it->second.downPos.y;
-            if (std::sqrt(dx * dx + dy * dy) > kPanThreshold) {
-                it->second.panStarted = true;
-                result.push_back(UIEvent{UIEventType::PanBegin, it->second.downPos, ts});
+        if (it != pointers_.end()) {
+            it->second.lastPos = pos;    // ← 新增：记录最新位置供长按轮询使用
+            if (!it->second.panStarted) {
+                float dx = pos.x - it->second.downPos.x;
+                float dy = pos.y - it->second.downPos.y;
+                if (std::sqrt(dx * dx + dy * dy) > kPanThreshold) {
+                    it->second.panStarted = true;
+                    UIEvent panBeginEvt;
+                    panBeginEvt.type = UIEventType::PanBegin;
+                    panBeginEvt.position = it->second.downPos;
+                    panBeginEvt.timestamp = ts;
+                    panBeginEvt.targetView = it->second.pressTarget;
+                    result.push_back(panBeginEvt);
+                }
             }
-        }
-        if (it != pointers_.end() && it->second.panStarted) {
-            result.push_back(UIEvent{UIEventType::PanMove, pos, ts});
+            if (it->second.panStarted) {
+                UIEvent panMoveEvt;
+                panMoveEvt.type = UIEventType::PanMove;
+                panMoveEvt.position = pos;
+                panMoveEvt.timestamp = ts;
+                panMoveEvt.targetView = it->second.pressTarget;
+                result.push_back(panMoveEvt);
+            }
         }
         break;
     }
@@ -123,7 +136,12 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
             float dist = std::sqrt(dx * dx + dy * dy);
             uint32_t elapsed = ts - it->second.downTime;
             if (it->second.panStarted) {
-                result.push_back(UIEvent{UIEventType::PanEnd, pos, ts});
+                UIEvent panEndEvt;
+                panEndEvt.type = UIEventType::PanEnd;
+                panEndEvt.position = pos;
+                panEndEvt.timestamp = ts;
+                panEndEvt.targetView = it->second.pressTarget;
+                result.push_back(panEndEvt);
             } else if (elapsed < kTapTimeout && dist < kTapDistance) {
                 result.push_back(UIEvent{UIEventType::Tap, pos, ts});
             }
@@ -153,13 +171,34 @@ std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
     }
     default: break;
     }
-    // ── 长按超时轮询 ─────────────────────────────────
-    // 每帧末尾检查所有按下中的 pointer, 超时则即时触发 LongPress
+    
+    return result;
+}
+
+// ============================================================================
+// pollLongPress — 独立长按轮询（每帧在主循环中调用）
+// ============================================================================
+std::vector<UIEvent> EventProcessor::pollLongPress() {
+    std::vector<UIEvent> result;
+    uint32_t ts = nowMs();
+
     for (auto &kv : pointers_) {
         auto &st = kv.second;
-        if (st.downTime > 0 && !st.panStarted) {
-            if (ts - st.downTime >= kLongPressDelay) {
-                st.downTime = 0; // 清零防止重复触发
+        // downTime > 0 表示该 pointer 仍处于按下状态（尚未 MouseUp）
+        if (st.downTime > 0) {
+            // 计算从按下位置到最近一次鼠标位置的移动距离
+            float dx = st.lastPos.x - st.downPos.x;
+            float dy = st.lastPos.y - st.downPos.y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+
+            // 长按条件：静止或微动（距离 < kTapDistance）且超时 ≥ kLongPressDelay
+            // 使用 kTapDistance（10px）作为阈值，语义自洽——长按和 Tap
+            // 共享"用户手指没怎么动"的判断标准。
+            // 不依赖 panStarted 标志，因为 pan 阈值（kPanThreshold=5px）更灵敏，
+            // 若依赖它，手指微抖 6px 就会抑制长按。
+            if (dist < kTapDistance && ts - st.downTime >= kLongPressDelay) {
+                st.downTime = 0;    // 清零防止重复触发
+                // 长按事件位置取按下时的位置（用户没有大幅移动）
                 result.push_back(UIEvent{UIEventType::LongPress, st.downPos, ts});
             }
         }
@@ -171,8 +210,7 @@ bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ct
     if (!view || !ctx) return false;
     if (event.type == UIEventType::Custom) {
         // 自定义事件 (键盘等): 用 data 字段传递 code, position 携带负载
-        return view->onEvent(event.code, static_cast<float>(event.data),
-                             static_cast<float>(event.modifiers), ctx);
+        return view->onEvent(event.code, static_cast<float>(event.data), static_cast<float>(event.modifiers), ctx);
     }
     Point local = viewLocalPos(view, event.position);
     int code = uiEventTypeToCode(event.type);

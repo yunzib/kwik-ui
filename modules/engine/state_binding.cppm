@@ -41,6 +41,7 @@ public:
      * 用于 RadioGroup.selected 等字符串类型属性的双向绑定。
      */
     virtual void setString(const std::string &key, const std::string &value) = 0;
+    virtual void setFloat(const std::string &key, float value) = 0;
 
 };
 

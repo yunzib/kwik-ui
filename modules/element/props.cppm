@@ -243,3 +243,17 @@ export struct DropdownProps {
     Color hoverBackground{227, 242, 253, 255};       // 悬停高亮 (Material Blue 50)
     Color selectedBackground{227, 242, 253, 255};    // 选中项背景
 };
+
+// ════════════════════════════════════════════════════════
+// Slider 属性 — 滑动条
+// ════════════════════════════════════════════════════════
+export struct SliderProps {
+    float value = 0;                           // 当前值
+    float min = 0;                             // 最小值
+    float max = 100;                           // 最大值
+    float step = 1;                            // 步长 (<=0 为连续)
+    Color color{25, 118, 210, 255};            // 滑块 + 激活轨道色 (Material Blue 700)
+    Color trackColor{224, 224, 224, 255};      // 未激活轨道色 (Grey 300)
+    float thumbSize = 20.0f;                   // 滑块圆形直径 (像素)
+    float trackHeight = 6.0f;                  // 轨道高度 (像素)
+};

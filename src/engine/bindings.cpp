@@ -166,7 +166,9 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
         if (incremental_callback) {
             const char *key = JS_AtomToCString(ctx, atom);
             if (key) {
-                handled = incremental_callback(static_cast<void *>(sd), key, ctx, value);
+                // 使用 JSObject* 作为 statePtr，与 element_parser 注册时的
+                // JS_VALUE_GET_PTR(stateVal.raw()) 保持一致，确保 notify 能查到绑定
+                handled = incremental_callback(JS_VALUE_GET_PTR(obj), key, ctx, value);
                 JS_FreeCString(ctx, key);
             }
         }
@@ -498,6 +500,12 @@ static JSValue js_dropdown(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return makeElement(ctx, "Dropdown", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+static JSValue js_slider(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "value");
+    return makeElement(ctx, "Slider", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 // ============================================================================
 // ref(state, key) — 创建双向绑定标记
 //
@@ -600,6 +608,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("TextArea", 2, js_textarea),
         JS_CFUNC_DEF("Dropdown", 2, js_dropdown),
         JS_CFUNC_DEF("ref", 2, js_ref),
+        JS_CFUNC_DEF("Slider", 2, js_slider),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

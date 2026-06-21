@@ -320,6 +320,13 @@ int Application::run() {
     while (running_) {
         window_.PollEvents();
 
+        // ── ① 独立长按轮询（每帧检查，不依赖 Windows 事件） ──
+        // 手指静止时无 MouseMove 产生，process() 不会被调用，
+        // 因此长按超时判定必须独立于事件回调，放在主循环中。
+        auto longPressEvents = eventProc_.pollLongPress();
+        for (auto &evt : longPressEvents)
+            eventDisp_.dispatch(tree_.get(), evt, jsCtx_.getPtr());
+
         // ── ① 消费跨线程任务（协程恢复、respond 回调）──
         mainThreadTaskQueue_.flush();
         // ── ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）──

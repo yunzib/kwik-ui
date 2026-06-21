@@ -36,6 +36,7 @@ import kwik.element.dropdown;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
+import kwik.element.slider;
 
 
 import std;
@@ -245,6 +246,16 @@ static struct InitBuiltinTypes {
             dd->propMeta = std::move(meta);
             applyBindings(dd.get(), pv);
             return dd;
+        });
+
+        // ── Slider ──
+        ElementParser::registerType("Slider", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto slider = std::make_unique<Slider>(parseViewProps(ex), parseSliderProps(ex));
+            slider->propMeta = std::move(meta);
+            applyBindings(slider.get(), pv);
+            return slider;
         });
     }
 } _init_builtin_types;

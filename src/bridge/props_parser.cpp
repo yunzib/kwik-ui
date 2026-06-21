@@ -386,3 +386,19 @@ DropdownProps parseDropdownProps(PropsExtractor& ex) {
 template<> Color convertTo<Color>(const JSValueRef& v) {
     return parseColor(v.toString());
 }
+
+// ════════════════════════════════════════════════════════
+// parseSliderProps
+// ════════════════════════════════════════════════════════
+SliderProps parseSliderProps(PropsExtractor& ex) {
+    SliderProps result;
+    ex.get("value", result.value);
+    ex.get("min", result.min);
+    ex.get("max", result.max);
+    ex.get("step", result.step);
+    ex.get("color", result.color);
+    ex.get("trackColor", result.trackColor);
+    ex.get("thumbSize", result.thumbSize);
+    ex.get("trackHeight", result.trackHeight);
+    return result;
+}

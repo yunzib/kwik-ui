@@ -1,4 +1,4 @@
-module; // 全局模块片段开始
+module;    // 全局模块片段开始
 
 // DPI 感知: 高 DPI 屏上使用物理像素，避免坐标空间错位导致模糊
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
@@ -141,7 +141,7 @@ bool PlatformWindowWin32::LockBackBuffer(void **pixels, int *stride) {
         BITMAPINFO bmi = {};
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = width_;
-        bmi.bmiHeader.biHeight = -height_; // 从上到下
+        bmi.bmiHeader.biHeight = -height_;    // 从上到下
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -152,7 +152,7 @@ bool PlatformWindowWin32::LockBackBuffer(void **pixels, int *stride) {
     }
 
     if (pixels) *pixels = bitmapBits_;
-    if (stride) *stride = width_ * 4; // 32bpp
+    if (stride) *stride = width_ * 4;    // 32bpp
 
     return bitmap_ != nullptr;
 }
@@ -240,7 +240,7 @@ void PlatformWindowWin32::SetShape(const std::vector<std::pair<int, int>> &polyg
 
     // 创建多边形区域
     HRGN rgn = CreatePolygonRgn(pts.data(), static_cast<int>(pts.size()), ALTERNATE);
-    SetWindowRgn(hwnd_, rgn, TRUE); // 窗口获得区域所有权
+    SetWindowRgn(hwnd_, rgn, TRUE);    // 窗口获得区域所有权
 }
 
 void PlatformWindowWin32::SetShapeMask(const uint8_t *maskData, int width, int height) {
@@ -309,6 +309,14 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         e.type = Event::Type::MouseMove;
         e.x = static_cast<int>(LOWORD(lParam));
         e.y = static_cast<int>(HIWORD(lParam));
+        if (wParam & MK_LBUTTON)
+            e.button = Event::MouseButton::Left;
+        else if (wParam & MK_RBUTTON)
+            e.button = Event::MouseButton::Right;
+        else if (wParam & MK_MBUTTON)
+            e.button = Event::MouseButton::Middle;
+        else
+            e.button = Event::MouseButton::None;
         break;
 
     // 鼠标按键
@@ -408,7 +416,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         }
         HMONITOR hMon = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
         if (!hMon) {
-            return 0; // 兜底: 取不到目标屏则不做缩放
+            return 0;    // 兜底: 取不到目标屏则不做缩放
         }
         MONITORINFO mi = {sizeof(mi)};
         if (GetMonitorInfoW(hMon, &mi)) {
