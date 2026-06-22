@@ -134,7 +134,8 @@ template <>
 inline std::string convertTo<std::string>(const JSValueRef &v) {
     return v.toString();
 }
-template<> Color convertTo<Color>(const JSValueRef& v); 
+template <>
+Color convertTo<Color>(const JSValueRef &v);
 
 // ============================================================================
 // PropsExtractor — 统一属性提取器，替代散落的 hasProperty+getProperty 调用
@@ -160,8 +161,7 @@ public:
      * @param props JS props 对象的引用（由 element_parser 传入）
      * @param meta  TypedPropMap 指针，get<T>() 检测到绑定时写入
      */
-    explicit PropsExtractor(const JSValueRef &props, TypedPropMap *meta = nullptr) : props_(props), meta_(meta) {
-    }
+    explicit PropsExtractor(const JSValueRef &props, TypedPropMap *meta = nullptr) : props_(props), meta_(meta) {}
 
     /**
      * @brief 类型安全地读取属性值
@@ -216,9 +216,7 @@ public:
     /**
      * @brief 检查属性是否存在
      */
-    bool has(const char *name) const {
-        return props_.hasProperty(name);
-    }
+    bool has(const char *name) const { return props_.hasProperty(name); }
 
     /**
      * @brief 获取原始 JSValueRef（用于复杂类型解析的降级路径）
@@ -232,9 +230,7 @@ public:
      *   if (ex.has("padding"))
      *       result.padding = parseEdgeInsets(ex.raw().getProperty("padding"));
      */
-    const JSValueRef &raw() const {
-        return props_;
-    }
+    const JSValueRef &raw() const { return props_; }
 
 private:
     const JSValueRef &props_;
@@ -273,15 +269,16 @@ export EdgeInsets parseEdgeInsets(const JSValueRef &value);
 export Shadow parseShadow(const std::string &str);
 export BorderStyle parseBorderStyle(const std::string &str);
 
-export ViewProps parseViewProps(PropsExtractor& ex);
-export TextContent parseTextContent(PropsExtractor& ex);
-export ButtonStateProps parseButtonState(PropsExtractor& ex);
-export ContainerProps parseContainerProps(PropsExtractor& ex);
-export ImageProps parseImageProps(PropsExtractor& ex);
-export InputProps parseInputProps(PropsExtractor& ex);
-export RadioButtonProps parseRadioButtonProps(PropsExtractor& ex);
-export RadioGroupProps parseRadioGroupProps(PropsExtractor& ex);
-export CheckboxProps parseCheckboxProps(PropsExtractor& ex);
-export TextAreaProps parseTextAreaProps(PropsExtractor& ex);
-export DropdownProps parseDropdownProps(PropsExtractor& ex);
-export SliderProps parseSliderProps(PropsExtractor& ex);
+export ViewProps parseViewProps(PropsExtractor &ex);
+export TextContent parseTextContent(PropsExtractor &ex);
+export ButtonStateProps parseButtonState(PropsExtractor &ex);
+export ContainerProps parseContainerProps(PropsExtractor &ex);
+export ImageProps parseImageProps(PropsExtractor &ex);
+export InputProps parseInputProps(PropsExtractor &ex);
+export RadioButtonProps parseRadioButtonProps(PropsExtractor &ex);
+export RadioGroupProps parseRadioGroupProps(PropsExtractor &ex);
+export CheckboxProps parseCheckboxProps(PropsExtractor &ex);
+export TextAreaProps parseTextAreaProps(PropsExtractor &ex);
+export DropdownProps parseDropdownProps(PropsExtractor &ex);
+export SliderProps parseSliderProps(PropsExtractor &ex);
+export ProgressBarProps parseProgressBarProps(PropsExtractor &ex);

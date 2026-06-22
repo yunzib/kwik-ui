@@ -1,5 +1,14 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-22
+
+### 新增
+- ProgressBar 进度条组件
+  - 水平圆角轨道 + 按 value 比例填充的激活段，只读展示
+  - `ProgressBarProps`：value / min / max / color / trackColor / trackHeight
+  - `setBinding` 支持 `ref(state, key)` 双向绑定
+  - 增量更新：State 变更通过 `setPropertyTyped` 即时刷新填充比例
+
 ## [0.0.0] — 2026-06-21
 
 ### 新增

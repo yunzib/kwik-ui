@@ -11,7 +11,6 @@ import kwik.element.props;
 import kwik.engine.js_value;
 import kwik.bridge.color_parser;
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // parseEdgeInsets — 多重形态解析（数值/数组/对象）
 // ═══════════════════════════════════════════════════════════════════════════
@@ -28,17 +27,13 @@ EdgeInsets parseEdgeInsets(const JSValueRef &value) {
             return EdgeInsets(h, v);
         }
         if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(1).toFloat(),
-                              value.getArrayElement(2).toFloat(),
-                              value.getArrayElement(3).toFloat(),
-                              value.getArrayElement(0).toFloat());
+            return EdgeInsets(value.getArrayElement(1).toFloat(), value.getArrayElement(2).toFloat(),
+                              value.getArrayElement(3).toFloat(), value.getArrayElement(0).toFloat());
         }
     }
     if (value.isObject()) {
-        return EdgeInsets(value.getProperty("left").toFloat(),
-                          value.getProperty("top").toFloat(),
-                          value.getProperty("right").toFloat(),
-                          value.getProperty("bottom").toFloat());
+        return EdgeInsets(value.getProperty("left").toFloat(), value.getProperty("top").toFloat(),
+                          value.getProperty("right").toFloat(), value.getProperty("bottom").toFloat());
     }
     return EdgeInsets{};
 }
@@ -86,7 +81,7 @@ BorderStyle parseBorderStyle(const std::string &str) {
 // parseViewProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-ViewProps parseViewProps(PropsExtractor& ex) {
+ViewProps parseViewProps(PropsExtractor &ex) {
     ViewProps result;
     ex.get("id", result.id);
     {
@@ -101,14 +96,12 @@ ViewProps parseViewProps(PropsExtractor& ex) {
     ex.get("borderRadius", result.borderRadius);
     ex.get("borderWidth", result.borderWidth);
     ex.get("borderColor", result.borderColor);
-    if (ex.has("borderStyle"))
-        result.borderStyle = parseBorderStyle(ex.raw().getProperty("borderStyle").toString());
+    if (ex.has("borderStyle")) result.borderStyle = parseBorderStyle(ex.raw().getProperty("borderStyle").toString());
     if (ex.has("padding")) result.padding = parseEdgeInsets(ex.raw().getProperty("padding"));
-    if (ex.has("margin"))  result.margin  = parseEdgeInsets(ex.raw().getProperty("margin"));
+    if (ex.has("margin")) result.margin = parseEdgeInsets(ex.raw().getProperty("margin"));
     ex.get("visible", result.visible);
     ex.get("opacity", result.opacity);
-    if (ex.has("shadow"))
-        result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
+    if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
     ex.get("flexGrow", result.flexGrow);
     {
         float tmp = 0;
@@ -122,27 +115,33 @@ ViewProps parseViewProps(PropsExtractor& ex) {
         if (ex.get("gridRowSpan", tmp)) result.gridRowSpan = std::max(1, tmp);
         if (ex.get("gridColumnSpan", tmp)) result.gridColumnSpan = std::max(1, tmp);
     }
-    if (ex.has("position"))
-        result.absolute = (ex.raw().getProperty("position").toString() == "absolute");
+    if (ex.has("position")) result.absolute = (ex.raw().getProperty("position").toString() == "absolute");
     ex.get("top", result.absTop);
     ex.get("left", result.absLeft);
     ex.get("right", result.absRight);
     ex.get("bottom", result.absBottom);
-    ex.getEnum("align", result.align, {
-        {"topLeft", Align::TopLeft},
-        {"topCenter", Align::TopCenter},
-        {"topRight", Align::TopRight},
-        {"centerLeft", Align::CenterLeft},
-        {"center", Align::Center},
-        {"centerRight", Align::CenterRight},
-        {"bottomLeft", Align::BottomLeft},
-        {"bottomCenter", Align::BottomCenter},
-        {"bottomRight", Align::BottomRight},
-    });
+    ex.getEnum("align", result.align,
+               {
+                   {"topLeft", Align::TopLeft},
+                   {"topCenter", Align::TopCenter},
+                   {"topRight", Align::TopRight},
+                   {"centerLeft", Align::CenterLeft},
+                   {"center", Align::Center},
+                   {"centerRight", Align::CenterRight},
+                   {"bottomLeft", Align::BottomLeft},
+                   {"bottomCenter", Align::BottomCenter},
+                   {"bottomRight", Align::BottomRight},
+               });
     {
         float tmp = 0;
-        if (ex.get("x", tmp)) { result.x = tmp; result.hasExplicitX = true; }
-        if (ex.get("y", tmp)) { result.y = tmp; result.hasExplicitY = true; }
+        if (ex.get("x", tmp)) {
+            result.x = tmp;
+            result.hasExplicitX = true;
+        }
+        if (ex.get("y", tmp)) {
+            result.y = tmp;
+            result.hasExplicitY = true;
+        }
     }
     return result;
 }
@@ -151,26 +150,29 @@ ViewProps parseViewProps(PropsExtractor& ex) {
 // parseTextContent
 // ═══════════════════════════════════════════════════════════════════════════
 
-TextContent parseTextContent(PropsExtractor& ex) {
+TextContent parseTextContent(PropsExtractor &ex) {
     TextContent result;
     ex.get("text", result.text);
     ex.get("fontSize", result.fontSize);
     ex.get("fontFamily", result.fontFamily);
     ex.get("color", result.textColor);
-    ex.getEnum("fontWeight", result.fontWeight, {
-        {"bold", FontWeight::Bold},
-        {"light", FontWeight::Light},
-        {"medium", FontWeight::Medium},
-    });
-    ex.getEnum("fontStyle", result.fontStyle, {
-        {"italic", FontStyle::Italic},
-        {"oblique", FontStyle::Oblique},
-    });
-    ex.getEnum("textAlign", result.textAlign, {
-        {"center", TextAlign::Center},
-        {"right", TextAlign::Right},
-        {"justify", TextAlign::Justify},
-    });
+    ex.getEnum("fontWeight", result.fontWeight,
+               {
+                   {"bold", FontWeight::Bold},
+                   {"light", FontWeight::Light},
+                   {"medium", FontWeight::Medium},
+               });
+    ex.getEnum("fontStyle", result.fontStyle,
+               {
+                   {"italic", FontStyle::Italic},
+                   {"oblique", FontStyle::Oblique},
+               });
+    ex.getEnum("textAlign", result.textAlign,
+               {
+                   {"center", TextAlign::Center},
+                   {"right", TextAlign::Right},
+                   {"justify", TextAlign::Justify},
+               });
     return result;
 }
 
@@ -178,17 +180,15 @@ TextContent parseTextContent(PropsExtractor& ex) {
 // parseButtonState
 // ═══════════════════════════════════════════════════════════════════════════
 
-ButtonStateProps parseButtonState(PropsExtractor& ex) {
+ButtonStateProps parseButtonState(PropsExtractor &ex) {
     ButtonStateProps result;
     ex.get("hoverBackground", result.hoverBackground);
     ex.get("pressedBackground", result.pressedBackground);
     ex.get("pressedScale", result.pressedScale);
     ex.get("hoverBorderColor", result.hoverBorderColor);
     ex.get("pressedBorderColor", result.pressedBorderColor);
-    if (ex.has("hoverShadow"))
-        result.hoverShadow = parseShadow(ex.raw().getProperty("hoverShadow").toString());
-    if (ex.has("pressedShadow"))
-        result.pressedShadow = parseShadow(ex.raw().getProperty("pressedShadow").toString());
+    if (ex.has("hoverShadow")) result.hoverShadow = parseShadow(ex.raw().getProperty("hoverShadow").toString());
+    if (ex.has("pressedShadow")) result.pressedShadow = parseShadow(ex.raw().getProperty("pressedShadow").toString());
     return result;
 }
 
@@ -196,23 +196,25 @@ ButtonStateProps parseButtonState(PropsExtractor& ex) {
 // parseContainerProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-ContainerProps parseContainerProps(PropsExtractor& ex) {
+ContainerProps parseContainerProps(PropsExtractor &ex) {
     ContainerProps result;
     if (ex.has("direction"))
         result.flexDirection =
             (ex.raw().getProperty("direction").toString() == "column") ? FlexDirection::Column : FlexDirection::Row;
-    ex.getEnum("justifyContent", result.mainAxisAlignment, {
-        {"center", LayoutAlign::Center},
-        {"end", LayoutAlign::End},
-        {"spaceBetween", LayoutAlign::SpaceBetween},
-        {"spaceAround", LayoutAlign::SpaceAround},
-        {"spaceEvenly", LayoutAlign::SpaceEvenly},
-    });
-    ex.getEnum("alignItems", result.crossAxisAlignment, {
-        {"center", CrossAlign::Center},
-        {"end", CrossAlign::End},
-        {"stretch", CrossAlign::Stretch},
-    });
+    ex.getEnum("justifyContent", result.mainAxisAlignment,
+               {
+                   {"center", LayoutAlign::Center},
+                   {"end", LayoutAlign::End},
+                   {"spaceBetween", LayoutAlign::SpaceBetween},
+                   {"spaceAround", LayoutAlign::SpaceAround},
+                   {"spaceEvenly", LayoutAlign::SpaceEvenly},
+               });
+    ex.getEnum("alignItems", result.crossAxisAlignment,
+               {
+                   {"center", CrossAlign::Center},
+                   {"end", CrossAlign::End},
+                   {"stretch", CrossAlign::Stretch},
+               });
     ex.get("gap", result.gap);
     {
         int tmp = 0;
@@ -221,10 +223,11 @@ ContainerProps parseContainerProps(PropsExtractor& ex) {
     }
     ex.get("columnGap", result.columnGap);
     ex.get("rowGap", result.rowGap);
-    ex.getEnum("scrollDirection", result.scrollDir, {
-        {"horizontal", ScrollDirection::Horizontal},
-        {"both", ScrollDirection::Both},
-    });
+    ex.getEnum("scrollDirection", result.scrollDir,
+               {
+                   {"horizontal", ScrollDirection::Horizontal},
+                   {"both", ScrollDirection::Both},
+               });
     ex.get("dividerColor", result.dividerColor);
     ex.get("dividerHeight", result.dividerHeight);
     return result;
@@ -234,17 +237,18 @@ ContainerProps parseContainerProps(PropsExtractor& ex) {
 // parseImageProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-ImageProps parseImageProps(PropsExtractor& ex) {
+ImageProps parseImageProps(PropsExtractor &ex) {
     ImageProps result;
     if (ex.has("src")) {
         result.src = ex.raw().getProperty("src").toString();
         result.source = ImageSource::File;
     }
-    ex.getEnum("fit", result.fit, {
-        {"fill", ImageFit::Fill},
-        {"contain", ImageFit::Contain},
-        {"none", ImageFit::None},
-    });
+    ex.getEnum("fit", result.fit,
+               {
+                   {"fill", ImageFit::Fill},
+                   {"contain", ImageFit::Contain},
+                   {"none", ImageFit::None},
+               });
     ex.get("opacity", result.imageOpacity);
     if (ex.has("data")) {
         auto dataVal = ex.raw().getProperty("data");
@@ -271,7 +275,7 @@ ImageProps parseImageProps(PropsExtractor& ex) {
 // parseInputProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-InputProps parseInputProps(PropsExtractor& ex) {
+InputProps parseInputProps(PropsExtractor &ex) {
     InputProps ip;
     ex.get("value", ip.value);
     ex.get("placeholder", ip.placeholder);
@@ -282,8 +286,7 @@ InputProps parseInputProps(PropsExtractor& ex) {
     ex.get("focusedBorderColor", ip.focusedBorderColor);
     ex.get("maxLength", ip.maxLength);
     ex.get("readOnly", ip.readOnly);
-    if (ex.has("type"))
-        ip.isPassword = (ex.raw().getProperty("type").toString() == "password");
+    if (ex.has("type")) ip.isPassword = (ex.raw().getProperty("type").toString() == "password");
     return ip;
 }
 
@@ -291,7 +294,7 @@ InputProps parseInputProps(PropsExtractor& ex) {
 // parseRadioButtonProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-RadioButtonProps parseRadioButtonProps(PropsExtractor& ex) {
+RadioButtonProps parseRadioButtonProps(PropsExtractor &ex) {
     RadioButtonProps result;
     ex.get("checked", result.checked);
     ex.get("group", result.group);
@@ -309,7 +312,7 @@ RadioButtonProps parseRadioButtonProps(PropsExtractor& ex) {
 // parseRadioGroupProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-RadioGroupProps parseRadioGroupProps(PropsExtractor& ex) {
+RadioGroupProps parseRadioGroupProps(PropsExtractor &ex) {
     RadioGroupProps result;
     ex.get("name", result.name);
     ex.get("selected", result.selected);
@@ -320,7 +323,7 @@ RadioGroupProps parseRadioGroupProps(PropsExtractor& ex) {
 // parseCheckboxProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-CheckboxProps parseCheckboxProps(PropsExtractor& ex) {
+CheckboxProps parseCheckboxProps(PropsExtractor &ex) {
     CheckboxProps result;
     ex.get("checked", result.checked);
     ex.get("checkedColor", result.checkedColor);
@@ -338,7 +341,7 @@ CheckboxProps parseCheckboxProps(PropsExtractor& ex) {
 // parseTextAreaProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-TextAreaProps parseTextAreaProps(PropsExtractor& ex) {
+TextAreaProps parseTextAreaProps(PropsExtractor &ex) {
     TextAreaProps result;
     ex.get("value", result.value);
     ex.get("placeholder", result.placeholder);
@@ -357,7 +360,7 @@ TextAreaProps parseTextAreaProps(PropsExtractor& ex) {
 // parseDropdownProps
 // ═══════════════════════════════════════════════════════════════════════════
 
-DropdownProps parseDropdownProps(PropsExtractor& ex) {
+DropdownProps parseDropdownProps(PropsExtractor &ex) {
     DropdownProps result;
     ex.get("placeholder", result.placeholder);
     ex.get("selectedIndex", result.selectedIndex);
@@ -383,14 +386,15 @@ DropdownProps parseDropdownProps(PropsExtractor& ex) {
     return result;
 }
 
-template<> Color convertTo<Color>(const JSValueRef& v) {
+template <>
+Color convertTo<Color>(const JSValueRef &v) {
     return parseColor(v.toString());
 }
 
 // ════════════════════════════════════════════════════════
 // parseSliderProps
 // ════════════════════════════════════════════════════════
-SliderProps parseSliderProps(PropsExtractor& ex) {
+SliderProps parseSliderProps(PropsExtractor &ex) {
     SliderProps result;
     ex.get("value", result.value);
     ex.get("min", result.min);
@@ -399,6 +403,20 @@ SliderProps parseSliderProps(PropsExtractor& ex) {
     ex.get("color", result.color);
     ex.get("trackColor", result.trackColor);
     ex.get("thumbSize", result.thumbSize);
+    ex.get("trackHeight", result.trackHeight);
+    return result;
+}
+
+// ════════════════════════════════════════════════════════
+// parseProgressBarProps
+// ════════════════════════════════════════════════════════
+ProgressBarProps parseProgressBarProps(PropsExtractor &ex) {
+    ProgressBarProps result;
+    ex.get("value", result.value);
+    ex.get("min", result.min);
+    ex.get("max", result.max);
+    ex.get("color", result.color);
+    ex.get("trackColor", result.trackColor);
     ex.get("trackHeight", result.trackHeight);
     return result;
 }

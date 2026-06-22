@@ -248,12 +248,30 @@ export struct DropdownProps {
 // Slider 属性 — 滑动条
 // ════════════════════════════════════════════════════════
 export struct SliderProps {
-    float value = 0;                           // 当前值
-    float min = 0;                             // 最小值
-    float max = 100;                           // 最大值
-    float step = 1;                            // 步长 (<=0 为连续)
-    Color color{25, 118, 210, 255};            // 滑块 + 激活轨道色 (Material Blue 700)
-    Color trackColor{224, 224, 224, 255};      // 未激活轨道色 (Grey 300)
-    float thumbSize = 20.0f;                   // 滑块圆形直径 (像素)
-    float trackHeight = 6.0f;                  // 轨道高度 (像素)
+    float value = 0;                         // 当前值
+    float min = 0;                           // 最小值
+    float max = 100;                         // 最大值
+    float step = 1;                          // 步长 (<=0 为连续)
+    Color color{25, 118, 210, 255};          // 滑块 + 激活轨道色 (Material Blue 700)
+    Color trackColor{224, 224, 224, 255};    // 未激活轨道色 (Grey 300)
+    float thumbSize = 20.0f;                 // 滑块圆形直径 (像素)
+    float trackHeight = 6.0f;                // 轨道高度 (像素)
+};
+
+// ════════════════════════════════════════════════════════
+// ProgressBar 属性 — 进度条
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 进度条专有属性
+ *
+ * value 在 [min, max] 范围内线性映射到填充比例。
+ * 默认值范围 0–100 可直接视为百分比。
+ */
+export struct ProgressBarProps {
+    float value = 0;                         // 当前值
+    float min = 0;                           // 最小值
+    float max = 100;                         // 最大值
+    Color color{25, 118, 210, 255};          // 填充段颜色 (Material Blue 700)
+    Color trackColor{224, 224, 224, 255};    // 轨道背景色 (Grey 300)
+    float trackHeight = 6.0f;                // 轨道高度 (像素)
 };

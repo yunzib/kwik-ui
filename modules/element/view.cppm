@@ -29,6 +29,7 @@ export enum class ElementType : std::uint8_t {
     StackLayout,
     RadioGroup,
     Slider,
+    ProgressBar,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -48,6 +49,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::StackLayout: return "StackLayout";
     case ElementType::RadioGroup: return "RadioGroup";
     case ElementType::Slider: return "Slider";
+    case ElementType::ProgressBar: return "ProgressBar";
     }
     return "Unknown";
 }

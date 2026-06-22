@@ -21,7 +21,7 @@ target_sources(kwik_element
             modules/element/textarea.cppm
             modules/element/dropdown.cppm
             modules/element/slider.cppm
-
+            modules/element/progressbar.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -44,6 +44,7 @@ target_sources(kwik_element
         src/element/textarea.cpp
         src/element/dropdown.cpp
         src/element/slider.cpp
+        src/element/progressbar.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
