@@ -420,3 +420,17 @@ ProgressBarProps parseProgressBarProps(PropsExtractor &ex) {
     ex.get("trackHeight", result.trackHeight);
     return result;
 }
+
+// ════════════════════════════════════════════════════════
+// parseSwitchProps
+// ════════════════════════════════════════════════════════
+SwitchProps parseSwitchProps(PropsExtractor& ex) {
+    SwitchProps result;
+    ex.get("checked", result.checked);
+    ex.get("checkedColor", result.checkedColor);
+    ex.get("uncheckedColor", result.uncheckedColor);
+    ex.get("thumbColor", result.thumbColor);
+    ex.get("trackHeight", result.trackHeight);
+    ex.get("thumbSize", result.thumbSize);
+    return result;
+}

@@ -38,9 +38,9 @@ import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
 import kwik.element.slider;
 import kwik.element.progressbar;
+import kwik.element.switch_button;
 
 import std;
-
 
 /**
  * @brief 统一绑定注入
@@ -63,11 +63,11 @@ import std;
  *
  * propMeta 是 View 的公共成员，通过 view->propMeta 访问。
  */
-template<typename T>
-static void applyBindings(T* view, const JSValueRef& pv) {
-    auto& meta = view->propMeta;
-    JSContext* ctx = pv.context();
-    meta.forEachBinding([&](const std::string& propName, const PropEntry&) {
+template <typename T>
+static void applyBindings(T *view, const JSValueRef &pv) {
+    auto &meta = view->propMeta;
+    JSContext *ctx = pv.context();
+    meta.forEachBinding([&](const std::string &propName, const PropEntry &) {
         std::string stateName = "__bind_" + propName + "State";
         std::string keyName = "__bind_" + propName + "Key";
         auto stateVal = pv.getProperty(stateName.c_str());
@@ -76,8 +76,8 @@ static void applyBindings(T* view, const JSValueRef& pv) {
             view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
 
             // 注册到 BindingRegistry，使 state 变更可增量更新到此 View
-            if (auto* reg = getRegisteredRegistry()) {
-                void* statePtr = JS_VALUE_GET_PTR(stateVal.raw());
+            if (auto *reg = getRegisteredRegistry()) {
+                void *statePtr = JS_VALUE_GET_PTR(stateVal.raw());
                 reg->bind(statePtr, keyVal.toString(), view, propName);
             }
 
@@ -266,6 +266,16 @@ static struct InitBuiltinTypes {
             pb->propMeta = std::move(meta);
             applyBindings(pb.get(), pv);
             return pb;
+        });
+
+        // ── Switch ──
+        ElementParser::registerType("Switch", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto sw = std::make_unique<Switch>(parseViewProps(ex), parseSwitchProps(ex));
+            sw->propMeta = std::move(meta);
+            applyBindings(sw.get(), pv);
+            return sw;
         });
     }
 } _init_builtin_types;

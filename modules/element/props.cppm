@@ -275,3 +275,21 @@ export struct ProgressBarProps {
     Color trackColor{224, 224, 224, 255};    // 轨道背景色 (Grey 300)
     float trackHeight = 6.0f;                // 轨道高度 (像素)
 };
+
+// ════════════════════════════════════════════════════════
+// Switch 属性 — 切换开关
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 开关专有属性
+ *
+ * 点击在 checked / unchecked 两种视觉状态间切换。
+ * 轨道颜色随状态改变，滑块始终居中于轨道。
+ */
+export struct SwitchProps {
+    bool checked = false;                        // 选中状态
+    Color checkedColor{25, 118, 210, 255};       // 选中时轨道色 (Material Blue 700)
+    Color uncheckedColor{224, 224, 224, 255};    // 未选中时轨道色 (Grey 300)
+    Color thumbColor{255, 255, 255, 255};        // 滑块颜色 (白色)
+    float trackHeight = 24.0f;                   // 轨道高度 (像素)
+    float thumbSize = 20.0f;                     // 滑块直径 (像素)
+};

@@ -30,6 +30,7 @@ export enum class ElementType : std::uint8_t {
     RadioGroup,
     Slider,
     ProgressBar,
+    Switch,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -50,6 +51,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::RadioGroup: return "RadioGroup";
     case ElementType::Slider: return "Slider";
     case ElementType::ProgressBar: return "ProgressBar";
+    case ElementType::Switch: return "Switch";
     }
     return "Unknown";
 }

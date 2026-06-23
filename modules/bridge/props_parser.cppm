@@ -282,3 +282,4 @@ export TextAreaProps parseTextAreaProps(PropsExtractor &ex);
 export DropdownProps parseDropdownProps(PropsExtractor &ex);
 export SliderProps parseSliderProps(PropsExtractor &ex);
 export ProgressBarProps parseProgressBarProps(PropsExtractor &ex);
+export SwitchProps parseSwitchProps(PropsExtractor& ex);

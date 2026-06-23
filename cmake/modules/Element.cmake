@@ -22,6 +22,7 @@ target_sources(kwik_element
             modules/element/dropdown.cppm
             modules/element/slider.cppm
             modules/element/progressbar.cppm
+            modules/element/switch.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -30,6 +31,7 @@ target_sources(kwik_element
             modules/layout/stack_layout.cppm
             modules/layout/list_layout.cppm
             modules/layout/radio_group.cppm
+           
             
     PRIVATE
         src/element/view.cpp
@@ -45,6 +47,7 @@ target_sources(kwik_element
         src/element/dropdown.cpp
         src/element/slider.cpp
         src/element/progressbar.cpp
+        src/element/switch.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

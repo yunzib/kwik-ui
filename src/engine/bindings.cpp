@@ -512,6 +512,12 @@ static JSValue js_progressbar(JSContext *ctx, JSValueConst this_val, int argc, J
     return makeElement(ctx, "ProgressBar", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+static JSValue js_switch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "checked");
+    return makeElement(ctx, "Switch", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 // ============================================================================
 // ref(state, key) — 创建双向绑定标记
 //
@@ -616,6 +622,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("ref", 2, js_ref),
         JS_CFUNC_DEF("Slider", 2, js_slider),
         JS_CFUNC_DEF("ProgressBar", 2, js_progressbar),
+        JS_CFUNC_DEF("Switch", 2, js_switch),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
