@@ -23,6 +23,8 @@ target_sources(kwik_element
             modules/element/slider.cppm
             modules/element/progressbar.cppm
             modules/element/switch.cppm
+            modules/element/line.cppm
+            modules/element/spinner.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -48,6 +50,8 @@ target_sources(kwik_element
         src/element/slider.cpp
         src/element/progressbar.cpp
         src/element/switch.cpp
+        src/element/line.cpp
+        src/element/spinner.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

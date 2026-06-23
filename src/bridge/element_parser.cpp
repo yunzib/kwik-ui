@@ -39,6 +39,8 @@ import kwik.bridge.binding_registry;
 import kwik.element.slider;
 import kwik.element.progressbar;
 import kwik.element.switch_button;
+import kwik.element.line;
+import kwik.element.spinner;
 
 import std;
 
@@ -276,6 +278,20 @@ static struct InitBuiltinTypes {
             sw->propMeta = std::move(meta);
             applyBindings(sw.get(), pv);
             return sw;
+        });
+
+        // ── Line ──
+        ElementParser::registerType("Line", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
+        });
+
+        // ── Spinner ──
+        ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
         });
     }
 } _init_builtin_types;

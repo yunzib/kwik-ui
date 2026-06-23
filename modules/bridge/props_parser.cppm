@@ -283,3 +283,5 @@ export DropdownProps parseDropdownProps(PropsExtractor &ex);
 export SliderProps parseSliderProps(PropsExtractor &ex);
 export ProgressBarProps parseProgressBarProps(PropsExtractor &ex);
 export SwitchProps parseSwitchProps(PropsExtractor& ex);
+export LineProps parseLineProps(PropsExtractor& ex);
+export SpinnerProps parseSpinnerProps(PropsExtractor& ex);

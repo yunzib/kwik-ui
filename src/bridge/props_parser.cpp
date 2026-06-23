@@ -424,7 +424,7 @@ ProgressBarProps parseProgressBarProps(PropsExtractor &ex) {
 // ════════════════════════════════════════════════════════
 // parseSwitchProps
 // ════════════════════════════════════════════════════════
-SwitchProps parseSwitchProps(PropsExtractor& ex) {
+SwitchProps parseSwitchProps(PropsExtractor &ex) {
     SwitchProps result;
     ex.get("checked", result.checked);
     ex.get("checkedColor", result.checkedColor);
@@ -432,5 +432,26 @@ SwitchProps parseSwitchProps(PropsExtractor& ex) {
     ex.get("thumbColor", result.thumbColor);
     ex.get("trackHeight", result.trackHeight);
     ex.get("thumbSize", result.thumbSize);
+    return result;
+}
+
+LineProps parseLineProps(PropsExtractor &ex) {
+    LineProps result;
+    if (ex.has("direction")) {
+        std::string dir = ex.raw().getProperty("direction").toString();
+        if (dir == "vertical") result.direction = "vertical";
+    }
+    ex.get("strokeWidth", result.strokeWidth);
+    ex.get("color", result.color);
+    return result;
+}
+
+SpinnerProps parseSpinnerProps(PropsExtractor &ex) {
+    SpinnerProps result;
+    ex.get("color", result.color);
+    ex.get("trackColor", result.trackColor);
+    ex.get("size", result.size);
+    ex.get("strokeWidth", result.strokeWidth);
+    ex.get("arcLength", result.arcLength);
     return result;
 }

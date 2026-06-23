@@ -97,6 +97,8 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "slider") return "../../examples/ui/slider.js";
         if (arg == "progress") return "../../examples/ui/progress.js";
         if (arg == "switch") return "../../examples/ui/switch.js";
+        if (arg == "line") return "../../examples/ui/line.js";
+        if (arg == "spinner") return "../../examples/ui/spinner.js";
         return arg;
     }
     return "../../examples/example.js";

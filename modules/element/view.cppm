@@ -31,6 +31,8 @@ export enum class ElementType : std::uint8_t {
     Slider,
     ProgressBar,
     Switch,
+    Line,
+    Spinner,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -52,6 +54,8 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Slider: return "Slider";
     case ElementType::ProgressBar: return "ProgressBar";
     case ElementType::Switch: return "Switch";
+    case ElementType::Line: return "Line";
+    case ElementType::Spinner: return "Spinner";
     }
     return "Unknown";
 }
@@ -220,6 +224,7 @@ public:
      */
     void markFull() {
         dirtyRect_ = {};
+        deferred_ = {};
         needsRedraw_ = true;
     }
 

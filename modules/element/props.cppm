@@ -293,3 +293,36 @@ export struct SwitchProps {
     float trackHeight = 24.0f;                   // 轨道高度 (像素)
     float thumbSize = 20.0f;                     // 滑块直径 (像素)
 };
+
+// ════════════════════════════════════════════════════════
+// Line 属性 — 线段 / 分割线
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 线段专有属性
+ *
+ * 水平时宽度铺满父容器，高度 = strokeWidth + padding；
+ * 垂直时高度铺满父容器，宽度 = strokeWidth + padding。
+ */
+export struct LineProps {
+    std::string direction = "horizontal";  // "horizontal" | "vertical"
+    float strokeWidth = 1.0f;             // 线宽 (像素)
+    Color color{224, 224, 224, 255};       // 线条颜色 (Grey 300)
+};
+
+// ════════════════════════════════════════════════════════
+// Spinner 属性 — 加载指示器
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 加载指示器专有属性
+ *
+ * 旋转弧：背景环 (trackColor) + 旋转弧段 (color)。
+ * 弧段角度由 arcLength 控制，0-360°。
+ * 12 个点发光模拟弧段（因 Graphics API 无 drawArc）。
+ */
+export struct SpinnerProps {
+    Color color{25, 118, 210, 255};          // 弧段颜色 (Material Blue 700)
+    Color trackColor{224, 224, 224, 255};    // 背景环色 (Grey 300, 30% opacity)
+    float size = 32.0f;                       // 整体直径 (像素)
+    float strokeWidth = 6.0f;                // 环粗细 / 点直径 (像素)
+    float arcLength = 200.0f;                // 弧段角度 (0-360, 默认 200°)
+};

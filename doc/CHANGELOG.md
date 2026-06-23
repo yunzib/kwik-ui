@@ -1,5 +1,27 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-23
+
+### 新增
+- Switch 切换开关组件
+  - 胶囊形轨道 + 圆形滑块，点击切换 checked 状态
+  - `SwitchProps`：checked / checkedColor / uncheckedColor / thumbColor / trackHeight / thumbSize
+  - `setBinding` 支持 `ref(state, key)` 双向绑定
+- Line 线段/分割线组件
+  - 水平或垂直线段，可自定义粗细和颜色
+  - `LineProps`：direction / strokeWidth / color
+- Spinner 加载指示器组件
+  - lvgl 风格 12 点旋转弧动画，自动持续旋转
+  - `SpinnerProps`：color / size / strokeWidth / trackColor / arcLength
+
+### 修复
+- 窗口最大化后顶部内容永久消失
+  - 根因：`DirtyTracker::markFull()` 未清空 `deferred_` 缓冲区，
+    resize 后首帧 `consume()` 返回 resize 前 Spinner 动画残留的脏区域并集（非全窗口），
+    导致 Vulkan scissor 被设为小区域，新 canvas 的 `LOAD_OP_LOAD` 使裁切区外永远保持
+    刚分配时的 undefined 内存，标题/首段内容不可见且永不恢复。
+  - 修复：`markFull()` 增加 `deferred_ = {}`，保证全屏重绘语义。
+
 ## [0.0.0] — 2026-06-22
 
 ### 新增
