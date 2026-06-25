@@ -528,6 +528,17 @@ static JSValue js_spinner(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return makeElement(ctx, "Spinner", props, JS_UNDEFINED);
 }
 
+static JSValue js_table(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "Table", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
+static JSValue js_textview(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "value");
+    return makeElement(ctx, "TextView", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 // ============================================================================
 // ref(state, key) — 创建双向绑定标记
 //
@@ -635,6 +646,8 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
         JS_CFUNC_DEF("Switch", 2, js_switch),
         JS_CFUNC_DEF("Line", 1, js_line),
         JS_CFUNC_DEF("Spinner", 1, js_spinner),
+        JS_CFUNC_DEF("Table", 1, js_table),
+        JS_CFUNC_DEF("TextView", 1, js_textview),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

@@ -25,6 +25,8 @@ target_sources(kwik_element
             modules/element/switch.cppm
             modules/element/line.cppm
             modules/element/spinner.cppm
+            modules/element/table.cppm
+            modules/element/textview.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -52,6 +54,8 @@ target_sources(kwik_element
         src/element/switch.cpp
         src/element/line.cpp
         src/element/spinner.cpp
+        src/element/table.cpp
+        src/element/textview.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

@@ -326,3 +326,85 @@ export struct SpinnerProps {
     float strokeWidth = 6.0f;                // 环粗细 / 点直径 (像素)
     float arcLength = 200.0f;                // 弧段角度 (0-360, 默认 200°)
 };
+
+// ════════════════════════════════════════════════════════
+// Table 属性 — 数据表格
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 表格列定义
+ */
+export struct ColumnDef {
+    std::string title;          // 列标题
+    std::string key;            // 数据字段 key
+    float width = 0;            // 固定宽 px (0 = auto/flex)
+    float flex = 0;             // flex 分配剩余空间比例
+    std::string align = "left"; // "left" | "center" | "right"
+};
+
+/**
+ * @brief 表格专有属性
+ *
+ * columns[] 定义列，data 由 JS 传入数组对象。
+ * 当 contentWidth > 可用宽度时内容溢出（暂无滚动，后续可叠加）。
+ */
+export struct TableProps {
+    std::vector<ColumnDef> columns;
+    Color headerColor{240, 240, 240, 255};
+    Color headerTextColor{51, 51, 51, 255};
+    Color stripeColor{245, 245, 245, 255};
+    Color rowTextColor{51, 51, 51, 255};
+    Color borderColor{224, 224, 224, 255};
+    Color sortArrowColor{153, 153, 153, 255};
+    float headerHeight = 36.0f;
+    float rowHeight = 32.0f;
+    float fontSize = 14.0f;
+    std::string fontFamily; 
+    float borderWidth = 1.0f;
+    bool showHeader = true;
+    bool striped = true;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TextView 属性 — 富文本编辑组件
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * @brief 文本段样式
+ *
+ * 每个 TextRun 的视觉呈现参数，用于 HarfBuzz + FreeType 排版管线。
+ * italic 为留位字段，当前渲染阶段暂不做斜体变换（伪斜体待后续扩展 FontManager）。
+ */
+export struct TextStyle {
+    float fontSize = 16.0f;                    ///< 字号（像素）
+    FontWeight fontWeight = FontWeight::Normal; ///< 字重 Normal / Bold
+    FontStyle fontStyle = FontStyle::Normal;    ///< 字形（留位）
+    Color textColor{0, 0, 0, 255};             ///< 文字颜色
+    bool underline = false;                    ///< 下划线
+    bool strikethrough = false;                ///< 删除线
+};
+
+/**
+ * @brief 文本段：一段连续文本 + 统一样式
+ *
+ * 文档模型由有序 TextRun 列表构成。相邻 TextRun 的文本拼成 plainText_，
+ * 光标和选区以 plainText_ 的 UTF-8 字节偏移表示。
+ */
+export struct TextRun {
+    std::string text;   ///< 纯文本（UTF-8，可含 \n）
+    TextStyle style;    ///< 本段统一样式
+};
+
+/**
+ * @brief TextView 专有属性
+ */
+export struct TextViewProps {
+    std::vector<TextRun> content;                   ///< 初始文档
+    std::string value;                              // （plainText 绑定目标）
+    std::string placeholder;                        ///< 占位符（content 为空时显示）
+    float placeholderFontSize = 16.0f;              ///< 占位符字号
+    Color placeholderColor{153, 153, 153, 255};     ///< 占位符颜色
+    Color cursorColor{66, 133, 244, 255};           ///< 光标颜色（Material Blue 500）
+    Color selectionColor{173, 216, 230, 120};       ///< 选区高亮（浅蓝半透明）
+    Color focusedBorderColor{66, 133, 244, 255};    ///< 聚焦边框色
+    int maxLength = 0;                              ///< 最大字符数（0 = 不限）
+    bool readOnly = false;                          ///< 只读
+};

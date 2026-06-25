@@ -61,18 +61,13 @@ export ContainerProps parseContainerProps(const JSValueRef &props);
  *   - height:    缓冲区高度 (int, data 模式时必填)
  */
 export ImageProps parseImageProps(const JSValueRef &props);
-
 export InputProps parseInputProps(const JSValueRef &props);
-
 export RadioButtonProps parseRadioButtonProps(const JSValueRef &props);
-
 export RadioGroupProps parseRadioGroupProps(const JSValueRef &props);
-
 export CheckboxProps parseCheckboxProps(const JSValueRef &props);
-
 export TextAreaProps parseTextAreaProps(const JSValueRef &props);
-
 export DropdownProps parseDropdownProps(const JSValueRef &props);
+export TextViewProps parseTextViewProps(const JSValueRef &props);
 
 // ============================================================================
 // 类型转换函数族
@@ -285,3 +280,5 @@ export ProgressBarProps parseProgressBarProps(PropsExtractor &ex);
 export SwitchProps parseSwitchProps(PropsExtractor& ex);
 export LineProps parseLineProps(PropsExtractor& ex);
 export SpinnerProps parseSpinnerProps(PropsExtractor& ex);
+export TableProps parseTableProps(PropsExtractor& ex);
+export TextViewProps parseTextViewProps(PropsExtractor &ex);

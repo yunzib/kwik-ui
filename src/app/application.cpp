@@ -29,6 +29,7 @@ import kwik.bridge.prop_bus;
 import kwik.element.textarea;
 import kwik.bridge.binding_registry;
 import kwik.engine.channel;
+import kwik.element.textview;
 
 // ============================================================================
 // 构造 / 析构
@@ -267,10 +268,13 @@ int Application::run() {
             if (focusedView_ && focusedView_ != target) {
                 if (focusedView_->type() == ElementType::Input) static_cast<Input *>(focusedView_)->blur();
                 if (focusedView_->type() == ElementType::TextArea) static_cast<TextArea *>(focusedView_)->blur();
+                if (focusedView_->type() == ElementType::TextView)  static_cast<TextView *>(focusedView_)->blur();
             }
             // ── 新焦点设置 ──
             if (target) {
-                if (target->type() == ElementType::Input || target->type() == ElementType::TextArea) {
+                 if (target->type() == ElementType::Input ||
+                target->type() == ElementType::TextArea ||
+                target->type() == ElementType::TextView) {
                     focusedView_ = target;
                 } else {
                     focusedView_ = nullptr;

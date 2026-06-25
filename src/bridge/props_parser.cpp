@@ -455,3 +455,105 @@ SpinnerProps parseSpinnerProps(PropsExtractor &ex) {
     ex.get("arcLength", result.arcLength);
     return result;
 }
+
+// ============================================================================
+// parseTableProps — 解析表格属性
+// ============================================================================
+TableProps parseTableProps(PropsExtractor &ex) {
+    TableProps tp;
+
+    ex.get("headerColor", tp.headerColor);
+    ex.get("headerTextColor", tp.headerTextColor);
+    ex.get("stripeColor", tp.stripeColor);
+    ex.get("rowTextColor", tp.rowTextColor);
+    ex.get("borderColor", tp.borderColor);
+    ex.get("sortArrowColor", tp.sortArrowColor);
+    ex.get("headerHeight", tp.headerHeight);
+    ex.get("rowHeight", tp.rowHeight);
+    ex.get("fontSize", tp.fontSize);
+    ex.get("borderWidth", tp.borderWidth);
+    ex.get("showHeader", tp.showHeader);
+    ex.get("striped", tp.striped);
+
+    // 解析 columns 数组
+    if (ex.has("columns")) {
+        auto colsVal = ex.raw().getProperty("columns");
+        if (colsVal.isArray()) {
+            int len = colsVal.getArrayLength();
+            for (int i = 0; i < len; ++i) {
+                auto colVal = colsVal.getArrayElement(i);
+                if (!colVal.isObject()) continue;
+
+                ColumnDef col;
+                PropsExtractor colEx(colVal);
+
+                colEx.get("title", col.title);
+                colEx.get("key", col.key);
+                colEx.get("width", col.width);
+                colEx.get("flex", col.flex);
+                colEx.getEnum("align", col.align,
+                              {
+                                  {"left", std::string("left")},
+                                  {"center", std::string("center")},
+                                  {"right", std::string("right")},
+                              });
+
+                tp.columns.push_back(std::move(col));
+            }
+        }
+    }
+
+    return tp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseTextViewProps
+// ═══════════════════════════════════════════════════════════════════════════
+TextViewProps parseTextViewProps(PropsExtractor &ex) {
+    TextViewProps r;
+    ex.get("value", r.value);
+    ex.get("cursorColor", r.cursorColor);
+    ex.get("selectionColor", r.selectionColor);
+    ex.get("focusedBorderColor", r.focusedBorderColor);
+    ex.get("maxLength", r.maxLength);
+    ex.get("readOnly", r.readOnly);
+    ex.get("placeholder", r.placeholder);
+    ex.get("placeholderColor", r.placeholderColor);
+    ex.get("placeholderFontSize", r.placeholderFontSize);
+
+    // ── 解析 content 数组 ──
+    if (ex.has("content")) {
+        auto arr = ex.raw().getProperty("content");
+        if (arr.isArray()) {
+            int len = arr.getArrayLength();
+            for (int i = 0; i < len; ++i) {
+                auto item = arr.getArrayElement(i);
+                if (!item.isObject()) continue;
+
+                PropsExtractor iex(item);
+                TextRun run;
+
+                iex.get("text", run.text);
+                iex.get("fontSize", run.style.fontSize);
+
+                iex.getEnum("fontWeight", run.style.fontWeight,
+                            {{"bold", FontWeight::Bold}, {"normal", FontWeight::Normal}});
+                iex.getEnum("fontStyle", run.style.fontStyle,
+                            {{"italic", FontStyle::Italic}, {"normal", FontStyle::Normal}});
+                iex.get("textColor", run.style.textColor);
+                iex.get("underline", run.style.underline);
+                iex.get("strikethrough", run.style.strikethrough);
+
+                r.content.push_back(std::move(run));
+            }
+        }
+    }
+    return r;
+}
+
+// TextViewProps parseTextViewProps(const JSValueRef &pv) — JSValueRef 兼容重载
+TextViewProps parseTextViewProps(const JSValueRef &pv) {
+    TypedPropMap meta;
+    PropsExtractor ex(pv, &meta);
+    return parseTextViewProps(ex);
+}

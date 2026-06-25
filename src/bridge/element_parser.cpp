@@ -41,6 +41,8 @@ import kwik.element.progressbar;
 import kwik.element.switch_button;
 import kwik.element.line;
 import kwik.element.spinner;
+import kwik.element.table;
+import kwik.element.textview;
 
 import std;
 
@@ -293,6 +295,35 @@ static struct InitBuiltinTypes {
             PropsExtractor ex(pv, &meta);
             return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
         });
+
+        // ── Table ──
+        ElementParser::registerType("Table", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
+
+            // 保留 data 数组的 JS 引用
+            if (pv.hasProperty("data")) {
+                auto dataVal = pv.getProperty("data");
+                if (dataVal.isArray()) {
+                    JSContext *ctx = dataVal.context();
+                    table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
+                }
+            }
+
+            return table;
+        });
+
+        // ── TextView（富文本编辑器）──
+        ElementParser::registerType("TextView", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto tv = std::make_unique<TextView>(parseViewProps(ex), parseTextViewProps(ex));
+            tv->propMeta = std::move(meta);
+            applyBindings(tv.get(), pv);
+            Log::debug("TextView created: id={}", tv->getProperty("id"));
+            return tv;
+        });
     }
 } _init_builtin_types;
 
@@ -384,6 +415,7 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         tryBind("onHoverEnter");
         tryBind("onHoverLeave");
         tryBind("onChange");
+        tryBind("onRowClick");
     }
     return element;
 }

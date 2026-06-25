@@ -1,5 +1,23 @@
 # 更新日志
 
+## [0.0.0] — 2026-06-25
+
+### 新增
+- Table 数据表格组件
+  - columns 定义列结构（title/key/width/flex/align）
+  - data 数组传入行数据，JS 持有引用
+  - 表头 + 斑马纹 + grid 边框
+  - 自定义颜色主题（header/stripe/border/rowText/sortArrow）
+  - onRowClick 行点击回调 e={index, row}
+- TextView 富文本编辑组件
+  - TextRun[] 行内样式：加粗（伪粗体 x+1 重绘）、下划线、删除线、颜色、字号
+  - `value` + `ref(state, key)` 双向绑定
+  - `content` 预置 TextRun[] 只读内容
+  - 多行软换行（space 处截断）+ `\n` 硬换行
+  - 键盘编辑：Ctrl+B/I/U 快捷键、方向键、Backspace/Delete、Enter
+  - Ctrl+A 全选、光标闪烁、选中高亮色
+  - placeholder / readOnly / maxLength / onchange 回调
+
 ## [0.0.0] — 2026-06-23
 
 ### 新增

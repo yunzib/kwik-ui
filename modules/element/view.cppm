@@ -33,6 +33,8 @@ export enum class ElementType : std::uint8_t {
     Switch,
     Line,
     Spinner,
+    Table,
+    TextView,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -56,6 +58,8 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Switch: return "Switch";
     case ElementType::Line: return "Line";
     case ElementType::Spinner: return "Spinner";
+    case ElementType::Table: return "Table";
+    case ElementType::TextView: return "TextView";
     }
     return "Unknown";
 }
@@ -104,6 +108,7 @@ export struct ViewEventHandlers {
     JSValue onHoverEnter = JS_NULL;    // 鼠标进入回调
     JSValue onHoverLeave = JS_NULL;    // 鼠标离开回调
     JSValue onChange = JS_NULL;        // Input 文本变更回调
+    JSValue onRowClick = JS_NULL;      // 表格行点击
     JSContext *ctx = nullptr;          // QuickJS 上下文 (析构清理用)
     ViewEventHandlers() = default;
     /**
@@ -149,7 +154,7 @@ export struct ViewEventHandlers {
      * @return 全部为 JS_NULL 则返回 true
      */
     bool empty() const {
-        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave);
+        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave) && js_is_null(onChange) && js_is_null(onRowClick);
     }
 
 private:
