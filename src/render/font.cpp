@@ -40,7 +40,7 @@ FontManager &FontManager::instance() {
 FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
     if (err) ftLib_ = nullptr;
-    atlasData_.resize(kAtlasSize * kAtlasSize * 4, 0);  // RGBA8: 4x larger
+    atlasData_.resize(kAtlasSize * kAtlasSize * 4, 0);    // RGBA8: 4x larger
 }
 
 FontManager::~FontManager() {
@@ -289,7 +289,10 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
         uint32_t bestH = UINT32_MAX;
         for (auto &s : shelves_) {
             if (h <= s.rowHeight && s.nextX + w + kPad <= kAtlasSize) {
-                if (s.rowHeight < bestH) { best = &s; bestH = s.rowHeight; }
+                if (s.rowHeight < bestH) {
+                    best = &s;
+                    bestH = s.rowHeight;
+                }
             }
         }
         if (best) {
@@ -298,9 +301,12 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
             best->nextX += w + kPad;
         } else {
             if (shelfCurrentY_ + h + kPad > kAtlasSize) {
-                shelfCurrentY_ = 0; shelves_.clear();
-                atlasDirtyMinRow_ = 0; atlasDirtyMaxRow_ = kAtlasSize;
-                glyphCache_.clear(); atlasVersion_++;
+                shelfCurrentY_ = 0;
+                shelves_.clear();
+                atlasDirtyMinRow_ = 0;
+                atlasDirtyMaxRow_ = kAtlasSize;
+                glyphCache_.clear();
+                atlasVersion_++;
                 std::memset(atlasData_.data(), 0, atlasData_.size());
             }
             info.atlasX = 0;
@@ -328,14 +334,17 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     shape.normalize();
 
     // ⑥ Assign edge colors for multi-channel encoding
-    msdfgen::edgeColoringSimple(shape, 3.0);
+    msdfgen::edgeColoringByDistance(shape, 3.0);
 
     // ⑦ Compute bounding box and output resolution
     double l = 0, b = 0, r = 0, t = 0;
     shape.bound(l, b, r, t);
     double bboxW = r - l;
     double bboxH = t - b;
-    if (bboxW <= 0 || bboxH <= 0) { bboxW = 1; bboxH = 1; }
+    if (bboxW <= 0 || bboxH <= 0) {
+        bboxW = 1;
+        bboxH = 1;
+    }
 
     static constexpr double kQuality = 1.0;
     int baseW = std::max(2, (int)std::ceil(bboxW * kQuality));
@@ -359,12 +368,10 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     msdfgen::Vector2 scaleVec((double)baseW / bboxW, (double)baseH / bboxH);
     msdfgen::Vector2 translateVec(-l * scaleVec.x, -b * scaleVec.y);
     double avgScale = (scaleVec.x + scaleVec.y) * 0.5;
-    info.msdfRange = (float)(pxRange * avgScale);
-    msdfgen::generateMSDF(msdf, shape, msdfgen::Range(pxRange),
-                          scaleVec, translateVec,
-                          msdfgen::ErrorCorrectionConfig(
-                              msdfgen::ErrorCorrectionConfig::EDGE_PRIORITY,
-                              msdfgen::ErrorCorrectionConfig::CHECK_DISTANCE_AT_EDGE),
+    info.msdfRange = (float)pxRange;
+    msdfgen::generateMSDF(msdf, shape, msdfgen::Range(pxRange), scaleVec, translateVec,
+                          msdfgen::ErrorCorrectionConfig(msdfgen::ErrorCorrectionConfig::INDISCRIMINATE,
+                                                         msdfgen::ErrorCorrectionConfig::CHECK_DISTANCE_AT_EDGE, 1.05),
                           true);
 
     // ⑩ Shelf packing (use outW, outH, no padding)
@@ -375,7 +382,10 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     uint32_t bestHval = UINT32_MAX;
     for (auto &s : shelves_) {
         if (h <= s.rowHeight && s.nextX + w + kPad <= kAtlasSize) {
-            if (s.rowHeight < bestHval) { best = &s; bestHval = s.rowHeight; }
+            if (s.rowHeight < bestHval) {
+                best = &s;
+                bestHval = s.rowHeight;
+            }
         }
     }
     if (best) {
@@ -384,9 +394,12 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
         best->nextX += w + kPad;
     } else {
         if (shelfCurrentY_ + h + kPad > kAtlasSize) {
-            shelfCurrentY_ = 0; shelves_.clear();
-            atlasDirtyMinRow_ = 0; atlasDirtyMaxRow_ = kAtlasSize;
-            glyphCache_.clear(); atlasVersion_++;
+            shelfCurrentY_ = 0;
+            shelves_.clear();
+            atlasDirtyMinRow_ = 0;
+            atlasDirtyMaxRow_ = kAtlasSize;
+            glyphCache_.clear();
+            atlasVersion_++;
             std::memset(atlasData_.data(), 0, atlasData_.size());
         }
         info.atlasX = 0;
@@ -449,7 +462,7 @@ uint32_t FontManager::atlasHeight() const {
 // ============================================================================
 // 图集磁盘缓存 — 序列化
 // ============================================================================
-static constexpr uint32_t kCacheMagic = 0x4B57494B; // "KWIK"
+static constexpr uint32_t kCacheMagic = 0x4B57494C;
 bool FontManager::saveAtlasCache(const std::string &path, const std::string &fontPath) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out) return false;
@@ -543,7 +556,7 @@ bool FontManager::loadAtlasCache(const std::string &path, const std::string &fon
         in.read(reinterpret_cast<char *>(&axBits), 4);
         std::memcpy(&info.advanceX, &axBits, 4);
 
-         uint32_t mrBits;
+        uint32_t mrBits;
         in.read(reinterpret_cast<char *>(&mrBits), 4);
         std::memcpy(&info.msdfRange, &mrBits, 4);
 

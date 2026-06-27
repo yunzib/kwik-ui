@@ -26,5 +26,6 @@ void main() {
     float sd = 1.0 - median(msd.r, msd.g, msd.b);
     float spd = screenPxRange(fragUV) * (sd - 0.5);
     float alpha = clamp(spd + 0.5, 0.0, 1.0);
-    outColor = vec4(fragColor.rgb, fragColor.a * alpha);
+    float ca = 1.0 - pow(1.0 - fragColor.a * alpha, 2.2);
+    outColor = vec4(fragColor.rgb, ca);
 }
