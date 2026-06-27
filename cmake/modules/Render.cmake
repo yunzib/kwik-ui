@@ -78,6 +78,7 @@ target_link_libraries(kwik_render
         kwik_platform
         freetype
         harfbuzz
+        msdfgen::msdfgen        # 链接 msdfgen-core + msdfgen-ext
 )
 
 # 6. 添加链接库（LINK_LIBRARIES）

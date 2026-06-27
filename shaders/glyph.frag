@@ -3,17 +3,28 @@ layout(location = 0) in vec2 fragUV;
 layout(location = 1) in flat vec4 fragColor;
 layout(binding = 0) uniform sampler2D glyphAtlas;
 layout(location = 0) out vec4 outColor;
+
+layout(push_constant) uniform Push {
+    layout(offset = 60) float pxRange;
+    layout(offset = 64) float atlasSizeW;
+    layout(offset = 68) float atlasSizeH;
+} pc;
+
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
+float screenPxRange(vec2 uv) {
+    vec2 atlasSize = vec2(pc.atlasSizeW, pc.atlasSizeH);
+    vec2 unitRange = pc.pxRange / atlasSize;
+    vec2 screenTexSize = vec2(1.0) / fwidth(uv);
+    return max(0.5 * dot(unitRange, screenTexSize), 1.0);
+}
+
 void main() {
-    float distance = texture(glyphAtlas, fragUV).r;
-    // ── SDF 自适应边缘宽度 ────────────────────────────────
-    // fwidth 基于屏幕像素梯度, 对缩放不敏感 — 在高低 DPI 下宽度恒定
-    float pixelEdge = length(fwidth(fragUV)) * 2048.0; // 转换到图集坐标
-    // 在 2048 图集上: 1 像素边缘 ≈ 0.000488 纹理单位
-    // fwidth(fragUV) ≈ 1/屏幕像素, 故 pixelEdge ≈ 2048/屏幕像素 ≈ 1 图集像素
-    float edge = clamp(pixelEdge * 1.2, 0.015, 0.15); // 1.2px 基础 + 上下限
-    // ── 锐化边缘: 用更窄的 smoothstep 跨距 ────────────────
-    // 标准 SDF: smoothstep(0.5-edge, 0.5+edge, d) → 跨距 2*edge
-    // 优化: 使用 0.52 中点补偿 FreeType 的 R8_UNORM 量化误差
-    float alpha = smoothstep(0.52 - edge, 0.52 + edge, distance);
+    vec3 msd = texture(glyphAtlas, fragUV).rgb;
+    float sd = 1.0 - median(msd.r, msd.g, msd.b);
+    float spd = screenPxRange(fragUV) * (sd - 0.5);
+    float alpha = clamp(spd + 0.5, 0.0, 1.0);
     outColor = vec4(fragColor.rgb, fragColor.a * alpha);
 }

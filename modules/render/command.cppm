@@ -103,6 +103,7 @@ export struct DrawGlyphCmd {
     float uvRight;
     float uvBottom;
     Color color;
+    float msdfRange;  // ← NEW: from GlyphInfo.msdfRange, passed to shader push constant
 };
 
 /**

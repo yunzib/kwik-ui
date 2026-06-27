@@ -151,7 +151,8 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
         float ty = (y + g.y) * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color});
+       addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop,
+                   g.uvRight, g.uvBottom, color, g.msdfRange});
     }
 }
 
@@ -164,7 +165,8 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
         float ty = g.y * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-        addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color});
+       addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop,
+                   g.uvRight, g.uvBottom, color, g.msdfRange});
     }
 }
 

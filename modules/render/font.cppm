@@ -25,6 +25,7 @@ export {
         float bearingX;
         float bearingY;
         float advanceX;
+        float msdfRange = 2.0f;  // 距离场像素范围, 传给 shader 做 screenPxRange
     };
     /**
      * @brief HarfBuzz 排版后的单个字形
@@ -43,6 +44,7 @@ export {
         float uvTop;
         float uvRight;
         float uvBottom;
+        float msdfRange = 2.0f; 
     };
     /**
      * @brief 字体度量信息
@@ -106,21 +108,22 @@ export struct ShapedTextCache {
 };
 
 /**
- * @brief SDF 字形管理器 — 字体加载 / HarfBuzz 排版 / 字形图集
+ * @brief MSDF 字形管理器 — 字体加载 / HarfBuzz 排版 / 字形图集
  *
- * 使用 FreeType FT_RENDER_MODE_SDF 模式生成单通道有符号距离场,
- * 在着色器中通过 smoothstep 实现分辨率无关的抗锯齿文字渲染。
+ * 使用 msdfgen 生成三通道多符号距离场 (Multi-channel Signed Distance Field),
+ * 在着色器中通过 median 解码实现分辨率无关且保留尖角的抗锯齿文字渲染。
  *
  * 优化要点:
  *   - 多目录字体搜索 (addFontDir + resolveFontPath + 系统字体兜底)
  *   - 排版结果缓存 (ShapedGlyph 含 UV)
- *   - 图集增量上传 (脏矩形追踪, 避免全量 1MB 上传)
- *   - 图集槽位溢出保护 (超出的字形记录 warning, 不越界写入)
+ *   - 图集增量上传 (脏矩形追踪, 避免全量 16MB 上传)
+ *   - 图集槽位溢出保护 (超出的字形自动清空并递增版本号)
+ *   - 中途绕回检测: bakeGlyphs / onDraw 中检测 atlasVersion 变化, 自动清空重试
  */
 export class FontManager {
 public:
     // ── 图集常量 ──
-    static constexpr uint32_t kAtlasSize = 1024;
+    static constexpr uint32_t kAtlasSize = 2048;
 
     static FontManager &instance();
     // ═══════════════ 字体加载 ═══════════════
@@ -186,7 +189,7 @@ public:
      * @return 成功返回 true
      *
      * 通常在首次冷启动渲染完毕后调用一次。
-     * 文件大小约 4.2MB (2048² R8 + ~300 条目 × 36B)。
+     * 文件大小约 16.4MB (2048² × 4 + ~300 条目 × 40B)。
      */
     bool saveAtlasCache(const std::string &path, const std::string &fontPath);
     /**
@@ -215,18 +218,18 @@ public:
      */
     GlyphInfo getGlyphInfo(uint32_t glyphIndex, float fontSize);
     /**
-     * @brief 获取图集原始数据 (单通道 R8)
-     * @return 1024 x 1024 字节的缓冲区指针
+     * @brief 获取图集原始数据 (RGBA8, 4 字节/像素)
+     * @return 2048 x 2048 x 4 字节的缓冲区指针
      */
     const uint8_t *atlasData() const;
     /**
      * @brief 获取图集宽度
-     * @return 1024
+     * @return 2048
      */
     uint32_t atlasWidth() const;
     /**
      * @brief 获取图集高度
-     * @return 1024
+     * @return 2048
      */
     uint32_t atlasHeight() const;
     // ═══════════════ 脏区域追踪 (优化: 增量上传) ═══════════════
@@ -255,7 +258,7 @@ private:
     ~FontManager();
 
     /**
-     * @brief 将字形渲染为 SDF 并写入图集
+     * @brief 将字形渲染为 MSDF 并写入图集
      * @param glyphIndex FreeType 字形索引
      * @param fontSize   字号 (像素)
      * @param info       输出: 填充字形在图集中的位置和度量

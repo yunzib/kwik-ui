@@ -429,6 +429,9 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
+    pc.pxRange     = 0.0f;
+    pc.atlasSizeW  = 0.0f;
+    pc.atlasSizeH  = 0.0f;
     vkCmdPushConstants(cb, imagePipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
@@ -464,6 +467,9 @@ void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
+    pc.pxRange     = 0.0f;
+    pc.atlasSizeW  = 0.0f;
+    pc.atlasSizeH  = 0.0f;
     vkCmdPushConstants(cb, imagePipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);

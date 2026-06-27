@@ -17,15 +17,18 @@ import kwik.core.types;
 import std;
 
 export struct GlyphPushConstants {
-    float posX, posY;
-    float sizeX, sizeY;
-    float uvU0, uvV0;
-    float uvU1, uvV1;
-    float colorR, colorG, colorB, colorA;
-    float viewportW, viewportH;
-    float cornerRadius;
+    float posX, posY;          // offset  0
+    float sizeX, sizeY;        // offset  8
+    float uvU0, uvV0;          // offset 16
+    float uvU1, uvV1;          // offset 24
+    float colorR, colorG, colorB, colorA; // offset 32 (16B)
+    float viewportW, viewportH; // offset 48
+    float cornerRadius;         // offset 56
+    float pxRange;              // offset 60  ← NEW
+    float atlasSizeW;           // offset 64  ← NEW
+    float atlasSizeH;           // offset 68  ← NEW
 };
-static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match shader layout");
+static_assert(sizeof(GlyphPushConstants) == 72, "GlyphPushConstants size must match shader layout");
 
 // ── FrameToken: 每帧由 beginFrame 产出，子渲染器通过此对象获取 Vulkan 句柄 ──
 export struct FrameToken {

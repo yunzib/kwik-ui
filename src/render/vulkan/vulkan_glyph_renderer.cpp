@@ -56,8 +56,9 @@ void GlyphRenderer::destroy() {
         glyphPipelineLayout_ = VK_NULL_HANDLE;
     }
 }
+
 // ================================================================
-// create — glyph 管线 + 2048x2048 R8_UNORM 图集
+// create — glyph 管线 + 2048x2048 R8G8B8A8_UNORM 图集
 // ================================================================
 bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
                            VkRenderPass renderPass,
@@ -204,11 +205,11 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
         vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
         return false;
     }
-    // ── Glyph atlas 2048x2048 R8_UNORM ─────────────────────
+    // ── Glyph atlas 2048x2048 R8G8B8A8_UNORM (MSDF) ───────────
     uint32_t atlasW = FontManager::kAtlasSize, atlasH = FontManager::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = VK_FORMAT_R8_UNORM;
+    imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     imgInfo.extent = {atlasW, atlasH, 1};
     imgInfo.mipLevels = 1;
     imgInfo.arrayLayers = 1;
@@ -229,10 +230,11 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
         destroy(); return false;
     }
     vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0);
+    atlasLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = glyphAtlasImage_;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vi.format = VK_FORMAT_R8_UNORM;
+    vi.format = VK_FORMAT_R8G8B8A8_UNORM;
     vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     if (vkCreateImageView(device_, &vi, nullptr, &glyphAtlasView_) != VK_SUCCESS) {
         destroy(); return false;
@@ -297,6 +299,9 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent,
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
+    pc.pxRange = cmd.msdfRange;
+    pc.atlasSizeW = static_cast<float>(FontManager::kAtlasSize);
+    pc.atlasSizeH = static_cast<float>(FontManager::kAtlasSize);
     vkCmdPushConstants(cb, glyphPipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
@@ -318,8 +323,8 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
         dirtyMax = height;
     }
     uint32_t dirtyH = dirtyMax - dirtyMin;
-    VkDeviceSize size = (VkDeviceSize)width * dirtyH;
-    // ── Staging buffer ──
+    uint32_t stride = width * 4;
+    VkDeviceSize size = (VkDeviceSize)stride * dirtyH;
     VkBuffer staging;
     VkDeviceMemory stagingMem;
     if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
@@ -332,9 +337,8 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     }
     void *mapped;
     vkMapMemory(dc.device, stagingMem, 0, size, 0, &mapped);
-    std::memcpy(mapped, data + dirtyMin * width, (size_t)size);
+    std::memcpy(mapped, data + dirtyMin * stride, (size_t)size);
     vkUnmapMemory(dc.device, stagingMem);
-    // ── One-time command ──
     VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     cai.commandPool = dc.commandPool;
     cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -344,7 +348,7 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
-    // UNDEFINED → TRANSFER_DST
+    // atlasLayout_ → TRANSFER_DST (use tracked layout, not UNDEFINED)
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -352,13 +356,16 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.layerCount = 1;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.oldLayout = atlasLayout_;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcAccessMask = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                            ? VK_ACCESS_SHADER_READ_BIT : VkAccessFlags(0);
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+    VkPipelineStageFlags srcStage = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                     ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                                     : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                          0, nullptr, 0, nullptr, 1, &barrier);
-    // Copy dirty rows
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
@@ -366,7 +373,6 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     region.imageExtent = {width, dirtyH, 1};
     vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    // TRANSFER_DST → SHADER_READ_ONLY
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -374,6 +380,7 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
                          0, nullptr, 0, nullptr, 1, &barrier);
+    atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     vkEndCommandBuffer(cmd);
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
     si.commandBufferCount = 1;
@@ -384,6 +391,7 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     vkDestroyBuffer(dc.device, staging, nullptr);
     vkFreeMemory(dc.device, stagingMem, nullptr);
 }
+
 // ================================================================
 // drawGlyphClipped — stencil 测试版
 // ================================================================
@@ -407,6 +415,9 @@ void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent,
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
+    pc.pxRange = cmd.msdfRange;                           // ← NEW
+    pc.atlasSizeW = static_cast<float>(FontManager::kAtlasSize);  // ← NEW
+    pc.atlasSizeH = static_cast<float>(FontManager::kAtlasSize);  // ← NEW
     vkCmdPushConstants(cb, glyphPipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);

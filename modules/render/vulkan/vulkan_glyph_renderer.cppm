@@ -32,4 +32,5 @@ private:
     VkDeviceMemory glyphAtlasMemory_ = VK_NULL_HANDLE;
     VkImageView glyphAtlasView_ = VK_NULL_HANDLE;
     VkSampler glyphAtlasSampler_ = VK_NULL_HANDLE;
+    VkImageLayout atlasLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;  // ← NEW: 跟踪图集 layout
 };

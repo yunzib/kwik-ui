@@ -11,6 +11,8 @@ module;
 #include "freetype/freetype.h"
 #include "freetype/fttypes.h"
 #include "freetype/ftmodapi.h"
+#include "msdfgen.h"
+#include "ext/import-font.h"
 
 module kwik.render.font;
 import std;
@@ -34,18 +36,13 @@ FontManager &FontManager::instance() {
     static FontManager inst;
     return inst;
 }
+
 FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
     if (err) ftLib_ = nullptr;
-    atlasData_.resize(kAtlasSize * kAtlasSize, 0);
-    // ── SDF 生成参数调优 ──────────────────────────────────
-    // spread: 控制 SDF 有效距离范围 (默认 8, 调高 → 边缘渐变更丰富)
-    // 16 时在 4× 超采样下等效 4px 距离场 → 更平滑的边缘过渡
-    if (ftLib_) {
-        FT_Int spread = 16;
-        FT_Property_Set(ftLib_, "bsdf", "spread", &spread);
-    }
+    atlasData_.resize(kAtlasSize * kAtlasSize * 4, 0);  // RGBA8: 4x larger
 }
+
 FontManager::~FontManager() {
     if (hbFont_) {
         hb_font_destroy(hbFont_);
@@ -170,6 +167,7 @@ std::vector<ShapedGlyph> FontManager::shapeText(const char *text, float fontSize
         sg.uvTop = (float)info.atlasY / kAtlasSize;
         sg.uvRight = (float)(info.atlasX + info.atlasW) / kAtlasSize;
         sg.uvBottom = (float)(info.atlasY + info.atlasH) / kAtlasSize;
+        sg.msdfRange = info.msdfRange;
         result.push_back(sg);
         x += xAdv;
     }
@@ -215,9 +213,18 @@ std::vector<ShapedGlyph> FontManager::bakeGlyphs(const std::vector<GlyphMetrics>
     std::vector<ShapedGlyph> result;
     if (!ftFace_) return result;
     float scale = 1.0f;
-    for (auto &m : metrics) {
-        GlyphInfo info = getGlyphInfo(m.glyphIndex, fontSize); // 触发懒加载 SDF
-        ShapedGlyph sg;
+    uint32_t startVer = atlasVersion_;
+    result.reserve(metrics.size());
+    for (size_t i = 0; i < metrics.size(); i++) {
+        // ── Atlas 中途绕回检测 ──
+        if (atlasVersion_ != startVer) {
+            result.clear();
+            startVer = atlasVersion_;
+            i = 0;
+        }
+        auto &m = metrics[i];
+        GlyphInfo info = getGlyphInfo(m.glyphIndex, fontSize);
+        ShapedGlyph sg{};
         sg.glyphIndex = m.glyphIndex;
         sg.x = m.x + info.bearingX * scale;
         sg.y = m.y - info.bearingY * scale;
@@ -230,6 +237,7 @@ std::vector<ShapedGlyph> FontManager::bakeGlyphs(const std::vector<GlyphMetrics>
         sg.uvTop = (float)info.atlasY / kAtlasSize;
         sg.uvRight = (float)(info.atlasX + info.atlasW) / kAtlasSize;
         sg.uvBottom = (float)(info.atlasY + info.atlasH) / kAtlasSize;
+        sg.msdfRange = info.msdfRange;
         result.push_back(sg);
     }
     return result;
@@ -248,88 +256,163 @@ GlyphInfo FontManager::getGlyphInfo(uint32_t glyphIndex, float fontSize) {
     return info;
 }
 
-//  	原固定格子	货架分配器
-// 槽位粒度	固定 80×80	按字形实际尺寸
-// 容量@2048	625	~3000-4000
-// 空间利用率	~15%	~65%
-// 满时行为	绕回覆盖	整体重置 + 版本递增
 void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &info) {
     if (!ftFace_) return;
-    // ① FreeType 加载并渲染 SDF (不变)
-    const int kSuperSample = 4;
-    FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)(fontSize * kSuperSample));
 
-    // ── 启用轻量 hinting + 自动微调 ──────────────────────
-    // FT_LOAD_TARGET_NORMAL 保留原生轮廓对齐, 优于 FT_LOAD_DEFAULT
-    // FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_TARGET_NORMAL);
+    // ① Always set pixel size before loading — prevents stale-size contamination
+    FT_Set_Pixel_Sizes(ftFace_, 0, (FT_UInt)fontSize);
 
+    // ② Load glyph outline (NOT SDF render — we use msdfgen instead)
     FT_Load_Glyph(ftFace_, glyphIndex, FT_LOAD_DEFAULT);
-    FT_Render_Glyph(ftFace_->glyph, FT_RENDER_MODE_SDF);
-    FT_Bitmap &bmp = ftFace_->glyph->bitmap;
-    int outW = bmp.width / kSuperSample;
-    int outH = bmp.rows / kSuperSample;
-    std::vector<uint8_t> scaled(outW * outH);
-    for (int y = 0; y < outH; ++y) {
-        for (int x = 0; x < outW; ++x) {
-            int sum = 0;
-            for (int dy = 0; dy < kSuperSample; ++dy)
-                for (int dx = 0; dx < kSuperSample; ++dx)
-                    sum += bmp.buffer[(y * kSuperSample + dy) * bmp.pitch + (x * kSuperSample + dx)];
-            scaled[y * outW + x] = (uint8_t)(sum / (kSuperSample * kSuperSample));
-        }
-    }
+
+    // ③ Read advance and bearing from glyph slot
+    float advanceX = ftFace_->glyph->advance.x / 64.0f;
+    float bearingX = (float)ftFace_->glyph->bitmap_left;
+    float bearingY = (float)ftFace_->glyph->bitmap_top;
+
     info.glyphIndex = glyphIndex;
-    info.atlasW = outW;
-    info.atlasH = outH;
-    info.bearingX = (float)ftFace_->glyph->bitmap_left / kSuperSample;
-    info.bearingY = (float)ftFace_->glyph->bitmap_top / kSuperSample;
-    info.advanceX = ftFace_->glyph->advance.x / 64.0f / kSuperSample;
+    info.bearingX = bearingX;
+    info.bearingY = bearingY;
+    info.advanceX = advanceX;
+
+    // ④ Handle empty outline (space, zero-width glyphs)
+    if (ftFace_->glyph->outline.n_contours <= 0) {
+        static constexpr int pad = 2;
+        info.atlasW = 1 + 2 * pad;
+        info.atlasH = 1 + 2 * pad;
+        info.msdfRange = 2.0f;
+        info.bearingX = bearingX - pad;
+        info.bearingY = bearingY + pad;
+        uint32_t w = info.atlasW, h = info.atlasH;
+        const uint32_t kPad = 2;
+        ShelfRow *best = nullptr;
+        uint32_t bestH = UINT32_MAX;
+        for (auto &s : shelves_) {
+            if (h <= s.rowHeight && s.nextX + w + kPad <= kAtlasSize) {
+                if (s.rowHeight < bestH) { best = &s; bestH = s.rowHeight; }
+            }
+        }
+        if (best) {
+            info.atlasX = best->nextX;
+            info.atlasY = best->y;
+            best->nextX += w + kPad;
+        } else {
+            if (shelfCurrentY_ + h + kPad > kAtlasSize) {
+                shelfCurrentY_ = 0; shelves_.clear();
+                atlasDirtyMinRow_ = 0; atlasDirtyMaxRow_ = kAtlasSize;
+                glyphCache_.clear(); atlasVersion_++;
+                std::memset(atlasData_.data(), 0, atlasData_.size());
+            }
+            info.atlasX = 0;
+            info.atlasY = shelfCurrentY_;
+            shelves_.push_back({shelfCurrentY_, w + kPad, h});
+            shelfCurrentY_ += h + kPad;
+        }
+        // 全部填白（纯 inside），中心为白色
+        uint8_t *base = atlasData_.data() + (info.atlasY * kAtlasSize + info.atlasX) * 4;
+        for (uint32_t y = 0; y < h; y++)
+            for (uint32_t x = 0; x < w; x++) {
+                base[(y * kAtlasSize + x) * 4 + 0] = 255;
+                base[(y * kAtlasSize + x) * 4 + 1] = 255;
+                base[(y * kAtlasSize + x) * 4 + 2] = 255;
+                base[(y * kAtlasSize + x) * 4 + 3] = 255;
+            }
+        markDirtyRegion(info.atlasY, info.atlasH);
+        return;
+    }
+
+    // ⑤ Convert FreeType outline → msdfgen Shape
+    msdfgen::Shape shape;
+    msdfgen::readFreetypeOutline(shape, &ftFace_->glyph->outline);
+    shape.inverseYAxis = false;
+    shape.normalize();
+
+    // ⑥ Assign edge colors for multi-channel encoding
+    msdfgen::edgeColoringSimple(shape, 3.0);
+
+    // ⑦ Compute bounding box and output resolution
+    double l = 0, b = 0, r = 0, t = 0;
+    shape.bound(l, b, r, t);
+    double bboxW = r - l;
+    double bboxH = t - b;
+    if (bboxW <= 0 || bboxH <= 0) { bboxW = 1; bboxH = 1; }
+
+    static constexpr double kQuality = 1.0;
+    int baseW = std::max(2, (int)std::ceil(bboxW * kQuality));
+    int baseH = std::max(2, (int)std::ceil(bboxH * kQuality));
+    int maxDim = (int)(fontSize * 3);
+    if (maxDim < 2) maxDim = 2;
+    baseW = std::min(baseW, maxDim);
+    baseH = std::min(baseH, maxDim);
+    int outW = baseW + 2;
+    int outH = baseH + 2;
+
+    // ⑧ Distance field pixel range
+    const double pxRange = 2.0;
+    info.atlasW = (uint32_t)outW;
+    info.atlasH = (uint32_t)outH;
+    info.bearingX = (float)l;
+    info.bearingY = (float)t + 1.0f;
+
+    // ⑨ Generate MSDF
+    msdfgen::Bitmap<float, 3> msdf(baseW, baseH);
+    msdfgen::Vector2 scaleVec((double)baseW / bboxW, (double)baseH / bboxH);
+    msdfgen::Vector2 translateVec(-l * scaleVec.x, -b * scaleVec.y);
+    double avgScale = (scaleVec.x + scaleVec.y) * 0.5;
+    info.msdfRange = (float)(pxRange * avgScale);
+    msdfgen::generateMSDF(msdf, shape, msdfgen::Range(pxRange),
+                          scaleVec, translateVec,
+                          msdfgen::ErrorCorrectionConfig(
+                              msdfgen::ErrorCorrectionConfig::EDGE_PRIORITY,
+                              msdfgen::ErrorCorrectionConfig::CHECK_DISTANCE_AT_EDGE),
+                          true);
+
+    // ⑩ Shelf packing (use outW, outH, no padding)
     uint32_t w = (uint32_t)outW;
     uint32_t h = (uint32_t)outH;
-    const uint32_t kPad = 2; // 字形间 2px 间隔防渗色
-    // ── 步骤 1: 找最佳匹配货架 (高度最贴近, 减少垂直浪费) ──
+    const uint32_t kPad = 2;
     ShelfRow *best = nullptr;
-    uint32_t bestH = UINT32_MAX;
+    uint32_t bestHval = UINT32_MAX;
     for (auto &s : shelves_) {
         if (h <= s.rowHeight && s.nextX + w + kPad <= kAtlasSize) {
-            if (s.rowHeight < bestH) {
-                best = &s;
-                bestH = s.rowHeight;
-            }
+            if (s.rowHeight < bestHval) { best = &s; bestHval = s.rowHeight; }
         }
     }
     if (best) {
-        // ── 放入现有货架 ──
         info.atlasX = best->nextX;
         info.atlasY = best->y;
         best->nextX += w + kPad;
     } else {
-        // ── 需要在底部开新货架 ──
         if (shelfCurrentY_ + h + kPad > kAtlasSize) {
-            // ★ 图集满: 清空全部缓存, 版本递增, measure 循环将重排所有 Text
-            shelfCurrentY_ = 0;
-            shelves_.clear();
-            atlasDirtyMinRow_ = 0;
-            atlasDirtyMaxRow_ = kAtlasSize;
-            glyphCache_.clear();
-            atlasVersion_++;
+            shelfCurrentY_ = 0; shelves_.clear();
+            atlasDirtyMinRow_ = 0; atlasDirtyMaxRow_ = kAtlasSize;
+            glyphCache_.clear(); atlasVersion_++;
             std::memset(atlasData_.data(), 0, atlasData_.size());
         }
         info.atlasX = 0;
         info.atlasY = shelfCurrentY_;
-        ShelfRow newRow{shelfCurrentY_, w + kPad, h};
-        shelves_.push_back(newRow);
+        shelves_.push_back({shelfCurrentY_, w + kPad, h});
         shelfCurrentY_ += h + kPad;
     }
-    // ④ 将 SDF 位图写入图集 (不变)
+
+    // ⑪ Convert float[3] MSDF → RGBA8 and write to atlas (Y flip + 1px padding all sides)
     for (int y = 0; y < outH; y++) {
-        uint8_t *src = scaled.data() + y * outW;
-        uint8_t *dst = atlasData_.data() + (info.atlasY + y) * kAtlasSize + info.atlasX;
-        std::memcpy(dst, src, (size_t)outW);
+        uint8_t *dst = atlasData_.data() + ((info.atlasY + y) * kAtlasSize + info.atlasX) * 4;
+        std::memset(dst, 255, outW * 4);
+        if (y > 0 && y < outH - 1) {
+            int srcY = baseH - 1 - (y - 1);
+            for (int x = 0; x < baseW; x++) {
+                dst[(x + 1) * 4 + 0] = (uint8_t)(std::clamp(msdf(x, srcY)[0], 0.0f, 1.0f) * 255.0f);
+                dst[(x + 1) * 4 + 1] = (uint8_t)(std::clamp(msdf(x, srcY)[1], 0.0f, 1.0f) * 255.0f);
+                dst[(x + 1) * 4 + 2] = (uint8_t)(std::clamp(msdf(x, srcY)[2], 0.0f, 1.0f) * 255.0f);
+                dst[(x + 1) * 4 + 3] = 255;
+            }
+        }
     }
-    // ⑤ 更新脏区域 (不变)
+
     markDirtyRegion(info.atlasY, info.atlasH);
 }
+
 // ============================================================================
 // 脏区域追踪
 // ============================================================================
@@ -399,6 +482,11 @@ bool FontManager::saveAtlasCache(const std::string &path, const std::string &fon
         out.write(reinterpret_cast<const char *>(&bxBits), 4);
         out.write(reinterpret_cast<const char *>(&byBits), 4);
         out.write(reinterpret_cast<const char *>(&axBits), 4);
+
+        float mr = info.msdfRange;
+        uint32_t mrBits;
+        std::memcpy(&mrBits, &mr, 4);
+        out.write(reinterpret_cast<const char *>(&mrBits), 4);
     }
     // ── 货架分配器状态 ─────────────────────────────────────
     uint32_t shelfCount = static_cast<uint32_t>(shelves_.size());
@@ -454,6 +542,11 @@ bool FontManager::loadAtlasCache(const std::string &path, const std::string &fon
         std::memcpy(&info.bearingY, &byBits, 4);
         in.read(reinterpret_cast<char *>(&axBits), 4);
         std::memcpy(&info.advanceX, &axBits, 4);
+
+         uint32_t mrBits;
+        in.read(reinterpret_cast<char *>(&mrBits), 4);
+        std::memcpy(&info.msdfRange, &mrBits, 4);
+
         info.glyphIndex = key.glyph;
         glyphCache_[key] = info;
     }
