@@ -1,15 +1,15 @@
 import * as kwikui from 'kwikui';
-import { View, State, Channel } from 'kwikui';
+import { View, State } from 'kwikui';
 
 console.log("kwikui 模块导出:", Object.keys(kwikui));
 const s = new State({ count: 0 });
 console.log("State 实例:");
 console.log("初始 count = ", s.count);   // 直接读取属性
 console.log(typeof s.update);
-const ch = new Channel();
-console.log("Channel 实例:");
-console.log(typeof ch.send);
-console.log(typeof ch.receive);
+// const ch = new Channel();
+// console.log("Channel 实例:");
+// console.log(typeof ch.send);
+// console.log(typeof ch.receive);
 
 console.log("加载 View 示例");
 

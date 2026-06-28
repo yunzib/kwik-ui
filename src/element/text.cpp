@@ -89,11 +89,11 @@ void Text::onDraw(Graphics &graphics) {
             sg.height = (float)info.atlasH * scale;
             sg.bearingX = info.bearingX;
             sg.bearingY = info.bearingY;
-            float uvPad = 0.5f / (float)fm.atlasWidth();
-            sg.uvLeft   = (float)info.atlasX / fm.atlasWidth()  + uvPad;
-            sg.uvTop    = (float)info.atlasY / fm.atlasHeight() + uvPad;
-            sg.uvRight  = (float)(info.atlasX + info.atlasW) / fm.atlasWidth()  - uvPad;
-            sg.uvBottom = (float)(info.atlasY + info.atlasH) / fm.atlasHeight() - uvPad;
+             float uvPad = 0.5f / (float)FontManager::kAtlasSize;
+            sg.uvLeft   = (float)info.atlasX / FontManager::kAtlasSize + uvPad;
+            sg.uvTop    = (float)info.atlasY / FontManager::kAtlasSize + uvPad;
+            sg.uvRight  = (float)(info.atlasX + info.atlasW) / FontManager::kAtlasSize - uvPad;
+            sg.uvBottom = (float)(info.atlasY + info.atlasH) / FontManager::kAtlasSize - uvPad;
             sg.msdfRange = info.msdfRange;
             shapedGlyphsCache_.push_back(sg);
         }

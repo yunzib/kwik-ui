@@ -61,6 +61,7 @@ void GlyphRenderer::destroy() {
 // create — glyph 管线 + 2048x2048 R8G8B8A8_UNORM 图集
 // ================================================================
 bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
+                           VkCommandPool cmdPool, VkQueue queue,
                            VkRenderPass renderPass,
                            VkBuffer vertexBuffer, VkBuffer indexBuffer) {
     device_      = device;
@@ -229,8 +230,42 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
     if (vkAllocateMemory(device_, &ai, nullptr, &glyphAtlasMemory_) != VK_SUCCESS) {
         destroy(); return false;
     }
+
     vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0);
-    atlasLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    // ── 初始 layout 过渡: UNDEFINED → SHADER_READ_ONLY_OPTIMAL ──
+    {
+        VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        cai.commandPool = cmdPool;
+        cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cai.commandBufferCount = 1;
+        VkCommandBuffer cmd;
+        vkAllocateCommandBuffers(device_, &cai, &cmd);
+        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cmd, &bi);
+        VkImageMemoryBarrier initBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        initBarrier.image = glyphAtlasImage_;
+        initBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        initBarrier.subresourceRange.levelCount = 1;
+        initBarrier.subresourceRange.layerCount = 1;
+        initBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        initBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        initBarrier.srcAccessMask = 0;
+        initBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                             0, nullptr, 0, nullptr, 1, &initBarrier);
+        vkEndCommandBuffer(cmd);
+        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &cmd;
+        vkQueueSubmit(queue, 1, &si, VK_NULL_HANDLE);
+        vkQueueWaitIdle(queue);
+        vkFreeCommandBuffers(device_, cmdPool, 1, &cmd);
+    }
+    atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = glyphAtlasImage_;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -310,35 +345,13 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent,
     vkCmdBindIndexBuffer(cb, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cb, 6, 1, 0, 0, 0);
 }
+
 // ================================================================
-// uploadAtlas — 增量上传脏区域到 glyph atlas
+// uploadPendingGlyphs — 逐 glyph 上传到 atlas (替代 uploadAtlas)
 // ================================================================
-void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
-                                const uint8_t *data, uint32_t width, uint32_t height) {
-    auto &fm = FontManager::instance();
-    uint32_t dirtyMin = fm.atlasDirtyMinRow();
-    uint32_t dirtyMax = fm.atlasDirtyMaxRow();
-    if (dirtyMin >= dirtyMax || dirtyMin >= height) {
-        dirtyMin = 0;
-        dirtyMax = height;
-    }
-    uint32_t dirtyH = dirtyMax - dirtyMin;
-    uint32_t stride = width * 4;
-    VkDeviceSize size = (VkDeviceSize)stride * dirtyH;
-    VkBuffer staging;
-    VkDeviceMemory stagingMem;
-    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
-                                     size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                                     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     staging, stagingMem)) {
-        std::print("uploadGlyphAtlas: createBuffer failed\n");
-        return;
-    }
-    void *mapped;
-    vkMapMemory(dc.device, stagingMem, 0, size, 0, &mapped);
-    std::memcpy(mapped, data + dirtyMin * stride, (size_t)size);
-    vkUnmapMemory(dc.device, stagingMem);
+void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc, FontManager &fm) {
+    if (!fm.hasPendingUploads()) return;
+
     VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     cai.commandPool = dc.commandPool;
     cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -348,10 +361,9 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
-    // atlasLayout_ → TRANSFER_DST (use tracked layout, not UNDEFINED)
+
+    // ── 图集布局转换: 当前 → TRANSFER_DST ──
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = glyphAtlasImage_;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.levelCount = 1;
@@ -366,13 +378,38 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
                                      : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                          0, nullptr, 0, nullptr, 1, &barrier);
-    VkBufferImageCopy region{};
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageOffset = {0, (int32_t)dirtyMin, 0};
-    region.imageExtent = {width, dirtyH, 1};
-    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    // ── 收集待清理的 staging 资源 ──
+    struct StagingRes { VkBuffer buf; VkDeviceMemory mem; };
+    std::vector<StagingRes> toDestroy;
+
+    // ── 逐 glyph 上传 ──
+    fm.consumeUploadQueue([&](GlyphInfo &info) {
+        auto &px = info.pixelData;
+        if (px.empty()) return;
+        VkDeviceSize sz = px.size();
+        VkBuffer staging;
+        VkDeviceMemory stagingMem;
+        if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
+                sz, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                staging, stagingMem))
+            return;
+        void *map;
+        vkMapMemory(dc.device, stagingMem, 0, sz, 0, &map);
+        std::memcpy(map, px.data(), (size_t)sz);
+        vkUnmapMemory(dc.device, stagingMem);
+        VkBufferImageCopy region{};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = {(int32_t)info.atlasX, (int32_t)info.atlasY, 0};
+        region.imageExtent = {info.atlasW, info.atlasH, 1};
+        vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        toDestroy.push_back({staging, stagingMem});
+    });
+
+    // ── 转回 SHADER_READ_ONLY ──
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -387,9 +424,14 @@ void GlyphRenderer::uploadAtlas(const DeviceContext &dc,
     si.pCommandBuffers = &cmd;
     vkQueueSubmit(dc.queue, 1, &si, VK_NULL_HANDLE);
     vkQueueWaitIdle(dc.queue);
+
+    // ── GPU 执行完成后才销毁 staging buffer ──
+    for (auto &r : toDestroy) {
+        vkDestroyBuffer(dc.device, r.buf, nullptr);
+        vkFreeMemory(dc.device, r.mem, nullptr);
+    }
+
     vkFreeCommandBuffers(dc.device, dc.commandPool, 1, &cmd);
-    vkDestroyBuffer(dc.device, staging, nullptr);
-    vkFreeMemory(dc.device, stagingMem, nullptr);
 }
 
 // ================================================================

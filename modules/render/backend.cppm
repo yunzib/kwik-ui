@@ -62,7 +62,7 @@ public:
     virtual void present() = 0;
 
     virtual void drawGlyph(const DrawGlyphCmd &cmd) = 0;
-    virtual void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) = 0;
+   
 
     /**
      * @brief 设置全局透明度（0.0 - 1.0）

@@ -38,7 +38,7 @@ public:
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
     // 文字
     void drawGlyph(const DrawGlyphCmd &cmd) override;
-    void uploadGlyphAtlas(const uint8_t *data, uint32_t width, uint32_t height) override;
+
     // 图片
     void drawImage(const DrawImageCmd &cmd) override;
     uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;

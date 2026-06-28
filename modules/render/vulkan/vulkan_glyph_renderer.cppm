@@ -5,16 +5,19 @@ export module kwik.render.vulkan.glyph_renderer;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.vulkan.context;
+import kwik.render.font;
 
 export class GlyphRenderer {
 public:
     GlyphRenderer() = default;
     ~GlyphRenderer();
-    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass,
-                VkBuffer vertexBuffer, VkBuffer indexBuffer);
+    bool create(VkDevice device, VkPhysicalDevice physDevice,
+            VkCommandPool cmdPool, VkQueue queue,
+            VkRenderPass renderPass,
+            VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
 
-    void uploadAtlas(const DeviceContext &dc, const uint8_t *data, uint32_t width, uint32_t height);
+    void uploadPendingGlyphs(const DeviceContext &dc, FontManager &fm);
     void drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
     void drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
 

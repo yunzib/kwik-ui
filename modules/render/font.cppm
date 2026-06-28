@@ -26,6 +26,7 @@ export {
         float bearingY;
         float advanceX;
         float msdfRange = 2.0f;  // 距离场像素范围, 传给 shader 做 screenPxRange
+        std::vector<uint8_t> pixelData;   //  RGBA8, size = atlasW×atlasH×4
     };
     /**
      * @brief HarfBuzz 排版后的单个字形
@@ -217,41 +218,23 @@ public:
      * 若未缓存则触发 SDF 渲染 → 存入图集 → 加入缓存
      */
     GlyphInfo getGlyphInfo(uint32_t glyphIndex, float fontSize);
-    /**
-     * @brief 获取图集原始数据 (RGBA8, 4 字节/像素)
-     * @return 2048 x 2048 x 4 字节的缓冲区指针
-     */
-    const uint8_t *atlasData() const;
-    /**
-     * @brief 获取图集宽度
-     * @return 2048
-     */
-    uint32_t atlasWidth() const;
-    /**
-     * @brief 获取图集高度
-     * @return 2048
-     */
-    uint32_t atlasHeight() const;
-    // ═══════════════ 脏区域追踪 (优化: 增量上传) ═══════════════
-    /**
-     * @brief 图集是否有新增或更新的区域
-     * @return 有脏数据返回 true
-     */
-    bool atlasDirty() const;
-    /**
-     * @brief 获取脏区域的最小行索引
-     * @return 自上次 clearAtlasDirty 以来的最小变化行
-     */
-    uint32_t atlasDirtyMinRow() const;
-    /**
-     * @brief 获取脏区域的最大行索引
-     * @return 自上次 clearAtlasDirty 以来的最大变化行
-     */
-    uint32_t atlasDirtyMaxRow() const;
-    /**
-     * @brief 清除脏标记 (在 GPU 上传后调用)
-     */
-    void clearAtlasDirty();
+    
+    bool hasPendingUploads() const { return !uploadQueue_.empty(); }
+
+    struct UploadJob {
+        uint32_t glyphIndex;
+        float fontSize;
+    };
+
+    template<typename F>
+    void consumeUploadQueue(F &&consumer) {
+        for (auto &j : uploadQueue_) {
+            GlyphKey key{j.glyphIndex, j.fontSize};
+            auto it = glyphCache_.find(key);
+            if (it != glyphCache_.end()) consumer(it->second);
+        }
+        uploadQueue_.clear();
+    }
 
 private:
     FontManager();
@@ -264,12 +247,6 @@ private:
      * @param info       输出: 填充字形在图集中的位置和度量
      */
     void renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &info);
-    /**
-     * @brief 追踪脏区域 (由 renderGlyph 内部调用)
-     * @param atlasRow 字形在图集中占用的起始行
-     * @param atlasH   字形高度
-     */
-    void markDirtyRegion(uint32_t atlasRow, uint32_t atlasH);
 
     // ── 字形缓存键 ──
     struct GlyphKey {
@@ -299,14 +276,12 @@ private:
     int fontIndex_ = 0;
     // ── 字体搜索路径 ──
     std::vector<std::string> fontDirs_;
-    // ── 图集 ──
-    std::vector<uint8_t> atlasData_;
-    // ── 脏区域追踪 (替代原 bool atlasDirty_) ──
-    uint32_t atlasDirtyMinRow_ = kAtlasSize;
-    uint32_t atlasDirtyMaxRow_ = 0;
+   
     // ── 字形缓存 ──
     std::unordered_map<GlyphKey, GlyphInfo, GlyphKeyHash> glyphCache_;
     uint32_t atlasVersion_ = 0;    // 绕回时递增, Text 用它检测 UV 失效
     std::vector<ShelfRow> shelves_;
     uint32_t shelfCurrentY_ = 0;    // 无可匹配货架时, 新行的 Y 起点
+    // ── 上传队列(替代脏区域追踪) ──
+    std::vector<UploadJob> uploadQueue_;
 };

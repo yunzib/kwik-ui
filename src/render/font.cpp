@@ -40,7 +40,6 @@ FontManager &FontManager::instance() {
 FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
     if (err) ftLib_ = nullptr;
-    atlasData_.resize(kAtlasSize * kAtlasSize * 4, 0);    // RGBA8: 4x larger
 }
 
 FontManager::~FontManager() {
@@ -77,9 +76,7 @@ bool FontManager::loadFont(const char *path, int faceIndex) {
     glyphCache_.clear();
     shelves_.clear();
     shelfCurrentY_ = 0;
-    atlasDirtyMinRow_ = kAtlasSize;
-    atlasDirtyMaxRow_ = 0;
-    std::memset(atlasData_.data(), 0, atlasData_.size());
+    uploadQueue_.clear();
     FT_Error err = FT_New_Face(ftLib_, path, faceIndex, &ftFace_);
     if (err) return false;
     fontPath_ = path;
@@ -275,7 +272,6 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     info.bearingY = bearingY;
     info.advanceX = advanceX;
 
-    // ④ Handle empty outline (space, zero-width glyphs)
     if (ftFace_->glyph->outline.n_contours <= 0) {
         static constexpr int pad = 2;
         info.atlasW = 1 + 2 * pad;
@@ -303,27 +299,17 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
             if (shelfCurrentY_ + h + kPad > kAtlasSize) {
                 shelfCurrentY_ = 0;
                 shelves_.clear();
-                atlasDirtyMinRow_ = 0;
-                atlasDirtyMaxRow_ = kAtlasSize;
                 glyphCache_.clear();
                 atlasVersion_++;
-                std::memset(atlasData_.data(), 0, atlasData_.size());
             }
             info.atlasX = 0;
             info.atlasY = shelfCurrentY_;
             shelves_.push_back({shelfCurrentY_, w + kPad, h});
             shelfCurrentY_ += h + kPad;
         }
-        // 全部填白（纯 inside），中心为白色
-        uint8_t *base = atlasData_.data() + (info.atlasY * kAtlasSize + info.atlasX) * 4;
-        for (uint32_t y = 0; y < h; y++)
-            for (uint32_t x = 0; x < w; x++) {
-                base[(y * kAtlasSize + x) * 4 + 0] = 255;
-                base[(y * kAtlasSize + x) * 4 + 1] = 255;
-                base[(y * kAtlasSize + x) * 4 + 2] = 255;
-                base[(y * kAtlasSize + x) * 4 + 3] = 255;
-            }
-        markDirtyRegion(info.atlasY, info.atlasH);
+        // 改为写入 info.pixelData (全部白色)
+        info.pixelData.resize(h * w * 4, 255);
+        uploadQueue_.push_back({glyphIndex, fontSize});
         return;
     }
 
@@ -334,7 +320,7 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
     shape.normalize();
 
     // ⑥ Assign edge colors for multi-channel encoding
-    msdfgen::edgeColoringByDistance(shape, 3.0);
+    msdfgen::edgeColoringSimple(shape, 3.0);
 
     // ⑦ Compute bounding box and output resolution
     double l = 0, b = 0, r = 0, t = 0;
@@ -396,11 +382,8 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
         if (shelfCurrentY_ + h + kPad > kAtlasSize) {
             shelfCurrentY_ = 0;
             shelves_.clear();
-            atlasDirtyMinRow_ = 0;
-            atlasDirtyMaxRow_ = kAtlasSize;
             glyphCache_.clear();
             atlasVersion_++;
-            std::memset(atlasData_.data(), 0, atlasData_.size());
         }
         info.atlasX = 0;
         info.atlasY = shelfCurrentY_;
@@ -408,9 +391,10 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
         shelfCurrentY_ += h + kPad;
     }
 
-    // ⑪ Convert float[3] MSDF → RGBA8 and write to atlas (Y flip + 1px padding all sides)
+    // ⑪ 存储 RGBA8 到 info.pixelData (不再写入 atlasData_)
+    info.pixelData.resize(outW * outH * 4);
     for (int y = 0; y < outH; y++) {
-        uint8_t *dst = atlasData_.data() + ((info.atlasY + y) * kAtlasSize + info.atlasX) * 4;
+        uint8_t *dst = info.pixelData.data() + y * outW * 4;
         std::memset(dst, 255, outW * 4);
         if (y > 0 && y < outH - 1) {
             int srcY = baseH - 1 - (y - 1);
@@ -422,41 +406,7 @@ void FontManager::renderGlyph(uint32_t glyphIndex, float fontSize, GlyphInfo &in
             }
         }
     }
-
-    markDirtyRegion(info.atlasY, info.atlasH);
-}
-
-// ============================================================================
-// 脏区域追踪
-// ============================================================================
-void FontManager::markDirtyRegion(uint32_t atlasRow, uint32_t atlasH) {
-    atlasDirtyMinRow_ = std::min(atlasDirtyMinRow_, atlasRow);
-    atlasDirtyMaxRow_ = std::max(atlasDirtyMaxRow_, atlasRow + atlasH);
-}
-bool FontManager::atlasDirty() const {
-    return atlasDirtyMinRow_ < atlasDirtyMaxRow_;
-}
-uint32_t FontManager::atlasDirtyMinRow() const {
-    return atlasDirtyMinRow_;
-}
-uint32_t FontManager::atlasDirtyMaxRow() const {
-    return atlasDirtyMaxRow_;
-}
-void FontManager::clearAtlasDirty() {
-    atlasDirtyMinRow_ = kAtlasSize;
-    atlasDirtyMaxRow_ = 0;
-}
-// ============================================================================
-// 图集数据访问 (公有接口, 无变化)
-// ============================================================================
-const uint8_t *FontManager::atlasData() const {
-    return atlasData_.data();
-}
-uint32_t FontManager::atlasWidth() const {
-    return kAtlasSize;
-}
-uint32_t FontManager::atlasHeight() const {
-    return kAtlasSize;
+    uploadQueue_.push_back({glyphIndex, fontSize});
 }
 
 // ============================================================================
@@ -512,8 +462,19 @@ bool FontManager::saveAtlasCache(const std::string &path, const std::string &fon
     out.write(reinterpret_cast<const char *>(&shelfCurrentY_), 4);
     // ── 图集版本号 ─────────────────────────────────────────
     out.write(reinterpret_cast<const char *>(&atlasVersion_), 4);
-    // ── 图集像素数据 (kAtlasSize² 字节) ────────────────────
-    out.write(reinterpret_cast<const char *>(atlasData_.data()), atlasData_.size());
+     // ── 逐字形像素数据 (附带 key) ──
+    for (auto &[key, info] : glyphCache_) {
+        // 写入标识 keys, 保证 load 时能正确匹配
+        out.write(reinterpret_cast<const char *>(&key.glyph), 4);
+        uint32_t fsBits;
+        std::memcpy(&fsBits, &key.fontSize, 4);
+        out.write(reinterpret_cast<const char *>(&fsBits), 4);
+
+        uint32_t pxSize = static_cast<uint32_t>(info.pixelData.size());
+        out.write(reinterpret_cast<const char *>(&pxSize), 4);
+        if (pxSize > 0)
+            out.write(reinterpret_cast<const char *>(info.pixelData.data()), pxSize);
+    }
     return out.good();
 }
 
@@ -578,17 +539,27 @@ bool FontManager::loadAtlasCache(const std::string &path, const std::string &fon
     in.read(reinterpret_cast<char *>(&shelfCurrentY_), 4);
     // ⑥ 读取图集版本号
     in.read(reinterpret_cast<char *>(&atlasVersion_), 4);
-    // ⑦ 读取图集像素
-    in.read(reinterpret_cast<char *>(atlasData_.data()), atlasData_.size());
-    if (!in.good()) {
-        glyphCache_.clear();
-        shelves_.clear();
-        shelfCurrentY_ = 0;
-        atlasVersion_ = 0;
-        return false;
+    // ── 逐字形像素数据 (按 key 匹配) ──
+    for (uint32_t i = 0; i < entryCount; i++) {
+        uint32_t glyph;
+        uint32_t fsBits;
+        uint32_t pxSize;
+        in.read(reinterpret_cast<char *>(&glyph), 4);
+        in.read(reinterpret_cast<char *>(&fsBits), 4);
+        in.read(reinterpret_cast<char *>(&pxSize), 4);
+        if (pxSize > 0) {
+            float fontSize;
+            std::memcpy(&fontSize, &fsBits, 4);
+            GlyphKey k{glyph, fontSize};
+            auto it = glyphCache_.find(k);
+            if (it != glyphCache_.end()) {
+                it->second.pixelData.resize(pxSize);
+                in.read(reinterpret_cast<char *>(it->second.pixelData.data()), pxSize);
+                uploadQueue_.push_back({glyph, fontSize});
+            } else {
+                in.seekg(pxSize, std::ios::cur);   // 跳过未知字形
+            }
+        }
     }
-    // ⑧ 标记全图集脏, 驱染线程上传到 GPU
-    atlasDirtyMinRow_ = 0;
-    atlasDirtyMaxRow_ = kAtlasSize;
     return true;
 }

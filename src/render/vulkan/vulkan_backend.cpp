@@ -31,7 +31,8 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
-    if (!glyph_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
+    if (!glyph_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.commandPool(), ctx_.graphicsQueue(),
+                   ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         rect_.destroy();
         ctx_.shutdown();
         return false;
@@ -72,14 +73,13 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     clip_.beginFrame(currentToken_->extent, sc);
     return true;
 }
+
 void VulkanBackend::endFrame() {
     auto &fm = FontManager::instance();
-    if (fm.atlasDirty()) {
-        glyph_.uploadAtlas(deviceCtx_, fm.atlasData(), fm.atlasWidth(), fm.atlasHeight());
-        fm.clearAtlasDirty();
-    }
+    glyph_.uploadPendingGlyphs(deviceCtx_, fm);
     ctx_.endFrame();
 }
+
 void VulkanBackend::present() {
     ctx_.present();
     currentToken_.reset();
@@ -109,9 +109,7 @@ void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
         glyph_.drawGlyph(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     }
 }
-void VulkanBackend::uploadGlyphAtlas(const uint8_t *d, uint32_t w, uint32_t h) {
-    glyph_.uploadAtlas(deviceCtx_, d, w, h);
-}
+
 void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
     if (clip_.level() > 0) {
         image_.drawImageClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
