@@ -15,7 +15,6 @@ import kwik.platform.window;
 import kwik.engine.context;
 import kwik.render.render_thread;
 import kwik.render.backend;
-import kwik.render.font;
 import kwik.render.graphics;
 import kwik.render.command;
 import kwik.event;
@@ -27,7 +26,8 @@ import kwik.bridge.binding_registry;
 import kwik.core.scheduler;     
 import kwik.core.task_queue;          
 import kwik.core.thread_pool;         
-
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 
 import std;
 
@@ -119,13 +119,6 @@ public:
     View *rootView() {
         return tree_.get();
     }
-    /**
-     * @brief 获取字体管理器单例
-     * @return FontManager 引用
-     */
-    FontManager &fontManager() {
-        return FontManager::instance();
-    }
 
 private:
     PlatformWindow &window_;
@@ -162,7 +155,7 @@ private:
      * @brief measure 循环 + layout (init / rebuildTree / WindowResize 共用)
      * @param sz 布局目标逻辑尺寸
      *
-     * measure 需循环直至 FontManager 图集版本稳定:
+     * measure 需循环直至 TextAtlas 图集版本稳定:
      * Text 组件 onMeasure 中可能触发增量 SDF 烘焙,
      * 每次烘焙会递增 atlasVersion, 需反复测量直到无新字形产生。
      */

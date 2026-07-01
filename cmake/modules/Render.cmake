@@ -10,14 +10,31 @@ set(RENDER_PUBLIC_MODULES
     modules/render/backend.cppm
     modules/render/command.cppm
     modules/render/render_thread.cppm
-    modules/render/font.cppm
     modules/render/texture_manager.cppm
+    modules/render/text/text_types.cppm
+    modules/render/text/text_face.cppm
+    modules/render/text/text_shaper.cppm
+    modules/render/text/text_font_manager.cppm
+    modules/render/text/text_layout_engine.cppm
+    modules/render/text/text_layout_cache.cppm
+    modules/render/text/text_glyph_cache.cppm
+    modules/render/text/text_batch_collector.cppm
+    modules/render/text/text_render_pipeline.cppm
+    
 )
 set(RENDER_PRIVATE_SOURCES
     src/render/graphics.cpp
     src/render/command.cpp
     src/render/render_thread.cpp
-    src/render/font.cpp
+    src/render/text/text_face_ft.cpp
+    src/render/text/text_shaper.cpp
+    src/render/text/text_font_manager.cpp
+    src/render/text/text_layout_engine.cpp
+    src/render/text/text_layout_cache.cpp
+    src/render/text/text_glyph_cache.cpp
+    src/render/text/text_batch_collector.cpp
+    src/render/text/text_render_pipeline.cpp
+   
 )
 
 set(RENDER_COMPILE_DEFINITIONS
@@ -78,7 +95,7 @@ target_link_libraries(kwik_render
         kwik_platform
         freetype
         harfbuzz
-        msdfgen::msdfgen        # 链接 msdfgen-core + msdfgen-ext
+        # msdfgen::msdfgen        # 链接 msdfgen-core + msdfgen-ext
 )
 
 # 6. 添加链接库（LINK_LIBRARIES）

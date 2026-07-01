@@ -13,20 +13,20 @@ target_sources(kwik_element
             modules/element/typed_prop.cppm
             modules/element/view.cppm
             modules/element/text.cppm
-            modules/element/button.cppm
+            # modules/element/button.cppm
             modules/element/image.cppm
-            modules/element/input.cppm
-            modules/element/radiobutton.cppm
-            modules/element/checkbox.cppm
-            modules/element/textarea.cppm
-            modules/element/dropdown.cppm
+            # modules/element/input.cppm
+            # modules/element/radiobutton.cppm
+            # modules/element/checkbox.cppm
+            # modules/element/textarea.cppm
+            # modules/element/dropdown.cppm
             modules/element/slider.cppm
             modules/element/progressbar.cppm
             modules/element/switch.cppm
             modules/element/line.cppm
             modules/element/spinner.cppm
-            modules/element/table.cppm
-            modules/element/textview.cppm
+            # modules/element/table.cppm
+            # modules/element/textview.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -40,22 +40,22 @@ target_sources(kwik_element
     PRIVATE
         src/element/view.cpp
         src/element/text.cpp
-        src/element/button.cpp
+        # src/element/button.cpp
         src/element/image.cpp
         src/element/stb_image_impl.cpp
         src/element/svg_decoder.cpp
-        src/element/input.cpp
-        src/element/radiobutton.cpp
-        src/element/checkbox.cpp
-        src/element/textarea.cpp
-        src/element/dropdown.cpp
+        # src/element/input.cpp
+        # src/element/radiobutton.cpp
+        # src/element/checkbox.cpp
+        # src/element/textarea.cpp
+        # src/element/dropdown.cpp
         src/element/slider.cpp
         src/element/progressbar.cpp
         src/element/switch.cpp
         src/element/line.cpp
         src/element/spinner.cpp
-        src/element/table.cpp
-        src/element/textview.cpp
+        # src/element/table.cpp
+        # src/element/textview.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

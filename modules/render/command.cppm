@@ -6,6 +6,7 @@ module;
 export module kwik.render.command;
 
 import kwik.core.types;
+
 import std;
 
 /**
@@ -93,6 +94,7 @@ export struct DrawImageCmd {
  * @brief 绘制字形命令
  */
 export struct DrawGlyphCmd {
+    FontId fontId;
     uint32_t glyphIndex;
     float x;
     float y;
@@ -103,7 +105,6 @@ export struct DrawGlyphCmd {
     float uvRight;
     float uvBottom;
     Color color;
-    float msdfRange;  // ← NEW: from GlyphInfo.msdfRange, passed to shader push constant
 };
 
 /**

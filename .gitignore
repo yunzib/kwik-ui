@@ -1,3 +1,4 @@
 build/
-.VSCodeCounter
-.opencode/plans/
+.VSCodeCounter/
+.opencode/
+.cache/

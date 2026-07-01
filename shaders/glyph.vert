@@ -1,14 +1,12 @@
 #version 450
 layout(location = 0) in vec2 inPosition;
+// ── A8 位图路径: 不需要 pxRange / cornerRadius / atlasSize ──
 layout(push_constant) uniform PushConstants {
     vec2  pos;
     vec2  size;
     vec4  uvRect;
     vec4  color;
     vec2  viewportSize;
-    float cornerRadius;
-    float pxRange;
-    vec2  atlasSize;
 } pc;
 layout(location = 0) out vec2 fragUV;
 layout(location = 1) out flat vec4 fragColor;

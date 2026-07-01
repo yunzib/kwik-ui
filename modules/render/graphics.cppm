@@ -7,7 +7,7 @@ export module kwik.render.graphics;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.backend;
-import kwik.render.font;
+import kwik.render.text.types;
 
 import std;
 
@@ -66,6 +66,7 @@ public:
      * 直接从缓存读取 UV 坐标, 适用于 Text 组件的 onDraw 热路径
      */
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
+    void drawGlyph(const GlyphDrawData &g);
 
     /**
      * @brief 绘制图像
@@ -103,6 +104,11 @@ public:
      */
     void getSize(int *width, int *height) const;
 
+    /**
+     * @brief 添加命令到缓冲区
+     */
+    void addCommand(Command cmd);
+
 private:
     CommandBuffer *commandBuffer_ = nullptr;
     int width_ = 0;
@@ -119,10 +125,7 @@ private:
     Rect transformRect(const Rect &rect) const;
     Color applyOpacity(const Color &color) const;
 
-    /**
-     * @brief 添加命令到缓冲区
-     */
-    void addCommand(Command cmd);
+    
 
     /**
      * @brief 检查命令缓冲区是否有效

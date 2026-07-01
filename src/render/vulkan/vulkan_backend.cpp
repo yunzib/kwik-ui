@@ -1,7 +1,6 @@
 module;
 #include <vulkan/vulkan.h>
 module kwik.render.vulkan_backend;
-import kwik.render.font;
 import kwik.render.vulkan.context;
 import kwik.render.vulkan.rect_renderer;
 import kwik.render.vulkan.glyph_renderer;
@@ -9,6 +8,9 @@ import kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.clip_manager;
 import kwik.render.command;
 import kwik.core.types;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+
 import std;
 
 VulkanBackend::~VulkanBackend() {
@@ -75,8 +77,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
 }
 
 void VulkanBackend::endFrame() {
-    auto &fm = FontManager::instance();
-    glyph_.uploadPendingGlyphs(deviceCtx_, fm);
+    glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();
 }
 

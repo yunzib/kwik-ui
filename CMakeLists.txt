@@ -97,18 +97,18 @@ set(HB_BUILD_SUBSET OFF CACHE BOOL "")
 add_subdirectory(third_party/harfbuzz)
 
 
-# msdfgen — 多通道有符号距离场
-set(MSDFGEN_CORE_ONLY OFF CACHE BOOL "")
-set(MSDFGEN_BUILD_STANDALONE OFF CACHE BOOL "")
-set(MSDFGEN_USE_VCPKG OFF CACHE BOOL "")
-set(MSDFGEN_USE_OPENMP OFF CACHE BOOL "")
-set(MSDFGEN_USE_SKIA OFF CACHE BOOL "")
-set(MSDFGEN_DISABLE_SVG ON CACHE BOOL "")
-set(MSDFGEN_DISABLE_PNG ON CACHE BOOL "")
-# msdfgen-ext 需要 Freetype::Freetype target 别名
-add_library(Freetype::Freetype ALIAS freetype)
-add_subdirectory(third_party/msdfgen)
-message(STATUS "===== 完成引入 msdfgen =====")
+# # msdfgen — 多通道有符号距离场
+# set(MSDFGEN_CORE_ONLY OFF CACHE BOOL "")
+# set(MSDFGEN_BUILD_STANDALONE OFF CACHE BOOL "")
+# set(MSDFGEN_USE_VCPKG OFF CACHE BOOL "")
+# set(MSDFGEN_USE_OPENMP OFF CACHE BOOL "")
+# set(MSDFGEN_USE_SKIA OFF CACHE BOOL "")
+# set(MSDFGEN_DISABLE_SVG ON CACHE BOOL "")
+# set(MSDFGEN_DISABLE_PNG ON CACHE BOOL "")
+# # msdfgen-ext 需要 Freetype::Freetype target 别名
+# add_library(Freetype::Freetype ALIAS freetype)
+# add_subdirectory(third_party/msdfgen)
+# message(STATUS "===== 完成引入 msdfgen =====")
 
 
 message(STATUS "===== 完成引入 harfbuzz =====")

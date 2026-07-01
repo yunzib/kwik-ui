@@ -5,7 +5,8 @@ export module kwik.render.vulkan.glyph_renderer;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.vulkan.context;
-import kwik.render.font;
+import kwik.render.text.types;
+
 
 export class GlyphRenderer {
 public:
@@ -17,7 +18,7 @@ public:
             VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
 
-    void uploadPendingGlyphs(const DeviceContext &dc, FontManager &fm);
+    void uploadPendingGlyphs(const DeviceContext &dc);
     void drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
     void drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
 

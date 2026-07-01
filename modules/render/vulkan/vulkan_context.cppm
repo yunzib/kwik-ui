@@ -16,19 +16,31 @@ import kwik.core.types;
 
 import std;
 
+// ── 字形绘制 Push Constants (56 字节) ──
 export struct GlyphPushConstants {
     float posX, posY;          // offset  0
     float sizeX, sizeY;        // offset  8
     float uvU0, uvV0;          // offset 16
     float uvU1, uvV1;          // offset 24
-    float colorR, colorG, colorB, colorA; // offset 32 (16B)
+    float colorR, colorG, colorB, colorA; // offset 32
     float viewportW, viewportH; // offset 48
-    float cornerRadius;         // offset 56
-    float pxRange;              // offset 60  ← NEW
-    float atlasSizeW;           // offset 64  ← NEW
-    float atlasSizeH;           // offset 68  ← NEW
+    // 总计 56 字节
 };
-static_assert(sizeof(GlyphPushConstants) == 72, "GlyphPushConstants size must match shader layout");
+static_assert(sizeof(GlyphPushConstants) == 56, "GlyphPushConstants size must match glyph shader layout");
+
+// ── 图片绘制 Push Constants (60 字节，保留 cornerRadius) ──
+export struct ImagePushConstants {
+    float posX, posY;           // offset  0
+    float sizeX, sizeY;         // offset  8
+    float uvU0, uvV0;           // offset 16
+    float uvU1, uvV1;           // offset 24
+    float colorR, colorG, colorB, colorA; // offset 32
+    float viewportW, viewportH;  // offset 48
+    float cornerRadius;          // offset 56
+    // 总计 60 字节
+};
+static_assert(sizeof(ImagePushConstants) == 60, "ImagePushConstants size must match image shader layout");
+
 
 // ── FrameToken: 每帧由 beginFrame 产出，子渲染器通过此对象获取 Vulkan 句柄 ──
 export struct FrameToken {

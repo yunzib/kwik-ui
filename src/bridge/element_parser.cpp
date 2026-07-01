@@ -14,25 +14,17 @@
 // ============================================================================
 module;
 #include "quickjs.h"
+import kwik.core.log;
 module kwik.bridge.element_parser;
 import kwik.bridge.props_parser;
 import kwik.element.view;
 import kwik.element.props;
 import kwik.engine.js_value;
-import kwik.element.text;
-import kwik.element.button;
 import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
 import kwik.layout.stack_layout;
 import kwik.layout.list_layout;
 import kwik.element.image;
-import kwik.element.input;
-import kwik.core.log;
-import kwik.element.radiobutton;
-import kwik.layout.radio_group;
-import kwik.element.checkbox;
-import kwik.element.textarea;
-import kwik.element.dropdown;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
@@ -41,8 +33,16 @@ import kwik.element.progressbar;
 import kwik.element.switch_button;
 import kwik.element.line;
 import kwik.element.spinner;
-import kwik.element.table;
-import kwik.element.textview;
+// import kwik.element.table;
+// import kwik.element.textview;
+import kwik.element.text;
+// import kwik.element.button;
+// import kwik.element.input;
+// import kwik.element.radiobutton;
+// import kwik.layout.radio_group;
+// import kwik.element.checkbox;
+// import kwik.element.textarea;
+// import kwik.element.dropdown;
 
 import std;
 
@@ -143,11 +143,11 @@ static struct InitBuiltinTypes {
             return std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
         });
 
-        ElementParser::registerType("Button", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
-        });
+        // ElementParser::registerType("Button", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
+        // });
 
         ElementParser::registerType("Flex", [](const JSValueRef &pv) {
             TypedPropMap meta;
@@ -194,136 +194,136 @@ static struct InitBuiltinTypes {
             return std::make_unique<Image>(parseViewProps(ex), parseImageProps(ex));
         });
 
-        // ── Input — 绑定注入统一由 applyBindings 处理 ──
-        ElementParser::registerType("Input", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto input = std::make_unique<Input>(parseViewProps(ex), parseInputProps(ex));
-            input->propMeta = std::move(meta);
-            applyBindings(input.get(), pv);
-            return input;
-        });
+        // // ── Input — 绑定注入统一由 applyBindings 处理 ──
+        // ElementParser::registerType("Input", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto input = std::make_unique<Input>(parseViewProps(ex), parseInputProps(ex));
+        //     input->propMeta = std::move(meta);
+        //     applyBindings(input.get(), pv);
+        //     return input;
+        // });
 
-        ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
-        });
+        // ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
+        // });
 
-        // ── RadioGroup ──
-        ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto rg = std::make_unique<RadioGroup>(parseViewProps(ex), parseRadioGroupProps(ex));
-            rg->propMeta = std::move(meta);
-            applyBindings(rg.get(), pv);
-            return rg;
-        });
+        // // ── RadioGroup ──
+        // ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto rg = std::make_unique<RadioGroup>(parseViewProps(ex), parseRadioGroupProps(ex));
+        //     rg->propMeta = std::move(meta);
+        //     applyBindings(rg.get(), pv);
+        //     return rg;
+        // });
 
-        // ── Checkbox ──
-        ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto checkbox =
-                std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
-            checkbox->propMeta = std::move(meta);
-            applyBindings(checkbox.get(), pv);
-            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
-            return checkbox;
-        });
+        // // ── Checkbox ──
+        // ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto checkbox =
+        //         std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
+        //     checkbox->propMeta = std::move(meta);
+        //     applyBindings(checkbox.get(), pv);
+        //     Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
+        //     return checkbox;
+        // });
 
-        // ── TextArea ──
-        ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto ta = std::make_unique<TextArea>(parseViewProps(ex), parseTextAreaProps(ex));
-            ta->propMeta = std::move(meta);
-            applyBindings(ta.get(), pv);
-            return ta;
-        });
+        // // ── TextArea ──
+        // ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto ta = std::make_unique<TextArea>(parseViewProps(ex), parseTextAreaProps(ex));
+        //     ta->propMeta = std::move(meta);
+        //     applyBindings(ta.get(), pv);
+        //     return ta;
+        // });
 
-        // ── Dropdown ──
-        ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto dd = std::make_unique<Dropdown>(parseViewProps(ex), parseDropdownProps(ex));
-            dd->propMeta = std::move(meta);
-            applyBindings(dd.get(), pv);
-            return dd;
-        });
+        // // ── Dropdown ──
+        // ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto dd = std::make_unique<Dropdown>(parseViewProps(ex), parseDropdownProps(ex));
+        //     dd->propMeta = std::move(meta);
+        //     applyBindings(dd.get(), pv);
+        //     return dd;
+        // });
 
-        // ── Slider ──
-        ElementParser::registerType("Slider", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto slider = std::make_unique<Slider>(parseViewProps(ex), parseSliderProps(ex));
-            slider->propMeta = std::move(meta);
-            applyBindings(slider.get(), pv);
-            return slider;
-        });
+        // // ── Slider ──
+        // ElementParser::registerType("Slider", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto slider = std::make_unique<Slider>(parseViewProps(ex), parseSliderProps(ex));
+        //     slider->propMeta = std::move(meta);
+        //     applyBindings(slider.get(), pv);
+        //     return slider;
+        // });
 
-        // ── ProgressBar ──
-        ElementParser::registerType("ProgressBar", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto pb = std::make_unique<ProgressBar>(parseViewProps(ex), parseProgressBarProps(ex));
-            pb->propMeta = std::move(meta);
-            applyBindings(pb.get(), pv);
-            return pb;
-        });
+        // // ── ProgressBar ──
+        // ElementParser::registerType("ProgressBar", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto pb = std::make_unique<ProgressBar>(parseViewProps(ex), parseProgressBarProps(ex));
+        //     pb->propMeta = std::move(meta);
+        //     applyBindings(pb.get(), pv);
+        //     return pb;
+        // });
 
-        // ── Switch ──
-        ElementParser::registerType("Switch", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto sw = std::make_unique<Switch>(parseViewProps(ex), parseSwitchProps(ex));
-            sw->propMeta = std::move(meta);
-            applyBindings(sw.get(), pv);
-            return sw;
-        });
+        // // ── Switch ──
+        // ElementParser::registerType("Switch", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto sw = std::make_unique<Switch>(parseViewProps(ex), parseSwitchProps(ex));
+        //     sw->propMeta = std::move(meta);
+        //     applyBindings(sw.get(), pv);
+        //     return sw;
+        // });
 
-        // ── Line ──
-        ElementParser::registerType("Line", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            return std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
-        });
+        // // ── Line ──
+        // ElementParser::registerType("Line", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     return std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
+        // });
 
-        // ── Spinner ──
-        ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
-        });
+        // // ── Spinner ──
+        // ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
+        // });
 
-        // ── Table ──
-        ElementParser::registerType("Table", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
+        // // ── Table ──
+        // ElementParser::registerType("Table", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
 
-            // 保留 data 数组的 JS 引用
-            if (pv.hasProperty("data")) {
-                auto dataVal = pv.getProperty("data");
-                if (dataVal.isArray()) {
-                    JSContext *ctx = dataVal.context();
-                    table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
-                }
-            }
+        //     // 保留 data 数组的 JS 引用
+        //     if (pv.hasProperty("data")) {
+        //         auto dataVal = pv.getProperty("data");
+        //         if (dataVal.isArray()) {
+        //             JSContext *ctx = dataVal.context();
+        //             table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
+        //         }
+        //     }
 
-            return table;
-        });
+        //     return table;
+        // });
 
-        // ── TextView（富文本编辑器）──
-        ElementParser::registerType("TextView", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto tv = std::make_unique<TextView>(parseViewProps(ex), parseTextViewProps(ex));
-            tv->propMeta = std::move(meta);
-            applyBindings(tv.get(), pv);
-            Log::debug("TextView created: id={}", tv->getProperty("id"));
-            return tv;
-        });
+        // // ── TextView（富文本编辑器）──
+        // ElementParser::registerType("TextView", [](const JSValueRef &pv) {
+        //     TypedPropMap meta;
+        //     PropsExtractor ex(pv, &meta);
+        //     auto tv = std::make_unique<TextView>(parseViewProps(ex), parseTextViewProps(ex));
+        //     tv->propMeta = std::move(meta);
+        //     applyBindings(tv.get(), pv);
+        //     Log::debug("TextView created: id={}", tv->getProperty("id"));
+        //     return tv;
+        // });
     }
 } _init_builtin_types;
 

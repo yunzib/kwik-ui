@@ -1,110 +1,93 @@
 module;
+
 #include <algorithm>
 #include <cstring>
+
 module kwik.element.text;
+
 import kwik.element.view;
 import kwik.element.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+
 import std;
-// ============================================================================
-// Text::needReshape — 脏检测
-// ============================================================================
-bool Text::needReshape(const std::string &fontPath) const {
-    if (text_.text != cachedText_) return true;
-    if (text_.fontSize != cachedFontSize_) return true;
-    if (fontPath != cachedFontPath_) return true;
-    return false;
-}
-// ============================================================================
-// Text::onMeasure — 带缓存的测量
-// ============================================================================
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Text::onMeasure — 测量文本尺寸
+//
+// 流程:
+//   1. 解析 fontFamily → FontId
+//   2. 构造 TextLayoutConfig
+//   3. 调用 pipeline.layoutText → 排版 + 写入 LayoutCache
+//   4. 从缓存读取总宽高，约束后返回
+//
+// 注意: 此阶段不触发 FreeType 渲染（仅 HarfBuzz 排版）。
+// ═══════════════════════════════════════════════════════════════════════════
+
 Size Text::onMeasure(Constraints constraints) {
-    auto &fm = FontManager::instance();
-    // ① 解析字体路径
-    std::string fontPath = fm.resolveFontPath(text_.fontFamily.empty() ? "NotoSansSC-Regular.otf" : text_.fontFamily);
-    if (fontPath.empty()) return {0, 0};
-    // ② 加载字体 (若未变化则快速返回)
-    fm.loadFont(fontPath.c_str());
-    // ③ 脏检测: 若文本/字号/字体未变, 复用缓存
-    if (needReshape(fontPath)) {
-        metricsCache_ = fm.shapeMetrics(text_.text.c_str(), text_.fontSize);    // ← 不含 SDF
-        cachedAdvance_ = 0;
-        for (auto &m : metricsCache_) cachedAdvance_ += m.advanceX;
-        cachedMetrics_ = fm.getMetrics(text_.fontSize);
-        cachedFontSize_ = text_.fontSize;
-        cachedText_ = text_.text;
-        cachedFontPath_ = fontPath;
-        bakedCount_ = 0;
-        shapedGlyphsCache_.clear();    // ← 清空旧 UV
+    auto& pipe = TextRenderPipeline::instance();
+
+    // ── 解析字体 ──
+    FontId fid = pipe.loadFont(text_.fontFamily);
+    if (fid == kInvalidFontId) {
+        fid = pipe.activeFont();
     }
-    // 使用缓存的度量信息
-    auto sz = constraints.constrain({cachedAdvance_, cachedMetrics_.lineHeight});
-    return {sz.width, sz.height};
+
+    // ── 排版配置 ──
+    TextLayoutConfig cfg;
+    cfg.maxWidth = constraints.maxWidth;
+    cfg.align  = static_cast<LayoutTextAlign>(text_.textAlign);
+    cfg.fontWeight = static_cast<int>(text_.fontWeight);
+    cfg.fontStyle  = static_cast<int>(text_.fontStyle);
+
+    // ── 排版 + 缓存 ──
+    layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+
+    // ── 读取结果 ──
+    auto* result = pipe.getLayout(layoutToken_);
+    if (!result) {
+        return constraints.constrain({0, 0});
+    }
+
+    float w = result->totalWidth;
+    float h = std::max(result->totalHeight, 16.0f);   // 空行最小高度
+    return constraints.constrain({w, h});
 }
-// ============================================================================
-// Text::onDraw — 使用缓存的排版结果
-// ============================================================================
-void Text::onDraw(Graphics &graphics) {
-    const auto &p = text_;
-    if (p.text.empty() || !props.visible) return;
 
-    auto &fm = FontManager::instance();
-    bool versionChanged = (cachedAtlasVersion_ != fm.atlasVersion());
-    // ── 图集版本变化：全部重烤 ──
-    if (versionChanged) {
-        bakedCount_ = 0;
-        shapedGlyphsCache_.clear();
+// ═══════════════════════════════════════════════════════════════════════════
+// Text::onDraw — 绘制文本
+//
+// 流程:
+//   1. ensureGlyphs: 遍历 layout 中的每个字形，确保 字形已渲染并 pack 到图集
+//   2. collectDraws: 展平字形 → GlyphDrawData，写入 DrawBatchCollector
+//
+// 最终由 VulkanBackend::endFrame 消费 batch，统一提交 draw call。
+// ═══════════════════════════════════════════════════════════════════════════
+
+void Text::onDraw(Graphics& graphics) {
+    if (text_.text.empty() || !props.visible) {
+        return;
     }
-
-    // ── 增量烘焙：每帧最多烤 30 个字形 ──
-    const size_t kBatchSize = 30;
-    if (bakedCount_ < metricsCache_.size()) {
-        uint32_t startVer = fm.atlasVersion();
-        size_t end = std::min(bakedCount_ + kBatchSize, metricsCache_.size());
-        float scale = 1.0f;
-        for (size_t i = bakedCount_; i < end; i++) {
-            auto &m = metricsCache_[i];
-            GlyphInfo info = fm.getGlyphInfo(m.glyphIndex, text_.fontSize);
-
-            // ─ 中途 atlas 回绕 → 清空缓存, 同帧从头重试 ─
-            if (fm.atlasVersion() != startVer) {
-                shapedGlyphsCache_.clear();
-                bakedCount_ = 0;
-                // ─ 不在 break 跳出, 而是重置后立即开始新一轮 ─
-                startVer = fm.atlasVersion();    // 记录新版本
-                i = 0;                           // 从头遍历
-                end = std::min(kBatchSize, metricsCache_.size());
-                continue;    // 同帧继续
-            }
-
-            ShapedGlyph sg;
-            sg.glyphIndex = m.glyphIndex;
-            sg.x = m.x + info.bearingX * scale;
-            sg.y = m.y - info.bearingY * scale;
-            sg.advanceX = m.advanceX;
-            sg.width = (float)info.atlasW * scale;
-            sg.height = (float)info.atlasH * scale;
-            sg.bearingX = info.bearingX;
-            sg.bearingY = info.bearingY;
-             float uvPad = 0.5f / (float)FontManager::kAtlasSize;
-            sg.uvLeft   = (float)info.atlasX / FontManager::kAtlasSize + uvPad;
-            sg.uvTop    = (float)info.atlasY / FontManager::kAtlasSize + uvPad;
-            sg.uvRight  = (float)(info.atlasX + info.atlasW) / FontManager::kAtlasSize - uvPad;
-            sg.uvBottom = (float)(info.atlasY + info.atlasH) / FontManager::kAtlasSize - uvPad;
-            sg.msdfRange = info.msdfRange;
-            shapedGlyphsCache_.push_back(sg);
+    auto& pipe = TextRenderPipeline::instance();
+    pipe.ensureGlyphs(layoutToken_);
+    auto* result = pipe.getLayout(layoutToken_);
+    if (!result) return;
+    for (auto& line : result->lines) {
+        for (auto& g : line.glyphs) {
+            GlyphDrawData d;
+            d.x = frame.x + g.x;
+            d.y = frame.y + g.y + line.baseline;
+            d.w = g.width;
+            d.h = g.height;
+            d.u0 = g.uvLeft;
+            d.v0 = g.uvTop;
+            d.u1 = g.uvRight;
+            d.v1 = g.uvBottom;
+            d.color = text_.textColor;
+            graphics.drawGlyph(d);
         }
-        // 确定 batch 内全部烘焙成功 (不管是否发生过回绕)
-        bakedCount_ = end;
-        if (bakedCount_ >= metricsCache_.size()) { cachedAtlasVersion_ = fm.atlasVersion(); }
     }
-
-    if (shapedGlyphsCache_.empty()) return;
-    graphics.save();
-    graphics.translate(frame.x, frame.y + cachedMetrics_.ascender);    // 使用缓存
-    graphics.drawTextCached(shapedGlyphsCache_, text_.textColor);
-    graphics.restore();
 }

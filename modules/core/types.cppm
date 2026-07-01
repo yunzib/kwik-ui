@@ -222,3 +222,16 @@ export struct Shadow {
         offsetX(ox), offsetY(oy), blurRadius(blur), color(col) {
     }
 };
+
+
+export {
+    /**
+     * @brief 字体标识符 (不透明句柄)
+     *
+     * 由 TextService::loadFont() 分配, 0 表示无效字体。
+     * 每个组件通过此 ID 指定使用的字体, 支持多字体共存。
+     */
+    // 字体标识符 (不透明句柄)
+    using FontId = uint32_t;
+    inline constexpr FontId kInvalidFontId = 0;
+};

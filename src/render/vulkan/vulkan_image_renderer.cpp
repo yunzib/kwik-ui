@@ -69,7 +69,7 @@ bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
         vkDestroyShaderModule(device_, vertMod, nullptr);
         return false;
     }
-    VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GlyphPushConstants)};
+    VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ImagePushConstants)};
     VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     pl.setLayoutCount = 1;
     pl.pSetLayouts = &imageDescSetLayout_;
@@ -413,7 +413,7 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline_);
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_,
                             0, 1, &t.descSet, 0, nullptr);
-    GlyphPushConstants pc{};
+    ImagePushConstants pc{};
     pc.posX  = cmd.rect.x;
     pc.posY  = cmd.rect.y;
     pc.sizeX = cmd.rect.width;
@@ -429,12 +429,9 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
-    pc.pxRange     = 0.0f;
-    pc.atlasSizeW  = 0.0f;
-    pc.atlasSizeH  = 0.0f;
     vkCmdPushConstants(cb, imagePipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(GlyphPushConstants), &pc);
+                       sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);
     vkCmdBindIndexBuffer(cb, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
@@ -451,7 +448,7 @@ void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent,
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_);
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_,
                             0, 1, &t.descSet, 0, nullptr);
-    GlyphPushConstants pc{};
+    ImagePushConstants pc{};
     pc.posX  = cmd.rect.x;
     pc.posY  = cmd.rect.y;
     pc.sizeX = cmd.rect.width;
@@ -467,12 +464,9 @@ void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
-    pc.pxRange     = 0.0f;
-    pc.atlasSizeW  = 0.0f;
-    pc.atlasSizeH  = 0.0f;
     vkCmdPushConstants(cb, imagePipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(GlyphPushConstants), &pc);
+                       sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);
     vkCmdBindIndexBuffer(cb, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);

@@ -13,7 +13,6 @@ import kwik.engine.context;
 import kwik.render.render_thread;
 import kwik.render.graphics;
 import kwik.render.command;
-import kwik.render.font;
 import kwik.event;
 import kwik.element.view;
 import kwik.element.props;
@@ -24,12 +23,15 @@ import kwik.render.backend;
 import kwik.core.log;
 import kwik.render.texture_manager;
 import kwik.element.image;
-import kwik.element.input;
+// import kwik.element.input;
 import kwik.bridge.prop_bus;
-import kwik.element.textarea;
+// import kwik.element.textarea;
 import kwik.bridge.binding_registry;
 import kwik.engine.channel;
-import kwik.element.textview;
+// import kwik.element.textview;
+import kwik.render.vulkan_backend;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 
 // ============================================================================
 // 构造 / 析构
@@ -48,12 +50,10 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
                       },
                   }),
     jsCtx_{} {}
+
+
 Application::~Application() {
-    // 释放 Channel 持有的 JSValue（必须在 jsCtx_ 析构前执行）
     Channel::shutdown(jsCtx_.getPtr());
-    
-    std::string fp = FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
-    FontManager::instance().saveAtlasCache("cache/font_atlas.bin", fp);
     TextureManager::instance().destroyAll();
 }
 
@@ -82,12 +82,14 @@ bool Application::init() {
 
     TextureManager::instance().setBackend(renderThread_.backend());
 
-    // ② 字体目录
-    auto &fm = FontManager::instance();
-    for (auto &dir : config_.fontDirs) fm.addFontDir(dir);
-#if defined(_WIN32)
-    fm.addFontDir("C:/Windows/Fonts");    // 系统字体兜底
-#endif
+    // ② 注册字体目录 + 加载字体
+    auto& pipe = TextRenderPipeline::instance();
+    for (auto& dir : config_.fontDirs)
+        pipe.addFontDir(dir);
+    FontId mainFont = pipe.loadFont("NotoSansSC-Regular.otf");
+    if (mainFont == kInvalidFontId) {
+        Log::error("字体加载失败: NotoSansSC-Regular.otf");
+    }
 
     // ③ 加载 JS
     if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
@@ -111,14 +113,6 @@ bool Application::init() {
     float dpi = window_.GetDpiScale();
     auto sz = Size{(float)w / dpi, (float)h / dpi};
 
-    // ① 确保缓存目录存在
-    std::filesystem::create_directories("cache");
-    // ② 先加载字体 (让 loadFont 后续调用走快速返回, 不清缓存)
-    std::string fontPath = fm.resolveFontPath("NotoSansSC-Regular.otf");
-    fm.loadFont(fontPath.c_str());
-    // ③ 再加载图集缓存 (font 已就绪, glyphCache_ 不会被后续 loadFont 冲毁)
-    bool cacheHit = fm.loadAtlasCache("cache/font_atlas.bin", fontPath);
-    if (!cacheHit) { Log::info("图集缓存未命中，实时渲染 SDF..."); }
     // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
     relayoutTree(sz);
 
@@ -129,11 +123,6 @@ bool Application::init() {
     // createImageTexture() 与渲染线程的 present() 并发提交 vkQueue,
     // 杜绝 Vulkan 线程竞态 UB (纹理部分加载/渲染损坏)
     preloadImageTextures(tree_.get());
-
-    // ⑤ 仅冷启动保存 (已有缓存则跳过)
-    if (!cacheHit) {
-        if (fm.saveAtlasCache("cache/font_atlas.bin", fontPath)) { Log::info("图集缓存已保存 ({} 字形)", fontPath); }
-    }
 
     // ⑥ 事件系统
     eventProc_.setRootTree(tree_.get());
@@ -211,12 +200,8 @@ void Application::renderFrame() {
 // relayoutTree — measure 循环 + layout (共用)
 // ============================================================================
 void Application::relayoutTree(Size sz) {
-    auto &fm = FontManager::instance();
-    uint32_t prevVersion;
-    do {
-        prevVersion = fm.atlasVersion();
-        tree_->measure(Constraints::loose(sz));
-    } while (fm.atlasVersion() != prevVersion);
+    // 排版不会触发 MSDF 渲染，一次测量即可
+    tree_->measure(Constraints::loose(sz));
     tree_->layout(Rect(0, 0, sz.width, sz.height));
 }
 
@@ -266,9 +251,9 @@ int Application::run() {
             View *target = tree_ ? tree_->hitTest(pt) : nullptr;
             // ── 旧焦点失焦 ──
             if (focusedView_ && focusedView_ != target) {
-                if (focusedView_->type() == ElementType::Input) static_cast<Input *>(focusedView_)->blur();
-                if (focusedView_->type() == ElementType::TextArea) static_cast<TextArea *>(focusedView_)->blur();
-                if (focusedView_->type() == ElementType::TextView)  static_cast<TextView *>(focusedView_)->blur();
+                // if (focusedView_->type() == ElementType::Input) static_cast<Input *>(focusedView_)->blur();
+                // if (focusedView_->type() == ElementType::TextArea) static_cast<TextArea *>(focusedView_)->blur();
+                // if (focusedView_->type() == ElementType::TextView)  static_cast<TextView *>(focusedView_)->blur();
             }
             // ── 新焦点设置 ──
             if (target) {

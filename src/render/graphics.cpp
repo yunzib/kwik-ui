@@ -10,7 +10,8 @@ import kwik.render.command;
 import kwik.render.backend;
 // import kwik.render.software_backend;
 import kwik.render.vulkan_backend;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 
 // ============================================================================
 // 构造函数和析构函数
@@ -141,23 +142,18 @@ void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) 
     addCommand(DrawShadowCmd{transformed, radius * currentState_.sx, shadow});
 }
 
+// ============================================================================
+// drawText — deprecated，保留兼容性
+// ============================================================================
 void Graphics::drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
                         const Color &color) {
-    FontManager &fm = FontManager::instance();
-    fm.loadFont(fontPath.c_str());
-    auto glyphs = fm.shapeText(text.c_str(), fontSize);
-    for (auto &g : glyphs) {
-        float tx = (x + g.x) * currentState_.sx + currentState_.tx;
-        float ty = (y + g.y) * currentState_.sy + currentState_.ty;
-        float tw = g.width * currentState_.sx;
-        float th = g.height * currentState_.sy;
-       addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop,
-                   g.uvRight, g.uvBottom, color, g.msdfRange});
-    }
+    // 已废弃：请使用 TextRenderCache + drawTextCached
+    // 需要全局 TextService 指针才能工作
+    // TODO: 删除此方法
 }
 
 // ============================================================================
-// drawTextCached — 使用缓存的排版结果 (无 loadFont / 无 shapeText / 无 getGlyphInfo)
+// drawTextCached — 使用缓存的排版结果（带 fontId 支持多字体）
 // ============================================================================
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
     for (auto &g : glyphs) {
@@ -165,9 +161,27 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
         float ty = g.y * currentState_.sy + currentState_.ty;
         float tw = g.width * currentState_.sx;
         float th = g.height * currentState_.sy;
-       addCommand(DrawGlyphCmd{g.glyphIndex, tx, ty, tw, th, g.uvLeft, g.uvTop,
-                   g.uvRight, g.uvBottom, color, g.msdfRange});
+        addCommand(DrawGlyphCmd{
+            g.fontId,
+            g.glyphIndex,
+            tx, ty, tw, th,
+            g.uvLeft, g.uvTop, g.uvRight, g.uvBottom,
+            color
+        });
     }
+}
+
+void Graphics::drawGlyph(const GlyphDrawData &g) {
+    float tx = g.x * currentState_.sx + currentState_.tx;
+    float ty = g.y * currentState_.sy + currentState_.ty;
+    float tw = g.w * currentState_.sx;
+    float th = g.h * currentState_.sy;
+    addCommand(DrawGlyphCmd{
+        0, 0,
+        tx, ty, tw, th,
+        g.u0, g.v0, g.u1, g.v1,
+        g.color
+    });
 }
 
 // ============================================================================

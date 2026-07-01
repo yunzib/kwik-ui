@@ -10,6 +10,9 @@ import kwik.render.vulkan.rect_renderer;
 import kwik.render.vulkan.glyph_renderer;
 import kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.clip_manager;
+import kwik.render.text.pipeline;
+import kwik.render.text.types;
+
 import kwik.core.types;
 
 import std;
@@ -58,6 +61,7 @@ public:
     int getHeight() const override {
         return height_;
     }
+
 
 private:
     VulkanContext ctx_;
