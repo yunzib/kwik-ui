@@ -1,31 +1,27 @@
 module;
+
 #include <stdint.h>
 
 export module kwik.render.text.types;
 
 import std;
-import kwik.core.types; // ← 需要，提供 FontId / Color / kInvalidFontId
+import kwik.core.types;
 
 export {
-    // ── 字形标识符 ──
-    // FontId 来自 kwik.core.types
-    // using FontId = uint32_t; — 不要重复定义
-
     /**
-     * @brief 字形在图集中的位置信息 (含 A8 位图像素数据)
+     * @brief 字形位图信息 — 栅格化后的度量与像素数据
+     *
+     * 注意: 图集坐标 (atlasX/Y/W/H) 已移至 TextCache 内部的 CachedGlyph，
+     *       此处仅保存字形度量与位图数据。
      */
     struct GlyphInfo {
         FontId fontId = kInvalidFontId;
         uint32_t glyphIndex = 0;
         float fontSize = 0;
-        uint32_t atlasX = 0;
-        uint32_t atlasY = 0;
-        uint32_t atlasW = 0;
-        uint32_t atlasH = 0;
         float bearingX = 0;
         float bearingY = 0;
         float advanceX = 0;
-        std::vector<uint8_t> pixelData;
+        std::vector<uint8_t> pixelData;   // 栅格化后填充，打包后被 move 走
     };
 
     /**
@@ -49,7 +45,7 @@ export {
     };
 
     /**
-     * @brief 轻量字形度量 (不含 MSDF/UV, 用于 measure 阶段)
+     * @brief 轻量字形度量 — 仅 measure 阶段使用
      */
     struct GlyphMetrics {
         uint32_t glyphIndex = 0;
@@ -86,16 +82,7 @@ export {
         FontId fontId;
         uint32_t glyphIndex;
         float fontSize;
-        std::vector<uint8_t> pixelData;   // 从 getOrPack 移入, upload 消费后释放
-    };
-
-    /**
-     * @brief 字形图集 UV 缓存 (写回用)
-     */
-    struct AtlasUV {
-        uint32_t pageIndex = 0;
-        uint32_t x = 0, y = 0;
-        uint32_t w = 0, h = 0;
+        std::vector<uint8_t> pixelData;   // 从 packGlyph 移入, upload 消费后释放
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -115,8 +102,12 @@ export {
         int fontStyle = 0;    // FontStyle::Normal = 0
     };
 
+    /**
+     * @brief 排版行元数据 (索引到 result.glyphs 扁平数组)
+     */
     struct TextLayoutLine {
-        std::vector<ShapedGlyph> glyphs;
+        uint32_t glyphStart = 0;   // result.glyphs[] 起始索引
+        uint32_t glyphCount = 0;   // 本行字形数量
         float width = 0;
         float height = 0;
         float baseline = 0;
@@ -124,14 +115,21 @@ export {
         int32_t endChar = 0;
     };
 
+    /**
+     * @brief 排版结果 — 扁平存储所有字形 + 行元数据
+     *
+     * glyphs 为连续数组，lines[].glyphStart/glyphCount 标记每行范围，
+     * 绘制时单层遍历 glyphs 即可，无需嵌套循环。
+     */
     struct TextLayoutResult {
-        std::vector<TextLayoutLine> lines;
+        std::vector<ShapedGlyph> glyphs;       // 扁平化字形数组
+        std::vector<TextLayoutLine> lines;     // 行元数据
         float totalWidth = 0;
         float totalHeight = 0;
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 全局缓存与绘制
+    // 缓存
     // ═══════════════════════════════════════════════════════════════════════════
 
     struct TextLayoutKey {
@@ -154,7 +152,6 @@ export {
         float w = 0, h = 0;
         float u0 = 0, v0 = 0;
         float u1 = 0, v1 = 0;
-        uint32_t atlasPage = 0;
         Color color = {};
     };
 

@@ -2,7 +2,7 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module kwik.render.text.layout.engine;
+module kwik.render.text.layout;
 import kwik.render.text.types;
 
 import std;
@@ -10,8 +10,8 @@ import std;
 // ============================================================================
 // 布局编排入口 — 按 WrapMode 分发
 // ============================================================================
-TextLayoutResult TextLayoutEngine::layout(const std::vector<ShapedGlyph>& glyphs,
-                                           const TextLayoutConfig& cfg) {
+TextLayoutResult TextLayout::layout(const std::vector<ShapedGlyph>& glyphs,
+                                     const TextLayoutConfig& cfg) {
     TextLayoutResult result;
     switch (cfg.wrap) {
     case WrapMode::NoWrap:
@@ -27,28 +27,30 @@ TextLayoutResult TextLayoutEngine::layout(const std::vector<ShapedGlyph>& glyphs
 }
 
 // ============================================================================
-// 单行布局: 所有 glyph 放到一行, 计算总宽高
+// 单行布局: 所有 glyph 扁平存入 result.glyphs
 // ============================================================================
-void TextLayoutEngine::layoutNoWrap(const std::vector<ShapedGlyph>& glyphs,
-                                     const TextLayoutConfig& cfg,
-                                     TextLayoutResult& result) {
-    TextLayoutLine line;
+void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph>& glyphs,
+                               const TextLayoutConfig& cfg,
+                               TextLayoutResult& result) {
+    // 记录当前扁平数组末尾作为本行起始
+    uint32_t glyphStart = static_cast<uint32_t>(result.glyphs.size());
     float cursorX = 0;
     float minY = 0;
     float maxBottom = 0;
 
     for (auto& g : glyphs) {
         ShapedGlyph sg = g;
-        sg.x = g.x;  // 保留 HarfBuzz 的 x_offset + bearing，支持连字/kerning
+        sg.x = g.x;
         sg.y = g.y;
-        line.glyphs.push_back(sg);
+        // 直接写入扁平数组，无临时 line.glyphs
+        result.glyphs.push_back(std::move(sg));
         cursorX += g.advanceX;
         minY = std::min(minY, g.y);
         maxBottom = std::max(maxBottom, g.y + g.height);
     }
 
-    // ── 应用文本对齐偏移 ──
-    if (cfg.maxWidth < 1e9f && line.glyphs.size() > 0) {
+    // ── 文本对齐偏移 ──
+    if (cfg.maxWidth < 1e9f && result.glyphs.size() > glyphStart) {
         float offset = 0;
         switch (cfg.align) {
             case LayoutTextAlign::Center:
@@ -61,24 +63,33 @@ void TextLayoutEngine::layoutNoWrap(const std::vector<ShapedGlyph>& glyphs,
             default: break;
         }
         if (offset > 0) {
-            for (auto &g : line.glyphs) g.x += offset;
+            for (uint32_t i = glyphStart; i < result.glyphs.size(); i++)
+                result.glyphs[i].x += offset;
         }
     }
 
-    line.width  = cursorX;
-    line.height = maxBottom - minY;
-    line.baseline = -minY;
-    result.lines.push_back(line);
+    // 预烘焙 baseline 到 glyph.y，绘制时无需再逐行加 baseline
+    float baseline = -minY;
+    for (uint32_t i = glyphStart; i < result.glyphs.size(); i++)
+        result.glyphs[i].y += baseline;
+
+    result.lines.push_back({
+        .glyphStart = glyphStart,
+        .glyphCount = static_cast<uint32_t>(result.glyphs.size() - glyphStart),
+        .width   = cursorX,
+        .height  = maxBottom - minY,
+        .baseline = baseline,
+    });
     result.totalWidth  = cursorX;
-    result.totalHeight = line.height;
+    result.totalHeight = maxBottom - minY;
 }
 
 // ============================================================================
 // 多行换行布局 (预留)
 // ============================================================================
-void TextLayoutEngine::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
-                                       const TextLayoutConfig& cfg,
-                                       TextLayoutResult& result) {
+void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
+                                 const TextLayoutConfig& cfg,
+                                 TextLayoutResult& result) {
     // 当前回退到单行
     layoutNoWrap(glyphs, cfg, result);
 }

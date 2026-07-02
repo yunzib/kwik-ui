@@ -191,6 +191,15 @@ public:
     void add(Command cmd);
 
     /**
+     * @brief 批量添加命令 (一次 insert，减少 variant 搬移)
+     * @param cmds 预组装好的命令 vector (内部被 move)
+     *
+     * 相比 N 次 push_back 逐个 addCommand，此方法将整个 vector
+     * insert 到尾部，大幅降低 variant 搬移和 vector realloc 次数。
+     */
+    void add(std::vector<Command> cmds);
+
+    /**
      * @brief 获取命令数量
      */
     size_t size() const;

@@ -20,6 +20,17 @@ void CommandBuffer::add(Command cmd) {
     commands_.push_back(std::move(cmd));
 }
 
+/**
+ * @brief 批量添加命令到缓冲区
+ *
+ * 使用 move_iterator 将整个 vector 拼接到尾部，不发生逐元素搬移。
+ */
+void CommandBuffer::add(std::vector<Command> cmds) {
+    commands_.insert(commands_.end(),
+        std::make_move_iterator(cmds.begin()),
+        std::make_move_iterator(cmds.end()));
+}
+
 size_t CommandBuffer::size() const {
     return commands_.size();
 }

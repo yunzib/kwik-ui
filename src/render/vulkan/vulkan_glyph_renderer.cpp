@@ -10,7 +10,7 @@ import kwik.render.command;
 import kwik.core.types;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
-import kwik.render.text.glyph.cache;
+import kwik.render.text.cache;
 import std;
 
 GlyphRenderer::~GlyphRenderer() {
@@ -208,7 +208,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
         return false;
     }
     // ── Glyph atlas 1024x1024 R8_UNORM (FreeType A8 位图) ───────────
-    uint32_t atlasW = GlyphRenderCache::kAtlasSize, atlasH = GlyphRenderCache::kAtlasSize;
+    uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
     imgInfo.format = VK_FORMAT_R8_UNORM;

@@ -28,66 +28,61 @@ import std;
 // ═══════════════════════════════════════════════════════════════════════════
 
 Size Text::onMeasure(Constraints constraints) {
-    auto& pipe = TextRenderPipeline::instance();
+    auto &pipe = TextRenderPipeline::instance();
 
     // ── 解析字体 ──
     FontId fid = pipe.loadFont(text_.fontFamily);
-    if (fid == kInvalidFontId) {
-        fid = pipe.activeFont();
-    }
+    if (fid == kInvalidFontId) { fid = pipe.activeFont(); }
 
     // ── 排版配置 ──
     TextLayoutConfig cfg;
     cfg.maxWidth = constraints.maxWidth;
-    cfg.align  = static_cast<LayoutTextAlign>(text_.textAlign);
+    cfg.align = static_cast<LayoutTextAlign>(text_.textAlign);
     cfg.fontWeight = static_cast<int>(text_.fontWeight);
-    cfg.fontStyle  = static_cast<int>(text_.fontStyle);
+    cfg.fontStyle = static_cast<int>(text_.fontStyle);
 
     // ── 排版 + 缓存 ──
     layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
 
     // ── 读取结果 ──
-    auto* result = pipe.getLayout(layoutToken_);
-    if (!result) {
-        return constraints.constrain({0, 0});
-    }
+    auto *result = pipe.getLayout(layoutToken_);
+    if (!result) { return constraints.constrain({0, 0}); }
 
     float w = result->totalWidth;
-    float h = std::max(result->totalHeight, 16.0f);   // 空行最小高度
+    float h = std::max(result->totalHeight, 16.0f);    // 空行最小高度
     return constraints.constrain({w, h});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Text::onDraw — 绘制文本
+// Text::onDraw — 绘制文本 (扁平遍历 + 批量提交)
 //
 // 流程:
-//   1. ensureGlyphs: 遍历 layout 中的每个字形，确保 字形已渲染并 pack 到图集
-//   2. collectDraws: 展平字形 → GlyphDrawData，写入 DrawBatchCollector
-//
-// 最终由 VulkanBackend::endFrame 消费 batch，统一提交 draw call。
+//   1. pipe.ensureGlyphs → 扁平遍历 result->glyphs 填充 UV
+//   2. 单层 flat loop 构建 GlyphDrawData batch
+//   3. graphics.submitGlyphBatch → 一次命令 insert
 // ═══════════════════════════════════════════════════════════════════════════
 
-void Text::onDraw(Graphics& graphics) {
-    if (text_.text.empty() || !props.visible) {
-        return;
-    }
-    auto& pipe = TextRenderPipeline::instance();
+void Text::onDraw(Graphics &graphics) {
+    if (text_.text.empty() || !props.visible) return;
+    auto &pipe = TextRenderPipeline::instance();
     pipe.ensureGlyphs(layoutToken_);
-    auto* result = pipe.getLayout(layoutToken_);
+    auto *result = pipe.getLayout(layoutToken_);
     if (!result) return;
-    for (auto& line : result->lines) {
-        for (auto& g : line.glyphs) {
-            GlyphDrawData d;
-            d.x = frame.x + g.x;
-            d.y = frame.y + g.y + line.baseline;
-            d.w = g.width;
-            d.h = g.height;
-            d.u0 = g.uvLeft;
-            d.v0 = g.uvTop;
-            d.u1 = g.uvRight;
-            d.v1 = g.uvBottom;
-            d.color = text_.textColor;
-            graphics.drawGlyph(d);
-        }
-    }
+
+    float bx = frame.x, by = frame.y;
+    std::vector<GlyphDrawData> batch;
+    batch.reserve(result->glyphs.size());
+    for (auto &sg : result->glyphs)
+        batch.push_back({
+            .x = bx + sg.x,
+            .y = by + sg.y,
+            .w = sg.width,
+            .h = sg.height,
+            .u0 = sg.uvLeft,
+            .v0 = sg.uvTop,
+            .u1 = sg.uvRight,
+            .v1 = sg.uvBottom,
+            .color = text_.textColor,
+        });
+    graphics.submitGlyphBatch(batch);
 }
