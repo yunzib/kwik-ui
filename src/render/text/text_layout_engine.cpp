@@ -39,12 +39,30 @@ void TextLayoutEngine::layoutNoWrap(const std::vector<ShapedGlyph>& glyphs,
 
     for (auto& g : glyphs) {
         ShapedGlyph sg = g;
-        sg.x = cursorX + g.bearingX;
+        sg.x = g.x;  // 保留 HarfBuzz 的 x_offset + bearing，支持连字/kerning
         sg.y = g.y;
         line.glyphs.push_back(sg);
         cursorX += g.advanceX;
         minY = std::min(minY, g.y);
         maxBottom = std::max(maxBottom, g.y + g.height);
+    }
+
+    // ── 应用文本对齐偏移 ──
+    if (cfg.maxWidth < 1e9f && line.glyphs.size() > 0) {
+        float offset = 0;
+        switch (cfg.align) {
+            case LayoutTextAlign::Center:
+                offset = (cfg.maxWidth - cursorX) * 0.5f;
+                break;
+            case LayoutTextAlign::Right:
+            case LayoutTextAlign::End:
+                offset = cfg.maxWidth - cursorX;
+                break;
+            default: break;
+        }
+        if (offset > 0) {
+            for (auto &g : line.glyphs) g.x += offset;
+        }
     }
 
     line.width  = cursorX;

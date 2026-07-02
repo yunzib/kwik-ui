@@ -51,8 +51,6 @@ public:
     /** @brief 获取页纹理数 (用于 shader 绑定) */
     uint32_t pageCount() const { return pageCount_; }
 
-    /// @brief 查询字形所在图集页码 (0 = 不存在)
-    uint32_t getUVPage(FontId fontId, uint32_t glyphIndex, float fontSize) const;
 
 private:
     struct AtlasPage {

@@ -12,7 +12,6 @@ import kwik.render.text.shaper;
 import kwik.render.text.layout.cache;
 import kwik.render.text.layout.engine;
 import kwik.render.text.glyph.cache;
-import kwik.render.text.batch.collector;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 构造 / 析构
@@ -99,50 +98,12 @@ void TextRenderPipeline::ensureGlyphs(TextLayoutToken token) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// collectDraws — 展平 layout → GlyphDrawData, 写入 batch collector
-// ═══════════════════════════════════════════════════════════════════════════
-
-void TextRenderPipeline::collectDraws(TextLayoutToken token, float ox, float oy, const Color &color) {
-    auto *result = layoutCache_.getByToken(token);
-    if (!result) return;
-
-    for (auto &line : result->lines) {
-        for (auto &g : line.glyphs) {
-            // 跳过 UV 未就绪的字形
-            if (g.uvRight <= g.uvLeft) continue;
-
-           GlyphDrawData d;
-            d.x = ox + g.x;
-            d.y = oy + g.y + line.baseline;
-            d.w = g.width;
-            d.h = g.height;
-            d.u0 = g.uvLeft;
-            d.v0 = g.uvTop;
-            d.u1 = g.uvRight;
-            d.v1 = g.uvBottom;
-            d.atlasPage = glyphCache_.getUVPage(g.fontId, g.glyphIndex, g.fontSize);
-            d.color = color;
-            batchCollector_.add(d);
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // 图集上传 + 批次消费
 // ═══════════════════════════════════════════════════════════════════════════
 
 auto TextRenderPipeline::consumeUploads() -> std::vector<UploadJob> {
     return glyphCache_.consumeUploads();
 }
-
-auto TextRenderPipeline::batches() -> std::vector<DrawBatchCollector::Batch> {
-    return batchCollector_.batches();
-}
-
-void TextRenderPipeline::endFrame() {
-    batchCollector_.clear();
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // 单例
 // ═══════════════════════════════════════════════════════════════════════════

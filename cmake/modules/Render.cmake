@@ -18,7 +18,6 @@ set(RENDER_PUBLIC_MODULES
     modules/render/text/text_layout_engine.cppm
     modules/render/text/text_layout_cache.cppm
     modules/render/text/text_glyph_cache.cppm
-    modules/render/text/text_batch_collector.cppm
     modules/render/text/text_render_pipeline.cppm
     
 )
@@ -32,7 +31,6 @@ set(RENDER_PRIVATE_SOURCES
     src/render/text/text_layout_engine.cpp
     src/render/text/text_layout_cache.cpp
     src/render/text/text_glyph_cache.cpp
-    src/render/text/text_batch_collector.cpp
     src/render/text/text_render_pipeline.cpp
    
 )

@@ -167,9 +167,3 @@ auto GlyphRenderCache::consumeUploads() -> std::vector<UploadJob> {
     frameCounter_++;
     return std::move(uploads_);
 }
-
-uint32_t GlyphRenderCache::getUVPage(FontId fontId, uint32_t glyphIndex, float fontSize) const {
-    UVKey key{fontId, glyphIndex, fontSize};
-    auto it = uvCache_.find(key);
-    return (it != uvCache_.end()) ? it->second.pageIndex : 0;
-}

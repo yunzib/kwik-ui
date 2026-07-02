@@ -74,27 +74,44 @@ auto TextShaper::shapeText(FontId fontId, const char* text, float fontSize) -> s
     auto* glyphPos  = hb_buffer_get_glyph_positions(buf, &glyphCount);
 
     float cursorX = 0.0f, cursorY = 0.0f;
+    // ── Helper: 从 UTF-8 提取单个 Unicode 码点 ──
+    auto decodeUtf8Cp = [](const char *s, int offset) -> uint32_t {
+        const unsigned char *p = (const unsigned char *)s + offset;
+        if ((*p & 0x80) == 0)      return *p;
+        if ((*p & 0xE0) == 0xC0)   return ((*p & 0x1Fu) << 6)  | (p[1] & 0x3Fu);
+        if ((*p & 0xF0) == 0xE0)   return ((*p & 0x0Fu) << 12) | ((p[1] & 0x3Fu) << 6) | (p[2] & 0x3Fu);
+        return ((*p & 0x07u) << 18) | ((p[1] & 0x3Fu) << 12) | ((p[2] & 0x3Fu) << 6) | (p[3] & 0x3Fu);
+    };
+
     for (unsigned int i = 0; i < glyphCount; i++) {
         const uint32_t gid  = glyphInfo[i].codepoint;
         const float    xOff = static_cast<float>(glyphPos[i].x_offset) / 64.0f;
         const float    yOff = static_cast<float>(glyphPos[i].y_offset) / 64.0f;
         const float    xAdv = static_cast<float>(glyphPos[i].x_advance) / 64.0f;
 
-        // 字体回退: 当前字体缺少该字形则尝试 fallback
         FontId activeFont = fontId;
         uint32_t activeGid = gid;
+
+        // 字体回退: 主字体缺少该字形 → 查询 fallback 字体
         if (gid == 0 && glyphInfo[i].cluster < UINT32_MAX) {
-            // 从 HarfBuzz 取原始 codepoint (UTF-8 → Unicode)
-            unsigned int cluster  = glyphInfo[i].cluster;
-            unsigned int count    = 0;
-            uint32_t     cp       = 0;
-            // 提取该 cluster 的首个 Unicode 码点用于 fallback 查询
-            const unsigned char *utf8 = reinterpret_cast<const unsigned char *>(text);
-            // (简化: 直接通过 glyphInfo 反查 — 实际需要保存 text 的 cp 或从 buffer 提取)
-            // ... 此处在完整实现中需要保存原始 codepoint 映射
+            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+            FontId fbFont = fontManager_.resolveForCodepoint(fontId, cp);
+            if (fbFont != fontId && fbFont != kInvalidFontId) {
+                auto *fbFace = fontManager_.getFace(fbFont);
+                if (fbFace) {
+                    auto *fbFt = static_cast<FreeTypeTextFace *>(fbFace)->ftFace();
+                    if (fbFt) {
+                        FT_UInt fbGid = FT_Get_Char_Index(fbFt, cp);
+                        if (fbGid != 0) {
+                            activeFont = fbFont;
+                            activeGid = fbGid;
+                        }
+                    }
+                }
+            }
         }
+
         if (activeGid == 0) {
-            // 无字形可用，跳过该字符（避免渲染 .notdef 方框）
             cursorX += xAdv;
             continue;
         }
@@ -104,6 +121,10 @@ auto TextShaper::shapeText(FontId fontId, const char* text, float fontSize) -> s
         auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
         if (!ftFace) { cursorX += xAdv; continue; }
 
+        // 用回退字体时需重新设定像素尺寸
+        if (activeFont != fontId) {
+            FT_Set_Pixel_Sizes(ftFace, 0, static_cast<FT_UInt>(fontSize));
+        }
         face->loadGlyph(activeGid);
 
         ShapedGlyph sg;

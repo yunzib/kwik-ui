@@ -17,21 +17,6 @@ import kwik.render.text.types;
 import kwik.render.text.face;
 
 // ============================================================================
-// HarfBuzz 线程本地 buffer (避免重复创建)
-// ============================================================================
-namespace {
-hb_buffer_t *getHbBuffer() {
-    thread_local hb_buffer_t *buf = nullptr;
-    if (!buf) {
-        buf = hb_buffer_create();
-    } else {
-        hb_buffer_reset(buf);
-    }
-    return buf;
-}
-}    // namespace
-
-// ============================================================================
 // 平台系统字体
 // ============================================================================
 static std::string systemDefaultFont() {

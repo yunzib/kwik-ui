@@ -82,7 +82,7 @@ export {
         FontMetrics getMetrics(FontId font, float fontSize);
 
         // ═══════════════════════════════════════════════════════════
-        // MSDF 渲染与缓存
+        // 字形渲染与缓存
         // ═══════════════════════════════════════════════════════════
 
         /**
@@ -137,7 +137,8 @@ export {
         FontId activeFont_ = kInvalidFontId;
         std::vector<std::string> fontDirs_;
 
-        // ── MSDF 字形缓存 (CPU 端) ──
+        
+        // ── 字形位图缓存 (CPU 端) ──
         std::unordered_map<GlyphKey, GlyphInfo, GlyphKeyHash> glyphCache_;
 
         // ── 磁盘缓存魔数 ──
