@@ -60,7 +60,7 @@ void GlyphRenderer::destroy() {
 }
 
 // ================================================================
-// create — glyph 管线 + 1024x1024 R8_UNORM 图集
+// create — glyph 管线 + 1024x1024 R8G8B8A8_UNORM 图集
 // ================================================================
 bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkCommandPool cmdPool, VkQueue queue,
                            VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
@@ -207,11 +207,11 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
         vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
         return false;
     }
-    // ── Glyph atlas 1024x1024 R8_UNORM (FreeType A8 位图) ───────────
+    // ── Glyph atlas 1024x1024 R8G8B8A8_UNORM (FreeType LCD 子像素 RGBA 位图) ───────────
     uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = VK_FORMAT_R8_UNORM;
+    imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     imgInfo.extent = {atlasW, atlasH, 1};
     imgInfo.mipLevels = 1;
     imgInfo.arrayLayers = 1;
@@ -271,7 +271,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = glyphAtlasImage_;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vi.format = VK_FORMAT_R8_UNORM;
+    vi.format = VK_FORMAT_R8G8B8A8_UNORM;
     vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     if (vkCreateImageView(device_, &vi, nullptr, &glyphAtlasView_) != VK_SUCCESS) {
         destroy();
@@ -339,7 +339,7 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawG
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-     pc.textContrast = 1.8f;
+     pc.textContrast = 1.0f;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;
@@ -465,7 +465,7 @@ void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, cons
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    pc.textContrast = 1.8f;
+    pc.textContrast = 1.0f;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;

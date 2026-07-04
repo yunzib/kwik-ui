@@ -78,11 +78,20 @@ export default View({
             Text({ text: "Yellow #FFD600 — NOTICE: Update available.", fontSize: 14, color: "#FFD600", margin: [2, 0, 0, 0] }),
         ]),
     ]),
-     View({ flex: 1, background: "#0f3460", borderRadius: 8, padding: 14 }, [
+    Flex({ direction: "row", gap: 16, flex: 1 }, [
+        View({ flex: 1, background: "#0f3460", borderRadius: 8, padding: 14 }, [
             Text({ text: "混合内容", fontSize: 16, color: "#ffffff" }),
             Text({ text: "中英混排: Hello 世界! Today is 2026/06/27", fontSize: 14, color: "#ddd", margin: [8, 0, 2, 0] }),
             Text({ text: "数字符号: !@#$%^&*()_+-=[]{}|;':\",./<>?", fontSize: 14, color: "#ddd", margin: [2, 0, 2, 0] }),
             Text({ text: "上下标: x₁² + y₂² = z₃²  H₂O  CO₂  m²", fontSize: 14, color: "#ddd", margin: [2, 0, 2, 0] }),
             Text({ text: "货币: ¥ $ € £ 温度: 25°C 角度: 90°", fontSize: 14, color: "#ddd", margin: [2, 0, 0, 0] }),
         ]),
+        View({ flex: 1, background: "#ffffff", borderRadius: 8, padding: 14 }, [
+            Text({ text: "英文测试 — 白底", fontSize: 13, color: "#000000" }),
+            Text({ text: "Black #000 — The quick brown fox jumps over", fontSize: 14, color: "#000000", margin: [6, 0, 2, 0] }),
+            Text({ text: "Dark #000 — the lazy dog. Pack my box with", fontSize: 14, color: "#000000", margin: [2, 0, 2, 0] }),
+            Text({ text: "Gray #000 — five dozen liquor jugs. How vexingly", fontSize: 16, color: "#000000", margin: [2, 0, 2, 0] }),
+            Text({ text: "Blue #000 — quick daft zebras jump! Sphinx", fontSize: 18, color: "#000000", margin: [2, 0, 2, 0] }),
+        ]),
+    ]),
 ]);

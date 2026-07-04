@@ -117,7 +117,7 @@ private:
     };
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
-    /** @brief 栅格化字形 — FreeType A8 位图 */
+    /** @brief 栅格化字形 — FreeType LCD 子像素 RGBA 位图 */
     void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
                         CachedGlyph &entry, uint32_t subpixelOffset = 0);
 

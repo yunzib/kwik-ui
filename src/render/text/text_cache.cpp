@@ -138,7 +138,7 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 栅格化 — FreeType A8 灰度位图 (原 FontManager::renderBitmap)
+// 栅格化 — FreeType LCD 子像素位图 → RGBA
 // ═══════════════════════════════════════════════════════════════════════════
 
 void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
@@ -151,9 +151,9 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
     FT_Vector shift = { static_cast<FT_Pos>(subpixelOffset * 16), 0 };
     FT_Set_Transform(ftFace, nullptr, &shift);
-    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LIGHT);
+    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LCD);
 
-    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
+    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_LCD) != 0) return;
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
@@ -164,26 +164,33 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.bearingY = (float)ftFace->glyph->bitmap_top;
     entry.info.advanceX = ftFace->glyph->advance.x / 64.0f;
 
-    uint32_t rawW = bmp->width;
+    // LCD 模式: bmp->width = 像素宽 × 3 (R/G/B 子像素), bmp->rows = 像素高
+    uint32_t pixelW = bmp->width / 3;
     uint32_t rawH = bmp->rows;
-    uint32_t padW = rawW + 2;
+    uint32_t padW = pixelW + 2;   // 2px 边框防止线性滤波渗色
     uint32_t padH = rawH + 2;
 
-    if (rawW == 0 || rawH == 0) {
+    if (pixelW == 0 || rawH == 0) {
         entry.packedW = 1;
         entry.packedH = 1;
-        entry.info.pixelData.resize(1, 0);
+        entry.info.pixelData.resize(4, 0);   // RGBA 1 像素占位
         return;
     }
 
     entry.packedW = padW;
     entry.packedH = padH;
-    entry.info.pixelData.assign((size_t)padW * padH, 0);
+    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);   // RGBA 4 字节/像素
 
+    // LCD 位图 → RGBA: 3 字节/像素 (RGB 子像素) → 4 字节/像素 (RGBA)
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW + 1;
-        std::memcpy(dst, src, rawW);
+        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 4;   // 跳过左 padding
+        for (unsigned int x = 0; x < pixelW; x++) {
+            dst[x * 4 + 0] = src[x * 3 + 0];   // R 子像素覆盖
+            dst[x * 4 + 1] = src[x * 3 + 1];   // G 子像素覆盖
+            dst[x * 4 + 2] = src[x * 3 + 2];   // B 子像素覆盖
+            dst[x * 4 + 3] = (uint8_t)((src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2]) / 3);   // A = 均值
+        }
     }
 }
 

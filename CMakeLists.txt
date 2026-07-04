@@ -113,7 +113,10 @@ add_subdirectory(third_party/harfbuzz)
 
 message(STATUS "===== 完成引入 harfbuzz =====")
 target_link_libraries(freetype PRIVATE harfbuzz)
-target_compile_definitions(freetype PRIVATE FT_CONFIG_OPTION_USE_HARFBUZZ)
+target_compile_definitions(freetype PRIVATE
+    FT_CONFIG_OPTION_USE_HARFBUZZ
+    FT_CONFIG_OPTION_SUBPIXEL_RENDERING
+)
 
 # stb_image
 include_directories(third_party/stb)

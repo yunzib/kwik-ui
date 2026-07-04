@@ -51,7 +51,6 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
                   }),
     jsCtx_{} {}
 
-
 Application::~Application() {
     Channel::shutdown(jsCtx_.getPtr());
     TextureManager::instance().destroyAll();
@@ -83,13 +82,18 @@ bool Application::init() {
     TextureManager::instance().setBackend(renderThread_.backend());
 
     // ② 注册字体目录 + 加载字体
-    auto& pipe = TextRenderPipeline::instance();
-    for (auto& dir : config_.fontDirs)
-        pipe.addFontDir(dir);
+    auto &pipe = TextRenderPipeline::instance();
+    for (auto &dir : config_.fontDirs) pipe.addFontDir(dir);
     FontId mainFont = pipe.loadFont("NotoSansSC-Regular.otf");
-    if (mainFont == kInvalidFontId) {
-        Log::error("字体加载失败: NotoSansSC-Regular.otf");
-    }
+    // Segoe UI (Win10+ 默认UI字体)
+    // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/segoeui.ttf");
+    // // 微软雅黑 (CJK 默认)
+    // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/msyh.ttc");
+    // // 等宽 Consolas
+    // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/consola.ttf");
+    // // 黑体
+    // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/simhei.ttf");
+    if (mainFont == kInvalidFontId) { Log::error("字体加载失败: NotoSansSC-Regular.otf"); }
 
     // ③ 加载 JS
     if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
@@ -257,9 +261,8 @@ int Application::run() {
             }
             // ── 新焦点设置 ──
             if (target) {
-                 if (target->type() == ElementType::Input ||
-                target->type() == ElementType::TextArea ||
-                target->type() == ElementType::TextView) {
+                if (target->type() == ElementType::Input || target->type() == ElementType::TextArea
+                    || target->type() == ElementType::TextView) {
                     focusedView_ = target;
                 } else {
                     focusedView_ = nullptr;
@@ -313,8 +316,7 @@ int Application::run() {
         // 手指静止时无 MouseMove 产生，process() 不会被调用，
         // 因此长按超时判定必须独立于事件回调，放在主循环中。
         auto longPressEvents = eventProc_.pollLongPress();
-        for (auto &evt : longPressEvents)
-            eventDisp_.dispatch(tree_.get(), evt, jsCtx_.getPtr());
+        for (auto &evt : longPressEvents) eventDisp_.dispatch(tree_.get(), evt, jsCtx_.getPtr());
 
         // ── ① 消费跨线程任务（协程恢复、respond 回调）──
         mainThreadTaskQueue_.flush();

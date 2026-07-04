@@ -53,30 +53,29 @@ FontMetrics FreeTypeTextFace::getMetrics(float size) {
 // ============================================================================
 bool FreeTypeTextFace::loadGlyph(uint32_t gid) {
     if (!ftFace_) return false;
-    return FT_Load_Glyph(ftFace_, gid, FT_LOAD_TARGET_LIGHT) == 0;
+    return FT_Load_Glyph(ftFace_, gid, FT_LOAD_TARGET_LCD) == 0;
 }
 
 float FreeTypeTextFace::glyphAdvanceX(uint32_t gid) {
     if (!ftFace_) return 0;
-    FT_Set_Pixel_Sizes(ftFace_, 0, 64);
-    FT_Load_Glyph(ftFace_, gid, FT_LOAD_DEFAULT);
+    FT_Load_Glyph(ftFace_, gid, FT_LOAD_TARGET_LCD);
     return ftFace_->glyph->advance.x / 64.0f;
 }
 
 float FreeTypeTextFace::glyphBearingX(uint32_t gid) {
-    return ftFace_ ? (float)ftFace_->glyph->bitmap_left : 0;
+    return ftFace_ ? (float)ftFace_->glyph->metrics.horiBearingX / 64.0f : 0;
 }
 
 float FreeTypeTextFace::glyphBearingY(uint32_t gid) {
-    return ftFace_ ? (float)ftFace_->glyph->bitmap_top : 0;
+    return ftFace_ ? (float)ftFace_->glyph->metrics.horiBearingY / 64.0f : 0;
 }
 
 uint32_t FreeTypeTextFace::glyphOutlineWidth() {
-    return ftFace_ ? (uint32_t)ftFace_->glyph->bitmap.width : 0;
+    return ftFace_ ? (uint32_t)(ftFace_->glyph->metrics.width / 64) : 0;
 }
 
 uint32_t FreeTypeTextFace::glyphOutlineHeight() {
-    return ftFace_ ? (uint32_t)ftFace_->glyph->bitmap.rows : 0;
+    return ftFace_ ? (uint32_t)(ftFace_->glyph->metrics.height / 64) : 0;
 }
 
 void* FreeTypeTextFace::outline() {

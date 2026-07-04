@@ -127,13 +127,13 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         sg.fontId = activeFont;
         sg.glyphIndex = activeGid;
         sg.fontSize = fontSize;
-        sg.x = cursorX + xOff + static_cast<float>(ftFace->glyph->bitmap_left);
-        sg.y = cursorY + yOff - static_cast<float>(ftFace->glyph->bitmap_top);
+        sg.x = cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
+        sg.y = cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
         sg.advanceX = xAdv;
         sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
         sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
-        sg.bearingX = static_cast<float>(ftFace->glyph->bitmap_left);
-        sg.bearingY = static_cast<float>(ftFace->glyph->bitmap_top);
+        sg.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
+        sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
         result.push_back(sg);
         cursorX += xAdv;
     }
@@ -178,8 +178,8 @@ auto TextShaper::shapeMetrics(FontId fontId, const char *text, float fontSize) -
         m.glyphIndex = gid;
         m.x = cursorX + xOff;
         m.advanceX = xAdv;
-        m.bearingX = static_cast<float>(ftFace->glyph->bitmap_left);
-        m.bearingY = static_cast<float>(ftFace->glyph->bitmap_top);
+        m.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
+        m.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
 
         result.push_back(m);
         cursorX += xAdv;

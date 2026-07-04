@@ -13,9 +13,10 @@ layout(push_constant) uniform PushConstants {
 } pc;
 
 void main() {
-    float coverage = texture(glyphAtlas, fragUV).r;
-    if (pc.textContrast != 1.0)
-        coverage = 1.0 - pow(1.0 - coverage, pc.textContrast);
+    // LCD 子像素渲染: RGB 三通道分别存储子像素覆盖值
+    vec3 subpixel = texture(glyphAtlas, fragUV).rgb;
     vec3 linear_color = pow(fragColor.rgb, vec3(2.2));
-    outColor = vec4(linear_color * coverage, fragColor.a * coverage);
+     // 每个颜色通道乘以对应的子像素覆盖
+    float avg_coverage = dot(subpixel, vec3(0.3333));
+    outColor = vec4(linear_color * subpixel, fragColor.a * avg_coverage);
 }
