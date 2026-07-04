@@ -77,22 +77,22 @@ private:
 static std::string resolveDemo(int argc, char *argv[]) {
     if (argc >= 2) {
         std::string arg = argv[1];
-        if (arg == "channel") return "../../examples/channel.js";
-        if (arg == "view") return "../../examples/view.js";
-        if (arg == "text") return "../../examples/text.js";
-        if (arg == "event") return "../../examples/event.js";
-        if (arg == "flex") return "../../examples/flex.js";
-        if (arg == "list") return "../../examples/list.js";
-        if (arg == "grid") return "../../examples/grid.js";
-        if (arg == "stack") return "../../examples/stack.js";
-        if (arg == "image") return "../../examples/image.js";
-        if (arg == "input") return "../../examples/input.js";
-        if (arg == "example") return "../../examples/example.js";
-        if (arg == "radiobutton") return "../../examples/radiobutton.js";
-        if (arg == "checkbox") return "../../examples/checkbox.js";
-        if (arg == "textarea") return "../../examples/textarea.js";
-        if (arg == "dropdown") return "../../examples/dropdown.js";
-        if (arg == "test") return "../../examples/test.js";
+        if (arg == "channel") return "../../examples/ui/channel.js";
+        if (arg == "view") return "../../examples/ui/view.js";
+        if (arg == "text") return "../../examples/ui/text.js";
+        if (arg == "event") return "../../examples/ui/event.js";
+        if (arg == "flex") return "../../examples/ui/flex.js";
+        if (arg == "list") return "../../examples/ui/list.js";
+        if (arg == "grid") return "../../examples/ui/grid.js";
+        if (arg == "stack") return "../../examples/ui/stack.js";
+        if (arg == "image") return "../../examples/ui/image.js";
+        if (arg == "input") return "../../examples/ui/input.js";
+        if (arg == "example") return "../../examples/ui/example.js";
+        if (arg == "radiobutton") return "../../examples/ui/radiobutton.js";
+        if (arg == "checkbox") return "../../examples/ui/checkbox.js";
+        if (arg == "textarea") return "../../examples/ui/textarea.js";
+        if (arg == "dropdown") return "../../examples/ui/dropdown.js";
+        if (arg == "test") return "../../examples/ui/test.js";
         if (arg == "test_gap") return "../../examples/ui/test_gap_click.js";
         if (arg == "slider") return "../../examples/ui/slider.js";
         if (arg == "progress") return "../../examples/ui/progress.js";

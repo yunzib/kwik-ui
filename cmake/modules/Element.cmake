@@ -12,6 +12,7 @@ target_sources(kwik_element
             modules/element/props.cppm
             modules/element/typed_prop.cppm
             modules/element/view.cppm
+            modules/element/rootview.cppm
             modules/element/text.cppm
             # modules/element/button.cppm
             modules/element/image.cppm
@@ -39,6 +40,7 @@ target_sources(kwik_element
             
     PRIVATE
         src/element/view.cpp
+        src/element/rootview.cpp
         src/element/text.cpp
         # src/element/button.cpp
         src/element/image.cpp

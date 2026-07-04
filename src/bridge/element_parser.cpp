@@ -18,6 +18,7 @@ import kwik.core.log;
 module kwik.bridge.element_parser;
 import kwik.bridge.props_parser;
 import kwik.element.view;
+import kwik.element.rootview;
 import kwik.element.props;
 import kwik.engine.js_value;
 import kwik.layout.flex_layout;
@@ -135,6 +136,12 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             return std::make_unique<View>(parseViewProps(ex));
+        });
+
+        ElementParser::registerType("Root", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<RootView>(parseViewProps(ex));
         });
 
         ElementParser::registerType("Text", [](const JSValueRef &pv) {

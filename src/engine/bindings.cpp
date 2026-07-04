@@ -271,6 +271,17 @@ JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *a
     return makeElement(ctx, "View", props, children);
 }
 
+// Root(...children) — 应用入口容器，无 props，所有参数为子节点
+JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue children = JS_NewArray(ctx);
+    for (int i = 0; i < argc; i++) {
+        JS_SetPropertyUint32(ctx, children, i, JS_DupValue(ctx, argv[i]));
+    }
+    JSValue result = makeElement(ctx, "Root", JS_UNDEFINED, children);
+    JS_FreeValue(ctx, children);
+    return result;
+}
+
 JSValue js_text(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Text", props, JS_UNDEFINED);
@@ -625,6 +636,7 @@ JSModuleDef *register_kwikui_module(JSContext *ctx) {
     // 只导出 View 和 Text 为普通工厂函数
     static const JSCFunctionListEntry ui_exports[] = {
         JS_CFUNC_DEF("View", 1, js_view),
+        JS_CFUNC_DEF("Root", 1, js_root),
         JS_CFUNC_DEF("Text", 1, js_text),
         JS_CFUNC_DEF("Button", 2, js_button),
         JS_CFUNC_DEF("Flex", 2, js_flex),
