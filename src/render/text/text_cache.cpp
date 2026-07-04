@@ -103,16 +103,17 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
     // 单层遍历扁平数组 (原为 line 套 glyphs 双层)
     for (auto &g : result->glyphs) {
-        g.fontSize = std::round(g.fontSize);
+       g.fontSize = std::round(g.fontSize);
         if (g.fontSize < 1.0f) g.fontSize = 1.0f;
-        GlyphKey key{g.fontId, g.glyphIndex, g.fontSize};
+        const float frac = g.x - std::floor(g.x);
+        const uint32_t subpixelOffset = static_cast<uint32_t>(std::round(frac * 4.0f)) % 4;
+        g.x = std::floor(g.x) + subpixelOffset * 0.25f;
+        GlyphKey key{g.fontId, g.glyphIndex, g.fontSize, subpixelOffset};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
-            // 首次 — 栅格化
             auto &entry = glyphCache_[key];
-            // 三字段聚合初始化，其余默认 (pixelData 为空)
             entry.info = {g.fontId, g.glyphIndex, g.fontSize};
-            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
+            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, subpixelOffset);
             packGlyph(entry);
             it = glyphCache_.find(key);
         }
@@ -121,7 +122,8 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
         // 图集未变且已打包 — 使用保存坐标
         if (!entry.packed || entry.atlasGeneration != currentGen) {
-            if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
+            if (entry.info.pixelData.empty())
+                rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, subpixelOffset);
             packGlyph(entry);
         }
 
@@ -139,17 +141,19 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 // 栅格化 — FreeType A8 灰度位图 (原 FontManager::renderBitmap)
 // ═══════════════════════════════════════════════════════════════════════════
 
-void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry) {
+void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
+                               CachedGlyph &entry, uint32_t subpixelOffset) {
     auto *face = fontManager_.getFace(font);
     if (!face) return;
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
     FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
+    FT_Vector shift = { static_cast<FT_Pos>(subpixelOffset * 16), 0 };
+    FT_Set_Transform(ftFace, nullptr, &shift);
+    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LIGHT);
 
-    // LIGHT hinting（只 Y 轴 snapping，保留水平曲线）+ LCD 渲染
-    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD);
-    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_LCD) != 0) return;
+    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
@@ -160,31 +164,26 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.bearingY = (float)ftFace->glyph->bitmap_top;
     entry.info.advanceX = ftFace->glyph->advance.x / 64.0f;
 
-    uint32_t rawW = bmp->width / 3;    // LCD: width = 3 × logical pixels
-    uint32_t rawH = bmp->rows;         // 高度不变
-    uint32_t padW = rawW + 2;          // 1px border (逻辑像素)
+    uint32_t rawW = bmp->width;
+    uint32_t rawH = bmp->rows;
+    uint32_t padW = rawW + 2;
     uint32_t padH = rawH + 2;
 
     if (rawW == 0 || rawH == 0) {
-        entry.packedW = 3;
-        entry.packedH = 3;
-        entry.info.pixelData.resize(3 * 3 * 4, 0);    // RGBA 3×3
+        entry.packedW = 1;
+        entry.packedH = 1;
+        entry.info.pixelData.resize(1, 0);
         return;
     }
 
     entry.packedW = padW;
     entry.packedH = padH;
-    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);
+    entry.info.pixelData.assign((size_t)padW * padH, 0);
 
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 1 * 4;
-        for (unsigned int c = 0; c < rawW; c++) {
-            dst[c * 4 + 0] = src[c * 3 + 0];                                                // R
-            dst[c * 4 + 1] = src[c * 3 + 1];                                                // G
-            dst[c * 4 + 2] = src[c * 3 + 2];                                                // B
-            dst[c * 4 + 3] = std::max({src[c * 3 + 0], src[c * 3 + 1], src[c * 3 + 2]});    // A
-        }
+        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW + 1;
+        std::memcpy(dst, src, rawW);
     }
 }
 

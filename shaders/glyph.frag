@@ -13,8 +13,9 @@ layout(push_constant) uniform PushConstants {
 } pc;
 
 void main() {
-    vec3 sub = texture(glyphAtlas, fragUV).rgb;
+    float coverage = texture(glyphAtlas, fragUV).r;
+    if (pc.textContrast != 1.0)
+        coverage = 1.0 - pow(1.0 - coverage, pc.textContrast);
     vec3 linear_color = pow(fragColor.rgb, vec3(2.2));
-    float a = dot(sub, vec3(0.2126, 0.7152, 0.0722)) * fragColor.a;
-    outColor = vec4(linear_color * sub, a);
+    outColor = vec4(linear_color * coverage, fragColor.a * coverage);
 }

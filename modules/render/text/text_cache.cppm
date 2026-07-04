@@ -86,18 +86,22 @@ private:
     uint32_t layoutNextIndex_ = 0;
 
     // ═══════════════ 字形缓存 (位图 + 图集坐标合并) ═══════════
-    struct GlyphKey {
+     struct GlyphKey {
         FontId fontId;
         uint32_t glyph;
         float fontSize;
+        uint32_t subpixelOffset = 0;
         bool operator==(const GlyphKey &o) const {
-            return fontId == o.fontId && glyph == o.glyph && fontSize == o.fontSize;
+            return fontId == o.fontId && glyph == o.glyph
+                && fontSize == o.fontSize && subpixelOffset == o.subpixelOffset;
         }
     };
     struct GlyphKeyHash {
         size_t operator()(const GlyphKey &k) const {
-            return std::hash<uint32_t>{}(k.fontId) ^ (std::hash<uint32_t>{}(k.glyph) << 1)
-                   ^ (std::hash<float>{}(k.fontSize) << 2);
+            return std::hash<uint32_t>{}(k.fontId)
+                 ^ (std::hash<uint32_t>{}(k.glyph) << 1)
+                 ^ (std::hash<float>{}(k.fontSize) << 2)
+                 ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3);
         }
     };
 
@@ -114,7 +118,8 @@ private:
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
     /** @brief 栅格化字形 — FreeType A8 位图 */
-    void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry);
+    void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
+                        CachedGlyph &entry, uint32_t subpixelOffset = 0);
 
     /** @brief Skyline 打包 + 加入上传队列 */
     void packGlyph(CachedGlyph &entry);
