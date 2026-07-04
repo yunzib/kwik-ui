@@ -306,6 +306,7 @@ void Application::handleResize(int width, int height) {
     auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
     relayoutTree(sz);
     eventRouter_.reset();
+    eventRouter_.setDpiScale(dpi);
     dirtyTracker_.markFull();
 
     Log::info("[App] resize: {}x{} (logical {:.0f}x{:.0f})", width, height, sz.width, sz.height);
