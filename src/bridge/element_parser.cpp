@@ -37,7 +37,7 @@ import kwik.bridge.binding_registry;
 // import kwik.element.table;
 // import kwik.element.textview;
 import kwik.element.text;
-// import kwik.element.button;
+import kwik.element.button;
 // import kwik.element.input;
 // import kwik.element.radiobutton;
 // import kwik.layout.radio_group;
@@ -150,11 +150,11 @@ static struct InitBuiltinTypes {
             return std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
         });
 
-        // ElementParser::registerType("Button", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
-        // });
+        ElementParser::registerType("Button", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
+        });
 
         ElementParser::registerType("Flex", [](const JSValueRef &pv) {
             TypedPropMap meta;

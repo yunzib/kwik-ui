@@ -8,10 +8,14 @@ import kwik.element.view;
 import kwik.element.props;
 import kwik.core.types;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.core.constraints;
+import kwik.event;
 import std;
+
 export enum class ButtonState { Idle, Hovered, Pressed };
+
 /**
  * @brief Button 控件
  *
@@ -53,13 +57,11 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     TextContent text_;           // 文字内容属性
     ButtonStateProps button_;    // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
-    // ── 文字排版缓存 ──
-    ShapedTextCache textCache_;
-    FontMetrics cachedMetrics_;
+    TextLayoutToken layoutToken_;   // 排版缓存句柄
 };

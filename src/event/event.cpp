@@ -464,11 +464,11 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     case RawEvent::Device::Mouse:
     case RawEvent::Device::Touch:
     case RawEvent::Device::Pen: {
-        // PointerTracker 追踪状态
-        pointerTracker_.update(scaled);
         // GestureRecognizer 识别手势
         gestureRecognizer_.process(rootTarget_, pointerTracker_,
                                     scaled, events);
+        // PointerTracker 追踪状态
+        pointerTracker_.update(scaled);
         break;
     }
     case RawEvent::Device::Keyboard: {
