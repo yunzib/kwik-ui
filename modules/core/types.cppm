@@ -5,21 +5,6 @@ export module kwik.core.types;
 
 import std;
 
-export enum class UIEventType {
-    Tap,
-    LongPress,
-    HoverEnter,
-    HoverLeave,
-    HoverMove,
-    PanBegin,
-    PanMove,
-    PanEnd,
-    PressBegin,
-    PressEnd,
-    Wheel,
-    Custom    // 自定义事件 (键盘 / 焦点等)
-};
-
 /**
  * @brief 尺寸结构体
  */

@@ -34,10 +34,6 @@ public:
     void *GetNativeHandle() const override {
         return hwnd_;
     }
-    // 事件处理
-    void SetEventCallback(EventCallback callback) override {
-        callback_ = std::move(callback);
-    }
     void PollEvents() override;
     void WaitEvents() override;
     // 窗口定制
@@ -45,6 +41,8 @@ public:
     void SetShape(const std::vector<std::pair<int, int>> &polygon) override;
     void SetShapeMask(const uint8_t *maskData, int width, int height) override;
     void SetResizable(bool resizable) override;
+
+    void SetRawEventCallback(PlatformWindow::RawEventCallback callback) override;
 
 private:
     // 窗口消息处理
@@ -58,8 +56,8 @@ private:
     int height_ = 0;             // 窗口高度
     int designWidth_ = 800;   // Create() 传入的原始逻辑宽度（缩放前）
     int designHeight_ = 600;  // Create() 传入的原始逻辑高度（缩放前）
-    EventCallback callback_;     // 事件回调
     WindowDecoration decoration_ = WindowDecoration::Normal;
+    RawEventCallback rawCallback_ = nullptr;
 };
 
 #endif // _WIN32

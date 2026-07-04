@@ -2,3 +2,4 @@ build/
 .VSCodeCounter/
 .opencode/
 .cache/
+CMakeFiles/

@@ -11,9 +11,6 @@ target_sources(kwik_event
 target_link_libraries(kwik_event
     PRIVATE
         kwik_core
-        kwik_platform
-        kwik_element
-        qjs
 )
 target_compile_definitions(kwik_event
     PRIVATE

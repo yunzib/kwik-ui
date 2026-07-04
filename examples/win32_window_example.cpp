@@ -15,9 +15,9 @@ int main() {
     bool running = true;
     int maxCycle = 0;
 
-    window->SetEventCallback([&](const Event& e) {
-        if (e.type == Event::Type::WindowClose) running = false;
-        if (e.type == Event::Type::WindowResize) {
+    window->SetRawEventCallback([&](const RawEvent &e) {
+        if (e.device == RawEvent::Device::Window && e.action == RawEvent::Action::WindowClose) running = false;
+        if (e.device == RawEvent::Device::Window && e.action == RawEvent::Action::WindowResize && e.width > 0 && e.height > 0) {
             HWND hwnd = (HWND)window->GetNativeHandle();
             bool isMax = IsZoomed(hwnd);
             if (isMax) {

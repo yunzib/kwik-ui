@@ -118,6 +118,7 @@ target_sources(kwik_platform
 # 5. 添加依赖（kwik_core）和链接库（平台特定库）
 target_link_libraries(kwik_platform
     PRIVATE
+        kwik_event
         kwik_utils
         kwik_core
         ${KWIK_PLATFORM_LIBS}

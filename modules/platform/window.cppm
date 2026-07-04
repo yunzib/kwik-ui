@@ -6,6 +6,7 @@ module;
 #include <cstdint>
 
 export module kwik.platform.window;
+import kwik.event;
 
 /**
  * @brief 事件类型枚举
@@ -58,9 +59,10 @@ export enum class WindowDecoration {
  */
 export class PlatformWindow {
 public:
-    using EventCallback = std::function<void(const Event &)>;
+    using RawEventCallback = std::function<void(const RawEvent &)>;
     virtual ~PlatformWindow() = default;
     // ==================== 窗口生命周期 ====================
+    
 
     /**
      * @brief 创建窗口
@@ -130,11 +132,6 @@ public:
     // ==================== 事件接口 ====================
 
     /**
-     * @brief 设置事件回调函数
-     */
-    virtual void SetEventCallback(EventCallback callback) = 0;
-
-    /**
      * @brief 轮询事件（非阻塞）
      */
     virtual void PollEvents() = 0;
@@ -144,6 +141,10 @@ public:
      */
     virtual void WaitEvents() = 0;
     // ==================== 窗口定制 ====================
+    /**
+     * @brief 设置事件回调函数
+     */
+    virtual void SetRawEventCallback(RawEventCallback callback) = 0;
 
     /**
      * @brief 设置窗口装饰风格

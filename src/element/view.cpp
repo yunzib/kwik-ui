@@ -7,6 +7,7 @@ import kwik.render.graphics;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.engine.js_value;
+import kwik.event;
 
 import std;
 // ============================================================================
@@ -40,10 +41,10 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY, JSContext
     if (!dispatchCtx) return false;
     JSValue handler = JS_NULL;
     switch (code) {
-    case ViewEventCode::Tap: handler = onClick; break;
-    case ViewEventCode::LongPress: handler = onLongPress; break;
-    case ViewEventCode::HoverEnter: handler = onHoverEnter; break;
-    case ViewEventCode::HoverLeave: handler = onHoverLeave; break;
+    case 0: handler = onClick; break;       // Tap
+    case 1: handler = onLongPress; break;   // LongPress
+    case 2: handler = onHoverEnter; break;  // HoverEnter
+    case 3: handler = onHoverLeave; break;  // HoverLeave
     default: return false;
     }
     if (js_is_null(handler) || !JS_IsFunction(dispatchCtx, handler)) return false;
@@ -248,16 +249,7 @@ void View::onDraw(Graphics &graphics) {
 // ============================================================================
 // View 命中测试
 // ============================================================================
-// View *View::hitTest(Point point) {
-//     if (!props.visible) return nullptr;
-//     if (!frame.contains(point)) return nullptr;
-//     for (auto it = children.rbegin(); it != children.rend(); ++it) {
-//         View *hit = (*it)->hitTest(point);
-//         if (hit) return hit;
-//     }
-//     return this;
-// }
-View *View::hitTest(Point point) {
+EventTarget *View::hitTest(Point point) {
     if (!props.visible) return nullptr;    // 不可见 → 跳过整棵子树
 
     // ── 先遍历子节点 ──
@@ -276,13 +268,13 @@ View *View::hitTest(Point point) {
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
         for (auto *c : sorted) {
-            View *hit = c->hitTest(point);
+            auto *hit = c->hitTest(point);
             if (hit) return hit;
         }
     } else {
         // 无 z-index → 逆序（后添加的在上层）
         for (auto it = children.rbegin(); it != children.rend(); ++it) {
-            View *hit = (*it)->hitTest(point);
+            auto *hit = (*it)->hitTest(point);
             if (hit) return hit;
         }
     }
@@ -440,4 +432,32 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
             }
         },
         value);
+}
+
+bool View::onEvent(const DispatchEvent &event) {
+    // 键盘事件: 使用 keyCode/charCode 而非坐标
+    if (event.type == DispatchEvent::Type::KeyAction) {
+        return handlers.dispatch(dispatchEventTypeToCode(event.type),
+                                  static_cast<float>(event.keyCode),
+                                  static_cast<float>(event.modifiers),
+                                  handlers.ctx);
+    }
+    if (event.type == DispatchEvent::Type::CharInput) {
+        return handlers.dispatch(dispatchEventTypeToCode(event.type),
+                                  static_cast<float>(event.charCode),
+                                  0.0f,
+                                  handlers.ctx);
+    }
+
+    // 指针/手势事件: 使用全局坐标转换
+    Point local = {event.globalX - frame.x, event.globalY - frame.y};
+    int code = dispatchEventTypeToCode(event.type);
+    return handlers.dispatch(code, local.x, local.y, handlers.ctx);
+}
+
+// View::acceptsFocus — 默认返回 false, 子类重写
+bool View::acceptsFocus() const {
+    return type() == ElementType::Input
+        || type() == ElementType::TextArea
+        || type() == ElementType::TextView;
 }

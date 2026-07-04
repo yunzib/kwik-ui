@@ -96,10 +96,10 @@ int main() {
     // ── 5. Event callback ──
     bool running = true;
     int resizeCount = 0;
-    window->SetEventCallback([&](const Event &e) {
-        if (e.type == Event::Type::WindowClose) {
+    window->SetRawEventCallback([&](const RawEvent &e) {
+        if (e.device == RawEvent::Device::Window && e.action == RawEvent::Action::WindowClose) {
             running = false;
-        } else if (e.type == Event::Type::WindowResize && e.width > 0 && e.height > 0) {
+        } else if (e.device == RawEvent::Device::Window && e.action == RawEvent::Action::WindowResize && e.width > 0 && e.height > 0) {
             w = e.width;
             h = e.height;
             backend.resize(w, h);

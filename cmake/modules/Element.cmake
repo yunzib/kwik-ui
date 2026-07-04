@@ -21,11 +21,11 @@ target_sources(kwik_element
             # modules/element/checkbox.cppm
             # modules/element/textarea.cppm
             # modules/element/dropdown.cppm
-            modules/element/slider.cppm
-            modules/element/progressbar.cppm
-            modules/element/switch.cppm
-            modules/element/line.cppm
-            modules/element/spinner.cppm
+            # modules/element/slider.cppm
+            # modules/element/progressbar.cppm
+            # modules/element/switch.cppm
+            # modules/element/line.cppm
+            # modules/element/spinner.cppm
             # modules/element/table.cppm
             # modules/element/textview.cppm
 
@@ -34,8 +34,8 @@ target_sources(kwik_element
             modules/layout/flex_layout.cppm
             modules/layout/grid_layout.cppm
             modules/layout/stack_layout.cppm
-            modules/layout/list_layout.cppm
-            modules/layout/radio_group.cppm
+            # modules/layout/list_layout.cppm
+            # modules/layout/radio_group.cppm
            
             
     PRIVATE
@@ -51,19 +51,19 @@ target_sources(kwik_element
         # src/element/checkbox.cpp
         # src/element/textarea.cpp
         # src/element/dropdown.cpp
-        src/element/slider.cpp
-        src/element/progressbar.cpp
-        src/element/switch.cpp
-        src/element/line.cpp
-        src/element/spinner.cpp
+        # src/element/slider.cpp
+        # src/element/progressbar.cpp
+        # src/element/switch.cpp
+        # src/element/line.cpp
+        # src/element/spinner.cpp
         # src/element/table.cpp
         # src/element/textview.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
         src/layout/stack_layout.cpp
-        src/layout/list_layout.cpp
-        src/layout/radio_group.cpp
+        # src/layout/list_layout.cpp
+        # src/layout/radio_group.cpp
 )
 
 # 5. 添加依赖（DEPENDS）

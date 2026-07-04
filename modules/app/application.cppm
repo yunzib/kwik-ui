@@ -67,7 +67,7 @@ public:
          *   3. WindowResize → 重建 swapchain + re-layout
          *   4. EventProcessor → EventDispatcher → JS handler
          */
-        std::function<bool(const Event &e)> onEvent;
+        std::function<bool(const RawEvent &e)> onEvent;
     };
     /**
      * @brief 构造 Application
@@ -126,16 +126,16 @@ private:
     RenderThread renderThread_;
     QuickJSContext jsCtx_;
     std::unique_ptr<View> tree_;
-    EventProcessor eventProc_;
-    EventDispatcher eventDisp_;
     bool running_ = false;
     bool cacheSaved_ = false;        // 字形缓冲
-    View *focusedView_ = nullptr;    // 当前聚焦的 Input 控件 (接收键盘事件)
     DirtyTracker dirtyTracker_;         // 脏矩形追踪器 (在 kwik.element.view 中定义)
     BindingRegistry bindingRegistry_;     // 绑定注册表（增量更新用）
 
     ThreadPool threadPool_{4};            // 4 线程的线程池
     TaskQueue mainThreadTaskQueue_;       // 主线程任务队列
+
+    EventRouter eventRouter_;
+    void handleResize(int width, int height);
 
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局

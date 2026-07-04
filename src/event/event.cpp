@@ -1,256 +1,536 @@
 // ============================================================================
 // 模块实现: kwik.event
-// 手势识别器 + 事件分发器
+// 统一事件系统 —— PointerTracker + GestureRecognizer + KeyboardHandler
+//               + FocusManager + EventDispatcher + EventRouter
 // ============================================================================
 module;
-#include "quickjs.h"
+
 #include <cmath>
-#include <functional>
+#include <algorithm>
+
 module kwik.event;
-import kwik.element.view;
+
 import kwik.core.types;
-import kwik.platform.window;
-import kwik.layout.list_layout;
 
 import std;
+
+namespace {
+    uint64_t nowMs() {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    }
+}
+
 // ============================================================================
 // 工具函数
 // ============================================================================
-int uiEventTypeToCode(UIEventType t) {
+int dispatchEventTypeToCode(DispatchEvent::Type t) {
     switch (t) {
-    case UIEventType::Tap: return 0;
-    case UIEventType::LongPress: return 1;
-    case UIEventType::HoverEnter: return 2;
-    case UIEventType::HoverLeave: return 3;
-    case UIEventType::HoverMove: return 4;
-    case UIEventType::PanBegin: return 5;
-    case UIEventType::PanMove: return 6;
-    case UIEventType::PanEnd: return 7;
-    case UIEventType::PressBegin: return 8;
-    case UIEventType::PressEnd: return 9;
-    case UIEventType::Wheel: return 10;
-    case UIEventType::Custom: return 11;
+    case DispatchEvent::Type::Tap:           return 0;
+    case DispatchEvent::Type::LongPress:     return 1;
+    case DispatchEvent::Type::HoverEnter:    return 2;
+    case DispatchEvent::Type::HoverLeave:    return 3;
+    case DispatchEvent::Type::HoverMove:     return 4;
+    case DispatchEvent::Type::PanBegin:      return 5;
+    case DispatchEvent::Type::PanMove:       return 6;
+    case DispatchEvent::Type::PanEnd:        return 7;
+    case DispatchEvent::Type::PointerDown:   return 8;   // 原 PressBegin
+    case DispatchEvent::Type::PointerUp:     return 9;   // 原 PressEnd
+    case DispatchEvent::Type::Scroll:        return 10;  // 原 Wheel
+    case DispatchEvent::Type::DoubleTap:     return 11;
+    case DispatchEvent::Type::KeyAction:     return 20;
+    case DispatchEvent::Type::CharInput:     return 21;
+    case DispatchEvent::Type::PointerCancel: return 22;
+    case DispatchEvent::Type::FocusGained:   return 23;
+    case DispatchEvent::Type::FocusLost:     return 24;
+    case DispatchEvent::Type::WindowClose:   return 25;
+    case DispatchEvent::Type::WindowResize:  return 26;
+    case DispatchEvent::Type::WindowPaint:   return 27;
+    // Pinch/Rotate 暂未分配给 JS 回调
+    default:                                 return -1;
     }
-    return -1;
 }
-Point viewLocalPos(View *view, Point globalPos) {
-    if (!view) return {0, 0};
-    return {globalPos.x - view->frame.x, globalPos.y - view->frame.y};
+
+float localX(const EventTarget *target, float globalX) {
+    return globalX;  // 基类实现: 直接返回 (View 需重写)
 }
+
+float localY(const EventTarget *target, float globalY) {
+    return globalY;
+}
+
 // ============================================================================
-// EventProcessor
+// PointerTracker
 // ============================================================================
-uint32_t EventProcessor::nowMs() {
-    using namespace std::chrono;
-    auto now = steady_clock::now().time_since_epoch();
-    return static_cast<uint32_t>(duration_cast<milliseconds>(now).count());
-}
-std::vector<UIEvent> EventProcessor::process(const Event &rawEvent) {
-    std::vector<UIEvent> result;
-    uint32_t ts = nowMs();
-    Point pos{static_cast<float>(rawEvent.x), static_cast<float>(rawEvent.y)};
-    // 跳过键盘事件
-    if (rawEvent.type == Event::Type::KeyDown || rawEvent.type == Event::Type::KeyUp) { return result; }
-    int pid = static_cast<int>(rawEvent.button);
-    switch (rawEvent.type) {
-    // ── 鼠标移动 ─────────────────────────────────
-    case Event::Type::MouseMove: {
-        // ▶ HoverMove: 始终生成
-        result.push_back(UIEvent{UIEventType::HoverMove, pos, ts});
-        // ▶ HoverEnter / HoverLeave: 比对上一帧命中的 View
-        View *currentHover = rootTree_ ? rootTree_->hitTest(pos) : nullptr;
-        if (currentHover != lastHoverView_) {
-            // 离开上一个: 事件具体发给 lastHoverView_, 而非 hitTest 到的 View
-            if (lastHoverView_) {
-                UIEvent leaveEvt;
-                leaveEvt.type = UIEventType::HoverLeave;
-                leaveEvt.position = pos;
-                leaveEvt.timestamp = ts;
-                leaveEvt.targetView = lastHoverView_;    // ← 关键: 预设目标
-                result.push_back(leaveEvt);
-            }
-            // 进入新的: 事件具体发给 currentHover
-            if (currentHover) {
-                UIEvent enterEvt;
-                enterEvt.type = UIEventType::HoverEnter;
-                enterEvt.position = pos;
-                enterEvt.timestamp = ts;
-                enterEvt.targetView = currentHover;    // ← 关键: 预设目标
-                result.push_back(enterEvt);
-            }
-            lastHoverView_ = currentHover;
-        }
-        // ▶ Pan 检测: 仅当按键按下中
-        auto it = pointers_.find(pid);
+void PointerTracker::update(const RawEvent &raw) {
+    int32_t id = raw.pointerId;
+
+    switch (raw.action) {
+    case RawEvent::Action::Down: {
+        PointerState &st = pointers_[id];
+        st.downX = raw.x;
+        st.downY = raw.y;
+        st.downTime = raw.timestamp;
+        st.lastX = raw.x;
+        st.lastY = raw.y;
+        st.pressure = raw.pressure;
+        st.active = true;
+        st.pressTarget = nullptr;  // 由外部调用者设置
+        break;
+    }
+    case RawEvent::Action::Move: {
+        auto it = pointers_.find(id);
         if (it != pointers_.end()) {
-            it->second.lastPos = pos;    // ← 新增：记录最新位置供长按轮询使用
-            if (!it->second.panStarted) {
-                float dx = pos.x - it->second.downPos.x;
-                float dy = pos.y - it->second.downPos.y;
-                if (std::sqrt(dx * dx + dy * dy) > kPanThreshold) {
-                    it->second.panStarted = true;
-                    UIEvent panBeginEvt;
-                    panBeginEvt.type = UIEventType::PanBegin;
-                    panBeginEvt.position = it->second.downPos;
-                    panBeginEvt.timestamp = ts;
-                    panBeginEvt.targetView = it->second.pressTarget;
-                    result.push_back(panBeginEvt);
-                }
-            }
-            if (it->second.panStarted) {
-                UIEvent panMoveEvt;
-                panMoveEvt.type = UIEventType::PanMove;
-                panMoveEvt.position = pos;
-                panMoveEvt.timestamp = ts;
-                panMoveEvt.targetView = it->second.pressTarget;
-                result.push_back(panMoveEvt);
-            }
+            it->second.lastX = raw.x;
+            it->second.lastY = raw.y;
+            it->second.pressure = raw.pressure;
         }
         break;
     }
-    // ── 鼠标按下 ─────────────────────────────────
-    case Event::Type::MouseDown: {
-        PointerState &st = pointers_[pid];
-        st.downPos = pos;
-        st.downTime = ts;
-        st.lastPos = pos;
-        st.panStarted = false;
-        // ▶ PressBegin: 立即生成按下事件
-        st.pressTarget = rootTree_ ? rootTree_->hitTest(pos) : nullptr;
-        if (st.pressTarget) {
-            UIEvent pressEvt;
-            pressEvt.type = UIEventType::PressBegin;
-            pressEvt.position = pos;
-            pressEvt.timestamp = ts;
-            pressEvt.targetView = st.pressTarget;
-            result.push_back(pressEvt);
-        }
-        break;
-    }
-    // ── 鼠标抬起 ─────────────────────────────────
-    case Event::Type::MouseUp: {
-        auto it = pointers_.find(pid);
+    case RawEvent::Action::Up:
+    case RawEvent::Action::Cancel: {
+        auto it = pointers_.find(id);
         if (it != pointers_.end()) {
-            float dx = pos.x - it->second.downPos.x;
-            float dy = pos.y - it->second.downPos.y;
-            float dist = std::sqrt(dx * dx + dy * dy);
-            uint32_t elapsed = ts - it->second.downTime;
-            if (it->second.panStarted) {
-                UIEvent panEndEvt;
-                panEndEvt.type = UIEventType::PanEnd;
-                panEndEvt.position = pos;
-                panEndEvt.timestamp = ts;
-                panEndEvt.targetView = it->second.pressTarget;
-                result.push_back(panEndEvt);
-            } else if (elapsed < kTapTimeout && dist < kTapDistance) {
-                result.push_back(UIEvent{UIEventType::Tap, pos, ts});
+            // Cancel 时标记为非活跃, Up 时直接移除
+            if (raw.action == RawEvent::Action::Cancel) {
+                it->second.active = false;
+            } else {
+                pointers_.erase(it);
             }
-            // ▶ PressEnd: 无论 Tap/Pan/LongPress, 都清理按下状态
-            if (it->second.pressTarget) {
-                UIEvent releaseEvt;
-                releaseEvt.type = UIEventType::PressEnd;
-                releaseEvt.position = pos;
-                releaseEvt.timestamp = ts;
-                releaseEvt.targetView = it->second.pressTarget;
-                result.push_back(releaseEvt);
-            }
-            // LongPress 由超时轮询触发, 此处不重复
-            pointers_.erase(it);
         }
         break;
     }
-    // ── 滚轮 ─────────────────────────────────────
-    case Event::Type::MouseWheel: {
-        UIEvent wheelEvt;
-        wheelEvt.type = UIEventType::Wheel;
-        wheelEvt.position = pos;
-        wheelEvt.timestamp = ts;
-        wheelEvt.wheelDelta = rawEvent.wheelDelta;
-        result.push_back(wheelEvt);
+    default:
         break;
     }
-    default: break;
-    }
-    
-    return result;
+}
+
+const PointerTracker::PointerState *PointerTracker::get(int32_t pointerId) const {
+    auto it = pointers_.find(pointerId);
+    return it != pointers_.end() ? &it->second : nullptr;
+}
+
+void PointerTracker::reset() {
+    pointers_.clear();
 }
 
 // ============================================================================
-// pollLongPress — 独立长按轮询（每帧在主循环中调用）
+// GestureRecognizer
 // ============================================================================
-std::vector<UIEvent> EventProcessor::pollLongPress() {
-    std::vector<UIEvent> result;
-    uint32_t ts = nowMs();
+void GestureRecognizer::process(EventTarget *root,
+                                 PointerTracker &tracker,
+                                 const RawEvent &raw,
+                                 std::vector<DispatchEvent> &out) {
+    uint64_t ts = raw.timestamp;
+    int32_t pid = raw.pointerId;
 
-    for (auto &kv : pointers_) {
-        auto &st = kv.second;
-        // downTime > 0 表示该 pointer 仍处于按下状态（尚未 MouseUp）
-        if (st.downTime > 0) {
-            // 计算从按下位置到最近一次鼠标位置的移动距离
-            float dx = st.lastPos.x - st.downPos.x;
-            float dy = st.lastPos.y - st.downPos.y;
-            float dist = std::sqrt(dx * dx + dy * dy);
+    if (root == nullptr) return;
 
-            // 长按条件：静止或微动（距离 < kTapDistance）且超时 ≥ kLongPressDelay
-            // 使用 kTapDistance（10px）作为阈值，语义自洽——长按和 Tap
-            // 共享"用户手指没怎么动"的判断标准。
-            // 不依赖 panStarted 标志，因为 pan 阈值（kPanThreshold=5px）更灵敏，
-            // 若依赖它，手指微抖 6px 就会抑制长按。
-            if (dist < kTapDistance && ts - st.downTime >= kLongPressDelay) {
-                st.downTime = 0;    // 清零防止重复触发
-                // 长按事件位置取按下时的位置（用户没有大幅移动）
-                result.push_back(UIEvent{UIEventType::LongPress, st.downPos, ts});
-            }
-        }
-    }
-    return result;
-}
+    switch (raw.action) {
+    // ── 鼠标/触摸移动 ───────────────────────────────
+    case RawEvent::Action::Move: {
+        // HoverMove: 始终生成 (非 Down 状态的 Move)
+        auto *ps = tracker.get(pid);
+        if (!ps || !ps->active) {
+            out.push_back(DispatchEvent{
+                .type = DispatchEvent::Type::HoverMove,
+                .pointerId = pid,
+                .timestamp = ts,
+                .globalX = raw.x,
+                .globalY = raw.y,
+            });
 
-bool EventDispatcher::fireOnView(View *view, const UIEvent &event, JSContext *ctx) {
-    if (!view || !ctx) return false;
-    if (event.type == UIEventType::Custom) {
-        // 自定义事件 (键盘等): 用 data 字段传递 code, position 携带负载
-        return view->onEvent(event.code, static_cast<float>(event.data), static_cast<float>(event.modifiers), ctx);
-    }
-    Point local = viewLocalPos(view, event.position);
-    int code = uiEventTypeToCode(event.type);
-    return view->onEvent(code, local.x, local.y, ctx);
-}
-
-bool EventDispatcher::dispatch(View *root, const UIEvent &event, JSContext *ctx) {
-    if (!root || !ctx) return false;
-    // ── 预设目标 (HoverEnter/HoverLeave) ──────────────────────────
-    // 这两个事件的目标已由 EventProcessor 通过 hitTest 预计算,
-    // 跳过 hitTest 直接对 targetView 触发其 JS 事件回调
-    if (event.targetView) { return fireOnView(event.targetView, event, ctx); }
-    // ── 滚轮事件 ──────────────────────────────────────────────────
-    // 对命中 View 触发 + 沿 parent() 查找最近的 ListLayout 应用滚动
-    if (event.type == UIEventType::Wheel) {
-        View *target = root->hitTest(event.position);
-        if (target) {
-            fireOnView(target, event, ctx);
-
-            target->applyWheel(event.wheelDelta * 30.0f);
-
-            // 沿 parent 链向上查找 ListLayout (替代之前 hitTestWithPath + path 反向遍历)
-            for (View *v = target; v; v = v->parent()) {
-                if (auto *list = dynamic_cast<ListLayout *>(v)) {
-                    list->applyWheel(event.wheelDelta * 30.0f);
-                    break;
+            // HoverEnter / HoverLeave: 比对上一帧悬停目标
+            EventTarget *current = root->hitTest(Point{raw.x, raw.y});
+            if (current != lastHoverTarget_) {
+                if (lastHoverTarget_) {
+                    DispatchEvent leaveEvt;
+                    leaveEvt.type = DispatchEvent::Type::HoverLeave;
+                    leaveEvt.timestamp = ts;
+                    leaveEvt.presetTarget = lastHoverTarget_;
+                    out.push_back(leaveEvt);
                 }
+                if (current) {
+                    DispatchEvent enterEvt;
+                    enterEvt.type = DispatchEvent::Type::HoverEnter;
+                    enterEvt.timestamp = ts;
+                    enterEvt.presetTarget = current;
+                    out.push_back(enterEvt);
+                }
+                lastHoverTarget_ = current;
+            }
+        }
+
+        // ── Pan 检测 ──
+        if (ps && ps->active) {
+            if (!ps->pressTarget) {
+                const_cast<PointerTracker::PointerState *>(ps)->pressTarget =
+                    root->hitTest(Point{ps->downX, ps->downY});
+            }
+            float dx = raw.x - ps->downX;
+            float dy = raw.y - ps->downY;
+            bool overThreshold = std::sqrt(dx * dx + dy * dy) > kPanThreshold;
+            bool &panning = panStarted_[pid];
+            if (overThreshold && !panning) {
+                panning = true;
+                DispatchEvent panBegin;
+                panBegin.type = DispatchEvent::Type::PanBegin;
+                panBegin.pointerId = pid;
+                panBegin.timestamp = ts;
+                panBegin.globalX = ps->downX;
+                panBegin.globalY = ps->downY;
+                panBegin.presetTarget = ps->pressTarget;
+                out.push_back(panBegin);
+            }
+            if (panning) {
+                DispatchEvent panMove;
+                panMove.type = DispatchEvent::Type::PanMove;
+                panMove.pointerId = pid;
+                panMove.timestamp = ts;
+                panMove.globalX = raw.x;
+                panMove.globalY = raw.y;
+                panMove.presetTarget = ps->pressTarget;
+                out.push_back(panMove);
+            }
+        }
+        break;
+    }
+    // ── 鼠标/触摸按下 ───────────────────────────────
+    case RawEvent::Action::Down: {
+        // 记录按下位置并缓存 hitTest 结果
+        auto *ps = tracker.get(pid);
+        if (ps) {
+            const_cast<PointerTracker::PointerState *>(ps)->pressTarget =
+                root->hitTest(Point{raw.x, raw.y});
+        }
+
+        // PointerDown 透传
+        DispatchEvent pointerEvt;
+        pointerEvt.type = DispatchEvent::Type::PointerDown;
+        pointerEvt.pointerId = pid;
+        pointerEvt.timestamp = ts;
+        pointerEvt.globalX = raw.x;
+        pointerEvt.globalY = raw.y;
+        if (ps && ps->pressTarget) {
+            pointerEvt.presetTarget = ps->pressTarget;
+        }
+        out.push_back(pointerEvt);
+        break;
+    }
+    // ── 鼠标/触摸抬起 ───────────────────────────────
+    case RawEvent::Action::Up: {
+        auto *ps = tracker.get(pid);
+        if (ps) {
+            float dx = raw.x - ps->downX;
+            float dy = raw.y - ps->downY;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            uint64_t elapsed = ts - ps->downTime;
+
+            // Tap 判定: 移动小 + 时间短
+            if (elapsed < kTapTimeout && dist < kTapDistance) {
+                DispatchEvent tapEvt;
+                tapEvt.type = DispatchEvent::Type::Tap;
+                tapEvt.pointerId = pid;
+                tapEvt.timestamp = ts;
+                tapEvt.globalX = raw.x;
+                tapEvt.globalY = raw.y;
+                tapEvt.presetTarget = ps->pressTarget;
+                out.push_back(tapEvt);
+            }
+
+            // PointerUp 透传
+            DispatchEvent upEvt;
+            upEvt.type = DispatchEvent::Type::PointerUp;
+            upEvt.pointerId = pid;
+            upEvt.timestamp = ts;
+            upEvt.globalX = raw.x;
+            upEvt.globalY = raw.y;
+            upEvt.presetTarget = ps->pressTarget;
+            out.push_back(upEvt);
+        }
+        panStarted_.erase(pid);
+        break;
+    }
+    // ── 滚轮 ────────────────────────────────────────
+    case RawEvent::Action::Scroll: {
+        DispatchEvent scrollEvt;
+        scrollEvt.type = DispatchEvent::Type::Scroll;
+        scrollEvt.pointerId = pid;
+        scrollEvt.timestamp = ts;
+        scrollEvt.globalX = raw.x;
+        scrollEvt.globalY = raw.y;
+        scrollEvt.scrollX = raw.scrollX;
+        scrollEvt.scrollY = raw.scrollY;
+        out.push_back(scrollEvt);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void GestureRecognizer::poll(EventTarget *root,
+                              PointerTracker &tracker,
+                              std::vector<DispatchEvent> &out) {
+    uint64_t ts = nowMs();
+
+    for (auto &[pid, ps] : tracker.pointers()) {
+        if (!ps.active) continue;
+
+        float dx = ps.lastX - ps.downX;
+        float dy = ps.lastY - ps.downY;
+        float dist = std::sqrt(dx * dx + dy * dy);
+
+        // 长按: 静止 + 超时
+        if (ps.downTime > 0 && dist < kTapDistance
+            && ts - ps.downTime >= kLongPressDelay) {
+            DispatchEvent lpEvt;
+            lpEvt.type = DispatchEvent::Type::LongPress;
+            lpEvt.pointerId = pid;
+            lpEvt.timestamp = ts;
+            lpEvt.globalX = ps.downX;
+            lpEvt.globalY = ps.downY;
+            lpEvt.presetTarget = ps.pressTarget;
+            out.push_back(lpEvt);
+
+            // 防止重复触发
+            const_cast<PointerTracker::PointerState &>(ps).downTime = 0;
+        }
+    }
+}
+
+// ============================================================================
+// KeyboardHandler
+// ============================================================================
+void KeyboardHandler::process(const RawEvent &raw,
+                               std::vector<DispatchEvent> &out) {
+    uint64_t ts = raw.timestamp;
+
+    switch (raw.action) {
+    case RawEvent::Action::KeyDown: {
+        DispatchEvent keyEvt;
+        keyEvt.type = DispatchEvent::Type::KeyAction;
+        keyEvt.keyCode = raw.keyCode;
+        keyEvt.modifiers = raw.modifiers;
+        keyEvt.timestamp = ts;
+        out.push_back(keyEvt);
+        break;
+    }
+    case RawEvent::Action::TextInput: {
+        DispatchEvent charEvt;
+        charEvt.type = DispatchEvent::Type::CharInput;
+        charEvt.charCode = raw.charCode;
+        charEvt.timestamp = ts;
+        out.push_back(charEvt);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+// ============================================================================
+// FocusManager
+// ============================================================================
+void FocusManager::process(std::vector<DispatchEvent> &events) {
+    for (auto &evt : events) {
+        if (evt.type != DispatchEvent::Type::PointerDown
+            && evt.type != DispatchEvent::Type::Tap) {
+            continue;
+        }
+
+        EventTarget *target = nullptr;
+        if (evt.presetTarget) {
+            target = evt.presetTarget;
+        } else if (root_) {
+            target = root_->hitTest(Point{evt.globalX, evt.globalY});
+        }
+
+        // 检查是否需要聚焦的目标
+        EventTarget *focusTarget = target;
+        // 如果目标本身不接受焦点, 沿 parent 找第一个接受的
+        while (focusTarget && !focusTarget->acceptsFocus()) {
+            focusTarget = focusTarget->parent();
+        }
+
+        if (focusTarget != focused_) {
+            // 旧焦点失焦
+            if (focused_) {
+                DispatchEvent blurEvt;
+                blurEvt.type = DispatchEvent::Type::FocusLost;
+                blurEvt.presetTarget = focused_;
+                events.push_back(blurEvt);
+            }
+            // 新焦点聚焦
+            if (focusTarget) {
+                focused_ = focusTarget;
+                DispatchEvent focusEvt;
+                focusEvt.type = DispatchEvent::Type::FocusGained;
+                focusEvt.presetTarget = focusTarget;
+                events.push_back(focusEvt);
+            } else {
+                focused_ = nullptr;
+            }
+        }
+    }
+}
+
+void FocusManager::focus(EventTarget *target) {
+    if (target == focused_) return;
+    focused_ = target;
+}
+
+void FocusManager::blur() {
+    if (!focused_) return;
+    focused_ = nullptr;
+}
+
+// ============================================================================
+// EventDispatcher
+// ============================================================================
+bool EventDispatcher::dispatch(EventTarget *root,
+                                const DispatchEvent &event) {
+    if (!root) return false;
+
+    // ── 阶段①: 预设目标 (HoverEnter / HoverLeave) ──
+    if (event.presetTarget) {
+        return fireOnTarget(event.presetTarget, event);
+    }
+
+    // ── 阶段②: 滚轮事件 ──
+    // hitTest + fireOnTarget + parent scrollable→applyScroll
+    if (event.type == DispatchEvent::Type::Scroll) {
+        EventTarget *target = root->hitTest(Point{event.globalX, event.globalY});
+        if (!target) return false;
+
+        fireOnTarget(target, event);
+
+        // 沿 parent 链查找可滚动的祖先并应用滚动
+        target->applyScroll(event.scrollX, event.scrollY);
+        for (EventTarget *v = target->parent(); v; v = v->parent()) {
+            if (v->scrollable()) {
+                v->applyScroll(event.scrollX, event.scrollY);
+                break;
             }
         }
         return true;
     }
-    // ── 常规事件: 命中测试 → 目标阶段 → parent 冒泡 ───────────────
-    // View::hitTest() 深度优先返回最深层命中的 View (z-order 正确)
-    View *target = root->hitTest(event.position);
+
+    // ── 阶段③: 常规事件 (Tap/LongPress/Pointer/Key/Focus/Window) ──
+    // hitTest → 目标阶段 → parent 冒泡
+    EventTarget *target = root->hitTest(Point{event.globalX, event.globalY});
     if (!target) return false;
+
     // 目标阶段
-    if (fireOnView(target, event, ctx)) return true;
-    // 冒泡阶段: 沿 parent() 向根传播 (替代 hitTestWithPath 收集的 path 向量)
-    for (View *v = target->parent(); v; v = v->parent()) {
-        if (fireOnView(v, event, ctx)) return true;
+    if (fireOnTarget(target, event)) return true;
+    // 冒泡阶段
+    for (EventTarget *v = target->parent(); v; v = v->parent()) {
+        if (fireOnTarget(v, event)) return true;
     }
     return false;
+}
+
+bool EventDispatcher::fireOnTarget(EventTarget *target,
+                                    const DispatchEvent &event) {
+    if (!target) return false;
+    return target->onEvent(event);
+}
+
+// ============================================================================
+// EventRouter
+// ============================================================================
+void EventRouter::feedRawEvent(const RawEvent &raw) {
+    if (!rootTarget_) return;
+
+    // ① 时间戳
+    uint64_t ts = nowMs();
+
+    // ② DPI 缩放 (仅 Pointer 事件)
+    RawEvent scaled = raw;
+    scaled.timestamp = ts;
+    if (raw.device == RawEvent::Device::Mouse
+        || raw.device == RawEvent::Device::Touch
+        || raw.device == RawEvent::Device::Pen) {
+        scaled.x = raw.x / dpiScale_;
+        scaled.y = raw.y / dpiScale_;
+        scaled.scrollX = raw.scrollX;
+        scaled.scrollY = raw.scrollY;
+    }
+
+    // ③ 事件收集
+    std::vector<DispatchEvent> events;
+
+    switch (scaled.device) {
+    case RawEvent::Device::Mouse:
+    case RawEvent::Device::Touch:
+    case RawEvent::Device::Pen: {
+        // PointerTracker 追踪状态
+        pointerTracker_.update(scaled);
+        // GestureRecognizer 识别手势
+        gestureRecognizer_.process(rootTarget_, pointerTracker_,
+                                    scaled, events);
+        break;
+    }
+    case RawEvent::Device::Keyboard: {
+        keyboardHandler_.process(scaled, events);
+        // 键盘事件路由到聚焦控件, 不走 hitTest(0,0)
+        if (EventTarget *focused = focusManager_.focused()) {
+            for (auto &evt : events) {
+                if (evt.type == DispatchEvent::Type::KeyAction
+                    || evt.type == DispatchEvent::Type::CharInput) {
+                    evt.presetTarget = focused;
+                }
+            }
+        }
+        break;
+    }
+    case RawEvent::Device::Window: {
+        // 窗口生命周期事件直接包装
+        DispatchEvent winEvt;
+        winEvt.timestamp = ts;
+        switch (scaled.action) {
+        case RawEvent::Action::WindowClose:
+            winEvt.type = DispatchEvent::Type::WindowClose;
+            break;
+        case RawEvent::Action::WindowResize:
+            winEvt.type = DispatchEvent::Type::WindowResize;
+            winEvt.resizeWidth = scaled.width;
+            winEvt.resizeHeight = scaled.height;
+            break;
+        case RawEvent::Action::WindowPaint:
+            winEvt.type = DispatchEvent::Type::WindowPaint;
+            break;
+        default:
+            return;  // 未知窗口事件, 跳过
+        }
+        events.push_back(winEvt);
+        break;
+    }
+    }
+
+    // ④ 焦点管理
+    focusManager_.process(events);
+
+    // ⑤ 分发
+    for (auto &evt : events) {
+        if (evt.propagationStopped) continue;
+        dispatcher_.dispatch(rootTarget_, evt);
+    }
+}
+
+void EventRouter::poll() {
+    if (!rootTarget_) return;
+
+    std::vector<DispatchEvent> events;
+    gestureRecognizer_.poll(rootTarget_, pointerTracker_, events);
+
+    for (auto &evt : events) {
+        dispatcher_.dispatch(rootTarget_, evt);
+    }
+}
+
+void EventRouter::reset() {
+    pointerTracker_.reset();
+    gestureRecognizer_.reset();
+    focusManager_.reset();
 }

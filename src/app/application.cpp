@@ -129,7 +129,8 @@ bool Application::init() {
     preloadImageTextures(tree_.get());
 
     // ⑥ 事件系统
-    eventProc_.setRootTree(tree_.get());
+    eventRouter_.setRootTarget(tree_.get());
+    eventRouter_.setDpiScale(window_.GetDpiScale());
 
     // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
     setRegisteredRegistry(&bindingRegistry_);
@@ -160,10 +161,11 @@ void Application::rebuildTree() {
         auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
         relayoutTree(sz);
     }
-    eventProc_.setRootTree(tree_.get());
-    eventProc_.reset();
+
+    eventRouter_.setRootTarget(tree_.get());
+    eventRouter_.reset();
     jsCtx_.clearRenderFlag();
-    focusedView_ = nullptr;      //  旧树已销毁，清空野指针
+
     dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
 
     jsCtx_.setUserPointer(tree_.get());
@@ -215,95 +217,31 @@ void Application::relayoutTree(Size sz) {
 int Application::run() {
     if (!init()) return -1;
     running_ = true;
-    // ── 事件回调设置 ──
-    window_.SetEventCallback([this](const Event &rawEvent) {
-        // ── ① 物理像素 → 逻辑像素坐标转换 ──────────────────────────
-        // 背景: platform 层产生的事件坐标是物理像素 (DPI 感知窗口的
-        //   client rect 坐标, 未经 Windows DPI 虚拟化),
-        //   而 View 树 frame 按逻辑像素布局 (init 时 w/dpi, h/dpi)。
-        // 修复: 将鼠标/触摸事件的 x,y 除以 dpiScale, 与布局坐标系对齐,
-        //   解决高 DPI 下命中测试错位、右/下半屏不可点击的 bug。
-        Event e = rawEvent;
-        if (e.type == Event::Type::MouseMove || e.type == Event::Type::MouseDown || e.type == Event::Type::MouseUp
-            || e.type == Event::Type::MouseWheel) {
-            float dpi = window_.GetDpiScale();
-            e.x = static_cast<int>(rawEvent.x / dpi);
-            e.y = static_cast<int>(rawEvent.y / dpi);
-        }
 
-        // WindowResize 的 width/height 在下方单独处理 (已有转换), 此处跳过
-        // ── ② 用户自定义回调 (优先级最高) ──────────────────────────
-        if (config_.onEvent && config_.onEvent(e)) return;
-
-        // ── 键盘事件 → 聚焦 View 路由 ──
-        if (focusedView_) {
-            // Log::info("Key route: type={} keyCode={} charCode={}", static_cast<int>(e.type), e.keyCode, e.charCode);
-            if (e.type == Event::Type::KeyDown) {
-                focusedView_->onEvent(ViewEventCode::KeyAction, static_cast<float>(e.keyCode),
-                                      static_cast<float>(e.modifiers), jsCtx_.getPtr());
+    // ── WindowResize 仍需保留 (swapchain + re-layout ──
+    // ── 但移到事件管线外的独立位置 ──
+    // 方案: Application 自己订阅 Window 生命周期事件
+    // 或在 feedRawEvent 之后检查 window 状态
+    //
+    // 简化方案: 保留 WindowResize/Close 在 callback 中特殊处理
+    window_.SetRawEventCallback([this](const RawEvent &rawEvent) { 
+        // 窗口事件特殊处理 (需要立即操作 swapchain)
+        if (rawEvent.device == RawEvent::Device::Window) {
+            if (rawEvent.action == RawEvent::Action::WindowClose) {
+                running_ = false;
+                renderThread_.stop(true);
                 return;
             }
-            if (e.type == Event::Type::TextInput) {
-                focusedView_->onEvent(ViewEventCode::CharInput, static_cast<float>(e.charCode), 0.0f, jsCtx_.getPtr());
+            if (rawEvent.action == RawEvent::Action::WindowResize && rawEvent.width > 0 && rawEvent.height > 0) {
+                // 提交 ResizeCmd + re-layout
+                handleResize(rawEvent.width, rawEvent.height);
                 return;
             }
         }
-
-        // ── 鼠标按下时更新 focusedView (Input / TextArea 获取 / 失去焦点) ──
-        if (e.type == Event::Type::MouseDown) {
-            Point pt{static_cast<float>(e.x), static_cast<float>(e.y)};
-            View *target = tree_ ? tree_->hitTest(pt) : nullptr;
-            // ── 旧焦点失焦 ──
-            if (focusedView_ && focusedView_ != target) {
-                // if (focusedView_->type() == ElementType::Input) static_cast<Input *>(focusedView_)->blur();
-                // if (focusedView_->type() == ElementType::TextArea) static_cast<TextArea *>(focusedView_)->blur();
-                // if (focusedView_->type() == ElementType::TextView)  static_cast<TextView *>(focusedView_)->blur();
-            }
-            // ── 新焦点设置 ──
-            if (target) {
-                if (target->type() == ElementType::Input || target->type() == ElementType::TextArea
-                    || target->type() == ElementType::TextView) {
-                    focusedView_ = target;
-                } else {
-                    focusedView_ = nullptr;
-                }
-            } else {
-                focusedView_ = nullptr;
-            }
-        }
-
-        // ── ③ 窗口关闭 ────────────────────────────────────────────
-        if (e.type == Event::Type::WindowClose) {
-            running_ = false;
-            renderThread_.stop(true);    // 阻塞等待渲染线程完全退出，避免竞态
-            return;
-        }
-        // ── ④ 窗口缩放 ────────────────────────────────────────────
-        if (e.type == Event::Type::WindowResize) {
-            if (e.width > 0 && e.height > 0) {
-                // 单独提交 ResizeCmd（保证在下一帧绘制命令之前被处理）
-                auto &buf = renderThread_.commandQueue().currentBuffer();
-                buf.add(ResizeCmd{e.width, e.height});
-                buf.setDirtyRect({0, 0, static_cast<float>(e.width), static_cast<float>(e.height)});
-                renderThread_.commandQueue().submit();
-
-                float dpi = window_.GetDpiScale();
-                auto sz = Size{static_cast<float>(e.width) / dpi, static_cast<float>(e.height) / dpi};
-                relayoutTree(sz);
-                eventProc_.reset();
-                dirtyTracker_.markFull();
-
-                Log::info("[App] resize requested: {}x{} (logical {:.0f}x{:.0f})", e.width, e.height,
-                          (float)e.width / dpi, (float)e.height / dpi);
-            }
-            return;
-        }
-        // ── ⑤ 事件合成 → 分发 → JS handler ───────────────────────
-        // 此时 e.x / e.y 已为逻辑坐标, EventProcessor 的 hitTest、
-        // 距离计算、viewLocalPos 均在统一坐标系下工作
-        auto uiEvents = eventProc_.process(e);
-        for (auto &uiEvent : uiEvents) eventDisp_.dispatch(tree_.get(), uiEvent, jsCtx_.getPtr());
+        // 其余事件走统一管线
+        eventRouter_.feedRawEvent(rawEvent);
     });
+
     // ── 主循环 ──
     auto startTime = std::chrono::high_resolution_clock::now();
     int frameCount = 0;
@@ -311,12 +249,7 @@ int Application::run() {
 
     while (running_) {
         window_.PollEvents();
-
-        // ── ① 独立长按轮询（每帧检查，不依赖 Windows 事件） ──
-        // 手指静止时无 MouseMove 产生，process() 不会被调用，
-        // 因此长按超时判定必须独立于事件回调，放在主循环中。
-        auto longPressEvents = eventProc_.pollLongPress();
-        for (auto &evt : longPressEvents) eventDisp_.dispatch(tree_.get(), evt, jsCtx_.getPtr());
+        eventRouter_.poll();
 
         // ── ① 消费跨线程任务（协程恢复、respond 回调）──
         mainThreadTaskQueue_.flush();
@@ -358,4 +291,22 @@ void Application::preloadImageTextures(View *view) {
         if (img->isLoaded() && !img->pixelsEmpty()) { img->uploadTexture(); }
     }
     for (auto &child : view->children) { preloadImageTextures(child.get()); }
+}
+
+// ============================================================================
+// handleResize — 窗口大小变化处理
+// ============================================================================
+void Application::handleResize(int width, int height) {
+    auto &buf = renderThread_.commandQueue().currentBuffer();
+    buf.add(ResizeCmd{width, height});
+    buf.setDirtyRect({0, 0, static_cast<float>(width), static_cast<float>(height)});
+    renderThread_.commandQueue().submit();
+
+    float dpi = window_.GetDpiScale();
+    auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
+    relayoutTree(sz);
+    eventRouter_.reset();
+    dirtyTracker_.markFull();
+
+    Log::info("[App] resize: {}x{} (logical {:.0f}x{:.0f})", width, height, sz.width, sz.height);
 }

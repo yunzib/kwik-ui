@@ -12,6 +12,7 @@ module kwik.platform.win32_window;
 
 import kwik.utils.string_utils;
 import kwik.core.log;
+import kwik.event;
 
 // 全局窗口映射：HWND -> 对象指针
 static std::map<HWND, PlatformWindowWin32 *> g_windowMap;
@@ -300,7 +301,7 @@ LRESULT CALLBACK PlatformWindowWin32::WndProc(HWND hwnd, UINT msg, WPARAM wParam
 }
 
 LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (!callback_) { return DefWindowProcW(hwnd_, msg, wParam, lParam); }
+    if (!rawCallback_) { return DefWindowProcW(hwnd_, msg, wParam, lParam); }
     Event e;
 
     switch (msg) {
@@ -393,9 +394,13 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     // 窗口关闭
-    case WM_CLOSE:
-        e.type = Event::Type::WindowClose;
-        callback_(e);
+    case WM_CLOSE: {
+        RawEvent raw;
+        raw.device = RawEvent::Device::Window;
+        raw.action = RawEvent::Action::WindowClose;
+        raw.timestamp = GetTickCount64();
+        rawCallback_(raw);
+    }
         Destroy();
         return 0;
 
@@ -442,7 +447,67 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     default: return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
 
-    callback_(e);
+    // 构造 RawEvent 并回调:
+    RawEvent raw;
+    raw.device = RawEvent::Device::Mouse;    // 或 Keyboard/Window
+    raw.timestamp = GetTickCount64();
+
+    switch (e.type) {
+    case Event::Type::MouseMove:
+        raw.action = RawEvent::Action::Move;
+        raw.x = static_cast<float>(e.x);
+        raw.y = static_cast<float>(e.y);
+        raw.pointerId = 0;
+        break;
+    case Event::Type::MouseDown:
+        raw.action = RawEvent::Action::Down;
+        raw.x = static_cast<float>(e.x);
+        raw.y = static_cast<float>(e.y);
+        raw.pointerId = 0;
+        break;
+    case Event::Type::MouseUp:
+        raw.action = RawEvent::Action::Up;
+        raw.x = static_cast<float>(e.x);
+        raw.y = static_cast<float>(e.y);
+        raw.pointerId = 0;
+        break;
+    case Event::Type::MouseWheel:
+        raw.action = RawEvent::Action::Scroll;
+        raw.scrollY = GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
+        raw.x = static_cast<float>(e.x);
+        raw.y = static_cast<float>(e.y);
+        raw.pointerId = 0;
+        break;
+    case Event::Type::KeyDown:
+        raw.device = RawEvent::Device::Keyboard;
+        raw.action = RawEvent::Action::KeyDown;
+        raw.keyCode = e.keyCode;
+        raw.modifiers = e.modifiers;
+        break;
+    case Event::Type::TextInput:
+        raw.device = RawEvent::Device::Keyboard;
+        raw.action = RawEvent::Action::TextInput;
+        raw.charCode = e.charCode;
+        break;
+    case Event::Type::WindowResize:
+        raw.device = RawEvent::Device::Window;
+        raw.action = RawEvent::Action::WindowResize;
+        raw.width = e.width;
+        raw.height = e.height;
+        break;
+    case Event::Type::WindowClose:
+        raw.device = RawEvent::Device::Window;
+        raw.action = RawEvent::Action::WindowClose;
+        break;
+        // TouchBegin/TouchMove/TouchEnd/TouchCancel (Android):
+        // raw.device = RawEvent::Device::Touch;
+        // raw.pointerId = e.touchId;
+        // raw.pressure = e.pressure;
+    default: break;
+    }
+
+    if (rawCallback_) rawCallback_(raw);
+
     return 0;
 }
 
@@ -470,4 +535,67 @@ void PlatformWindowWin32::GetScreenWorkArea(int *width, int *height) {
         if (width) *width = GetSystemMetrics(SM_CXSCREEN);
         if (height) *height = GetSystemMetrics(SM_CYSCREEN);
     }
+}
+
+void PlatformWindowWin32::SetRawEventCallback(PlatformWindow::RawEventCallback callback) {
+    rawCallback_ = std::move(callback);
+}
+
+static RawEvent toRawEvent(const Event &e, UINT msg, WPARAM wParam, LPARAM) {
+    RawEvent r;
+    r.timestamp = GetTickCount64();
+    switch (e.type) {
+    case Event::Type::MouseMove:
+        r.device = RawEvent::Device::Mouse;
+        r.action = RawEvent::Action::Move;
+        r.x = (float)e.x;
+        r.y = (float)e.y;
+        r.pointerId = 0;
+        break;
+    case Event::Type::MouseDown:
+        r.device = RawEvent::Device::Mouse;
+        r.action = RawEvent::Action::Down;
+        r.x = (float)e.x;
+        r.y = (float)e.y;
+        r.pointerId = 0;
+        break;
+    case Event::Type::MouseUp:
+        r.device = RawEvent::Device::Mouse;
+        r.action = RawEvent::Action::Up;
+        r.x = (float)e.x;
+        r.y = (float)e.y;
+        r.pointerId = 0;
+        break;
+    case Event::Type::MouseWheel:
+        r.device = RawEvent::Device::Mouse;
+        r.action = RawEvent::Action::Scroll;
+        r.scrollY = (float)GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
+        r.x = (float)e.x;
+        r.y = (float)e.y;
+        r.pointerId = 0;
+        break;
+    case Event::Type::KeyDown:
+        r.device = RawEvent::Device::Keyboard;
+        r.action = RawEvent::Action::KeyDown;
+        r.keyCode = e.keyCode;
+        r.modifiers = e.modifiers;
+        break;
+    case Event::Type::TextInput:
+        r.device = RawEvent::Device::Keyboard;
+        r.action = RawEvent::Action::TextInput;
+        r.charCode = e.charCode;
+        break;
+    case Event::Type::WindowResize:
+        r.device = RawEvent::Device::Window;
+        r.action = RawEvent::Action::WindowResize;
+        r.width = e.width;
+        r.height = e.height;
+        break;
+    case Event::Type::WindowClose:
+        r.device = RawEvent::Device::Window;
+        r.action = RawEvent::Action::WindowClose;
+        break;
+    default: break;
+    }
+    return r;
 }

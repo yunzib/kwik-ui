@@ -10,6 +10,7 @@ import kwik.element.props;
 import kwik.render.graphics;
 import kwik.engine.js_value;
 import kwik.element.typed_prop;
+import kwik.event;
 
 import std;
 
@@ -66,30 +67,6 @@ export inline std::string_view to_string(ElementType t) {
     return "Unknown";
 }
 
-// ============================================================================
-// 事件类型码常量
-// ============================================================================
-/**
- * @brief 事件类型整数码
- *
- * 与 kwik.core.types::UIEventType 一一对应,
- * 用于 View::onEvent() 的 eventCode 参数
- */
-export namespace ViewEventCode {
-constexpr int Tap = 0;           // 快速点击
-constexpr int LongPress = 1;     // 长按
-constexpr int HoverEnter = 2;    // 鼠标进入
-constexpr int HoverLeave = 3;    // 鼠标离开
-constexpr int HoverMove = 4;     // 鼠标移动
-constexpr int PanBegin = 5;      // 拖拽开始
-constexpr int PanMove = 6;       // 拖拽中
-constexpr int PanEnd = 7;        // 拖拽结束
-constexpr int PressBegin = 8;    // 按下开始
-constexpr int PressEnd = 9;      // 按下结束
-constexpr int Wheel = 10;        // 滚轮滚动
-constexpr int KeyAction = 20;    // 键盘导航 (Backspace/Delete/方向键...)
-constexpr int CharInput = 21;    // 字符输入 (含 IME 组合结果)
-}    // namespace ViewEventCode
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装
 // ============================================================================
@@ -282,7 +259,7 @@ private:
  * parent_ 指针由 addChild() 自动维护, 支持事件沿父链冒泡。
  * 子类 (Text, Button 等) 通过重写 onMeasure / onLayout / onDraw 实现差异。
  */
-export class View {
+export class View : public EventTarget{
 public:
     ViewProps props;                                // 控件属性
     std::vector<std::unique_ptr<View>> children;    // 子控件列表
@@ -364,7 +341,7 @@ public:
      * @brief 获取父节点指针
      * @return 父节点, 根节点返回 nullptr
      */
-    View *parent() const {
+    View *parent() const override {
         return parent_;
     }
 
@@ -442,34 +419,20 @@ public:
         return ElementType::View;
     }
 
+    // ── EventTarget 接口实现 ──
+    bool onEvent(const DispatchEvent &event) override;
+    bool acceptsFocus() const override;
+    bool scrollable() const override { return false; }
+
     // ==================== 命中测试 ====================
     /**
      * @brief 命中测试 — 返回点在树中最深层的可见 View
      * @param point 窗口全局坐标 (须与 frame 在同一坐标系: 逻辑像素)
-     * @return 命中的 View, 无命中返回 nullptr
+     * @return 命中的控件, 无命中返回 nullptr
      *
      * 遍历策略: 从最后添加的子节点开始 (对应绘制 z-order 最上层)
      */
-    virtual View *hitTest(Point point);
-
-    // ==================== 事件处理 ====================
-    /**
-     * @brief 接收并分发 UI 事件
-     * @param code   事件类型码 (ViewEventCode 常量)
-     * @param localX 相对本控件 frame 原点的 x 坐标
-     * @param localY 相对本控件 frame 原点的 y 坐标
-     * @param ctx    QuickJS 上下文
-     * @return true 表示事件已被消费, 停止传播
-     *
-     * 默认实现委托给 handlers.dispatch()。
-     * 子类可重写以添加自定义事件行为 (如 Button 的视觉反馈状态)
-     */
-    virtual bool onEvent(int code, float localX, float localY, JSContext *ctx) {
-        return handlers.dispatch(code, localX, localY, ctx);
-    }
-
-    virtual void applyWheel(float delta) {
-    }
+    EventTarget *hitTest(Point point) override;
 
     // ==================== 脏标记接口 ====================
     /**
@@ -498,6 +461,8 @@ public:
     void setTracker(DirtyTracker *t) {
         tracker_ = t;
     }
+
+    JSContext *getJSContext() const { return handlers.ctx; }
 
 protected:
     /**
@@ -555,4 +520,6 @@ private:
     void fixChildrenParent() {
         for (auto &child : children) { child->parent_ = this; }
     }
+
+    
 };
