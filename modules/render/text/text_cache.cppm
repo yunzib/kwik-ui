@@ -64,8 +64,8 @@ public:
     // 图集常量
     // ═══════════════════════════════════════════════════════════════
 
-    static constexpr uint32_t kAtlasSize = 1024;
-    static constexpr uint32_t kMaxPages = 8;
+    static constexpr uint32_t kAtlasSize = 2048;
+    static constexpr uint32_t kMaxPages = 4;
 
     /** @brief 获取当前图集版本号 (图集淘汰时递增) */
     uint32_t atlasGeneration() const { return atlasGeneration_; }

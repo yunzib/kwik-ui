@@ -106,8 +106,8 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
        g.fontSize = std::round(g.fontSize);
         if (g.fontSize < 1.0f) g.fontSize = 1.0f;
         const float frac = g.x - std::floor(g.x);
-        const uint32_t subpixelOffset = static_cast<uint32_t>(std::round(frac * 4.0f)) % 4;
-        g.x = std::floor(g.x) + subpixelOffset * 0.25f;
+        const uint32_t subpixelOffset = static_cast<uint32_t>(std::round(frac * 8.0f)) % 8;
+        g.x = std::floor(g.x) + subpixelOffset * 0.125f;
         GlyphKey key{g.fontId, g.glyphIndex, g.fontSize, subpixelOffset};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
@@ -149,7 +149,7 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     if (!ftFace) return;
 
     FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
-    FT_Vector shift = { static_cast<FT_Pos>(subpixelOffset * 16), 0 };
+    FT_Vector shift = { static_cast<FT_Pos>(subpixelOffset * 8), 0 };
     FT_Set_Transform(ftFace, nullptr, &shift);
     FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LCD);
 
@@ -164,8 +164,9 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.bearingY = (float)ftFace->glyph->bitmap_top;
     entry.info.advanceX = ftFace->glyph->advance.x / 64.0f;
 
-    // LCD 模式: bmp->width = 像素宽 × 3 (R/G/B 子像素), bmp->rows = 像素高
-    uint32_t pixelW = bmp->width / 3;
+    // pixel_mode 检查: LCD 模式宽度=像素宽×3, 灰度模式(内嵌位图)宽度=像素宽
+    bool isLCD = (bmp->pixel_mode == FT_PIXEL_MODE_LCD);
+    uint32_t pixelW = isLCD ? (bmp->width / 3) : bmp->width;
     uint32_t rawH = bmp->rows;
     uint32_t padW = pixelW + 2;   // 2px 边框防止线性滤波渗色
     uint32_t padH = rawH + 2;
@@ -181,15 +182,26 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.packedH = padH;
     entry.info.pixelData.assign((size_t)padW * padH * 4, 0);   // RGBA 4 字节/像素
 
-    // LCD 位图 → RGBA: 3 字节/像素 (RGB 子像素) → 4 字节/像素 (RGBA)
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
         uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 4;   // 跳过左 padding
-        for (unsigned int x = 0; x < pixelW; x++) {
-            dst[x * 4 + 0] = src[x * 3 + 0];   // R 子像素覆盖
-            dst[x * 4 + 1] = src[x * 3 + 1];   // G 子像素覆盖
-            dst[x * 4 + 2] = src[x * 3 + 2];   // B 子像素覆盖
-            dst[x * 4 + 3] = (uint8_t)((src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2]) / 3);   // A = 均值
+        if (isLCD) {
+            // LCD 位图 → RGBA: 3 字节/像素 (RGB 子像素) → 4 字节/像素
+            for (unsigned int x = 0; x < pixelW; x++) {
+                dst[x * 4 + 0] = src[x * 3 + 0];   // R 子像素覆盖
+                dst[x * 4 + 1] = src[x * 3 + 1];   // G 子像素覆盖
+                dst[x * 4 + 2] = src[x * 3 + 2];   // B 子像素覆盖
+                dst[x * 4 + 3] = (uint8_t)((src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2]) / 3);
+            }
+        } else {
+            // 灰度位图 (内嵌位图) → RGBA: 1 字节/像素 → 4 字节/像素, R=G=B=灰度值
+            for (unsigned int x = 0; x < pixelW; x++) {
+                uint8_t g = src[x];
+                dst[x * 4 + 0] = g;
+                dst[x * 4 + 1] = g;
+                dst[x * 4 + 2] = g;
+                dst[x * 4 + 3] = g;
+            }
         }
     }
 }

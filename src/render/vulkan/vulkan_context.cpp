@@ -279,11 +279,19 @@ bool VulkanContext::createLogicalDevice() {
     float pri = 1.0f;
     VkDeviceQueueCreateInfo qi{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, nullptr, 0, queueFamilyIndex_, 1, &pri};
     const char *exts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    // 启用 dualSrcBlend: LCD 子像素文字需要每通道独立混合因子
+    VkPhysicalDeviceFeatures supported{};
+    vkGetPhysicalDeviceFeatures(vkPhysicalDevice_, &supported);
+    VkPhysicalDeviceFeatures enabled{};
+    enabled.dualSrcBlend = supported.dualSrcBlend;
+
     VkDeviceCreateInfo di{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     di.queueCreateInfoCount = 1;
     di.pQueueCreateInfos = &qi;
     di.enabledExtensionCount = 1;
     di.ppEnabledExtensionNames = exts;
+    di.pEnabledFeatures = &enabled;
     return vkCreateDevice(vkPhysicalDevice_, &di, nullptr, &vkDevice_) == VK_SUCCESS;
 }
 // ================================================================
@@ -482,9 +490,11 @@ bool VulkanContext::createSwapchain() {
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &fmtCount, nullptr);
     std::vector<VkSurfaceFormatKHR> fmts(fmtCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &fmtCount, fmts.data());
+    // 使用 UNORM 而非 SRGB: SRGB 格式会导致硬件在线性空间混合, 使文字边缘偏软
+    // UNORM + SRGB_NONLINEAR 色彩空间 = sRGB 空间混合, 与浏览器一致, 文字更清晰
     swapchainFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
     for (auto &f : fmts) {
-        if (f.format == VK_FORMAT_R8G8B8A8_SRGB) {
+        if (f.format == VK_FORMAT_R8G8B8A8_UNORM) {
             swapchainFormat_ = f.format;
             break;
         }

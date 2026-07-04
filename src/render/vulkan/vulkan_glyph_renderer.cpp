@@ -123,13 +123,15 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    // dual-source blending: src0 * src1 + dst * (1 - src1)
+    // src1 = 子像素覆盖值 (每通道独立), 消除 LCD 彩色边缘
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC1_COLOR;
+    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
     ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC1_ALPHA;
+    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
     ba.alphaBlendOp = VK_BLEND_OP_ADD;
     ba.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
