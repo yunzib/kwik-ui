@@ -22,7 +22,7 @@ export default View({
         ]),
         View({ flex: 1, background: "#0f3460", borderRadius: 8, padding: 14 }, [
             Text({ text: "中文笔画渲染", fontSize: 13, color: "#aaa" }),
-            Text({ text: "复杂字形: 魑魅魍魉 窸窸窣窣 鳞次栉比", fontSize: 14, color: "#ddd", margin: [6, 0, 2, 0] }),
+            Text({ text: "复杂字形: 魑魅魍魉 窸窸窣窣 鳞次栉比", fontSize: 14, color: "#ffffff", margin: [6, 0, 2, 0] }),
             Text({ text: "密集笔画: 凹凸 凹凸凹凸 凹凸凹凸凹凸", fontSize: 14, color: "#ddd", margin: [2, 0, 2, 0] }),
             Text({ text: "细笔画: 川州洲别 小小小小 彡彡彡", fontSize: 14, color: "#ddd", margin: [2, 0, 2, 0] }),
             Text({ text: "方框: 口口口 日日日 田田田 国国国", fontSize: 14, color: "#ddd", margin: [2, 0, 2, 0] }),
