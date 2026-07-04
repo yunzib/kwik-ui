@@ -103,7 +103,7 @@ bool Application::init() {
     // ④ 解析 View 树
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     if (!tree_) {
-        Log::error("View 树解析失败");
+        Log::error("UI parsing failed!");
         return false;
     }
 

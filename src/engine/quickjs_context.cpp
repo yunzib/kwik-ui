@@ -10,6 +10,7 @@ module kwik.engine.context;
 import kwik.engine.runtime;
 import kwik.core.log;
 import kwik.engine.bindings; // 导入绑定
+import kwik.core.log;
 
 // JS console.log 绑定到 C++ std::println
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -59,6 +60,81 @@ static void init_console(JSContext *ctx) {
     JSValue global = JS_GetGlobalObject(ctx);
     JS_SetPropertyStr(ctx, global, "console", console);
     JS_FreeValue(ctx, global);
+}
+
+// ====================================================================
+// 未导入组件的友好提示
+// ====================================================================
+static int levenshtein(const std::string &a, const std::string &b) {
+    int m = (int)a.size(), n = (int)b.size();
+    if (m < n) { std::swap(m, n); }
+    std::vector<int> prev(n + 1), cur(n + 1);
+    for (int j = 0; j <= n; ++j) prev[j] = j;
+    for (int i = 1; i <= m; ++i) {
+        cur[0] = i;
+        for (int j = 1; j <= n; ++j) {
+            cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1,
+                               prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1)});
+        }
+        std::swap(prev, cur);
+    }
+    return prev[n];
+}
+
+static std::string suggestKwikUISymbol(const char *errMsg) {
+    if (!errMsg) return {};
+    std::string msg(errMsg);
+    auto pos = msg.find(" is not defined");
+    if (pos == std::string::npos) return {};
+
+    // 提取标识符名：跳过 "ReferenceError: " 前缀
+    auto start = msg.rfind(' ', pos - 1);
+    if (start == std::string::npos) start = 0;
+    else ++start;
+    // 跳过 "ReferenceError: "
+    auto colon = msg.rfind(": ", pos);
+    if (colon != std::string::npos && colon > start) start = colon + 2;
+
+    std::string id = msg.substr(start, pos - start);
+    if (id.empty()) return {};
+
+    static const char *knownExports[] = {
+        "View", "Root", "Text", "Button", "Flex", "Grid", "Stack",
+        "List", "Image", "Input", "RadioButton", "RadioGroup",
+        "Checkbox", "TextArea", "Dropdown", "Slider", "ProgressBar",
+        "Switch", "Line", "Spinner", "Table", "TextView",
+        "State", "channel", "ref", "getProp", "setProp"
+    };
+
+    // 精确匹配
+    for (auto *exp : knownExports) {
+        if (id == exp) {
+            return std::format("未导入组件 '{}' — 请在文件开头添加: import {{ {} }} from 'kwikui'", id, id);
+        }
+    }
+
+    // 大小写不敏感匹配
+    std::string idLower = id;
+    for (auto &c : idLower) c = (char)std::tolower((unsigned char)c);
+    for (auto *exp : knownExports) {
+        std::string expLower(exp);
+        for (auto &c : expLower) c = (char)std::tolower((unsigned char)c);
+        if (idLower == expLower) {
+            return std::format("是否想用 '{}'？组件名首字母大写 — 请添加: import {{ {} }} from 'kwikui'", exp, exp);
+        }
+    }
+
+    // 编辑距离 ≤ 2 模糊匹配
+    std::string_view best;
+    int bestDist = 3;
+    for (auto *exp : knownExports) {
+        int d = levenshtein(id, exp);
+        if (d < bestDist) { bestDist = d; best = exp; }
+    }
+    if (!best.empty()) {
+        return std::format("是否想用 '{}'？", best);
+    }
+    return {};
 }
 
 // ====================================================================
@@ -125,16 +201,16 @@ JSModuleDef *QuickJSContext::moduleLoader(JSContext *ctx, const char *module_nam
         filePath += ".js";
         file.open(filePath);
         if (!file.is_open()) {
-            std::println(stderr, "[KwiK Error] Cannot resolve module: {}", module_name);
+            Log::error("[KwiK Error] Cannot resolve module: {}", module_name);
             return nullptr;
         }
     }
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    std::println("[KwiK] Loading sub-module: {}", filePath);
+    Log::info("[KwiK] Loading sub-module: {}", filePath);
     JSValue func_val =
         JS_Eval(ctx, source.c_str(), source.size(), filePath.c_str(), JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     if (JS_IsException(func_val)) {
-        std::println(stderr, "[KwiK Error] Module compile failed: {}", filePath);
+        Log::error("[KwiK Error] Module compile failed: {}", filePath);
         return nullptr;
     }
     JSModuleDef *m = (JSModuleDef *)JS_VALUE_GET_PTR(func_val);
@@ -164,6 +240,21 @@ bool QuickJSContext::extractDefaultExport(JSValue namespaceObj) {
     // 初始化展开视图: 静态对象直接引用, 函数则首次调用
     if (JS_IsFunction(context, rootView)) {
         expandedRoot = JS_Call(context, rootView, JS_UNDEFINED, 0, nullptr);
+        if (JS_IsException(expandedRoot)) {
+            JSValue exc = JS_GetException(context);
+            const char *str = JS_ToCString(context, exc);
+            Log::error("Default export function threw: {}", str ? str : "unknown");
+            JSValue stk = JS_GetPropertyStr(context, exc, "stack");
+            const char *s = JS_ToCString(context, stk);
+            Log::error("Default export function threw: {}", s ? s : "unknown");
+            JS_FreeCString(context, s);
+            JS_FreeValue(context, stk);
+            JS_FreeCString(context, str);
+            JS_FreeValue(context, exc);
+            JS_FreeValue(context, expandedRoot);
+            expandedRoot = JS_NULL;
+            return false;
+        }
     } else {
         expandedRoot = rootView;
     }
@@ -199,6 +290,10 @@ bool QuickJSContext::evalModule(const std::string &code, const std::string &name
         JSValue exception = JS_GetException(context);
         const char *err = JS_ToCString(context, exception);
         Log::error("Eval JS Module Error:{}: {}", name, err ? err : "unknown");
+        if (err) {
+            std::string hint = suggestKwikUISymbol(err);
+            if (!hint.empty()) Log::error("{}", hint);
+        }
         JS_FreeCString(context, err);
         JS_FreeValue(context, exception);
         JS_FreeValue(context, func_val);
@@ -214,6 +309,18 @@ bool QuickJSContext::evalModule(const std::string &code, const std::string &name
         JSValue exception = JS_GetException(context);
         const char *err = JS_ToCString(context, exception);
         Log::error("Eval JS Module Error:{}: {}", name, err ? err : "unknown");
+        if (err) {
+            std::string hint = suggestKwikUISymbol(err);
+            if (!hint.empty()) Log::error("{}", hint);
+        }
+        // 提取 stack 行号信息
+        JSValue stackVal = JS_GetPropertyStr(context, exception, "stack");
+        const char *stack = JS_ToCString(context, stackVal);
+        if (stack && stack[0]) {
+            Log::error("Module execution error: {}", stack);
+        }
+        JS_FreeCString(context, stack);
+        JS_FreeValue(context, stackVal);
         JS_FreeCString(context, err);
         JS_FreeValue(context, exception);
         JS_FreeValue(context, exec_ret);
@@ -243,7 +350,7 @@ bool QuickJSContext::evalScript(const std::string &code) {
     if (JS_IsException(result)) {
         JSValue exception = JS_GetException(context);
         const char *err = JS_ToCString(context, exception);
-        std::println(stderr, "[QuickJS Script Error] {}", err ? err : "unknown");
+        Log::error("[QuickJS Script Error] {}", err ? err : "unknown");
         JS_FreeCString(context, err);
         JS_FreeValue(context, exception);
         JS_FreeValue(context, result);
@@ -280,5 +387,19 @@ void QuickJSContext::expandRootView() {
     if (JS_IsFunction(context, rootView)) {
         if (!JS_IsUndefined(expandedRoot)) { JS_FreeValue(context, expandedRoot); }
         expandedRoot = JS_Call(context, rootView, JS_UNDEFINED, 0, nullptr);
+        if (JS_IsException(expandedRoot)) {
+            JSValue exc = JS_GetException(context);
+            const char *str = JS_ToCString(context, exc);
+            Log::error("expandRootView threw: {}", str ? str : "unknown");
+            JSValue stk = JS_GetPropertyStr(context, exc, "stack");
+            const char *s = JS_ToCString(context, stk);
+            Log::error("expandRootView threw: {}", s ? s : "unknown");
+            JS_FreeCString(context, s);
+            JS_FreeValue(context, stk);
+            JS_FreeCString(context, str);
+            JS_FreeValue(context, exc);
+            JS_FreeValue(context, expandedRoot);
+            expandedRoot = JS_NULL;
+        }
     }
 }

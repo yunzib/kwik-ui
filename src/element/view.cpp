@@ -8,6 +8,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.engine.js_value;
 import kwik.event;
+import kwik.core.log;
 
 import std;
 // ============================================================================
@@ -57,6 +58,9 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY, JSContext
     JS_FreeValue(dispatchCtx, eventObj);
     if (JS_IsException(ret)) {
         JSValue exc = JS_GetException(dispatchCtx);
+        const char *s = JS_ToCString(dispatchCtx, exc);
+        Log::error("[event callback error] {}", s ? s : "unknown");
+        JS_FreeCString(dispatchCtx, s);
         JS_FreeValue(dispatchCtx, exc);
         JS_FreeValue(dispatchCtx, ret);
         return false;
