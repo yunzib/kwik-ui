@@ -6,6 +6,7 @@ module;
 #include <fstream>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_LCD_FILTER_H 
 
 module kwik.render.text.font.manager;
 
@@ -26,7 +27,11 @@ static std::string systemDefaultFont() {
 
 FontManager::FontManager() {
     FT_Error err = FT_Init_FreeType(&ftLib_);
-    if (err) ftLib_ = nullptr;
+    if (err) {
+        ftLib_ = nullptr;
+    } else {
+        FT_Library_SetLcdFilter(ftLib_, FT_LCD_FILTER_LIGHT);
+    }
 }
 
 FontManager::~FontManager() {

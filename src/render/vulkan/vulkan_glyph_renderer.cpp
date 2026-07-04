@@ -125,7 +125,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    ba.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     ba.colorBlendOp = VK_BLEND_OP_ADD;
     ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -211,7 +211,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = VK_FORMAT_R8_UNORM;
+    imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     imgInfo.extent = {atlasW, atlasH, 1};
     imgInfo.mipLevels = 1;
     imgInfo.arrayLayers = 1;
@@ -271,7 +271,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = glyphAtlasImage_;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vi.format = VK_FORMAT_R8_UNORM;
+    vi.format = VK_FORMAT_R8G8B8A8_UNORM;
     vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     if (vkCreateImageView(device_, &vi, nullptr, &glyphAtlasView_) != VK_SUCCESS) {
         destroy();
@@ -339,6 +339,7 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawG
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
+    pc.textContrast = 1.0f;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;
@@ -371,14 +372,13 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     barrier.subresourceRange.layerCount = 1;
     barrier.oldLayout = atlasLayout_;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcAccessMask = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                            ? VK_ACCESS_SHADER_READ_BIT : VkAccessFlags(0);
+    barrier.srcAccessMask =
+        (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ? VK_ACCESS_SHADER_READ_BIT : VkAccessFlags(0);
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    VkPipelineStageFlags srcStage = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                                     ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-                                     : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                         0, nullptr, 0, nullptr, 1, &barrier);
+    VkPipelineStageFlags srcStage = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ?
+                                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT :
+                                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     // 计算总大小并分配单个 staging buffer
     VkDeviceSize totalSize = 0;
@@ -389,10 +389,9 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
 
     VkBuffer staging;
     VkDeviceMemory stagingMem;
-    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
-            totalSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            staging, stagingMem))
+    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice, totalSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     staging, stagingMem))
         return;
 
     void *map;
@@ -409,28 +408,26 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
         std::memcpy(static_cast<uint8_t *>(map) + offset, px.data(), px.size());
 
         VkBufferImageCopy region{};
-        region.bufferOffset                    = offset;
-        region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.layerCount     = 1;
-        region.imageOffset                     = {(int32_t)job.x, (int32_t)job.y, 0};
-        region.imageExtent                     = {job.w, job.h, 1};
+        region.bufferOffset = offset;
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = {(int32_t)job.x, (int32_t)job.y, 0};
+        region.imageExtent = {job.w, job.h, 1};
         regions.push_back(region);
 
         offset += px.size();
     }
     vkUnmapMemory(dc.device, stagingMem);
 
-    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                            (uint32_t)regions.size(), regions.data());
 
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                         0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
     atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     vkEndCommandBuffer(cmd);
 
@@ -468,6 +465,7 @@ void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, cons
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
+    pc.textContrast = 1.0f;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;

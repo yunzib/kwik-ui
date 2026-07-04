@@ -103,6 +103,8 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
     // 单层遍历扁平数组 (原为 line 套 glyphs 双层)
     for (auto &g : result->glyphs) {
+        g.fontSize = std::round(g.fontSize);
+        if (g.fontSize < 1.0f) g.fontSize = 1.0f;
         GlyphKey key{g.fontId, g.glyphIndex, g.fontSize};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
@@ -119,18 +121,17 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
         // 图集未变且已打包 — 使用保存坐标
         if (!entry.packed || entry.atlasGeneration != currentGen) {
-            if (entry.info.pixelData.empty())
-                rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
+            if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
             packGlyph(entry);
         }
 
         // 填充 UV + 尺寸到 layout 结果
-        g.uvLeft   = static_cast<float>(entry.atlasX)                   / atlasSize + uvPad;
-        g.uvTop    = static_cast<float>(entry.atlasY)                   / atlasSize + uvPad;
-        g.uvRight  = static_cast<float>(entry.atlasX + entry.packedW)   / atlasSize - uvPad;
-        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH)   / atlasSize - uvPad;
-        g.width    = static_cast<float>(entry.packedW);
-        g.height   = static_cast<float>(entry.packedH);
+        g.uvLeft = static_cast<float>(entry.atlasX) / atlasSize + uvPad;
+        g.uvTop = static_cast<float>(entry.atlasY) / atlasSize + uvPad;
+        g.uvRight = static_cast<float>(entry.atlasX + entry.packedW) / atlasSize - uvPad;
+        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH) / atlasSize - uvPad;
+        g.width = static_cast<float>(entry.packedW);
+        g.height = static_cast<float>(entry.packedH);
     }
 }
 
@@ -144,14 +145,14 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)fontSize);
+    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
 
-    if (FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT) != 0) return;
-    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
+    // LIGHT hinting（只 Y 轴 snapping，保留水平曲线）+ LCD 渲染
+    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD);
+    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_LCD) != 0) return;
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
-    // 度量
     entry.info.fontId = font;
     entry.info.glyphIndex = glyphIndex;
     entry.info.fontSize = fontSize;
@@ -159,26 +160,31 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.bearingY = (float)ftFace->glyph->bitmap_top;
     entry.info.advanceX = ftFace->glyph->advance.x / 64.0f;
 
-    // 1px 透明边框 — 防止图集间纹理渗色，保护 uvPad 不切字形
-    uint32_t rawW = bmp->width;
-    uint32_t rawH = bmp->rows;
-    uint32_t padW = rawW + 2;
+    uint32_t rawW = bmp->width / 3;    // LCD: width = 3 × logical pixels
+    uint32_t rawH = bmp->rows;         // 高度不变
+    uint32_t padW = rawW + 2;          // 1px border (逻辑像素)
     uint32_t padH = rawH + 2;
 
     if (rawW == 0 || rawH == 0) {
-        entry.packedW = 3;    // 保存占位尺寸
+        entry.packedW = 3;
         entry.packedH = 3;
-        entry.info.pixelData.resize(9, 0);    // 3×3 全透明占位
+        entry.info.pixelData.resize(3 * 3 * 4, 0);    // RGBA 3×3
         return;
     }
 
-    entry.packedW = padW;    //  保存 padded 尺寸
+    entry.packedW = padW;
     entry.packedH = padH;
-    entry.info.pixelData.assign((size_t)padW * padH, 0);
+    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);
+
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW + 1;
-        std::memcpy(dst, src, rawW);
+        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 1 * 4;
+        for (unsigned int c = 0; c < rawW; c++) {
+            dst[c * 4 + 0] = src[c * 3 + 0];                                                // R
+            dst[c * 4 + 1] = src[c * 3 + 1];                                                // G
+            dst[c * 4 + 2] = src[c * 3 + 2];                                                // B
+            dst[c * 4 + 3] = std::max({src[c * 3 + 0], src[c * 3 + 1], src[c * 3 + 2]});    // A
+        }
     }
 }
 
