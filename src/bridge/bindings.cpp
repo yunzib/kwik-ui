@@ -205,37 +205,7 @@ static void channel_finalizer(JSRuntime *rt, JSValue val) {
     delete cd;
 }
 
-// ---------- 公共注册函数实现 ----------
-JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if (state_class_id == 0) {
-        JS_NewClassID(JS_GetRuntime(ctx), &state_class_id);
-        static JSClassDef class_def = {
-            .class_name = "State",
-            .finalizer = state_finalizer,
-            .gc_mark = state_gc_mark,
-            .call = nullptr,
-            .exotic = nullptr,
-        };
-        static JSClassExoticMethods exotic = {
-            .get_property = state_get_property,
-            .set_property = state_set_property,
-        };
-        class_def.exotic = &exotic;
-        if (JS_NewClass(JS_GetRuntime(ctx), state_class_id, &class_def) != 0) return JS_UNDEFINED;
 
-        // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
-        JSValue proto = JS_NewObject(ctx);
-        JS_SetPropertyStr(ctx, proto, "update", JS_NewCFunction(ctx, js_state_update, "update", 1));
-
-        JSValue ctor = JS_NewCFunction2(ctx, js_state_constructor, "State", 1, JS_CFUNC_constructor, 0);
-        JS_SetConstructor(ctx, ctor, proto);
-
-        JS_SetClassProto(ctx, state_class_id, proto);    // ref - 1 ，后续不需要free
-
-        return ctor;
-    }
-    return JS_UNDEFINED;
-}
 
 // JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
 //     if (channel_class_id == 0) {
@@ -264,7 +234,7 @@ JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JS
 // }
 
 // ---------- 导出的 JS 绑定函数实现 ----------
-JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = JS_UNDEFINED, children = JS_UNDEFINED;
     if (argc >= 1 && JS_IsObject(argv[0])) {
         props = argv[0];
@@ -276,7 +246,7 @@ JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *a
 }
 
 // Root(...children) — 应用入口容器，无 props，所有参数为子节点
-JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue children = JS_NewArray(ctx);
     for (int i = 0; i < argc; i++) { JS_SetPropertyUint32(ctx, children, i, JS_DupValue(ctx, argv[i])); }
     JSValue result = makeElement(ctx, "Root", JS_UNDEFINED, children);
@@ -284,50 +254,53 @@ JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *a
     return result;
 }
 
-JSValue js_text(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_text(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Text", props, JS_UNDEFINED);
 }
 
-JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "Button", props, children);
 }
 
-JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "Flex", props, children);
 }
-JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+
+static JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "Grid", props, children);
 }
-JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+
+static JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "Stack", props, children);
 }
-JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+
+static JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
     return makeElement(ctx, "List", props, children);
 }
 
-JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Image", props, JS_UNDEFINED);
 }
 
-JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
     resolveRefProp(ctx, props, "value");    // 处理 ref 绑定
     return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
-JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
+static JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
     Log::info("Creating State instance");
     StateData *sd;
     JSValue obj = JS_UNDEFINED;
@@ -364,7 +337,7 @@ fail:
     return JS_EXCEPTION;
 }
 
-JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     StateData *sd = static_cast<StateData *>(JS_GetOpaque2(ctx, this_val, state_class_id));
     if (!sd) return JS_ThrowTypeError(ctx, "not a State object");
     if (argc > 0 && JS_IsObject(argv[0])) {
@@ -974,6 +947,38 @@ static JSValue js_isAnimating(JSContext *ctx, JSValueConst this_val, int argc, J
     }
 
     return JS_FALSE;    // TODO: 按 viewId 查询动画状态
+}
+
+// ---------- 公共注册函数实现 ----------
+static JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (state_class_id == 0) {
+        JS_NewClassID(JS_GetRuntime(ctx), &state_class_id);
+        static JSClassDef class_def = {
+            .class_name = "State",
+            .finalizer = state_finalizer,
+            .gc_mark = state_gc_mark,
+            .call = nullptr,
+            .exotic = nullptr,
+        };
+        static JSClassExoticMethods exotic = {
+            .get_property = state_get_property,
+            .set_property = state_set_property,
+        };
+        class_def.exotic = &exotic;
+        if (JS_NewClass(JS_GetRuntime(ctx), state_class_id, &class_def) != 0) return JS_UNDEFINED;
+
+        // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
+        JSValue proto = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, proto, "update", JS_NewCFunction(ctx, js_state_update, "update", 1));
+
+        JSValue ctor = JS_NewCFunction2(ctx, js_state_constructor, "State", 1, JS_CFUNC_constructor, 0);
+        JS_SetConstructor(ctx, ctor, proto);
+
+        JS_SetClassProto(ctx, state_class_id, proto);    // ref - 1 ，后续不需要free
+
+        return ctor;
+    }
+    return JS_UNDEFINED;
 }
 
 // ============================================================================
