@@ -1,4 +1,3 @@
-// kwik.engine.bindings.cppm
 module;
 
 #include "quickjs.h"

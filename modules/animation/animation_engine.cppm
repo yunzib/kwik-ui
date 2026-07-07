@@ -120,11 +120,12 @@ public:
      *
      * @param viewId 目标控件 ID
      * @param desc   动画描述（from / to / keyframes / duration / easing 等）
+     * @param root   视图树根节点（用于解析 target_，可空）
      * @return AnimationHandle — 可用于暂停/恢复/停止/查询
      *
      * 若 desc.prop 上已有活跃动画 → 先 stop 旧动画再启动新的（自动打断）
      */
-    AnimationHandle start(const std::string& viewId, const AnimationDesc& desc);
+    AnimationHandle start(const std::string& viewId, const AnimationDesc& desc, void* root = nullptr);
 
     /**
      * @brief 启动 Batch 动画并返回组句柄
@@ -133,9 +134,10 @@ public:
      *
      * @param descs      动画描述列表
      * @param onComplete 全部完成时的回调（所有动画 Finished）
+     * @param root       视图树根节点（用于解析 target_，可空）
      * @return AnimationGroup — 可用于整组控制
      */
-    AnimationGroup startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete = {});
+    AnimationGroup startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete = {}, void* root = nullptr);
 
     // ────────── 控制 ──────────
 
@@ -157,6 +159,19 @@ public:
      */
     void stopAll();
 
+    /**
+     * @brief 停止指定 View 的所有动画
+     * @param viewId 目标控件 ID
+     */
+    void stopByView(const std::string& viewId);
+
+    /**
+     * @brief 停止指定 View 指定属性的动画
+     * @param viewId 目标控件 ID
+     * @param prop   目标属性
+     */
+    void stopByViewAndProp(const std::string& viewId, PropId prop);
+
     // ────────── 查询 ──────────
 
     /**
@@ -170,6 +185,21 @@ public:
      * 主循环中每帧检测 → 触发 relayoutTree()
      */
     bool hasLayoutAnimation() const;
+
+    /**
+     * @brief 查询指定 View 是否有活跃动画
+     * @param viewId 目标控件 ID
+     * @return true 有活跃动画
+     */
+    bool hasActiveAnimation(const std::string& viewId) const;
+
+    /**
+     * @brief 查询指定 View 指定属性是否有活跃动画
+     * @param viewId 目标控件 ID
+     * @param prop   目标属性
+     * @return true 有活跃动画
+     */
+    bool hasActiveAnimation(const std::string& viewId, PropId prop) const;
 
     // ────────── 驱动 ──────────
 

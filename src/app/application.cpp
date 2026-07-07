@@ -279,7 +279,11 @@ int Application::run() {
             relayoutTree(sz);
         }
 
-        if (jsCtx_.isRenderNeeded()) rebuildTree();
+        if (jsCtx_.isRenderNeeded()) {
+            // 重建树前先停止所有动画，避免 target_ 悬空
+            AnimationEngine::instance().stopAll();
+            rebuildTree();
+        }
 
         if (dirtyTracker_.needsRedraw()) {
             renderFrame();

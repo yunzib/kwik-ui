@@ -73,18 +73,16 @@ TypedProp lerpProp(const TypedProp &from, const TypedProp &to, float t) {
 // ═══════════════════════════════════════════════════════════════════════════
 namespace {
 
-/// 应用插值结果到目标 View（root 为 void*，内部 static_cast）
-void applyToTarget(const ActiveAnimation& anim, void* root, const TypedProp& val) {
-    auto* v = static_cast<View*>(root);
-    if (!v) return;
-    auto* target = v->findById(anim.viewId);
+/// 应用插值结果到目标 View（通过 anim.target_ 直接写入）
+void applyToTarget(const ActiveAnimation& anim, const TypedProp& val) {
+    auto* target = static_cast<View*>(anim.target_);
     if (target) target->applyAnimationFrame(anim.prop, val);
 }
 
 } // anonymous namespace
 
 
-bool ActiveAnimation::tick(double now, void* root) {
+bool ActiveAnimation::tick(double now) {
     if (state != Running) return false;
 
     double elapsed = now - startTime - pauseOffset;
@@ -134,7 +132,7 @@ bool ActiveAnimation::tick(double now, void* root) {
     if (local >= 1.0) {
         Log::debug("[tick] local>=1.0 currentLoop={} loopCount={}", currentLoop, loopCount);
         // 先写入终值确保精确到位
-       applyToTarget(*this, root, segTo);
+       applyToTarget(*this, segTo);
 
         currentLoop++;
 
@@ -157,7 +155,7 @@ bool ActiveAnimation::tick(double now, void* root) {
     // ——— 正常帧：插值并写入 ———
     float easedT = applyEasing(static_cast<float>(local), currentEasing);
     TypedProp val = lerpProp(segFrom, segTo, easedT);
-    applyToTarget(*this, root, val);
+    applyToTarget(*this, val);
     return true;
 }
 
@@ -171,12 +169,8 @@ void ActiveAnimation::pause() {
 
 void ActiveAnimation::resume() {
     if (state == Paused) {
-        // 调整 startTime，等效于跳过暂停期间的时间
-        // 实现：startTime += (now - 本次暂停时刻)
-        // 简化实现：将 pauseOffset 清零并从当前时间重新开始
-        startTime = 0;    // 调用者需在 resume 后立即设置
-        // ⚠ 实际上 startTime 由外部在调用 resume 时更新
-        // 简版：state 切回 Running，tick 继续正常计算
+        // startTime 已在 AnimationEngine::resume() 中调整，
+        // 直接切回 Running 即可，tick 会继续正常计算
         state = Running;
     }
 }
@@ -205,8 +199,8 @@ void ActiveAnimation::seek(float progress) {
         }
     }
 
-    // 立即写入目标值
-    applyToTarget(*this, nullptr, targetValue);
+    // 通过 target_ 直接写入
+    if (target_) static_cast<View*>(target_)->applyAnimationFrame(prop, targetValue);
 
     // 调整时间偏移，使后续 tick 从 seek 位置继续
     pauseOffset = startTime + delay + duration * progress;

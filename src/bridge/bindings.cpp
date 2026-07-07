@@ -899,7 +899,8 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
                 JS_FreeValue(state->ctx, state->resolve);
                 JS_FreeValue(state->ctx, state->reject);
             }
-        });
+        },
+        static_cast<void *>(root));
 
     // ════════════════════════════════════════════════════════
     // 6. 在 Promise 上附加 pause/resume/stop/seek 方法
@@ -930,24 +931,18 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
  *  stop('box', 'scale'); // 停止该组件 scale 属性的动画
  */
 static JSValue js_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if (argc < 1) { return JS_ThrowTypeError(ctx, "stop: 至少需要 target 参数"); }
+    if (argc < 1) return JS_ThrowTypeError(ctx, "stop: 至少需要 target 参数");
 
-    auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
-    View *root = static_cast<View *>(qctx->getUserPointer());
     const char *id = JS_ToCString(ctx, argv[0]);
-    View *target = root ? root->findById(id) : nullptr;
-    JS_FreeCString(ctx, id);
-
-    if (!target) { return JS_ThrowTypeError(ctx, "stop: 未找到目标组件"); }
-
     if (argc >= 2) {
         const char *prop = JS_ToCString(ctx, argv[1]);
         PropId pid = propIdFromName(prop);
         JS_FreeCString(ctx, prop);
-        AnimationEngine::instance().stopAll();
+        AnimationEngine::instance().stopByViewAndProp(id, pid);
     } else {
-        AnimationEngine::instance().stopAll();
+        AnimationEngine::instance().stopByView(id);
     }
+    JS_FreeCString(ctx, id);
 
     return JS_UNDEFINED;
 }

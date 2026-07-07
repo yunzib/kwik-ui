@@ -38,7 +38,7 @@ export struct ActiveAnimation {
     /// 动画唯一标识（由 AnimationEngine 分配）
     uint64_t id = 0;
 
-    /// 目标控件 ID（通过 root->findById 查找）
+    /// 目标控件 ID（用于 stopByView / hasActiveAnimation 查询）
     std::string viewId;
 
     /// 属性标识
@@ -74,6 +74,9 @@ export struct ActiveAnimation {
     enum State : uint8_t { Pending, Running, Paused, Finished };
     State state = Pending;
 
+    /// 目标 View 指针（void* 避免模块循环依赖，实现中 static_cast<View*>）
+    void* target_ = nullptr;
+
     /// 动画完成回调（Promise resolve / 链式调用）
     AnimationCallback onComplete;
 
@@ -93,10 +96,10 @@ export struct ActiveAnimation {
      * 4. 计算 local = (elapsed - delay) / duration
      * 5. 根据方向确定使用的 easing 和 from/to 对
      * 6. applyEasing(local, cfg) → easedT
-     * 7. lerpProp(from, to, easedT) → 调用 applyAnimationFrame
+     * 7. lerpProp(from, to, easedT) → 通过 target_ 调用 applyAnimationFrame
      * 8. 若 local >= 1.0 → 处理循环 / 完成逻辑
      */
-    bool tick(double now, void* root);
+    bool tick(double now);
 
     /**
      * @brief 暂停动画（保持当前值，冻结时间）

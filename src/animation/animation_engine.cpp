@@ -35,10 +35,10 @@ void finish(ActiveAnimation &anim) {
     anim.state = ActiveAnimation::Finished;
 }
 
-void stopAnim(ActiveAnimation &anim, View* root, bool writeFinal) {
+void stopAnim(ActiveAnimation &anim, bool writeFinal) {
     if (anim.state == ActiveAnimation::Finished) return;
-    if (writeFinal && root) {
-        auto* v = root->findById(anim.viewId);
+    if (writeFinal && anim.target_) {
+        auto* v = static_cast<View*>(anim.target_);
         if (v) {
             TypedProp finalValue = anim.isReversing
                 ? anim.keyframes[0].value : anim.keyframes.back().value;
@@ -159,7 +159,7 @@ float AnimationGroup::progress() const {
 // ═══════════════════════════════════════════════════════════════════════════
 // AnimationEngine — 启动
 // ═══════════════════════════════════════════════════════════════════════════
-AnimationHandle AnimationEngine::start(const std::string& viewId, const AnimationDesc& desc) {
+AnimationHandle AnimationEngine::start(const std::string& viewId, const AnimationDesc& desc, void* root) {
     // 若该 viewId + 属性上已有动画 → 先停止旧动画
     for (auto& a : animations_) {
         if (a->viewId == viewId && a->prop == desc.prop && a->state != ActiveAnimation::Finished) {
@@ -193,6 +193,9 @@ AnimationHandle AnimationEngine::start(const std::string& viewId, const Animatio
 
     if (anim->delay <= 0.0) { anim->state = ActiveAnimation::Running; }
 
+    // 高速缓存目标 View 指针，避免后续 root→findById 查找
+    if (root) anim->target_ = static_cast<View*>(root)->findById(viewId);
+
     uint64_t id = anim->id;
     animations_.push_back(std::move(anim));
 
@@ -200,12 +203,12 @@ AnimationHandle AnimationEngine::start(const std::string& viewId, const Animatio
     return AnimationHandle{id};
 }
 
-AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete) {
+AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete, void* root) {
     uint64_t groupId = nextId_++;    // 组 ID 与动画 ID 共享同一个计数器
     std::vector<uint64_t> animIds;
 
     for (auto &desc : descs) {
-        auto handle = start(desc.viewId, desc);
+        auto handle = start(desc.viewId, desc, root);   // 透传 root
         animIds.push_back(handle.id_);
 
         // 将动画绑定到组
@@ -247,7 +250,7 @@ void AnimationEngine::resume(uint64_t id) {
 
 void AnimationEngine::stop(uint64_t id, bool writeFinal) {
     auto it = findAnim(id);
-     if (it != animations_.end()) { stopAnim(**it, nullptr, writeFinal); }
+    if (it != animations_.end()) { stopAnim(**it, writeFinal); }
 }
 
 void AnimationEngine::seek(uint64_t id, float progress) {
@@ -271,8 +274,46 @@ void AnimationEngine::stopAllGroup(uint64_t groupId) {
 
 void AnimationEngine::stopAll() {
     for (auto& a : animations_) {
-        if (a->state != ActiveAnimation::Finished) { stopAnim(*a, nullptr, /*writeFinal*/ true); }
+        if (a->state != ActiveAnimation::Finished) { stopAnim(*a, true); }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AnimationEngine — 按 View 停止
+// ═══════════════════════════════════════════════════════════════════════════
+
+void AnimationEngine::stopByView(const std::string& viewId) {
+    for (auto& a : animations_) {
+        if (a->viewId == viewId && a->state != ActiveAnimation::Finished)
+            stopAnim(*a, true);
+    }
+}
+
+void AnimationEngine::stopByViewAndProp(const std::string& viewId, PropId prop) {
+    for (auto& a : animations_) {
+        if (a->viewId == viewId && a->prop == prop && a->state != ActiveAnimation::Finished)
+            stopAnim(*a, true);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AnimationEngine — 查询
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool AnimationEngine::hasActiveAnimation(const std::string& viewId) const {
+    for (auto& a : animations_) {
+        if (a->viewId == viewId && a->state != ActiveAnimation::Finished)
+            return true;
+    }
+    return false;
+}
+
+bool AnimationEngine::hasActiveAnimation(const std::string& viewId, PropId prop) const {
+    for (auto& a : animations_) {
+        if (a->viewId == viewId && a->prop == prop && a->state != ActiveAnimation::Finished)
+            return true;
+    }
+    return false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -313,7 +354,7 @@ void AnimationEngine::update(double realtimeSec, void* root) {
     bool hadLayoutChange = false;
     for (auto &a : animations_) {
         if (a->state == ActiveAnimation::Running) {
-            bool changed = a->tick(realtimeSec, root);
+            bool changed = a->tick(realtimeSec);
             if (changed && kLayoutProps.count(a->prop)) { hadLayoutChange = true; }
         }
     }

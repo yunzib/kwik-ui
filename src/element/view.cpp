@@ -220,6 +220,9 @@ void View::draw(Graphics &graphics) {
 void View::onDraw(Graphics &graphics) {
     graphics.save();
 
+    // ── 应用位移变换（在原始坐标系中平移，不受缩放影响）──
+    if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
+
     // ── 应用通用缩放 ──
     if (props.scale != 1.0f) {
         float cx = frame.x + frame.width * 0.5f;

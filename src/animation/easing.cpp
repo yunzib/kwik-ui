@@ -3,6 +3,7 @@ module;
 #include <charconv>
 
 module kwik.animation.easing;
+import kwik.core.log;
 
 import std;
 
@@ -24,9 +25,17 @@ EasingConfig parseEasing(const std::string &desc) {
         auto start = desc.find('(') + 1;
         auto comma = desc.find(',', start);
         if (comma != std::string::npos) {
-            std::from_chars(desc.data() + start, desc.data() + comma, cfg.stiffness);
+            auto [p, ec1] = std::from_chars(desc.data() + start, desc.data() + comma, cfg.stiffness);
             auto end = desc.find(')', comma);
-            if (end != std::string::npos) std::from_chars(desc.data() + comma + 1, desc.data() + end, cfg.damping);
+            if (end != std::string::npos) {
+                auto [p2, ec2] = std::from_chars(desc.data() + comma + 1, desc.data() + end, cfg.damping);
+                if (ec1 != std::errc{} || ec2 != std::errc{}) {
+                    Log::warn("[easing] 解析 spring 参数失败: {}", desc);
+                    cfg.type = EasingConfig::Ease;   // 解析失败回退到 ease
+                    cfg.stiffness = 100.0f;
+                    cfg.damping = 10.0f;
+                }
+            }
         }
     }
     // 否则保持默认 cfg.type = Ease
