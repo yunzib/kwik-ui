@@ -8,7 +8,7 @@ module;
 #include "quickjs.h"
 export module kwik.bridge.element_parser;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.bridge.props_parser;
 import kwik.engine.js_value;
 import std;

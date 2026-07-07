@@ -3,9 +3,10 @@ module;
 export module kwik.bridge.props_parser;
 
 import kwik.core.types;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.element.typed_prop;
 import kwik.engine.js_value;
+import kwik.element.view;
 
 import std;
 
@@ -277,8 +278,8 @@ export TextAreaProps parseTextAreaProps(PropsExtractor &ex);
 export DropdownProps parseDropdownProps(PropsExtractor &ex);
 export SliderProps parseSliderProps(PropsExtractor &ex);
 export ProgressBarProps parseProgressBarProps(PropsExtractor &ex);
-export SwitchProps parseSwitchProps(PropsExtractor& ex);
-export LineProps parseLineProps(PropsExtractor& ex);
-export SpinnerProps parseSpinnerProps(PropsExtractor& ex);
-export TableProps parseTableProps(PropsExtractor& ex);
+export SwitchProps parseSwitchProps(PropsExtractor &ex);
+export LineProps parseLineProps(PropsExtractor &ex);
+export SpinnerProps parseSpinnerProps(PropsExtractor &ex);
+export TableProps parseTableProps(PropsExtractor &ex);
 export TextViewProps parseTextViewProps(PropsExtractor &ex);

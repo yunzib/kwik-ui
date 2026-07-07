@@ -8,7 +8,8 @@ import kwik.core.types;
 import kwik.element.view;
 import kwik.element.typed_prop;
 import kwik.bridge.color_parser;
-import kwik.engine.bindings;
+import kwik.engine.vm_callbacks;
+import kwik.core.log;
 
 import std;
 
@@ -22,22 +23,19 @@ import std;
 // 由 Application::init() 在首次 parse 前设置，rebuildTree 前后均保持
 // 指向同一个 &bindingRegistry_。
 // ═══════════════════════════════════════════════════════════════════════════
-static BindingRegistry* s_activeRegistry = nullptr;
+static BindingRegistry *s_activeRegistry = nullptr;
 
 // 静态桥接函数，匹配 IncrementalCallback C 函数指针签名 ──
-static bool registryIncrementalCallback(void* statePtr, const char* key,
-                                         JSContext* ctx, JSValueConst newValue) {
-    return s_activeRegistry
-        ? s_activeRegistry->notify(statePtr, key ? key : "", ctx, newValue)
-        : false;
+static bool registryIncrementalCallback(void *statePtr, const char *key, JSContext *ctx, JSValueConst newValue) {
+    return s_activeRegistry ? s_activeRegistry->notify(statePtr, key ? key : "", ctx, newValue) : false;
 }
 
-void setRegisteredRegistry(BindingRegistry* reg) {
+void setRegisteredRegistry(BindingRegistry *reg) {
     s_activeRegistry = reg;
     set_incremental_callback(reg ? registryIncrementalCallback : nullptr);
 }
 
-BindingRegistry* getRegisteredRegistry() {
+BindingRegistry *getRegisteredRegistry() {
     return s_activeRegistry;
 }
 
@@ -53,10 +51,9 @@ BindingRegistry* getRegisteredRegistry() {
 //   Unknown 或其他   → std::monostate
 // ═══════════════════════════════════════════════════════════════════════════
 
-TypedProp jsValueToTypedProp(JSContext* ctx, JSValueConst value, PropType type) {
+TypedProp jsValueToTypedProp(JSContext *ctx, JSValueConst value, PropType type) {
     switch (type) {
-    case PropType::Bool:
-        return static_cast<bool>(JS_ToBool(ctx, value));
+    case PropType::Bool: return static_cast<bool>(JS_ToBool(ctx, value));
 
     case PropType::Int: {
         int32_t i = 0;
@@ -71,21 +68,20 @@ TypedProp jsValueToTypedProp(JSContext* ctx, JSValueConst value, PropType type) 
     }
 
     case PropType::String: {
-        const char* s = JS_ToCString(ctx, value);
+        const char *s = JS_ToCString(ctx, value);
         std::string result(s ? s : "");
         if (s) JS_FreeCString(ctx, s);
         return result;
     }
 
     case PropType::Color: {
-        const char* s = JS_ToCString(ctx, value);
+        const char *s = JS_ToCString(ctx, value);
         Color c = parseColor(s ? s : "");
         if (s) JS_FreeCString(ctx, s);
         return c;
     }
 
-    default:
-        return std::monostate{};
+    default: return std::monostate{};
     }
 }
 
@@ -93,8 +89,7 @@ TypedProp jsValueToTypedProp(JSContext* ctx, JSValueConst value, PropType type) 
 // BindingRegistry 成员实现
 // ═══════════════════════════════════════════════════════════════════════════
 
-void BindingRegistry::bind(void* statePtr, const std::string& key,
-                            View* view, const std::string& propName) {
+void BindingRegistry::bind(void *statePtr, const std::string &key, View *view, const std::string &propName) {
     bindings_.insert({{statePtr, key}, {view, propName}});
 }
 
@@ -102,8 +97,7 @@ void BindingRegistry::clear() {
     bindings_.clear();
 }
 
-bool BindingRegistry::notify(void* statePtr, const std::string& key,
-                              JSContext* ctx, JSValueConst newValue) {
+bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *ctx, JSValueConst newValue) {
     BindingKey bk{statePtr, key};
     auto range = bindings_.equal_range(bk);
     if (range.first == range.second) return false;
@@ -112,11 +106,11 @@ bool BindingRegistry::notify(void* statePtr, const std::string& key,
     JSValue val = JS_DupValue(ctx, newValue);
 
     for (auto it = range.first; it != range.second; ++it) {
-        View* view = it->second.view;
-        const std::string& propName = it->second.propName;
+        View *view = it->second.view;
+        const std::string &propName = it->second.propName;
 
         // 查 TypedPropMap 获得 parse 阶段记录的类型信息
-        PropEntry* entry = view->propMeta.find(propName);
+        PropEntry *entry = view->propMeta.find(propName);
         if (!entry) continue;
 
         // 将 JSValue 按原始 C++ 类型转为 TypedProp

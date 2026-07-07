@@ -9,8 +9,7 @@ module kwik.engine.context;
 
 import kwik.engine.runtime;
 import kwik.core.log;
-import kwik.engine.bindings; // 导入绑定
-import kwik.core.log;
+import kwik.engine.vm_callbacks;
 
 // JS console.log 绑定到 C++ std::println
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -150,8 +149,8 @@ QuickJSContext::QuickJSContext() : runtime(QuickJSRuntime::getInstance()), rootV
     // 设置渲染回调：当 State 变更时，触发 requestRender
     set_render_callback([this]() { requestRender(); });
 
-    // register_kwikui_module(context);  // 注册 kwikui 模块，导出 View/Text/State/Channel
-    kwikuiModule_ = register_kwikui_module(context);
+    // // register_kwikui_module(context);  // 注册 kwikui 模块，导出 View/Text/State/Channel
+    // kwikuiModule_ = register_kwikui_module(context);
 }
 QuickJSContext::~QuickJSContext() {
     if (context) {

@@ -15,7 +15,7 @@ import kwik.render.graphics;
 import kwik.render.command;
 import kwik.event;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.bridge.element_parser;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -32,6 +32,8 @@ import kwik.engine.channel;
 import kwik.render.vulkan_backend;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
+import kwik.animation.engine;
+import kwik.bridge.bindings;
 
 // ============================================================================
 // 构造 / 析构
@@ -94,6 +96,12 @@ bool Application::init() {
     // // 黑体
     // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/simhei.ttf");
     if (mainFont == kInvalidFontId) { Log::error("字体加载失败: NotoSansSC-Regular.otf"); }
+
+    // ③ 注册 kwikui C 模块（在 evalFile 之前，确保 JS import 'kwikui' 能找到）
+    if (!register_kwikui_module(jsCtx_)) {
+        Log::error("kwikui C module registration failed");
+        return false;
+    }
 
     // ③ 加载 JS
     if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
@@ -167,7 +175,6 @@ void Application::rebuildTree() {
     jsCtx_.clearRenderFlag();
 
     dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
-
     jsCtx_.setUserPointer(tree_.get());
 }
 
@@ -224,7 +231,7 @@ int Application::run() {
     // 或在 feedRawEvent 之后检查 window 状态
     //
     // 简化方案: 保留 WindowResize/Close 在 callback 中特殊处理
-    window_.SetRawEventCallback([this](const RawEvent &rawEvent) { 
+    window_.SetRawEventCallback([this](const RawEvent &rawEvent) {
         // 窗口事件特殊处理 (需要立即操作 swapchain)
         if (rawEvent.device == RawEvent::Device::Window) {
             if (rawEvent.action == RawEvent::Action::WindowClose) {
@@ -259,6 +266,18 @@ int Application::run() {
         // 事件 dispatch 和 Channel flush 都可能 queued JS microtask
         // 必须在 rebuildTree 之前全部消费，确保状态变更被渲染捕获
         jsCtx_.processMicrotasks();
+
+        AnimationEngine::instance().update(
+            std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(),
+            static_cast<void *>(tree_.get()));
+        // 如果布局属性（width/height/padding/margin）正在动画中 → 重新布局
+        if (AnimationEngine::instance().hasLayoutAnimation()) {
+            int w, h;
+            window_.GetSize(&w, &h);
+            float dpi = window_.GetDpiScale();
+            auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
+            relayoutTree(sz);
+        }
 
         if (jsCtx_.isRenderNeeded()) rebuildTree();
 

@@ -77,7 +77,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Primary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Primary"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Secondary",
@@ -91,7 +91,7 @@ export default () => Root(
                 hoverBackground: "#7C3AED",
                 pressedBackground: "#6D28D9",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Secondary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Secondary"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Tertiary",
@@ -105,7 +105,7 @@ export default () => Root(
                 hoverBackground: "#0284C7",
                 pressedBackground: "#0369A1",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Tertiary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Tertiary"; state.lastX = e.x; state.lastY = e.y; }
             }),
         ]),
 
@@ -127,7 +127,7 @@ export default () => Root(
                 hoverBackground: "#C7D2FE",
                 pressedBackground: "#A5B4FC",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Tonal Primary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Tonal Primary"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Tonal Secondary",
@@ -141,7 +141,7 @@ export default () => Root(
                 hoverBackground: "#DDD6FE",
                 pressedBackground: "#C4B5FD",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Tonal Secondary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Tonal Secondary"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Tonal Tertiary",
@@ -155,7 +155,7 @@ export default () => Root(
                 hoverBackground: "#BAE6FD",
                 pressedBackground: "#7DD3FC",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Tonal Tertiary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Tonal Tertiary"; state.lastX = e.x; state.lastY = e.y; }
             }),
         ]),
 
@@ -181,7 +181,7 @@ export default () => Root(
                 hoverBackground: "#F8FAFC",
                 pressedBackground: "#F1F5F9",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Elevated"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Elevated"; state.lastX = e.x; state.lastY = e.y; }
             }),
         ]),
 
@@ -205,7 +205,7 @@ export default () => Root(
                 hoverBackground: "rgba(99,102,241,0.06)",
                 pressedBackground: "rgba(99,102,241,0.12)",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Outlined"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Outlined"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Text Button",
@@ -219,7 +219,7 @@ export default () => Root(
                 hoverBackground: "rgba(99,102,241,0.08)",
                 pressedBackground: "rgba(99,102,241,0.16)",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Text"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Text"; state.lastX = e.x; state.lastY = e.y; }
             }),
         ]),
 
@@ -241,7 +241,7 @@ export default () => Root(
                 hoverBackground: "#16A34A",
                 pressedBackground: "#15803D",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Success"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Success"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Warning",
@@ -255,7 +255,7 @@ export default () => Root(
                 hoverBackground: "#D97706",
                 pressedBackground: "#B45309",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Warning"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Warning"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Danger",
@@ -269,7 +269,7 @@ export default () => Root(
                 hoverBackground: "#DC2626",
                 pressedBackground: "#B91C1C",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Danger"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Danger"; state.lastX = e.x; state.lastY = e.y; }
             }),
         ]),
 
@@ -292,7 +292,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Large"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Large"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Default",
@@ -307,7 +307,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Default"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Default"; state.lastX = e.x; state.lastY = e.y; }
             }),
             Button({
                 text: "Small",
@@ -322,7 +322,8 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function(e) { state.count++; state.last = "Small"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { state.count++; state.last = "Small"; state.lastX = e.x; state.lastY = e.y; 
+                    console.log("Small button clicked at (" + state.count + "," + state.last + ")"); }
             }),
         ]),
     ])

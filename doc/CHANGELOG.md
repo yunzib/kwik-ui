@@ -1,5 +1,21 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-07
+
+### 新增
+- 动画引擎 (`AnimationEngine`)
+  - JS API：`animate()` / `stop()` / `isAnimating()`
+  - 可动画属性：opacity、scale、background、borderRadius、borderWidth、borderColor、textColor、fontSize、translateX/Y、width、height、padding、margin
+  - 缓动：linear、ease、easeIn、easeOut、easeInOut、spring(stiffness,damping)、cubic-bezier
+  - 关键帧、组合动画、往返循环、stagger
+  - 弹性弹簧物理（二阶欠阻尼）
+- View 通用属性 `scale` 缩放支持
+
+### 修复
+- scale 动画缩小时右侧/底部残留边线
+  - 根因：dirty rect 边界经 `round()` 后比旧内容小 1px，SDF 抗锯齿导致边缘像素残留
+  - 修复：`applyAnimationFrame` 中 visual rect 向外扩 1px safety margin
+
 ## [0.0.0] — 2026-06-25
 
 ### 新增

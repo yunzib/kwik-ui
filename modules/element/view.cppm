@@ -6,7 +6,7 @@ module;
 export module kwik.element.view;
 import kwik.core.types;
 import kwik.core.constraints;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.render.graphics;
 import kwik.engine.js_value;
 import kwik.element.typed_prop;
@@ -93,16 +93,12 @@ export struct ViewEventHandlers {
     /**
      * @brief 析构: 释放所有持有的 JSValue 引用
      */
-    ~ViewEventHandlers() {
-        release();
-    }
+    ~ViewEventHandlers() { release(); }
     // 禁止拷贝
     ViewEventHandlers(const ViewEventHandlers &) = delete;
     ViewEventHandlers &operator=(const ViewEventHandlers &) = delete;
     // 支持移动
-    ViewEventHandlers(ViewEventHandlers &&other) noexcept {
-        moveFrom(other);
-    }
+    ViewEventHandlers(ViewEventHandlers &&other) noexcept { moveFrom(other); }
     ViewEventHandlers &operator=(ViewEventHandlers &&other) noexcept {
         if (this != &other) {
             release();
@@ -133,7 +129,8 @@ export struct ViewEventHandlers {
      * @return 全部为 JS_NULL 则返回 true
      */
     bool empty() const {
-        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave) && js_is_null(onChange) && js_is_null(onRowClick);
+        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave)
+               && js_is_null(onChange) && js_is_null(onRowClick);
     }
 
 private:
@@ -176,16 +173,21 @@ public:
     /**
      * @brief 获取当前脏矩形 (只读, 不清空)
      */
-    Rect current() const {
-        return dirtyRect_;
-    }
+    Rect current() const { return dirtyRect_; }
 
     /**
      * @brief 取走脏矩形并重置状态
      * @return 脏矩形 (空 = 全屏)
      */
     Rect consume() {
-        // 合并上一帧的延迟脏标记
+        if (fullRedraw_) {
+            fullRedraw_ = false;
+            needsRedraw_ = false;
+            deferred_ = {};
+            dirtyRect_ = {};
+            return {};    // 空 → renderFrame 展开全屏
+        }
+        // 原有 deferred 合并逻辑不变
         if (!deferred_.isEmpty()) {
             dirtyRect_ = dirtyRect_.isEmpty() ? deferred_ : dirtyRect_.unionRect(deferred_);
             deferred_ = {};
@@ -199,16 +201,13 @@ public:
     /**
      * @brief 是否有待绘制的脏帧
      */
-    bool needsRedraw() const {
-        return needsRedraw_;
-    }
+    bool needsRedraw() const { return needsRedraw_; }
 
     /**
      * @brief 标记下帧全屏重绘 (resize / rebuildTree 时调用)
      */
     void markFull() {
-        dirtyRect_ = {};
-        deferred_ = {};
+        fullRedraw_ = true;
         needsRedraw_ = true;
     }
 
@@ -240,6 +239,7 @@ private:
     Rect dirtyRect_ = {};
     bool needsRedraw_ = true;    // 首帧默认全画
     Rect deferred_ = {};
+    bool fullRedraw_ = false;    // markFull 后显式标记
 };
 
 // ============================================================================
@@ -259,7 +259,7 @@ private:
  * parent_ 指针由 addChild() 自动维护, 支持事件沿父链冒泡。
  * 子类 (Text, Button 等) 通过重写 onMeasure / onLayout / onDraw 实现差异。
  */
-export class View : public EventTarget{
+export class View : public EventTarget {
 public:
     ViewProps props;                                // 控件属性
     std::vector<std::unique_ptr<View>> children;    // 子控件列表
@@ -267,24 +267,13 @@ public:
     ViewEventHandlers handlers;                     // 事件处理器
     TypedPropMap propMeta;                          // 属性类型元数据
 
-
     View() = default;
-
+    virtual ~View() = default;
     /**
      * @brief 构造 View 并注入属性
      * @param p ViewProps 属性结构体
      */
-    explicit View(ViewProps p) : props(std::move(p)) {
-    }
-
-    /**
-     * @brief 析构
-     *
-     * 子节点通过 unique_ptr 自动销毁。
-     * parent_ 为裸指针不参与所有权, 析构时无需处理父节点的 children 列表。
-     * handlers 的 JSValue 由 ViewEventHandlers::~ 自动释放。
-     */
-    virtual ~View() = default;
+    explicit View(ViewProps p) : props(std::move(p)) {}
 
     // 禁止拷贝 (unique_ptr 和 JSValue 不支持共享)
     View(const View &) = delete;
@@ -318,9 +307,7 @@ public:
      * @param constraints 布局约束
      * @return 控件期望尺寸
      */
-    Size measure(Constraints constraints) {
-        return onMeasure(constraints);
-    }
+    Size measure(Constraints constraints) { return onMeasure(constraints); }
     /**
      * @brief 布局控件
      * @param bounds 控件在父坐标系中的边界矩形
@@ -341,9 +328,7 @@ public:
      * @brief 获取父节点指针
      * @return 父节点, 根节点返回 nullptr
      */
-    View *parent() const override {
-        return parent_;
-    }
+    View *parent() const override { return parent_; }
 
     /**
      * @brief 递归查找指定 id 的控件
@@ -387,7 +372,7 @@ public:
      * 子类（Input/Checkbox/TextArea/Dropdown/RadioGroup）建议覆写，
      * 直接使用 TypedProp 中的原始类型值操作内部成员，避免 string 转换。
      */
-    virtual bool setPropertyTyped(const char* name, const TypedProp& value);
+    virtual bool setPropertyTyped(const char *name, const TypedProp &value);
 
     /**
      * @brief 添加子控件 (转移所有权)
@@ -415,9 +400,7 @@ public:
      * @brief 获取控件类型
      * @return 类型枚举
      */
-    virtual ElementType type() const {
-        return ElementType::View;
-    }
+    virtual ElementType type() const { return ElementType::View; }
 
     // ── EventTarget 接口实现 ──
     bool onEvent(const DispatchEvent &event) override;
@@ -443,26 +426,53 @@ public:
     /**
      * @brief 清空脏标记 (绘制完成后调用)
      */
-    void clearDirty() {
-        dirty_ = false;
-    }
+    void clearDirty() { dirty_ = false; }
 
     /**
      * @brief 是否脏
      */
-    bool isDirty() const {
-        return dirty_;
-    }
+    bool isDirty() const { return dirty_; }
 
     /**
      * @brief 设置脏矩形追踪器 (由 Application 在 parse 后递归注入)
      * @param t DirtyTracker 指针
      */
-    void setTracker(DirtyTracker *t) {
-        tracker_ = t;
-    }
+    void setTracker(DirtyTracker *t) { tracker_ = t; }
 
     JSContext *getJSContext() const { return handlers.ctx; }
+
+    // ── 动画支持 ──
+    /**
+     * @brief 通过属性描述符表读取当前值
+     * @param prop 属性标识
+     * @return TypedProp 当前值，无法读取时返回 monostate
+     */
+    TypedProp readProperty(PropId prop) const;
+
+    /**
+     * @brief 通过属性描述符表直接写入（不触发 transition 检查）
+     * @param prop  属性标识
+     * @param value 新值
+     */
+    void writeProperty(PropId prop, const TypedProp &value);
+
+    /**
+     * @brief 动画引擎每帧回调 — 写入插值结果并标记脏
+     *
+     *  与 writeProperty 的区别：
+     *    此方法额外调用 markDirty() 和必要时 requestLayout()，
+     *    保证动画帧一定被渲染。
+     *  引擎调用此方法而非 writeProperty，避免遗漏脏标记。
+     */
+    void applyAnimationFrame(PropId prop, const TypedProp &value);
+
+    /**
+     * @brief 请求重新布局（layoutAffecting 属性变更后调用）
+     *
+     *  由 applyAnimationFrame 内部自动触发，无需手动调用。
+     *  设置 needsRelayout_ 标志，Application 主循环检测后执行 relayoutTree。
+     */
+    void requestLayout();
 
 protected:
     /**
@@ -509,6 +519,7 @@ private:
     View *parent_ = nullptr;             // 父节点 (addChild 自动设置, 裸指针不参与所有权)
     bool dirty_ = true;                  // 新建后默认脏 (首帧必画)
     DirtyTracker *tracker_ = nullptr;    // 脏矩形追踪器 (由 Application 注入)
+    bool needsRelayout_ = false;         // 标记需要 re-layout
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针
@@ -520,6 +531,4 @@ private:
     void fixChildrenParent() {
         for (auto &child : children) { child->parent_ = this; }
     }
-
-    
 };

@@ -76,6 +76,7 @@ public:
      */
     void expandRootView();
 
+    void setKwikuiModule(JSModuleDef *m) { kwikuiModule_ = m; }
     JSModuleDef *getKwikuiModule() const { return kwikuiModule_; }
 
     // ── 渲染控制 ──────────────────────────────────────────────────

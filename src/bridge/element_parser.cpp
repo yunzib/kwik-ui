@@ -19,7 +19,7 @@ module kwik.bridge.element_parser;
 import kwik.bridge.props_parser;
 import kwik.element.view;
 import kwik.element.rootview;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.engine.js_value;
 import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
@@ -214,7 +214,8 @@ static struct InitBuiltinTypes {
         // ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
         //     TypedPropMap meta;
         //     PropsExtractor ex(pv, &meta);
-        //     return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
+        //     return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex),
+        //     parseRadioButtonProps(ex));
         // });
 
         // // ── RadioGroup ──
@@ -424,6 +425,7 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         tryBind("onChange");
         tryBind("onRowClick");
     }
+    
     return element;
 }
 

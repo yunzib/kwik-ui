@@ -135,6 +135,8 @@ private:
     TaskQueue mainThreadTaskQueue_;       // 主线程任务队列
 
     EventRouter eventRouter_;
+
+
     void handleResize(int width, int height);
 
     /**

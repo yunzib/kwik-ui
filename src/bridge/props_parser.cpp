@@ -7,9 +7,11 @@ module kwik.bridge.props_parser;
 
 import kwik.bridge.color_parser;
 import kwik.core.types;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.engine.js_value;
-import kwik.bridge.color_parser;
+import kwik.core.types;
+import kwik.core.props;
+import kwik.engine.js_value;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // parseEdgeInsets — 多重形态解析（数值/数组/对象）
@@ -101,6 +103,8 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     if (ex.has("margin")) result.margin = parseEdgeInsets(ex.raw().getProperty("margin"));
     ex.get("visible", result.visible);
     ex.get("opacity", result.opacity);
+    ex.get("scale", result.scale); 
+
     if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
     ex.get("flexGrow", result.flexGrow);
     {
@@ -132,6 +136,8 @@ ViewProps parseViewProps(PropsExtractor &ex) {
                    {"bottomCenter", Align::BottomCenter},
                    {"bottomRight", Align::BottomRight},
                });
+    
+
     {
         float tmp = 0;
         if (ex.get("x", tmp)) {
@@ -184,7 +190,7 @@ ButtonStateProps parseButtonState(PropsExtractor &ex) {
     ButtonStateProps result;
     ex.get("hoverBackground", result.hoverBackground);
     ex.get("pressedBackground", result.pressedBackground);
-    ex.get("pressedScale", result.pressedScale);
+    // ex.get("pressedScale", result.pressedScale);
     ex.get("hoverBorderColor", result.hoverBorderColor);
     ex.get("pressedBorderColor", result.pressedBorderColor);
     if (ex.has("hoverShadow")) result.hoverShadow = parseShadow(ex.raw().getProperty("hoverShadow").toString());

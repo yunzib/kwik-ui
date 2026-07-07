@@ -9,7 +9,6 @@ target_sources(kwik_element
         FILE_SET cxx_modules TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/element
         FILES
-            modules/element/props.cppm
             modules/element/typed_prop.cppm
             modules/element/view.cppm
             modules/element/rootview.cppm
@@ -29,6 +28,8 @@ target_sources(kwik_element
             # modules/element/table.cppm
             # modules/element/textview.cppm
 
+
+
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
             modules/layout/flex_layout.cppm
@@ -36,7 +37,12 @@ target_sources(kwik_element
             modules/layout/stack_layout.cppm
             # modules/layout/list_layout.cppm
             # modules/layout/radio_group.cppm
-           
+            
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/animation
+        FILES
+            modules/animation/easing.cppm
+            modules/animation/animator.cppm
+            modules/animation/animation_engine.cppm
             
     PRIVATE
         src/element/view.cpp
@@ -64,6 +70,11 @@ target_sources(kwik_element
         src/layout/stack_layout.cpp
         # src/layout/list_layout.cpp
         # src/layout/radio_group.cpp
+
+        src/animation/easing.cpp
+        src/animation/animator.cpp
+        src/animation/animation_engine.cpp
+
 )
 
 # 5. 添加依赖（DEPENDS）

@@ -9,6 +9,7 @@ import kwik.core.constraints;
 import kwik.engine.js_value;
 import kwik.event;
 import kwik.core.log;
+import kwik.core.prop_meta;
 
 import std;
 // ============================================================================
@@ -42,10 +43,10 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY, JSContext
     if (!dispatchCtx) return false;
     JSValue handler = JS_NULL;
     switch (code) {
-    case 0: handler = onClick; break;       // Tap
-    case 1: handler = onLongPress; break;   // LongPress
-    case 2: handler = onHoverEnter; break;  // HoverEnter
-    case 3: handler = onHoverLeave; break;  // HoverLeave
+    case 0: handler = onClick; break;         // Tap
+    case 1: handler = onLongPress; break;     // LongPress
+    case 2: handler = onHoverEnter; break;    // HoverEnter
+    case 3: handler = onHoverLeave; break;    // HoverLeave
     default: return false;
     }
     if (js_is_null(handler) || !JS_IsFunction(dispatchCtx, handler)) return false;
@@ -218,6 +219,19 @@ void View::draw(Graphics &graphics) {
 
 void View::onDraw(Graphics &graphics) {
     graphics.save();
+
+    // ── 应用通用缩放 ──
+    if (props.scale != 1.0f) {
+        float cx = frame.x + frame.width * 0.5f;
+        float cy = frame.y + frame.height * 0.5f;
+        graphics.translate(cx, cy);
+        graphics.scale(props.scale, props.scale);
+        graphics.translate(-cx, -cy);
+    }
+
+    // ── 应用位移变换 ──
+    if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
+
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;
     if (props.shadow.has_value()) { graphics.drawShadow(drawRect, props.borderRadius, *props.shadow); }
@@ -399,6 +413,23 @@ bool View::setProperty(const char *name, const char *value) {
         markDirty();
         return true;
     }
+    if (std::strcmp(name, "scale") == 0) {
+        props.scale = std::stof(value);
+        markDirty();
+        return true;
+    }
+    if (std::strcmp(name, "transform") == 0) {
+        // transform 序列化为 "tx,ty" 字符串
+        auto comma = std::string(value).find(',');
+        if (comma != std::string::npos) {
+            Transform t;
+            t.translateX = std::stof(std::string(value, 0, comma));
+            t.translateY = std::stof(std::string(value, comma + 1));
+            props.transform = t;
+        }
+        markDirty();
+        return true;
+    }
     if (std::strcmp(name, "visible") == 0) {
         props.visible = (std::string(value) == "true");
         markDirty();
@@ -416,41 +447,25 @@ void View::markDirty() {
 }
 
 bool View::setPropertyTyped(const char *name, const TypedProp &value) {
-    return std::visit(
-        [this, name](auto &&arg) -> bool {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, std::monostate>) {
-                return false;
-            } else if constexpr (std::is_same_v<T, bool>) {
-                return setProperty(name, arg ? "true" : "false");
-            } else if constexpr (std::is_same_v<T, int64_t>) {
-                return setProperty(name, std::to_string(arg).c_str());
-            } else if constexpr (std::is_same_v<T, double>) {
-                return setProperty(name, std::to_string(arg).c_str());
-            } else if constexpr (std::is_same_v<T, std::string>) {
-                return setProperty(name, arg.c_str());
-            } else if constexpr (std::is_same_v<T, Color>) {
-                char buf[10];
-                std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", arg.r, arg.g, arg.b);
-                return setProperty(name, buf);
-            }
-        },
-        value);
+    PropId prop = propIdFromName(name);
+    if (prop == PropId::COUNT) return false;    // 未知属性
+
+    // ── 无 transition → 直接写入属性 ──
+    writeProperty(prop, value);
+    markDirty();
+    if (getPropMeta(prop).layoutAffecting) { requestLayout(); }
+    return true;
 }
 
 bool View::onEvent(const DispatchEvent &event) {
     // 键盘事件: 使用 keyCode/charCode 而非坐标
     if (event.type == DispatchEvent::Type::KeyAction) {
-        return handlers.dispatch(dispatchEventTypeToCode(event.type),
-                                  static_cast<float>(event.keyCode),
-                                  static_cast<float>(event.modifiers),
-                                  handlers.ctx);
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.keyCode),
+                                 static_cast<float>(event.modifiers), handlers.ctx);
     }
     if (event.type == DispatchEvent::Type::CharInput) {
-        return handlers.dispatch(dispatchEventTypeToCode(event.type),
-                                  static_cast<float>(event.charCode),
-                                  0.0f,
-                                  handlers.ctx);
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f,
+                                 handlers.ctx);
     }
 
     // 指针/手势事件: 使用全局坐标转换
@@ -461,7 +476,49 @@ bool View::onEvent(const DispatchEvent &event) {
 
 // View::acceptsFocus — 默认返回 false, 子类重写
 bool View::acceptsFocus() const {
-    return type() == ElementType::Input
-        || type() == ElementType::TextArea
-        || type() == ElementType::TextView;
+    return type() == ElementType::Input || type() == ElementType::TextArea || type() == ElementType::TextView;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 属性描述符驱动 — read / write / applyAnimationFrame
+// ═══════════════════════════════════════════════════════════════════════════
+
+TypedProp View::readProperty(PropId prop) const {
+    const auto &meta = getPropMeta(prop);
+    if (!meta.reader) return std::monostate{};
+    return meta.reader(props);
+}
+
+void View::writeProperty(PropId prop, const TypedProp &value) {
+    const auto &meta = getPropMeta(prop);
+    if (meta.writer) meta.writer(props, value);
+}
+
+void View::applyAnimationFrame(PropId prop, const TypedProp &value) {
+    const auto &meta = getPropMeta(prop);
+    if (!meta.writer) return;
+
+    if (prop == PropId::scale) {
+        float oldScale = props.scale;
+        meta.writer(props, value);
+        dirty_ = true;
+        if (tracker_ && !frame.isEmpty()) {
+            for (float s : {oldScale, props.scale}) {
+                Rect r = {frame.x - frame.width * (s - 1.0f) * 0.5f - 1.0f,
+                          frame.y - frame.height * (s - 1.0f) * 0.5f - 1.0f, frame.width * s + 2.0f,
+                          frame.height * s + 2.0f};
+                tracker_->add(r);
+            }
+        }
+    } else {
+        meta.writer(props, value);
+        dirty_ = true;
+        if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
+    }
+
+    if (meta.layoutAffecting) { needsRelayout_ = true; }
+}
+
+void View::requestLayout() {
+    needsRelayout_ = true;
 }

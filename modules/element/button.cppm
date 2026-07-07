@@ -5,7 +5,7 @@ module;
 #include "quickjs.h"
 export module kwik.element.button;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.render.graphics;
 import kwik.render.text.types;

@@ -16,7 +16,7 @@
         "-j=2",
         "--pch-storage=disk",
         "--function-arg-placeholders=false",
-        "--experimental-modules-support"
+        "--experimental-modules-support",
     ],
     // 为 C/C++ 指定 clangd 扩展作为默认 formatter
     "[cpp]": {

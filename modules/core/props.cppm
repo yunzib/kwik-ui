@@ -2,7 +2,7 @@ module;
 
 #include <optional>
 
-export module kwik.element.props;
+export module kwik.core.props;
 import std;
 
 import kwik.core.types;
@@ -79,6 +79,10 @@ export struct ViewProps {
     bool absolute = false;
     float absTop = -1, absLeft = -1, absRight = -1, absBottom = -1;
     int z = 0;    // 层叠优先级 (默认 0, 值越高越优先命中)
+
+    // ── 动画 / 变换 ──
+    float scale = 1.0f;                    // 通用缩放
+    std::optional<Transform> transform;    // 位移变换
 };
 
 /**
@@ -304,9 +308,9 @@ export struct SwitchProps {
  * 垂直时高度铺满父容器，宽度 = strokeWidth + padding。
  */
 export struct LineProps {
-    std::string direction = "horizontal";  // "horizontal" | "vertical"
-    float strokeWidth = 1.0f;             // 线宽 (像素)
-    Color color{224, 224, 224, 255};       // 线条颜色 (Grey 300)
+    std::string direction = "horizontal";    // "horizontal" | "vertical"
+    float strokeWidth = 1.0f;                // 线宽 (像素)
+    Color color{224, 224, 224, 255};         // 线条颜色 (Grey 300)
 };
 
 // ════════════════════════════════════════════════════════
@@ -322,7 +326,7 @@ export struct LineProps {
 export struct SpinnerProps {
     Color color{25, 118, 210, 255};          // 弧段颜色 (Material Blue 700)
     Color trackColor{224, 224, 224, 255};    // 背景环色 (Grey 300, 30% opacity)
-    float size = 32.0f;                       // 整体直径 (像素)
+    float size = 32.0f;                      // 整体直径 (像素)
     float strokeWidth = 6.0f;                // 环粗细 / 点直径 (像素)
     float arcLength = 200.0f;                // 弧段角度 (0-360, 默认 200°)
 };
@@ -334,11 +338,11 @@ export struct SpinnerProps {
  * @brief 表格列定义
  */
 export struct ColumnDef {
-    std::string title;          // 列标题
-    std::string key;            // 数据字段 key
-    float width = 0;            // 固定宽 px (0 = auto/flex)
-    float flex = 0;             // flex 分配剩余空间比例
-    std::string align = "left"; // "left" | "center" | "right"
+    std::string title;             // 列标题
+    std::string key;               // 数据字段 key
+    float width = 0;               // 固定宽 px (0 = auto/flex)
+    float flex = 0;                // flex 分配剩余空间比例
+    std::string align = "left";    // "left" | "center" | "right"
 };
 
 /**
@@ -358,7 +362,7 @@ export struct TableProps {
     float headerHeight = 36.0f;
     float rowHeight = 32.0f;
     float fontSize = 14.0f;
-    std::string fontFamily; 
+    std::string fontFamily;
     float borderWidth = 1.0f;
     bool showHeader = true;
     bool striped = true;
@@ -374,12 +378,12 @@ export struct TableProps {
  * italic 为留位字段，当前渲染阶段暂不做斜体变换（伪斜体待后续扩展 FontManager）。
  */
 export struct TextStyle {
-    float fontSize = 16.0f;                    ///< 字号（像素）
-    FontWeight fontWeight = FontWeight::Normal; ///< 字重 Normal / Bold
-    FontStyle fontStyle = FontStyle::Normal;    ///< 字形（留位）
-    Color textColor{0, 0, 0, 255};             ///< 文字颜色
-    bool underline = false;                    ///< 下划线
-    bool strikethrough = false;                ///< 删除线
+    float fontSize = 16.0f;                        ///< 字号（像素）
+    FontWeight fontWeight = FontWeight::Normal;    ///< 字重 Normal / Bold
+    FontStyle fontStyle = FontStyle::Normal;       ///< 字形（留位）
+    Color textColor{0, 0, 0, 255};                 ///< 文字颜色
+    bool underline = false;                        ///< 下划线
+    bool strikethrough = false;                    ///< 删除线
 };
 
 /**
@@ -389,8 +393,8 @@ export struct TextStyle {
  * 光标和选区以 plainText_ 的 UTF-8 字节偏移表示。
  */
 export struct TextRun {
-    std::string text;   ///< 纯文本（UTF-8，可含 \n）
-    TextStyle style;    ///< 本段统一样式
+    std::string text;    ///< 纯文本（UTF-8，可含 \n）
+    TextStyle style;     ///< 本段统一样式
 };
 
 /**
