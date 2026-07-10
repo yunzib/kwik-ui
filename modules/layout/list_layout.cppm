@@ -1,66 +1,63 @@
 module;
+
 #include <memory>
-#include "quickjs.h"
+
 export module kwik.layout.list_layout;
+
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
+import kwik.event;
 import std;
+
 /**
  * @brief ListLayout — 单向滚动列表
  *
- * 子项沿指定方向堆叠, 超出部分可滚动。
- * direction: "vertical" (垂直) / "horizontal" (水平)
+ * 子项沿指定方向堆叠，超出部分可滚动。
+ * direction: "vertical"（垂直）/ "horizontal"（水平）
+ *
+ * 事件：Scroll 滚轮事件通过 DispatchEvent 统一下发，
+ *       applyScroll(dx, dy) 按 scrollDir 映射到对应轴。
  */
 export class ListLayout : public View {
 public:
     ListLayout() = default;
+
     explicit ListLayout(ViewProps p, ContainerProps cp = {}) : View(std::move(p)), container_(std::move(cp)) {
         if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
             props.background = Color::transparent();
         }
     }
-    ElementType type() const override {
-        return ElementType::ListLayout;
-    }
 
+    ElementType type() const override { return ElementType::ListLayout; }
+
+    // ─── 首尾固定子控件 ───────────────────────────────
     std::unique_ptr<View> header;
     std::unique_ptr<View> footer;
-    Point scrollOffset;
-    Size contentSize;
-    void applyWheel(float delta) override {
-        if (container_.scrollDir == ScrollDirection::Vertical) {
-            float maxY = std::max(
-                0.0f, contentSize.height - (frame.height - props.padding.vertical() - headerHeight() - footerHeight()));
-            scrollOffset.y = std::clamp(scrollOffset.y + delta, 0.0f, maxY);
-        } else {
-            float maxX = std::max(
-                0.0f, contentSize.width - (frame.width - props.padding.horizontal() - headerWidth() - footerWidth()));
-            scrollOffset.x = std::clamp(scrollOffset.x + delta, 0.0f, maxX);
-        }
-        markDirty();
-    }
+
+    // ─── 滚动状态 ─────────────────────────────────────
+    Point scrollOffset;    // 当前滚动偏移
+    Size contentSize;      // 内容总尺寸
+
+    // ─── EventTarget 接口 ─────────────────────────────
+    bool scrollable() const override { return true; }
+
+    // ─── 滚轮/触摸滚动入口（供 EventRouter 调用） ─────
+    void applyScroll(float dx, float dy) override;
 
 protected:
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
     void onDraw(Graphics &g) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     ContainerProps container_;
-    float headerHeight() const {
-        return header ? header->frame.height : 0;
-    }
-    float headerWidth() const {
-        return header ? header->frame.width : 0;
-    }
-    float footerHeight() const {
-        return footer ? footer->frame.height : 0;
-    }
-    float footerWidth() const {
-        return footer ? footer->frame.width : 0;
-    }
+
+    float headerHeight() const { return header ? header->frame.height : 0; }
+    float headerWidth() const { return header ? header->frame.width : 0; }
+    float footerHeight() const { return footer ? footer->frame.height : 0; }
+    float footerWidth() const { return footer ? footer->frame.width : 0; }
 };

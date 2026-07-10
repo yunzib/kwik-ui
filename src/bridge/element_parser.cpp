@@ -24,7 +24,7 @@ import kwik.engine.js_value;
 import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
 import kwik.layout.stack_layout;
-// import kwik.layout.list_layout;
+import kwik.layout.list_layout;
 import kwik.element.image;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
@@ -174,26 +174,26 @@ static struct InitBuiltinTypes {
             return std::make_unique<StackLayout>(parseViewProps(ex));
         });
 
-        // ElementParser::registerType("List", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto list = std::make_unique<ListLayout>(parseViewProps(ex), parseContainerProps(ex));
-        //     if (pv.hasProperty("header") && pv.getProperty("header").isObject()) {
-        //         auto hdr = pv.getProperty("header");
-        //         JSContext *c = hdr.context();
-        //         JSValue dup = JS_DupValue(c, hdr.raw());
-        //         JSValueRef node(c, dup);
-        //         list->header = ElementParser::parseNode(node);
-        //     }
-        //     if (pv.hasProperty("footer") && pv.getProperty("footer").isObject()) {
-        //         auto ftr = pv.getProperty("footer");
-        //         JSContext *c = ftr.context();
-        //         JSValue dup = JS_DupValue(c, ftr.raw());
-        //         JSValueRef node(c, dup);
-        //         list->footer = ElementParser::parseNode(node);
-        //     }
-        //     return list;
-        // });
+        ElementParser::registerType("List", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto list = std::make_unique<ListLayout>(parseViewProps(ex), parseContainerProps(ex));
+            if (pv.hasProperty("header") && pv.getProperty("header").isObject()) {
+                auto hdr = pv.getProperty("header");
+                JSContext *c = hdr.context();
+                JSValue dup = JS_DupValue(c, hdr.raw());
+                JSValueRef node(c, dup);
+                list->header = ElementParser::parseNode(node);
+            }
+            if (pv.hasProperty("footer") && pv.getProperty("footer").isObject()) {
+                auto ftr = pv.getProperty("footer");
+                JSContext *c = ftr.context();
+                JSValue dup = JS_DupValue(c, ftr.raw());
+                JSValueRef node(c, dup);
+                list->footer = ElementParser::parseNode(node);
+            }
+            return list;
+        });
 
         ElementParser::registerType("Image", [](const JSValueRef &pv) {
             TypedPropMap meta;

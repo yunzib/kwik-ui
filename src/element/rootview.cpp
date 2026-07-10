@@ -22,7 +22,9 @@ Size RootView::onMeasure(Constraints constraints) {
 // onLayout: 将自身 frame 原样传递给每个子节点
 // 不做垂直堆叠、不做 padding 内缩 — 子节点自行决定布局策略
 void RootView::onLayout() {
+    Constraints cons = Constraints::loose(Size{frame.width, frame.height});
     for (auto &child : children) {
-        child->layout(frame);
+        Size s = child->measure(cons);
+        child->layout(Rect{frame.x, frame.y, s.width, s.height});
     }
 }

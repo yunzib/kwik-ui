@@ -35,7 +35,7 @@ target_sources(kwik_element
             modules/layout/flex_layout.cppm
             modules/layout/grid_layout.cppm
             modules/layout/stack_layout.cppm
-            # modules/layout/list_layout.cppm
+            modules/layout/list_layout.cppm
             # modules/layout/radio_group.cppm
             
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/animation
@@ -68,7 +68,7 @@ target_sources(kwik_element
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
         src/layout/stack_layout.cpp
-        # src/layout/list_layout.cpp
+        src/layout/list_layout.cpp
         # src/layout/radio_group.cpp
 
         src/animation/easing.cpp
