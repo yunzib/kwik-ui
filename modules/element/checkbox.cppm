@@ -1,18 +1,22 @@
 module;
 
 #include <string>
+#include <memory>
+#include <vector>
 #include "quickjs.h"
 
 export module kwik.element.checkbox;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
+import kwik.event;
 import std;
 
 /**
@@ -35,6 +39,7 @@ import std;
 export class Checkbox : public View {
 public:
     Checkbox() = default;
+    ~Checkbox() override = default;
 
     /**
      * @brief 构造 Checkbox
@@ -51,14 +56,6 @@ public:
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
 
     // ─── 双向绑定设置 ─────────────────────────────────
-    /**
-     * @brief 设置双向绑定
-     * @param binding State 绑定实现（引擎层提供）
-     * @param key     State 上的属性名
-     *
-     * 由 element_parser 在检测到 __bind_checkedKey 时调用。
-     * 绑定后，每次 Tap 切换 checked 会自动更新 State[key]。
-     */
     void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key);
 
     // ─── 查询方法 ─────────────────────────────────────
@@ -70,23 +67,14 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
-    TextContent text_;
-    CheckboxProps check_;
+    TextContent text_;                          // 文字内容
+    CheckboxProps check_;                       // 复选框专有属性
+    TextLayoutToken layoutToken_;               // 文字排版缓存句柄
 
-    // 文字标签缓存
-    std::vector<ShapedGlyph> shapedCache_;
-    std::string cachedText_;
-    float cachedFontSize_ = 0;
-    bool needReshapeText() const;
-
-    // ✓ 号缓存（字形，仅首次烘焙）
-    std::vector<ShapedGlyph> checkMarkCache_;
-    float cachedMarkSize_ = 0;
-
-    // ─── 双向绑定（无 JS 依赖） ───────────────────────
-    std::unique_ptr<StateBinding> binding_; /**< 引擎层绑定实现 */
-    std::string bindKey_;                   /**< State 上的属性名 */
+    // ─── 双向绑定 ─────────────────────────────────────
+    std::unique_ptr<StateBinding> binding_;
+    std::string bindKey_;
 };

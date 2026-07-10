@@ -3,6 +3,8 @@
 //
 // 视觉: 圆角方框 + 选中时填充蓝色 + 白色 ✓ 号 + 右侧文字标签
 // 交互: Tap 切换 checked → 触发绑定回调 → 触发 onChange 回调
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 
 module;
@@ -11,40 +13,37 @@ module;
 module kwik.element.checkbox;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
-import kwik.render.command;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.engine.js_value;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
-
+import kwik.event;
 
 import std;
 
 // ============================================================================
-// needReshapeText — 文字标签缓存失效检测
-// ============================================================================
-bool Checkbox::needReshapeText() const {
-    return shapedCache_.empty() || cachedFontSize_ != text_.fontSize || cachedText_ != text_.text;
-}
-
-// ============================================================================
-// onMeasure — 测量尺寸
+// onMeasure — 测量尺寸（TextRenderPipeline 排版）
 // ============================================================================
 Size Checkbox::onMeasure(Constraints constraints) {
     float w = check_.boxSize + check_.textSpacing;
     float h = check_.boxSize;
     if (!text_.text.empty()) {
-        auto &fm = FontManager::instance();
-        auto metrics = fm.shapeMetrics(text_.text.c_str(), text_.fontSize > 0 ? text_.fontSize : 16.0f);
-        float textW = 0;
-        for (auto &m : metrics) textW += m.advanceX;
-        w += textW;
-        float textH = text_.fontSize > 0 ? text_.fontSize : 16.0f;
-        h = std::max(h, textH);
+        auto &pipe = TextRenderPipeline::instance();
+        FontId fid = pipe.loadFont(text_.fontFamily);
+        if (fid == kInvalidFontId) fid = pipe.activeFont();
+        TextLayoutConfig cfg;
+        cfg.maxWidth = constraints.maxWidth;
+        layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (result) {
+            w += result->totalWidth;
+            h = std::max(h, result->totalHeight);
+        }
     }
     w += props.padding.horizontal();
     h += props.padding.vertical();
@@ -93,16 +92,14 @@ void Checkbox::setBinding(std::unique_ptr<StateBinding> binding, const std::stri
 // ============================================================================
 // onEvent — Tap 切换选中 + 自动更新绑定 + 触发 onChange
 // ============================================================================
-bool Checkbox::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::Tap) {
+bool Checkbox::onEvent(const DispatchEvent &event) {
+    if (event.type == DispatchEvent::Type::Tap) {
         bool newVal = !check_.checked;
         setChecked(newVal);
 
         // ① 双向绑定：自动更新 State（纯 C++ 接口，无 JS 依赖）
         if (binding_) {
             binding_->setBool(bindKey_, newVal);
-            // → JSStateBinding::setBool → JS_SetPropertyStr
-            // → State.set_property exotic hook → render_callback() → rebuild
         }
 
         // ② 显式 onChange 回调（向下兼容）
@@ -119,74 +116,101 @@ bool Checkbox::onEvent(int code, float localX, float localY, JSContext *ctx) {
             JS_FreeValue(handlers.ctx, eventObj);
         }
     }
-    return View::onEvent(code, localX, localY, ctx);
+    return View::onEvent(event);
 }
 
 // ============================================================================
 // onDraw — 绘制方框 + 选中填充 + ✓ 号 + 文字
+//
+// 使用 TextRenderPipeline 排版文字并通过 submitGlyphBatch 提交字形批次。
+// 外层 save/restore 保证变换/透明度不影响兄弟控件。
 // ============================================================================
 void Checkbox::onDraw(Graphics &graphics) {
+    graphics.save();
+    if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
+
     // 基类背景（默认透明）
-    if (props.background.isVisible()) { graphics.drawRoundedRect(frame, props.borderRadius, props.background); }
+    if (props.background.isVisible()) {
+        graphics.drawRoundedRect(frame, props.borderRadius, props.background);
+    }
 
     float contentH = frame.height - props.padding.vertical();
     float boxX = frame.x + props.padding.left;
     float boxY = frame.y + props.padding.top + (contentH - check_.boxSize) * 0.5f;
-    float halfR = check_.borderRadius;
     Rect boxRect{boxX, boxY, check_.boxSize, check_.boxSize};
 
     // 方框填充
     Color fillColor = check_.checked ? check_.checkedFillColor : Color::white();
-    graphics.drawRoundedRect(boxRect, halfR, fillColor);
+    graphics.drawRoundedRect(boxRect, check_.borderRadius, fillColor);
 
     // 方框边框
     Color borderColor = check_.checked ? check_.checkedColor : check_.uncheckedColor;
-    graphics.drawRoundedRectStroke(boxRect, halfR, borderColor, check_.ringWidth);
+    graphics.drawRoundedRectStroke(boxRect, check_.borderRadius, borderColor, check_.ringWidth);
 
-    // ✓ 号（仅选中时）
+    // ✓ 号（仅选中时，通过 TextRenderPipeline 渲染）
     if (check_.checked) {
-        auto &fm = FontManager::instance();
+        auto &pipe = TextRenderPipeline::instance();
         float markSize = std::round(check_.boxSize * 0.75f);
-        if (checkMarkCache_.empty() || cachedMarkSize_ != markSize) {
-            const char checkMark[] = "\xE2\x9C\x93";
-            auto metrics = fm.shapeMetrics(checkMark, markSize);
-            if (!metrics.empty()) {
-                checkMarkCache_ = fm.bakeGlyphs(metrics, markSize);
-            } else {
-                checkMarkCache_.clear();
+        FontId fid = pipe.activeFont();
+        TextLayoutConfig cfg;
+        cfg.maxWidth = check_.boxSize;
+        TextLayoutToken markToken = pipe.layoutText("\xE2\x9C\x93", fid, markSize, cfg);
+        pipe.ensureGlyphs(markToken);
+        auto *result = pipe.getLayout(markToken);
+        if (result && !result->glyphs.empty()) {
+            float markX = boxX + (check_.boxSize - result->totalWidth) * 0.5f;
+            float markY = boxY + check_.boxSize * 0.5f - result->totalHeight * 0.5f;
+            std::vector<GlyphDrawData> batch;
+            batch.reserve(result->glyphs.size());
+            for (auto &sg : result->glyphs) {
+                batch.push_back({
+                    .x = markX + sg.x,
+                    .y = markY + sg.y,
+                    .w = sg.width,
+                    .h = sg.height,
+                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
+                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
+                    .color = check_.checkMarkColor,
+                });
             }
-            cachedMarkSize_ = markSize;
-        }
-        if (!checkMarkCache_.empty()) {
-            auto &sg = checkMarkCache_.front();
-            float markW = sg.advanceX;
-            float markX = boxX + (check_.boxSize - markW) * 0.5f;
-            float markY = boxY + check_.boxSize * 0.5f + markSize * 0.35f;
-            graphics.save();
-            graphics.translate(markX, markY);
-            graphics.drawTextCached(checkMarkCache_, check_.checkMarkColor);
-            graphics.restore();
+            graphics.submitGlyphBatch(batch);
         }
     }
 
-    // 文字标签
+    // 文字标签（通过 TextRenderPipeline 排版 + 字形批次提交）
     if (!text_.text.empty()) {
-        auto &fm = FontManager::instance();
-        if (needReshapeText()) {
-            shapedCache_ = fm.shapeText(text_.text.c_str(), text_.fontSize > 0 ? text_.fontSize : 16.0f);
-            cachedText_ = text_.text;
-            cachedFontSize_ = text_.fontSize;
+        auto &pipe = TextRenderPipeline::instance();
+        pipe.ensureGlyphs(layoutToken_);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (result && !result->glyphs.empty()) {
+            float textX = boxX + check_.boxSize + check_.textSpacing;
+            float textY = boxY + check_.boxSize * 0.5f - result->totalHeight * 0.5f;
+            std::vector<GlyphDrawData> batch;
+            batch.reserve(result->glyphs.size());
+            for (auto &sg : result->glyphs) {
+                batch.push_back({
+                    .x = textX + sg.x,
+                    .y = textY + sg.y,
+                    .w = sg.width,
+                    .h = sg.height,
+                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
+                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
+                    .color = text_.textColor,
+                });
+            }
+            graphics.submitGlyphBatch(batch);
         }
-        float fontSize = text_.fontSize > 0 ? text_.fontSize : 16.0f;
-        float textX = boxX + check_.boxSize + check_.textSpacing;
-        float textY = boxY + check_.boxSize * 0.5f + fontSize * 0.35f;
-        graphics.save();
-        graphics.translate(textX, textY);
-        graphics.drawTextCached(shapedCache_, text_.textColor);
-        graphics.restore();
     }
+
+    // 绘制子控件
+    for (auto &child : children) { child->draw(graphics); }
+
+    graphics.restore();
 }
 
+// ============================================================================
+// setPropertyTyped — 类型安全属性写入
+// ============================================================================
 bool Checkbox::setPropertyTyped(const char* name, const TypedProp& value) {
     if (std::strcmp(name, "checked") == 0) {
         if (auto* b = std::get_if<bool>(&value)) {

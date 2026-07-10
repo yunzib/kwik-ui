@@ -41,7 +41,7 @@ import kwik.element.button;
 // import kwik.element.input;
 // import kwik.element.radiobutton;
 // import kwik.layout.radio_group;
-// import kwik.element.checkbox;
+import kwik.element.checkbox;
 // import kwik.element.textarea;
 // import kwik.element.dropdown;
 
@@ -228,17 +228,17 @@ static struct InitBuiltinTypes {
         //     return rg;
         // });
 
-        // // ── Checkbox ──
-        // ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto checkbox =
-        //         std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
-        //     checkbox->propMeta = std::move(meta);
-        //     applyBindings(checkbox.get(), pv);
-        //     Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
-        //     return checkbox;
-        // });
+        // ── Checkbox ──
+        ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto checkbox =
+                std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
+            checkbox->propMeta = std::move(meta);
+            applyBindings(checkbox.get(), pv);
+            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
+            return checkbox;
+        });
 
         // // ── TextArea ──
         // ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
