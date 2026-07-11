@@ -34,6 +34,7 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.animation.engine;
 import kwik.bridge.bindings;
+import kwik.core.timer;
 
 // ============================================================================
 // 构造 / 析构
@@ -266,6 +267,8 @@ int Application::run() {
         // 事件 dispatch 和 Channel flush 都可能 queued JS microtask
         // 必须在 rebuildTree 之前全部消费，确保状态变更被渲染捕获
         jsCtx_.processMicrotasks();
+
+        CoreTimer::tick();   // 驱动定时器
 
         AnimationEngine::instance().update(
             std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(),

@@ -38,7 +38,7 @@ import kwik.element.switch_button;
 // import kwik.element.textview;
 import kwik.element.text;
 import kwik.element.button;
-// import kwik.element.input;
+import kwik.element.input;
 import kwik.element.radiobutton;
 import kwik.layout.radio_group;
 import kwik.element.checkbox;
@@ -201,15 +201,15 @@ static struct InitBuiltinTypes {
             return std::make_unique<Image>(parseViewProps(ex), parseImageProps(ex));
         });
 
-        // // ── Input — 绑定注入统一由 applyBindings 处理 ──
-        // ElementParser::registerType("Input", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto input = std::make_unique<Input>(parseViewProps(ex), parseInputProps(ex));
-        //     input->propMeta = std::move(meta);
-        //     applyBindings(input.get(), pv);
-        //     return input;
-        // });
+        // ── Input — 绑定注入统一由 applyBindings 处理 ──
+        ElementParser::registerType("Input", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto input = std::make_unique<Input>(parseViewProps(ex), parseInputProps(ex));
+            input->propMeta = std::move(meta);
+            applyBindings(input.get(), pv);
+            return input;
+        });
 
         ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
             TypedPropMap meta;

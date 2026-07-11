@@ -1,21 +1,26 @@
 // ============================================================================
 // 模块: kwik.element.input
 // Input 组件 — 单行文本输入
+//
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
 #include <string>
-#include <vector>
 #include <memory>
-#include "quickjs.h"
 export module kwik.element.input;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.core.constraints;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
+import kwik.event;
+import kwik.core.timer;
+import kwik.core.log;
 
 import std;
 /**
@@ -37,8 +42,9 @@ export class Input : public View {
 public:
     Input();
     explicit Input(ViewProps vp, InputProps ip = {});
-    ~Input() override = default;
-
+   ~Input() override {
+        if (blinkTimerId_ != 0) CoreTimer::clear(blinkTimerId_);
+    }
     ElementType type() const override {
         return ElementType::Input;
     }
@@ -57,19 +63,11 @@ public:
     bool isFocused() const {
         return focused_;
     }
-    void focus() {
-        focused_ = true;
-        cursorVisible_ = true;
-        lastBlinkTime_ =
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
-                .count();
-        markDirty();
-    }
-    void blur() {
-        focused_ = false;
-        if (binding_) binding_->setString(bindKey_, text_);
-        markDirty();
-    }
+
+     bool acceptsFocus() const override { return true; }
+
+    void focus();
+    void blur();
 
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
@@ -83,7 +81,7 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     InputProps input_;
@@ -92,12 +90,15 @@ private:
     size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
-    // 排版缓存 (atlas 版本感知)
-    ShapedTextCache textCache_;
-    ShapedTextCache placeholderCache_;
+    // 排版缓存 (TextRenderPipeline 内部管理)
+    TextLayoutToken layoutToken_;
+    TextLayoutToken placeholderToken_;
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
+
+    CoreTimer::Id blinkTimerId_ = 0;    
+    void scheduleBlinkTick();
 
     // ── 文本操作 ──
     void insertAtCursor(const std::string &utf8);
@@ -108,12 +109,10 @@ private:
     void cursorToHome();
     void cursorToEnd();
     // ── 渲染辅助 ──
-    /** 获取字号对应的字体路径 */
-    std::string resolveFontPath() const;
     /** 字节偏移 → glyph 序号转换 */
     size_t byteOffsetToGlyphIndex(size_t byteOffset) const;
     /** 更新光标闪烁计时器 */
     bool updateCursorBlink();
-    /** 触发 JS onChange 回调 */
-    void fireChange(JSContext *ctx);
+    /** 触发 JS onChange 回调 (使用 handlers.ctx) */
+    void fireChange();
 };

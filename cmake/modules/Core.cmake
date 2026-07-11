@@ -18,6 +18,7 @@ target_sources(kwik_core
             modules/core/scheduler.cppm
             modules/core/props.cppm
             modules/core/prop_meta.cppm
+            modules/core/timer.cppm
     PRIVATE
         src/core/log.cpp
         src/core/scheduler.cpp

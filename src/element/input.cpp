@@ -1,5 +1,8 @@
 // ============================================================================
 // 模块实现: kwik.element.input
+//
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
 #include <algorithm>
@@ -10,14 +13,18 @@ module;
 #include "quickjs.h"
 module kwik.element.input;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.core.log;
 import kwik.engine.js_value;
 import kwik.element.typed_prop;
+import kwik.event;
+import kwik.core.log;
+import kwik.core.timer;
 
 import std;
 // ============================================================================
@@ -39,77 +46,93 @@ Input::Input(ViewProps vp, InputProps ip) : View(std::move(vp)), input_(std::mov
     if (props.borderRadius == 0) props.borderRadius = 4.0f;
 }
 // ============================================================================
-// onMeasure
+// onMeasure — 尺寸测量 (TextRenderPipeline 排版)
 // ============================================================================
 Size Input::onMeasure(Constraints constraints) {
-    auto &fm = FontManager::instance();
-    float fs = input_.fontSize;
-    auto metrics = fm.getMetrics(fs);
+    auto &pipe = TextRenderPipeline::instance();
+    float fs = input_.fontSize <= 0 ? 16.0f : input_.fontSize;
+    FontId fid = pipe.activeFont();
+    TextLayoutConfig cfg;
+    cfg.maxWidth = constraints.maxWidth;
+
     float contentW = 0;
+    float lineH = fs * 1.4f;
+
     if (!text_.empty()) {
-        if (!textCache_.valid(text_.c_str(), fs, fm.atlasVersion())) {
-            std::string fp = resolveFontPath();
-            fm.loadFont(fp.c_str());
-            textCache_.set(fm.shapeText(text_.c_str(), fs), text_.c_str(), fs, fm.atlasVersion());
+        layoutToken_ = pipe.layoutText(text_, fid, fs, cfg);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (result) {
+            contentW = result->totalWidth;
+            lineH = result->totalHeight;
         }
-        for (auto &g : textCache_.glyphs) contentW += g.advanceX;
     } else if (!input_.placeholder.empty()) {
-        if (!placeholderCache_.valid(input_.placeholder.c_str(), fs, fm.atlasVersion())) {
-            std::string fp = resolveFontPath();
-            fm.loadFont(fp.c_str());
-            placeholderCache_.set(fm.shapeText(input_.placeholder.c_str(), fs), input_.placeholder.c_str(), fs,
-                                  fm.atlasVersion());
+        placeholderToken_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
+        auto *result = pipe.getLayout(placeholderToken_);
+        if (result) {
+            contentW = result->totalWidth;
+            lineH = result->totalHeight;
         }
-        for (auto &g : placeholderCache_.glyphs) contentW += g.advanceX;
     }
+
     float w = std::max(contentW + props.padding.horizontal(), fs * 0.75f);
     if (props.width.has_value()) w = std::max(w, *props.width);
-    float h = metrics.lineHeight + props.padding.vertical();
+    float h = lineH + props.padding.vertical();
     if (props.height.has_value()) h = std::max(h, *props.height);
     return constraints.constrain({w, h});
 }
 // ============================================================================
-// onDraw — 渲染输入框 (含光标、密码掩码、裁剪、中文光标修复)
+// onDraw — 渲染输入框 (含光标、密码掩码、裁剪)
+//
+// 使用 TextRenderPipeline 排版文字并通过 drawTextCached 提交字形。
 // ============================================================================
 void Input::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
+
     Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
                   frame.height - props.padding.vertical()};
-    auto &fm = FontManager::instance();
-    std::string fontPath = resolveFontPath();
-    fm.loadFont(fontPath.c_str());
-    float fs = input_.fontSize;
-    auto metrics = fm.getMetrics(fs);
-    // 垂直居中基线: descender 为负值, ascender - descender = 文字总视觉高度
-    float textH = metrics.ascender - metrics.descender;
-    float baselineY = inner.y + (inner.height - textH) / 2.0f + metrics.ascender;
+
+    auto &pipe = TextRenderPipeline::instance();
+    float fs = input_.fontSize <= 0 ? 16.0f : input_.fontSize;
+    FontId fid = pipe.activeFont();
+    TextLayoutConfig cfg;
+    cfg.maxWidth = inner.width;
+
     // ── 裁剪到 inner (防止文字溢出) ──
     graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
-    if (text_.empty()) {
-        if (!placeholderCache_.valid(input_.placeholder.c_str(), fs, fm.atlasVersion())) {
-            std::string fp = resolveFontPath();
-            fm.loadFont(fp.c_str());
-            placeholderCache_.set(fm.shapeText(input_.placeholder.c_str(), fs), input_.placeholder.c_str(), fs,
-                                  fm.atlasVersion());
-        }
-        graphics.save();
-        graphics.translate(inner.x, baselineY);
-        graphics.drawTextCached(placeholderCache_.glyphs, input_.placeholderColor);
-        graphics.restore();
-    } else {
-        if (!textCache_.valid(text_.c_str(), fs, fm.atlasVersion())) {
-            std::string fp = resolveFontPath();
-            fm.loadFont(fp.c_str());
-            textCache_.set(fm.shapeText(text_.c_str(), fs), text_.c_str(), fs, fm.atlasVersion());
-        }
-        graphics.save();
-        graphics.translate(inner.x, baselineY);
 
-        // ─ 密码/普通统一: drawGlyphs 指向实际渲染字形, 供光标计算 ─
-        std::vector<ShapedGlyph> maskedCache;
+    if (text_.empty()) {
+        // ── 占位符 ──
+        placeholderToken_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
+        pipe.ensureGlyphs(placeholderToken_);
+        auto *result = pipe.getLayout(placeholderToken_);
+        if (result && !result->glyphs.empty()) {
+            float textH = result->totalHeight;
+            float textY = inner.y + (inner.height - textH) * 0.5f;
+            graphics.save();
+            graphics.translate(inner.x, textY);
+            graphics.drawTextCached(result->glyphs, input_.placeholderColor);
+            graphics.restore();
+        }
+    } else {
+        // ── 实际文字 ──
+        layoutToken_ = pipe.layoutText(text_, fid, fs, cfg);
+        pipe.ensureGlyphs(layoutToken_);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (!result) {
+            graphics.resetClip();
+            graphics.restore();
+            return;
+        }
+
+        float textH = result->totalHeight;
+        float textY = inner.y + (inner.height - textH) * 0.5f;
+
         const std::vector<ShapedGlyph> *drawGlyphs;
+        std::vector<ShapedGlyph> maskedGlyphs;
+
         if (input_.isPassword) {
+            // ── 密码模式: 每个字符替换为 ● ──
             size_t charCount = 0;
             for (size_t i = 0; i < text_.size();) {
                 unsigned char c = static_cast<unsigned char>(text_[i]);
@@ -124,48 +147,66 @@ void Input::onDraw(Graphics &graphics) {
                 charCount++;
             }
             std::string masked;
-            for (size_t i = 0; i < charCount; i++) masked += "●";
-            maskedCache = fm.shapeText(masked.c_str(), fs);
-            graphics.drawTextCached(maskedCache, input_.textColor);
-            drawGlyphs = &maskedCache;
-        } else {
-            graphics.drawTextCached(textCache_.glyphs, input_.textColor);
-            drawGlyphs = &textCache_.glyphs;
-        }
+            for (size_t i = 0; i < charCount; i++) masked += "\xE2\x97\x8F";    // ●
+            auto maskedToken = pipe.layoutText(masked, fid, fs, cfg);
+            pipe.ensureGlyphs(maskedToken);
+            auto *maskedResult = pipe.getLayout(maskedToken);
+            if (maskedResult) maskedGlyphs = maskedResult->glyphs;
 
-        graphics.restore();
+            graphics.save();
+            graphics.translate(inner.x, textY);
+            graphics.drawTextCached(maskedGlyphs, input_.textColor);
+            graphics.restore();
+            drawGlyphs = &maskedGlyphs;
+        } else {
+            graphics.save();
+            graphics.translate(inner.x, textY);
+            graphics.drawTextCached(result->glyphs, input_.textColor);
+            graphics.restore();
+            drawGlyphs = &result->glyphs;
+        }
 
         // ── 光标 ──
-        if (focused_ && updateCursorBlink()) {
-            markDirtyDeferred();
-        }
+        if (focused_ && updateCursorBlink()) { markDirtyDeferred(); }
         if (focused_ && cursorVisible_ && !input_.readOnly) {
             size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
             float cx = inner.x;
             for (size_t i = 0; i < glyphIdx && i < drawGlyphs->size(); i++) { cx += (*drawGlyphs)[i].advanceX; }
             cx = std::max(cx, inner.x);
             cx = std::min(cx, inner.x + inner.width - 1.5f);
-            float cy = inner.y + (inner.height - textH) / 2.0f;
-            graphics.drawRect({cx, cy, 1.5f, textH}, input_.cursorColor);
+            float cursorH = fs * 1.4f;  //— 匹配行高
+            float cy = inner.y + (inner.height - cursorH) * 0.5f;
+            graphics.drawRect({cx, cy, 1.5f, cursorH}, input_.cursorColor);
         }
     }
-    // 解除裁剪
+
     graphics.resetClip();
     graphics.restore();
+
     // ── 聚焦边框 ──
     if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f); }
 }
 // ============================================================================
-// onEvent
+// onEvent — Tap / CharInput / KeyAction (DispatchEvent)
 // ============================================================================
-bool Input::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    switch (code) {
-    case ViewEventCode::Tap:
+bool Input::onEvent(const DispatchEvent &event) {
+    switch (event.type) {
+    case DispatchEvent::Type::FocusGained:
+        Log::debug("[Input] GAIN focused={}", focused_);
         if (!focused_) focus();
         return true;
-    case ViewEventCode::CharInput: {
+    case DispatchEvent::Type::FocusLost:
+        Log::debug("[Input] LOST focused={}", focused_);
+        if (focused_) blur();
+        return true;
+    case DispatchEvent::Type::Tap:
+        Log::debug("[Input] TAP focused={}", focused_);
+        if (!focused_) focus();
+        return true;
+    case DispatchEvent::Type::CharInput: {
+        Log::debug("[Input] CHAR cp={:#x} focused={}", event.charCode, focused_);
         if (!focused_ || input_.readOnly) return false;
-        uint32_t cp = static_cast<uint32_t>(localX);
+        uint32_t cp = event.charCode;
         if (cp < 0x20 && cp != '\n') return false;
         if (cp == '\n') {
             blur();
@@ -210,49 +251,43 @@ bool Input::onEvent(int code, float localX, float localY, JSContext *ctx) {
         lastBlinkTime_ =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
                 .count();
-        fireChange(ctx);
+        fireChange();
         markDirty();
         return true;
     }
-    case ViewEventCode::KeyAction: {
-        if (!focused_) return false;
-        uint32_t vk = static_cast<uint32_t>(localX);
-        switch (vk) {
-        case 0x08:    // VK_BACK
-            if (!input_.readOnly) {
-                deleteBeforeCursor();
-                fireChange(ctx);
-            }
-            break;
-        case 0x2E:    // VK_DELETE
-            if (!input_.readOnly) {
-                deleteAfterCursor();
-                fireChange(ctx);
-            }
-            break;
-        case 0x25: moveCursorLeft(); break;     // VK_LEFT
-        case 0x27: moveCursorRight(); break;    // VK_RIGHT
-        case 0x24: cursorToEnd(); break;        // VK_END
-        case 0x23: cursorToHome(); break;       // VK_HOME
+
+case DispatchEvent::Type::KeyAction: {
+    if (!focused_) return false;
+    uint32_t vk = event.keyCode;
+    switch (vk) {
+    case 0x08:    // VK_BACK
+        if (!input_.readOnly) {
+            deleteBeforeCursor();
+            fireChange();
         }
-        cursorVisible_ = true;
-        lastBlinkTime_ =
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
-                .count();
-        markDirty();
-        return true;
+        break;
+    case 0x2E:    // VK_DELETE
+        if (!input_.readOnly) {
+            deleteAfterCursor();
+            fireChange();
+        }
+        break;
+    case 0x25: moveCursorLeft(); break;     // VK_LEFT
+    case 0x27: moveCursorRight(); break;    // VK_RIGHT
+    case 0x24: cursorToEnd(); break;        // VK_END
+    case 0x23: cursorToHome(); break;       // VK_HOME
     }
-    default:
-        // 不自动 blur — 焦点由 Application::focusedView_ 统一管理
-        return false;
-    }
-    return View::onEvent(code, localX, localY, ctx);
+    cursorVisible_ = true;
+    lastBlinkTime_ =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+    markDirty();
+    return true;
 }
-// ============================================================================
-// onEvent — 焦点管理 + 键盘 / 字符处理
-// ============================================================================
-// (已与上方 onEvent 合并，无需重复)
-// ============================================================================
+
+default: return View::onEvent(event);
+}
+}
 // ============================================================================
 // 私有方法
 // ============================================================================
@@ -290,9 +325,6 @@ void Input::cursorToEnd() {
     cursorPos_ = text_.size();
 }
 
-std::string Input::resolveFontPath() const {
-    return FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
-}
 size_t Input::byteOffsetToGlyphIndex(size_t byteOffset) const {
     size_t glyphIdx = 0;
     for (size_t i = 0; i < byteOffset && i < text_.size();) {
@@ -321,13 +353,48 @@ bool Input::updateCursorBlink() {
     return false;
 }
 
-void Input::fireChange(JSContext *ctx) {
-    if (!ctx) return;
+void Input::fireChange() {
+    if (!handlers.ctx) return;
     if (js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(ctx, handlers.onChange)) return;
-    JSValue arg = JS_NewString(ctx, text_.c_str());
-    JS_Call(ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
-    JS_FreeValue(ctx, arg);
+    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
+    JSValue arg = JS_NewString(handlers.ctx, text_.c_str());
+    JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
+    JS_FreeValue(handlers.ctx, arg);
+}
+
+// ── focus() ──
+void Input::focus() {
+    focused_ = true;
+    cursorVisible_ = true;
+    lastBlinkTime_ =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    markDirty();
+    if (blinkTimerId_ == 0) scheduleBlinkTick();
+}
+
+// ── blur() ──
+void Input::blur() {
+    if (blinkTimerId_ != 0) {
+        CoreTimer::clear(blinkTimerId_);
+        blinkTimerId_ = 0;
+    }
+    focused_ = false;
+    cursorVisible_ = false;
+    markDirty();
+}
+
+// ── scheduleBlinkTick — 安排光标闪烁检查 ──
+// 每 ~250ms 触发一次 markDirty，驱动 onDraw → updateCursorBlink
+void Input::scheduleBlinkTick() {
+    blinkTimerId_ = CoreTimer::setInterval(250, [this]() {
+        if (!focused_) {
+            CoreTimer::clear(blinkTimerId_);
+            blinkTimerId_ = 0;
+            return;
+        }
+        markDirty();
+    });
 }
 
 // ============================================================================
@@ -339,7 +406,7 @@ std::string Input::getProperty(const char *name) const {
     if (std::strcmp(name, "fontSize") == 0) return std::to_string(input_.fontSize);
     if (std::strcmp(name, "readOnly") == 0) return input_.readOnly ? "true" : "false";
     if (std::strcmp(name, "isPassword") == 0) return input_.isPassword ? "true" : "false";
-    return View::getProperty(name);    // 回退基类
+    return View::getProperty(name);
 }
 bool Input::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "value") == 0) {
@@ -368,12 +435,12 @@ bool Input::setProperty(const char *name, const char *value) {
         markDirty();
         return true;
     }
-    return View::setProperty(name, value);    // 回退基类
+    return View::setProperty(name, value);
 }
 
-bool Input::setPropertyTyped(const char* name, const TypedProp& value) {
+bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {
-        if (auto* s = std::get_if<std::string>(&value)) {
+        if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();
             return true;
@@ -381,13 +448,12 @@ bool Input::setPropertyTyped(const char* name, const TypedProp& value) {
         return false;
     }
     if (std::strcmp(name, "fontSize") == 0) {
-        if (auto* d = std::get_if<double>(&value)) {
+        if (auto *d = std::get_if<double>(&value)) {
             input_.fontSize = static_cast<float>(*d);
             markDirty();
             return true;
         }
         return false;
     }
-    // placeholder / readOnly / isPassword 保持 string/float 降级
     return View::setPropertyTyped(name, value);
 }

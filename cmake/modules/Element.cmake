@@ -15,7 +15,7 @@ target_sources(kwik_element
             modules/element/text.cppm
             modules/element/button.cppm
             modules/element/image.cppm
-            # modules/element/input.cppm
+            modules/element/input.cppm
             modules/element/radiobutton.cppm
             modules/element/checkbox.cppm
             # modules/element/textarea.cppm
@@ -52,7 +52,7 @@ target_sources(kwik_element
         src/element/image.cpp
         src/element/stb_image_impl.cpp
         src/element/svg_decoder.cpp
-        # src/element/input.cpp
+        src/element/input.cpp
         src/element/radiobutton.cpp
         src/element/checkbox.cpp
         # src/element/textarea.cpp

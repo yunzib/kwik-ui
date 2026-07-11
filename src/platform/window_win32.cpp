@@ -484,6 +484,12 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         raw.keyCode = e.keyCode;
         raw.modifiers = e.modifiers;
         break;
+    case Event::Type::KeyUp:
+        raw.device = RawEvent::Device::Keyboard;
+        raw.action = RawEvent::Action::KeyUp;
+        raw.keyCode = e.keyCode;
+        raw.modifiers = e.modifiers;
+        break;
     case Event::Type::TextInput:
         raw.device = RawEvent::Device::Keyboard;
         raw.action = RawEvent::Action::TextInput;
