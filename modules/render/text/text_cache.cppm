@@ -39,11 +39,11 @@ public:
     /** @brief 消费待上传队列（Vulkan 后端每帧调用） */
     auto consumeUploads() -> std::vector<UploadJob>;
 
-    /** @brief 图集尺寸 */
-    static constexpr uint32_t kAtlasSize = 2048;
+    /** @brief 图集尺寸（512² = 1MB/页，上限 16MB） */
+    static constexpr uint32_t kAtlasSize = 512;
 
     /** @brief 最大图集页数 */
-    static constexpr uint32_t kMaxPages = 4;
+    static constexpr uint32_t kMaxPages = 16;
 
     /** @brief 当前图集版本号（淘汰时递增） */
     uint32_t atlasGeneration() const { return atlasGeneration_; }
