@@ -1,42 +1,48 @@
 // ============================================================================
 // radiobutton.cpp — RadioButton 控件实现
+//
+// 视觉: 外圆圈 + 选中时内圆点 + 右侧文字标签
+// 交互: Tap 切换 checked → 触发 onChange 回调
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
+
 module;
 #include "quickjs.h"
 #include <cmath>
 #include <cstring>
 module kwik.element.radiobutton;
+
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
-import kwik.render.command;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+import kwik.event;
 import kwik.engine.js_value;
 
 import std;
-// ════════════════════════════════════════════════════════
-// needReshapeText — 对齐 Button 模式: 仅检测文本/字号变化
-// ════════════════════════════════════════════════════════
-bool RadioButton::needReshapeText() const {
-    return shapedCache_.empty() || cachedFontSize_ != text_.fontSize || cachedText_ != text_.text;
-}
-// ════════════════════════════════════════════════════════
-// onMeasure — 圆圈 + 文字宽度
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
+// onMeasure — 测量尺寸（TextRenderPipeline 排版）
+// ============================================================================
 Size RadioButton::onMeasure(Constraints constraints) {
     float w = radio_.radioSize + radio_.textSpacing;
     float h = radio_.radioSize;
     if (!text_.text.empty()) {
-        auto &fm = FontManager::instance();
-        // shapeMetrics 内部自动加载默认字体，无需显式 loadFont
-        auto metrics = fm.shapeMetrics(text_.text.c_str(), text_.fontSize > 0 ? text_.fontSize : 16.0f);
-        float textW = 0;
-        for (auto &m : metrics) textW += m.advanceX;
-        w += textW;
-        float textH = text_.fontSize > 0 ? text_.fontSize : 16.0f;
-        h = std::max(h, textH);
+        auto &pipe = TextRenderPipeline::instance();
+        FontId fid = pipe.loadFont(text_.fontFamily);
+        if (fid == kInvalidFontId) fid = pipe.activeFont();
+        TextLayoutConfig cfg;
+        cfg.maxWidth = constraints.maxWidth;
+        layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (result) {
+            w += result->totalWidth;
+            h = std::max(h, result->totalHeight);
+        }
     }
     w += props.padding.horizontal();
     h += props.padding.vertical();
@@ -44,9 +50,10 @@ Size RadioButton::onMeasure(Constraints constraints) {
     if (props.height.has_value()) h = *props.height;
     return constraints.constrain({w, h});
 }
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
 // setChecked — 选中状态切换 (含同组互斥)
-// ════════════════════════════════════════════════════════
+// ============================================================================
 void RadioButton::setChecked(bool val) {
     if (radio_.checked == val) return;
     radio_.checked = val;
@@ -58,21 +65,23 @@ void RadioButton::setChecked(bool val) {
             auto *other = static_cast<RadioButton *>(child.get());
             if (other->radio_.group == radio_.group && other->radio_.checked) {
                 other->radio_.checked = false;
-                other->markDirty();    // ← 兄弟由 checked→unchecked 也需重绘
+                other->markDirty();
             }
         }
     }
 }
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
 // onEvent — Tap 切换选中 + 触发 onChange
-// ════════════════════════════════════════════════════════
-bool RadioButton::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::Tap) {
+// ============================================================================
+bool RadioButton::onEvent(const DispatchEvent &event) {
+    if (event.type == DispatchEvent::Type::Tap) {
         bool was = radio_.checked;
         setChecked(!radio_.checked);
         if (radio_.checked != was && !js_is_null(handlers.onChange) && handlers.ctx) {
             JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, radio_.checked));
+            JS_SetPropertyStr(handlers.ctx, eventObj, "checked",
+                              JS_NewBool(handlers.ctx, radio_.checked));
             JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
             if (JS_IsException(ret)) {
                 JSValue exc = JS_GetException(handlers.ctx);
@@ -82,17 +91,28 @@ bool RadioButton::onEvent(int code, float localX, float localY, JSContext *ctx) 
             JS_FreeValue(handlers.ctx, eventObj);
         }
     }
-    return View::onEvent(code, localX, localY, ctx);
+    return View::onEvent(event);
 }
-// ════════════════════════════════════════════════════════
+
+// ============================================================================
 // onDraw — 绘制外圈 + 内圆点 + 文字
-// ════════════════════════════════════════════════════════
+//
+// 使用 TextRenderPipeline 排版文字并通过 submitGlyphBatch 提交字形批次。
+// 外层 save/restore 保证变换/透明度不影响兄弟控件。
+// ============================================================================
 void RadioButton::onDraw(Graphics &graphics) {
-    // ── 基类背景 (默认透明) ──
-    if (props.background.isVisible()) { graphics.drawRoundedRect(frame, props.borderRadius, props.background); }
+    graphics.save();
+    if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
+
+    // 基类背景
+    if (props.background.isVisible()) {
+        graphics.drawRoundedRect(frame, props.borderRadius, props.background);
+    }
+
     float contentH = frame.height - props.padding.vertical();
     float circleX = frame.x + props.padding.left;
     float circleY = frame.y + props.padding.top + (contentH - radio_.radioSize) * 0.5f;
+
     // ① 外圈白色填充
     Rect outerRect{circleX, circleY, radio_.radioSize, radio_.radioSize};
     graphics.drawRoundedRect(outerRect, radio_.radioSize * 0.5f, Color::white());
@@ -105,30 +125,41 @@ void RadioButton::onDraw(Graphics &graphics) {
         Rect dotRect{circleX + dotOffset, circleY + dotOffset, radio_.dotSize, radio_.dotSize};
         graphics.drawRoundedRect(dotRect, radio_.dotSize * 0.5f, radio_.dotColor);
     }
-    // ④ 文字标签 (对齐 Button 模式: shapeText 一步完成排版+烘焙)
+
+    // ④ 文字标签（TextRenderPipeline）
     if (!text_.text.empty()) {
-        auto &fm = FontManager::instance();
-        if (needReshapeText()) {
-            shapedCache_ = fm.shapeText(text_.text.c_str(), text_.fontSize > 0 ? text_.fontSize : 16.0f);
-            cachedText_ = text_.text;
-            cachedFontSize_ = text_.fontSize;
+        auto &pipe = TextRenderPipeline::instance();
+        pipe.ensureGlyphs(layoutToken_);
+        auto *result = pipe.getLayout(layoutToken_);
+        if (result && !result->glyphs.empty()) {
+            float textX = circleX + radio_.radioSize + radio_.textSpacing;
+            float textY = circleY + radio_.radioSize * 0.5f - result->totalHeight * 0.5f;
+            std::vector<GlyphDrawData> batch;
+            batch.reserve(result->glyphs.size());
+            for (auto &sg : result->glyphs) {
+                batch.push_back({
+                    .x = textX + sg.x, .y = textY + sg.y,
+                    .w = sg.width, .h = sg.height,
+                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
+                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
+                    .color = text_.textColor,
+                });
+            }
+            graphics.submitGlyphBatch(batch);
         }
-        float fontSize = text_.fontSize > 0 ? text_.fontSize : 16.0f;
-        float textX = circleX + radio_.radioSize + radio_.textSpacing;
-        float textY = circleY + radio_.radioSize * 0.5f + fontSize * 0.35f;
-        graphics.save();
-        graphics.translate(textX, textY);
-        graphics.drawTextCached(shapedCache_, text_.textColor);
-        graphics.restore();
     }
+
+    // 子控件
+    for (auto &child : children) { child->draw(graphics); }
+    graphics.restore();
 }
 
-// ════════════════════════════════════════════════════════
+// ============================================================================
 // getProperty — 供 RadioGroup::onEvent 跨模块访问子项属性
 //
 // RadioGroup 通过 View::getProperty 读取 RadioButton 的
 // checked 和 value，无需打破模块边界进行 static_cast。
-// ════════════════════════════════════════════════════════
+// ============================================================================
 std::string RadioButton::getProperty(const char *name) const {
     if (std::strcmp(name, "checked") == 0) {
         return radio_.checked ? "true" : "false";

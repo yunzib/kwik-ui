@@ -39,8 +39,8 @@ import kwik.bridge.binding_registry;
 import kwik.element.text;
 import kwik.element.button;
 // import kwik.element.input;
-// import kwik.element.radiobutton;
-// import kwik.layout.radio_group;
+import kwik.element.radiobutton;
+import kwik.layout.radio_group;
 import kwik.element.checkbox;
 // import kwik.element.textarea;
 // import kwik.element.dropdown;
@@ -211,22 +211,22 @@ static struct InitBuiltinTypes {
         //     return input;
         // });
 
-        // ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex),
-        //     parseRadioButtonProps(ex));
-        // });
+        ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex),
+            parseRadioButtonProps(ex));
+        });
 
-        // // ── RadioGroup ──
-        // ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto rg = std::make_unique<RadioGroup>(parseViewProps(ex), parseRadioGroupProps(ex));
-        //     rg->propMeta = std::move(meta);
-        //     applyBindings(rg.get(), pv);
-        //     return rg;
-        // });
+        // ── RadioGroup ──
+        ElementParser::registerType("RadioGroup", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto rg = std::make_unique<RadioGroup>(parseViewProps(ex), parseRadioGroupProps(ex));
+            rg->propMeta = std::move(meta);
+            applyBindings(rg.get(), pv);
+            return rg;
+        });
 
         // ── Checkbox ──
         ElementParser::registerType("Checkbox", [](const JSValueRef &pv) {

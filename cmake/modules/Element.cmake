@@ -16,7 +16,7 @@ target_sources(kwik_element
             modules/element/button.cppm
             modules/element/image.cppm
             # modules/element/input.cppm
-            # modules/element/radiobutton.cppm
+            modules/element/radiobutton.cppm
             modules/element/checkbox.cppm
             # modules/element/textarea.cppm
             # modules/element/dropdown.cppm
@@ -36,7 +36,7 @@ target_sources(kwik_element
             modules/layout/grid_layout.cppm
             modules/layout/stack_layout.cppm
             modules/layout/list_layout.cppm
-            # modules/layout/radio_group.cppm
+            modules/layout/radio_group.cppm
             
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/animation
         FILES
@@ -53,7 +53,7 @@ target_sources(kwik_element
         src/element/stb_image_impl.cpp
         src/element/svg_decoder.cpp
         # src/element/input.cpp
-        # src/element/radiobutton.cpp
+        src/element/radiobutton.cpp
         src/element/checkbox.cpp
         # src/element/textarea.cpp
         # src/element/dropdown.cpp
@@ -69,7 +69,7 @@ target_sources(kwik_element
         src/layout/grid_layout.cpp
         src/layout/stack_layout.cpp
         src/layout/list_layout.cpp
-        # src/layout/radio_group.cpp
+        src/layout/radio_group.cpp
 
         src/animation/easing.cpp
         src/animation/animator.cpp
