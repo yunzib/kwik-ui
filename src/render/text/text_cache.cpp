@@ -43,6 +43,7 @@ TextLayoutToken TextCache::layout(const std::string &text, FontId fontId, float 
                                           ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontWeight)) << 16)
                                           ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontStyle)) << 24));
     key.maxWidth = config.maxWidth;
+    key.wrap = static_cast<uint8_t>(config.wrap);
 
     // 缓存命中 — 直接返回 token
     auto it = layoutKeyToIndex_.find(key);
@@ -103,7 +104,7 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
     // 单层遍历扁平数组 (原为 line 套 glyphs 双层)
     for (auto &g : result->glyphs) {
-       g.fontSize = std::round(g.fontSize);
+        g.fontSize = std::round(g.fontSize);
         if (g.fontSize < 1.0f) g.fontSize = 1.0f;
         const float frac = g.x - std::floor(g.x);
         const uint32_t subpixelOffset = static_cast<uint32_t>(std::round(frac * 8.0f)) % 8;
@@ -122,8 +123,7 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 
         // 图集未变且已打包 — 使用保存坐标
         if (!entry.packed || entry.atlasGeneration != currentGen) {
-            if (entry.info.pixelData.empty())
-                rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, subpixelOffset);
+            if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, subpixelOffset);
             packGlyph(entry);
         }
 
@@ -141,15 +141,15 @@ void TextCache::ensureGlyphs(TextLayoutToken token) {
 // 栅格化 — FreeType LCD 子像素位图 → RGBA
 // ═══════════════════════════════════════════════════════════════════════════
 
-void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
-                               CachedGlyph &entry, uint32_t subpixelOffset) {
+void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
+                               uint32_t subpixelOffset) {
     auto *face = fontManager_.getFace(font);
     if (!face) return;
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
     FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
-    FT_Vector shift = { static_cast<FT_Pos>(subpixelOffset * 8), 0 };
+    FT_Vector shift = {static_cast<FT_Pos>(subpixelOffset * 8), 0};
     FT_Set_Transform(ftFace, nullptr, &shift);
     FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LCD);
 
@@ -168,29 +168,29 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     bool isLCD = (bmp->pixel_mode == FT_PIXEL_MODE_LCD);
     uint32_t pixelW = isLCD ? (bmp->width / 3) : bmp->width;
     uint32_t rawH = bmp->rows;
-    uint32_t padW = pixelW + 2;   // 2px 边框防止线性滤波渗色
+    uint32_t padW = pixelW + 2;    // 2px 边框防止线性滤波渗色
     uint32_t padH = rawH + 2;
 
     if (pixelW == 0 || rawH == 0) {
         entry.packedW = 1;
         entry.packedH = 1;
-        entry.info.pixelData.resize(4, 0);   // RGBA 1 像素占位
+        entry.info.pixelData.resize(4, 0);    // RGBA 1 像素占位
         return;
     }
 
     entry.packedW = padW;
     entry.packedH = padH;
-    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);   // RGBA 4 字节/像素
+    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);    // RGBA 4 字节/像素
 
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 4;   // 跳过左 padding
+        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 4;    // 跳过左 padding
         if (isLCD) {
             // LCD 位图 → RGBA: 3 字节/像素 (RGB 子像素) → 4 字节/像素
             for (unsigned int x = 0; x < pixelW; x++) {
-                dst[x * 4 + 0] = src[x * 3 + 0];   // R 子像素覆盖
-                dst[x * 4 + 1] = src[x * 3 + 1];   // G 子像素覆盖
-                dst[x * 4 + 2] = src[x * 3 + 2];   // B 子像素覆盖
+                dst[x * 4 + 0] = src[x * 3 + 0];    // R 子像素覆盖
+                dst[x * 4 + 1] = src[x * 3 + 1];    // G 子像素覆盖
+                dst[x * 4 + 2] = src[x * 3 + 2];    // B 子像素覆盖
                 dst[x * 4 + 3] = (uint8_t)((src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2]) / 3);
             }
         } else {

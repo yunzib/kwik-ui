@@ -1,9 +1,8 @@
 // ============================================================================
-// textarea.cpp — TextArea 多行文本输入控件
+// 模块实现: kwik.element.textarea
 //
-// 与 Input 共用编辑基元 (UTF-8 光标 / 键盘事件 / onChange),
-// 逐行独立 shapeText 避免 \n 与字形索引的复杂映射,
-// 新增: \n 换行, 上下光标导航, rows 控制可见行数
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
 #include <string>
@@ -13,13 +12,17 @@ module;
 
 module kwik.element.textarea;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
-import kwik.render.command;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.engine.js_value;
+import kwik.element.typed_prop;
+import kwik.event;
+import kwik.core.timer;
+import kwik.core.log;
 
 import std;
 // ════════════════════════════════════════════════════════
@@ -73,9 +76,8 @@ static std::string codepointToUtf8(uint32_t cp) {
 // lineHeight / splitLines / cursorLineCol
 // ════════════════════════════════════════════════════════
 float TextArea::lineHeight() const {
-    auto &fm = FontManager::instance();
-    auto m = fm.getMetrics(props_.fontSize);
-    return m.lineHeight;
+    float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
+    return fs * 1.4f;
 }
 void TextArea::splitLines(std::vector<std::string> &out) const {
     out.clear();
@@ -149,10 +151,8 @@ void TextArea::moveCursorUp() {
     }
     std::vector<std::string> lines;
     splitLines(lines);
-    // 移到上一行同列
     int prevLen = (int)utf8CharCount(lines[line - 1]);
     int targetCol = (col <= prevLen) ? col : prevLen;
-    // 将 (line-1, targetCol) 转回字节偏移
     cursorBytePos_ = 0;
     for (int i = 0; i < line - 1; ++i) cursorBytePos_ += lines[i].size() + 1;
     for (int c = 0; c < targetCol; ++c) skipForward(text_, cursorBytePos_);
@@ -178,13 +178,19 @@ void TextArea::moveCursorDown() {
 void TextArea::focus() {
     focused_ = true;
     cursorVisible_ = true;
-    lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::high_resolution_clock::now().time_since_epoch())
-                         .count();
+    lastBlinkTime_ =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
     markDirty();
+    if (blinkTimerId_ == 0) scheduleBlinkTick();
 }
 void TextArea::blur() {
+    if (blinkTimerId_ != 0) {
+        CoreTimer::clear(blinkTimerId_);
+        blinkTimerId_ = 0;
+    }
     focused_ = false;
+    cursorVisible_ = false;
     if (binding_) binding_->setString(bindKey_, text_);
     markDirty();
 }
@@ -193,31 +199,48 @@ void TextArea::setValue(const std::string &val) {
     cursorBytePos_ = text_.size();
 }
 // ════════════════════════════════════════════════════════
-// onEvent — 键盘 + 点击 + 失焦
+// onEvent — 键盘 + 点击 + 焦点 (DispatchEvent)
 // ════════════════════════════════════════════════════════
-bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::CharInput) {
+bool TextArea::onEvent(const DispatchEvent &event) {
+    switch (event.type) {
+    case DispatchEvent::Type::FocusGained:
+        if (!focused_) focus();
+        return true;
+    case DispatchEvent::Type::FocusLost:
+        if (focused_) blur();
+        return true;
+    case DispatchEvent::Type::Tap:
+        if (!focused_) focus();
+        return true;
+    case DispatchEvent::Type::CharInput: {
         if (!focused_ || props_.readOnly) return true;
-        uint32_t cp = (uint32_t)localX;
-        // 控制字符: 仅允许 \n (Enter) 通过
+        uint32_t cp = event.charCode;
         if (cp < 0x20 && cp != '\n') return true;
         if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (size_t)props_.maxLength) return true;
         insertAtCursor(cp == '\n' ? "\n" : codepointToUtf8(cp));
         cursorVisible_ = true;
-        lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             std::chrono::high_resolution_clock::now().time_since_epoch())
-                             .count();
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        fireChange();
         markDirty();
         return true;
     }
-    if (code == ViewEventCode::KeyAction) {
-        int vk = (int)localX;
+    case DispatchEvent::Type::KeyAction: {
+        if (!focused_) return false;
+        uint32_t vk = event.keyCode;
         switch (vk) {
         case 0x08:
-            if (!props_.readOnly) { deleteBeforeCursor(); }
+            if (!props_.readOnly) {
+                deleteBeforeCursor();
+                fireChange();
+            }
             break;
         case 0x2E:
-            if (!props_.readOnly) { deleteAfterCursor(); }
+            if (!props_.readOnly) {
+                deleteAfterCursor();
+                fireChange();
+            }
             break;
         case 0x25: moveCursorLeft(); break;
         case 0x27: moveCursorRight(); break;
@@ -227,18 +250,14 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
         case 0x23: cursorBytePos_ = 0; break;               // Home
         }
         cursorVisible_ = true;
-        lastBlinkTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             std::chrono::high_resolution_clock::now().time_since_epoch())
-                             .count();
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
         markDirty();
         return true;
     }
-    // if (code == ViewEventCode::Tap || code == ViewEventCode::PressBegin) {
-    if (code == ViewEventCode::Tap) {
-        focus();
-        return true;
+    default: return View::onEvent(event);
     }
-    return View::onEvent(code, localX, localY, ctx);
 }
 // ════════════════════════════════════════════════════════
 // onDraw ─ 带缓存的逐行渲染 + 宽度换行 + 光标
@@ -246,94 +265,105 @@ bool TextArea::onEvent(int code, float localX, float localY, JSContext *ctx) {
 void TextArea::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
     if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, props_.focusedBorderColor, 2.0f); }
-    auto &fm = FontManager::instance();
-    float lh = lineHeight();
-    FontMetrics fmtr = fm.getMetrics(props_.fontSize);
+
+    auto &pipe = TextRenderPipeline::instance();
+    float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
+    FontId fid = pipe.activeFont();
     Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
     float maxW = std::max(inner.width, 1.0f);
+    float lh = lineHeight();
+
+    graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
+
     // ── 占位符 ────────────────────────────────────────
     if (text_.empty() && !props_.placeholder.empty()) {
-        if (!placeholderCache_.valid(props_.placeholder.c_str(), props_.fontSize, fm.atlasVersion())) {
-            placeholderCache_.set(fm.shapeText(props_.placeholder.c_str(), props_.fontSize), props_.placeholder.c_str(),
-                                  props_.fontSize, fm.atlasVersion());
+        TextLayoutConfig cfg;
+        cfg.maxWidth = maxW;
+        placeholderToken_ = pipe.layoutText(props_.placeholder, fid, fs, cfg);
+        pipe.ensureGlyphs(placeholderToken_);
+        auto *result = pipe.getLayout(placeholderToken_);
+        if (result && !result->glyphs.empty()) {
+            graphics.save();
+            graphics.translate(inner.x, inner.y);
+            graphics.drawTextCached(result->glyphs, props_.placeholderColor);
+            graphics.restore();
         }
-        graphics.save();
-        graphics.translate(inner.x, inner.y + fmtr.ascender);
-        graphics.drawTextCached(placeholderCache_.glyphs, props_.placeholderColor);
-        graphics.restore();
     } else {
         // ── 逐行换行渲染 (硬换行 + 宽度软换行) ──────────
         std::vector<std::string> hardLines;
         splitLines(hardLines);
         float yCursor = inner.y;
         for (size_t hi = 0; hi < hardLines.size(); ++hi) {
-            auto shaped = fm.shapeText(hardLines[hi].c_str(), props_.fontSize);
-            if (shaped.empty()) {
+            TextLayoutConfig cfg;
+            cfg.maxWidth = maxW;
+            cfg.wrap = WrapMode::WordWrap;    // ← 新增
+            auto lineToken = pipe.layoutText(hardLines[hi], fid, fs, cfg);
+            pipe.ensureGlyphs(lineToken);
+            auto *result = pipe.getLayout(lineToken);
+            if (!result || result->glyphs.empty()) {
                 yCursor += lh;
                 continue;
             }
-            // 宽度换行: 累加 advanceX, 超 maxW 时分段渲染
-            size_t segStart = 0;
-            float segW = 0;
-            for (size_t gi = 0; gi < shaped.size(); ++gi) {
-                float adv = shaped[gi].advanceX;
-                if (segW + adv > maxW && gi > segStart) {
-                    std::vector<ShapedGlyph> seg(shaped.begin() + segStart, shaped.begin() + gi);
-                    float originX = inner.x - shaped[segStart].x;
-                    graphics.save();
-                    graphics.translate(originX, yCursor + fmtr.ascender);
-                    graphics.drawTextCached(seg, props_.textColor);
-                    graphics.restore();
-                    yCursor += lh;
-                    segStart = gi;
-                    segW = 0;
-                }
-                segW += adv;
-            }
-            // 渲染该行最后一段
-            if (segStart < shaped.size()) {
-                std::vector<ShapedGlyph> seg(shaped.begin() + segStart, shaped.end());
-                float originX = inner.x - shaped[segStart].x;
+            for (auto &subline : result->lines) {
+                size_t start = subline.glyphStart;
+                size_t count = subline.glyphCount;
+                std::vector<ShapedGlyph> seg(result->glyphs.begin() + start, result->glyphs.begin() + start + count);
                 graphics.save();
-                graphics.translate(originX, yCursor + fmtr.ascender);
+                graphics.translate(inner.x, yCursor);
                 graphics.drawTextCached(seg, props_.textColor);
                 graphics.restore();
                 yCursor += lh;
             }
         }
     }
+
     // ── 光标 ──────────────────────────────────────────
     if (focused_ && !props_.readOnly) {
         if (updateCursorBlink()) markDirtyDeferred();
-
         if (cursorVisible_) {
             int line = 0, col = 0;
             cursorLineCol(line, col);
-            // 水平位置: 当前行前 col 个字符的宽度
             std::vector<std::string> lines;
             splitLines(lines);
-            float cx = inner.x;
             if (line < (int)lines.size()) {
-                auto shaped = fm.shapeText(lines[line].c_str(), props_.fontSize);
-                for (int c = 0; c < col && c < (int)shaped.size(); ++c) cx += shaped[c].advanceX;
+                TextLayoutConfig cfg;
+                cfg.maxWidth = maxW;
+                cfg.wrap = WrapMode::WordWrap;
+                auto lineToken = pipe.layoutText(lines[line], fid, fs, cfg);
+                pipe.ensureGlyphs(lineToken);
+                auto *result = pipe.getLayout(lineToken);
+                if (result && !result->lines.empty()) {
+                    int rem = col;
+                    float cx = inner.x;
+                    for (size_t vi = 0; vi < result->lines.size(); ++vi) {
+                        auto &sl = result->lines[vi];
+                        int gc = (int)sl.glyphCount;
+                        bool isLast = (vi == result->lines.size() - 1);
+                        if (rem < gc || (rem == gc && isLast)) {
+                            for (int c = 0; c < rem; ++c) cx += result->glyphs[sl.glyphStart + c].advanceX;
+                            float curY = inner.y + (float)vi * lh;
+                            cx = std::min(cx, inner.x + inner.width);
+                            graphics.drawRect({cx - 0.5f, curY, 1.5f, lh}, props_.cursorColor);
+                            break;
+                        }
+                        rem -= gc;
+                    }
+                }
             }
-            cx = std::min(cx, inner.x + inner.width);
-            float curY = inner.y + (float)line * lh;
-            float curH = props_.fontSize * 1.2f;
-            Rect curRect{cx - 0.5f, curY + fmtr.ascender - curH * 0.8f, 1.5f, curH};
-            graphics.drawRoundedRect(curRect, 0, props_.cursorColor);
         }
     }
+
     graphics.resetClip();
+    graphics.restore();
 }
 // ════════════════════════════════════════════════════════
 // updateCursorBlink — ~530ms 周期闪烁
 // ════════════════════════════════════════════════════════
 bool TextArea::updateCursorBlink() {
-    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::high_resolution_clock::now().time_since_epoch())
-                   .count();
+    auto now =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
     if (now - lastBlinkTime_ > 530) {
         cursorVisible_ = !cursorVisible_;
         lastBlinkTime_ = now;
@@ -342,14 +372,28 @@ bool TextArea::updateCursorBlink() {
     return false;
 }
 // ════════════════════════════════════════════════════════
+// scheduleBlinkTick — 安排光标闪烁定时器
+// ════════════════════════════════════════════════════════
+void TextArea::scheduleBlinkTick() {
+    blinkTimerId_ = CoreTimer::setInterval(250, [this]() {
+        if (!focused_) {
+            CoreTimer::clear(blinkTimerId_);
+            blinkTimerId_ = 0;
+            return;
+        }
+        markDirty();
+    });
+}
+// ════════════════════════════════════════════════════════
 // fireChange — 调用 JS onChange 回调
 // ════════════════════════════════════════════════════════
-void TextArea::fireChange(JSContext *ctx) {
-    if (!ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(ctx, handlers.onChange)) return;
-    JSValue arg = JS_NewString(ctx, text_.c_str());
-    JS_Call(ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
-    JS_FreeValue(ctx, arg);
+void TextArea::fireChange() {
+    if (!handlers.ctx) return;
+    if (js_is_null(handlers.onChange)) return;
+    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
+    JSValue arg = JS_NewString(handlers.ctx, text_.c_str());
+    JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
+    JS_FreeValue(handlers.ctx, arg);
 }
 // ════════════════════════════════════════════════════════
 // getProperty / setProperty — 属性总线
@@ -368,9 +412,9 @@ bool TextArea::setProperty(const char *name, const char *value) {
     return View::setProperty(name, value);
 }
 
-bool TextArea::setPropertyTyped(const char* name, const TypedProp& value) {
+bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {
-        if (auto* s = std::get_if<std::string>(&value)) {
+        if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();
             return true;
@@ -378,7 +422,7 @@ bool TextArea::setPropertyTyped(const char* name, const TypedProp& value) {
         return false;
     }
     if (std::strcmp(name, "fontSize") == 0) {
-        if (auto* d = std::get_if<double>(&value)) {
+        if (auto *d = std::get_if<double>(&value)) {
             props_.fontSize = static_cast<float>(*d);
             markDirty();
             return true;
@@ -386,7 +430,7 @@ bool TextArea::setPropertyTyped(const char* name, const TypedProp& value) {
         return false;
     }
     if (std::strcmp(name, "rows") == 0) {
-        if (auto* i = std::get_if<int64_t>(&value)) {
+        if (auto *i = std::get_if<int64_t>(&value)) {
             props_.rows = static_cast<int>(*i);
             markDirty();
             return true;

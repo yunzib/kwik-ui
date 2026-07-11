@@ -42,7 +42,7 @@ import kwik.element.input;
 import kwik.element.radiobutton;
 import kwik.layout.radio_group;
 import kwik.element.checkbox;
-// import kwik.element.textarea;
+import kwik.element.textarea;
 // import kwik.element.dropdown;
 
 import std;
@@ -240,15 +240,15 @@ static struct InitBuiltinTypes {
             return checkbox;
         });
 
-        // // ── TextArea ──
-        // ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto ta = std::make_unique<TextArea>(parseViewProps(ex), parseTextAreaProps(ex));
-        //     ta->propMeta = std::move(meta);
-        //     applyBindings(ta.get(), pv);
-        //     return ta;
-        // });
+        // ── TextArea ──
+        ElementParser::registerType("TextArea", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto ta = std::make_unique<TextArea>(parseViewProps(ex), parseTextAreaProps(ex));
+            ta->propMeta = std::move(meta);
+            applyBindings(ta.get(), pv);
+            return ta;
+        });
 
         // // ── Dropdown ──
         // ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {

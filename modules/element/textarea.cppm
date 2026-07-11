@@ -1,15 +1,25 @@
+// ============================================================================
+// 模块: kwik.element.textarea
+// TextArea 组件 — 多行文本输入
+//
+// 文字: 通过 TextRenderPipeline 排版渲染
+// 事件: 通过 DispatchEvent 统一事件系统
+// ============================================================================
 module;
 #include <string>
 #include "quickjs.h"
 export module kwik.element.textarea;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
+import kwik.event;
+import kwik.core.timer;
 
 import std;
 /**
@@ -60,7 +70,7 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     TextAreaProps props_;
@@ -70,11 +80,15 @@ private:
     size_t cursorBytePos_ = 0;    // 光标位置 (UTF-8 字节偏移)
     bool cursorVisible_ = false;
     uint64_t lastBlinkTime_ = 0;
-    // ── 占位符缓存 ──────────────────────────────────
-    ShapedTextCache placeholderCache_;
+    // ── 排版缓存 (TextRenderPipeline 内部管理) ─────
+    TextLayoutToken placeholderToken_;
+    TextLayoutToken layoutToken_;
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
+
+    CoreTimer::Id blinkTimerId_ = 0;
+    void scheduleBlinkTick();
 
     // ── 私有方法 ────────────────────────────────────
     void insertAtCursor(const std::string &utf8);
@@ -85,7 +99,7 @@ private:
     void moveCursorUp();
     void moveCursorDown();
     bool updateCursorBlink();
-    void fireChange(JSContext *ctx);
+    void fireChange();
     // ── 行工具 ──────────────────────────────────────
     float lineHeight() const;
     void splitLines(std::vector<std::string> &out) const;

@@ -18,7 +18,7 @@ target_sources(kwik_element
             modules/element/input.cppm
             modules/element/radiobutton.cppm
             modules/element/checkbox.cppm
-            # modules/element/textarea.cppm
+            modules/element/textarea.cppm
             # modules/element/dropdown.cppm
             # modules/element/slider.cppm
             # modules/element/progressbar.cppm
@@ -55,7 +55,7 @@ target_sources(kwik_element
         src/element/input.cpp
         src/element/radiobutton.cpp
         src/element/checkbox.cpp
-        # src/element/textarea.cpp
+        src/element/textarea.cpp
         # src/element/dropdown.cpp
         # src/element/slider.cpp
         # src/element/progressbar.cpp

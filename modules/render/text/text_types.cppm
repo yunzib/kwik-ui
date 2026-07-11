@@ -21,7 +21,7 @@ export {
         float bearingX = 0;
         float bearingY = 0;
         float advanceX = 0;
-        std::vector<uint8_t> pixelData;   // 栅格化后填充，打包后被 move 走
+        std::vector<uint8_t> pixelData;    // 栅格化后填充，打包后被 move 走
     };
 
     /**
@@ -82,7 +82,7 @@ export {
         FontId fontId;
         uint32_t glyphIndex;
         float fontSize;
-        std::vector<uint8_t> pixelData;   // 从 packGlyph 移入, upload 消费后释放
+        std::vector<uint8_t> pixelData;    // 从 packGlyph 移入, upload 消费后释放
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -98,16 +98,16 @@ export {
         WrapMode wrap = WrapMode::NoWrap;
         LayoutTextAlign align = LayoutTextAlign::Start;
         float lineSpacing = 0.0f;
-        int fontWeight = 3;   // FontWeight::Normal = 3
-        int fontStyle = 0;    // FontStyle::Normal = 0
+        int fontWeight = 3;    // FontWeight::Normal = 3
+        int fontStyle = 0;     // FontStyle::Normal = 0
     };
 
     /**
      * @brief 排版行元数据 (索引到 result.glyphs 扁平数组)
      */
     struct TextLayoutLine {
-        uint32_t glyphStart = 0;   // result.glyphs[] 起始索引
-        uint32_t glyphCount = 0;   // 本行字形数量
+        uint32_t glyphStart = 0;    // result.glyphs[] 起始索引
+        uint32_t glyphCount = 0;    // 本行字形数量
         float width = 0;
         float height = 0;
         float baseline = 0;
@@ -122,8 +122,8 @@ export {
      * 绘制时单层遍历 glyphs 即可，无需嵌套循环。
      */
     struct TextLayoutResult {
-        std::vector<ShapedGlyph> glyphs;       // 扁平化字形数组
-        std::vector<TextLayoutLine> lines;     // 行元数据
+        std::vector<ShapedGlyph> glyphs;      // 扁平化字形数组
+        std::vector<TextLayoutLine> lines;    // 行元数据
         float totalWidth = 0;
         float totalHeight = 0;
     };
@@ -136,9 +136,11 @@ export {
         uint64_t textHash = 0;
         uint64_t styleHash = 0;
         float maxWidth = 0;
+        uint8_t wrap = 0;
 
         bool operator==(const TextLayoutKey &o) const {
-            return textHash == o.textHash && styleHash == o.styleHash && maxWidth == o.maxWidth;
+            return textHash == o.textHash && styleHash == o.styleHash 
+                && maxWidth == o.maxWidth && wrap == o.wrap;
         }
     };
 
@@ -161,6 +163,6 @@ template <>
 struct std::hash<TextLayoutKey> {
     size_t operator()(const TextLayoutKey &k) const noexcept {
         auto fp = [](float f) { return std::hash<float>{}(f); };
-        return k.textHash ^ (k.styleHash << 1) ^ (fp(k.maxWidth) << 2);
+        return k.textHash ^ (k.styleHash << 1) ^ (fp(k.maxWidth) << 2) ^ (k.wrap << 3);
     }
 };

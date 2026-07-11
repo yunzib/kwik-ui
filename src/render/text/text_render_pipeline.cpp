@@ -45,6 +45,7 @@ TextLayoutToken TextRenderPipeline::layoutText(const std::string &text, FontId f
                                           ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontWeight)) << 16)
                                           ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontStyle)) << 24));
     key.maxWidth = config.maxWidth;
+    key.wrap = static_cast<uint8_t>(config.wrap);
 
     // ② 排版 — 塑形 + 布局
     auto glyphs = shaper_.shapeText(fontId, text.c_str(), fontSize);
