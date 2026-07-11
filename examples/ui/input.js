@@ -34,11 +34,11 @@ const Card = (title, children) => View({
 ]);
 
 // ── 通用按钮 ──
-const makeBtn = (label, bgColor, onClick) => Button({
-    width: 76, height: 34,
+const makeBtn = (label, bgColor, onClick, btnWidth = 76) => Button({
+    width: btnWidth, height: 34,
     background: bgColor, borderRadius: 6,
     text: label,
-    textColor: "#ffffff",
+    color: "#ffffff",
     fontSize: 13,
     onClick: onClick
 });
@@ -158,15 +158,15 @@ export default () => Root(
                     setProp("readonly", "value", "");
                 }),
             ]),
-            Flex({ direction: "row", gap: 8 }, [
+            Flex({ direction: "row", gap: 8 , margin: [10, 10] }, [
                 makeBtn("State→userName", C.purple, () => {
                     form.userName = "来自 State 的更新";
                     console.log("[State] userName =", form.userName);
-                }),
+                }, 200),
                 makeBtn("State→password", C.purple, () => {
                     form.password = "Sec!789";
                     console.log("[State] password =", form.password);
-                }),
+                }, 200),
             ]),
         ]),
     ])
