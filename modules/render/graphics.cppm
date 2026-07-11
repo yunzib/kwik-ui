@@ -66,16 +66,6 @@ public:
      * 直接从缓存读取 UV 坐标, 适用于 Text 组件的 onDraw 热路径
      */
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
-    void drawGlyph(const GlyphDrawData &g);
-    /**
-     * @brief 批量提交字形绘制数据 (零 addCommand 开销)
-     *
-     * 对所有 glyph 应用当前 Graphics transform (sx/sy/tx/ty) 后，
-     * 整体 insert 到命令缓冲区，消除逐字 addCommand 的 N−1 次开销。
-     *
-     * @param glyphs 预排版的字形数据 (坐标带 frame 偏移，UV 由 ensureGlyphs 填充)
-     */
-    void submitGlyphBatch(std::span<const GlyphDrawData> glyphs);
 
     /**
      * @brief 绘制图像

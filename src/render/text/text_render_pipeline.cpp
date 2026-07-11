@@ -1,22 +1,32 @@
+/**
+ * @file text_render_pipeline.cpp
+ * @brief 文本渲染管线实现
+ *
+ * layoutText: 塑形 + 布局 → shared_ptr<TextLayoutResult>
+ * ensureGlyphs: 遍历 result.glyphs 逐字形确保图集就绪
+ */
 module;
-#include <stdint.h>
+#include <memory>
+#include <cmath>
 
 module kwik.render.text.pipeline;
 
-import std;
-import kwik.core.types;
 import kwik.render.text.types;
-import kwik.render.text.face;
-import kwik.render.text.font.manager;
-import kwik.render.text.shaper;
 import kwik.render.text.layout;
 import kwik.render.text.cache;
+
+import std;
 
 TextRenderPipeline::TextRenderPipeline() = default;
 TextRenderPipeline::~TextRenderPipeline() = default;
 
+TextRenderPipeline &TextRenderPipeline::instance() {
+    static TextRenderPipeline inst;
+    return inst;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// 字体加载 — 委托 FontManager
+// 字体加载
 // ═══════════════════════════════════════════════════════════════════════════
 
 FontId TextRenderPipeline::loadFont(const std::string &path, int faceIndex) {
@@ -32,42 +42,31 @@ FontId TextRenderPipeline::activeFont() const {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 排版 + 缓存
+// 排版 — 塑形 + 布局，结果由元素持有
 // ═══════════════════════════════════════════════════════════════════════════
-
-TextLayoutToken TextRenderPipeline::layoutText(const std::string &text, FontId fontId, float fontSize,
-                                               const TextLayoutConfig &config) {
-    // ① 创建缓存 token
-    TextLayoutKey key;
-    key.textHash = std::hash<std::string>{}(text);
-    key.styleHash = std::hash<uint64_t>{}(static_cast<uint64_t>(fontId)
-                                          ^ (static_cast<uint64_t>(std::bit_cast<uint32_t>(fontSize)) << 32)
-                                          ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontWeight)) << 16)
-                                          ^ (static_cast<uint64_t>(static_cast<uint32_t>(config.fontStyle)) << 24));
-    key.maxWidth = config.maxWidth;
-    key.wrap = static_cast<uint8_t>(config.wrap);
-
-    // ② 排版 — 塑形 + 布局
+std::shared_ptr<TextLayoutResult> TextRenderPipeline::layoutText(
+    const std::string &text, FontId fontId, float fontSize,
+    const TextLayoutConfig &config)
+{
+    auto result = std::make_shared<TextLayoutResult>();
     auto glyphs = shaper_.shapeText(fontId, text.c_str(), fontSize);
-    TextLayoutResult result;
-    if (!glyphs.empty()) { result = TextLayout().layout(glyphs, config); }
-
-    // ③ 写入缓存
-    TextLayoutToken token = cache_.layout(text, fontId, fontSize, config);
-    cache_.setLayoutResult(token, result);
-    return token;
-}
-
-TextLayoutResult *TextRenderPipeline::getLayout(TextLayoutToken token) {
-    return cache_.getLayout(token);
+    if (!glyphs.empty()) {
+        *result = TextLayout().layout(glyphs, config);
+    }
+    // 回填缓存标识
+    result->textHash = std::hash<std::string>{}(text);
+    result->fontId = fontId;
+    result->fontSize = fontSize;
+    result->maxWidth = config.maxWidth;
+    result->wrap = config.wrap;
+    return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 字形就绪 — 委托 TextCache
+// 字形就绪 — 逐字形确保图集（跳过 isNewline）
 // ═══════════════════════════════════════════════════════════════════════════
-
-void TextRenderPipeline::ensureGlyphs(TextLayoutToken token) {
-    cache_.ensureGlyphs(token);
+void TextRenderPipeline::ensureGlyphs(TextLayoutResult &result) {
+    cache_.ensureGlyphs(result);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,13 +75,4 @@ void TextRenderPipeline::ensureGlyphs(TextLayoutToken token) {
 
 auto TextRenderPipeline::consumeUploads() -> std::vector<UploadJob> {
     return cache_.consumeUploads();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 单例
-// ═══════════════════════════════════════════════════════════════════════════
-
-TextRenderPipeline &TextRenderPipeline::instance() {
-    static TextRenderPipeline instance;
-    return instance;
 }

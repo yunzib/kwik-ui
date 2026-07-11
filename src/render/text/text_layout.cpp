@@ -71,11 +71,18 @@ void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const Text
     result.totalHeight = maxBottom - minY;
 }
 
-// ============================================================================
-// 自动换行: 按字符断行（CJK 等宽字符直接断，西文按字符断行）
-// ============================================================================
-void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph> &glyphs, const TextLayoutConfig &cfg,
-                                TextLayoutResult &result) {
+// ═══════════════════════════════════════════════════════════════════════════
+// 自动换行: 字符级断行 + \n 硬换行
+//
+// 流程:
+//   1. 遍历 glyphs，每行累加 advanceX
+//   2. 超过 maxWidth 或遇到 \n 时断行
+//   3. 每行独立烘焙 baseline 并归一化 x 坐标
+// ═══════════════════════════════════════════════════════════════════════════
+
+void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
+                                 const TextLayoutConfig& cfg,
+                                 TextLayoutResult& result) {
     if (glyphs.empty() || cfg.maxWidth >= 1e9f) {
         layoutNoWrap(glyphs, cfg, result);
         return;
@@ -91,45 +98,78 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph> &glyphs, const Te
         float minY = 0;
         float maxBottom = 0;
         uint32_t i;
+        bool isHardBreak = false;
 
+        // ── 收集当前行字形 ──────────────────────────────────────────
         for (i = lineStart; i < glyphs.size(); ++i) {
             auto &g = glyphs[i];
-            if (cursorX + g.advanceX > cfg.maxWidth && i > lineStart) break;
+
+            /* \n 标记 → 硬断行，跳过该 glyph */
+            if (g.isNewline) {
+                if (i == lineStart) {
+                    /* 空行（连续 \n 或行首 \n）：推进光标但无 glyph */
+                    minY = 0; maxBottom = 0;
+                    ++lineStart;
+                }
+                isHardBreak = true;
+                break;
+            }
+
+            /* 超出 maxWidth → 软断行（字符级别） */
+            if (cursorX + g.advanceX > cfg.maxWidth && i > lineStart)
+                break;
+
             cursorX += g.advanceX;
             minY = std::min(minY, g.y);
             maxBottom = std::max(maxBottom, g.y + g.height);
         }
-        if (i == lineStart) ++i;
+        if (i == lineStart) ++i;           // 单个超宽 glyph 也要推进
         uint32_t lineEnd = i;
 
-        float alignOff = 0;
-        if (cfg.align == LayoutTextAlign::Center)
-            alignOff = (cfg.maxWidth - cursorX) * 0.5f;
-        else if (cfg.align == LayoutTextAlign::Right || cfg.align == LayoutTextAlign::End)
-            alignOff = cfg.maxWidth - cursorX;
+        // ── 写入行 ──────────────────────────────────────────────────
+        if (lineEnd > lineStart) {
+            /* 对齐偏移（仅非左对齐时有效） */
+            float alignOff = 0;
+            if (cfg.align == LayoutTextAlign::Center)
+                alignOff = (cfg.maxWidth - cursorX) * 0.5f;
+            else if (cfg.align == LayoutTextAlign::Right
+                  || cfg.align == LayoutTextAlign::End)
+                alignOff = cfg.maxWidth - cursorX;
 
-        float baseline = -minY;
-        float lineBaseX = glyphs[lineStart].x;    // ← 该行第一个字形的原始 x
-        for (uint32_t j = lineStart; j < lineEnd; ++j) {
-            ShapedGlyph sg = glyphs[j];
-            sg.x = sg.x - lineBaseX + alignOff;    // ← 归一化到行起点
-            sg.y += baseline;
-            result.glyphs.push_back(std::move(sg));
+            /* baseline 烘焙 + x 归一化到行起点 */
+            float baseline = -minY;
+            float lineBaseX = glyphs[lineStart].x;
+            for (uint32_t j = lineStart; j < lineEnd; ++j) {
+                ShapedGlyph sg = glyphs[j];
+                sg.x = sg.x - lineBaseX + alignOff;
+                sg.y += baseline;
+                result.glyphs.push_back(std::move(sg));
+            }
+
+            float lh = maxBottom - minY;
+            result.lines.push_back({
+                .glyphStart  = startIdx + lineStart,
+                .glyphCount  = lineEnd - lineStart,
+                .width       = cursorX,
+                .height      = lh,
+                .baseline    = baseline,
+                .clusterStart = glyphs[lineStart].cluster,
+                .clusterEnd   = (lineEnd < glyphs.size())
+                                ? glyphs[lineEnd].cluster
+                                : glyphs.back().cluster + 1,
+                .isHardBreak = isHardBreak,
+            });
+            totalW = std::max(totalW, cursorX);
+            totalH += lh;
         }
 
-        float lh = maxBottom - minY;
-        result.lines.push_back({
-            .glyphStart = startIdx + lineStart,
-            .glyphCount = lineEnd - lineStart,
-            .width = cursorX,
-            .height = lh,
-            .baseline = baseline,
-        });
-        totalW = std::max(totalW, cursorX);
-        totalH += lh;
-        lineStart = lineEnd;
+        /* 跳过 \n glyph */
+        if (isHardBreak && i < glyphs.size() && glyphs[i].isNewline)
+            lineStart = i + 1;
+        else
+            lineStart = lineEnd;
     }
 
-    result.totalWidth = totalW;
+    result.totalWidth  = totalW;
     result.totalHeight = totalH;
 }

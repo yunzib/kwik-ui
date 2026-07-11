@@ -1,5 +1,37 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-12
+
+### 变更
+- 文本渲染架构重构 — 移除全局排版 ring buffer（`TextLayoutKey`/`LayoutEntry`/`TextLayoutToken`）
+  - 排版结果改为 `shared_ptr<TextLayoutResult>`，由元素自己持有，无全局缓存
+  - `TextRenderPipeline::layoutText()` 返回 `shared_ptr<TextLayoutResult>`
+  - `TextCache` 职责缩减为字形栅格化 + 图集打包（Skyline），不再管理排版缓存
+  - `TextCache::ensureGlyphs(TextLayoutResult&)` 内部完成 UV/尺寸回填
+  - `TextLayoutResult` 自带 `matchesKey()` 缓存命中判断，避免每帧重排版
+- 换行引擎支持 `\n` 硬换行（之前仅在 element 层用 `splitLines` 手工拆行）
+  - `text_shaper.cpp` 检测 0x0A codepoint → 输出 `isNewline=true` 标记字形
+  - `text_layout.cpp` `layoutWordWrap` 在 `isNewline` 处强制断行，记录 `isHardBreak`
+- `TextLayoutLine` 新增 `clusterStart`/`clusterEnd`（光标从字节偏移映射到 visual line）
+- `ShapedGlyph` 新增 `cluster`（UTF-8 字节偏移）/ `isNewline` 字段
+
+### 修复
+- TextArea 文字不显示（`ensureGlyphs` 未回填 UV 坐标）
+- `text_shaper.cpp` `\n` 检测块放错位置（引用了未声明的 `gid`/`xAdv`）
+- `text_cache.cpp` `GlyphInfo`/`PackResult`/`UploadJob` 字段与 `text_types.cppm` 新定义不匹配
+- `text_cache.cpp` `ensureGlyph` 重复定义
+- `text_render_pipeline.cpp` `ensureGlyphs` 被错误标记为 `const`（内部修改 cache）
+- `vulkan_glyph_renderer.cpp` `UploadJob` 旧字段名（`pixelData`→`pixels`, `x/y`→`dstX/dstY`）
+- `graphics.cppm` 移除已废弃的 `submitGlyphBatch`/`drawGlyph`（依赖已被删除的 `GlyphDrawData`）
+- TextArea `moveCursorUp/Down` 引用已删除的 `splitLines`/`cursorLineCol`
+
+### 移除
+- `TextLayoutToken` / `TextLayoutKey` / `GlyphMetrics` / `GlyphDrawData` 类型
+- `TextCache` 中的排版 ring buffer（`LayoutEntry`/`kMaxLayoutEntries`/`layoutKeyToIndex_`）
+- `TextShaper::shapeMetrics()` 方法
+- `TextArea::splitLines()` / `TextArea::cursorLineCol()` 方法
+- `Graphics::submitGlyphBatch()` / `Graphics::drawGlyph(const GlyphDrawData&)`
+
 ## [0.0.0] — 2026-07-07
 
 ### 新增

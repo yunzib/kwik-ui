@@ -72,7 +72,7 @@ protected:
 private:
     TextContent text_;                          // 文字内容
     CheckboxProps check_;                       // 复选框专有属性
-    TextLayoutToken layoutToken_;               // 文字排版缓存句柄
+    std::shared_ptr<TextLayoutResult> layoutResult_;  // 排版结果
 
     // ─── 双向绑定 ─────────────────────────────────────
     std::unique_ptr<StateBinding> binding_;

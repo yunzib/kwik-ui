@@ -81,6 +81,21 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         const float yOff = static_cast<float>(glyphPos[i].y_offset) / 64.0f;
         const float xAdv = static_cast<float>(glyphPos[i].x_advance) / 64.0f;
 
+        // ── \n 换行符检测 ──────────────────────────────────
+        if (gid == 0 && glyphInfo[i].cluster < UINT32_MAX) {
+            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+            if (cp == '\n') {
+                ShapedGlyph sg;
+                sg.fontId = fontId;
+                sg.cluster = glyphInfo[i].cluster;
+                sg.isNewline = true;
+                sg.advanceX = 0;
+                result.push_back(sg);
+                cursorX += xAdv;
+                continue;
+            }
+        }
+
         FontId activeFont = fontId;
         uint32_t activeGid = gid;
 
@@ -134,54 +149,8 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
         sg.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
         sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
+        sg.cluster = glyphInfo[i].cluster;
         result.push_back(sg);
-        cursorX += xAdv;
-    }
-
-    return result;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// shapeMetrics — 纯排版度量（无字形图像信息）
-// ═══════════════════════════════════════════════════════════════════════════
-
-auto TextShaper::shapeMetrics(FontId fontId, const char *text, float fontSize) -> std::vector<GlyphMetrics> {
-    std::vector<GlyphMetrics> result;
-
-    auto *face = fontManager_.getFace(fontId);
-    if (!face || !text || !text[0]) { return result; }
-
-    auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
-    if (!ftFace) { return result; }
-
-    hb_font_set_scale(face->harfbuzzFont(), static_cast<int>(fontSize * 64.0f), static_cast<int>(fontSize * 64.0f));
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
-
-    auto *buf = getHbBuffer();
-    hb_buffer_add_utf8(buf, text, -1, 0, -1);
-    hb_buffer_guess_segment_properties(buf);
-    hb_shape(face->harfbuzzFont(), buf, nullptr, 0);
-
-    unsigned int glyphCount = 0;
-    auto *glyphInfo = hb_buffer_get_glyph_infos(buf, &glyphCount);
-    auto *glyphPos = hb_buffer_get_glyph_positions(buf, &glyphCount);
-
-    float cursorX = 0.0f;
-    for (unsigned int i = 0; i < glyphCount; i++) {
-        const uint32_t gid = glyphInfo[i].codepoint;
-        const float xOff = static_cast<float>(glyphPos[i].x_offset) / 64.0f;
-        const float xAdv = static_cast<float>(glyphPos[i].x_advance) / 64.0f;
-
-        face->loadGlyph(gid);
-
-        GlyphMetrics m;
-        m.glyphIndex = gid;
-        m.x = cursorX + xOff;
-        m.advanceX = xAdv;
-        m.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
-        m.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
-
-        result.push_back(m);
         cursorX += xAdv;
     }
 

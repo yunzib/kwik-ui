@@ -20,7 +20,7 @@ import std;
  * @brief 文本元素
  *
  * 使用 TextRenderPipeline 全局缓存进行排版和渲染。
- * 组件持有 TextLayoutToken（轻量句柄），布局结果缓存于 LayoutCache。
+ * 组件持有 TextLayoutResult（轻量句柄），布局结果缓存于 LayoutCache。
  */
 export class Text : public View {
 public:
@@ -55,5 +55,5 @@ protected:
 
 private:
     TextContent text_;              /**< 文本内容（字符串、字号、颜色、字体） */
-    TextLayoutToken layoutToken_;   /**< 布局缓存句柄 */
+    std::shared_ptr<TextLayoutResult> layoutResult_;  /**< 排版结果 */
 };

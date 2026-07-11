@@ -46,17 +46,6 @@ public:
      */
     auto shapeText(FontId fontId, const char* text, float fontSize) -> std::vector<ShapedGlyph>;
 
-    /**
-     * @brief 纯排版度量（无字形图像信息，更轻量）
-     * @param fontId   字体 ID
-     * @param text     UTF-8 文本
-     * @param fontSize 字号（像素）
-     * @return GlyphMetrics 列表
-     *
-     * 用于快速测量行宽，不填充 width/height。
-     */
-    auto shapeMetrics(FontId fontId, const char* text, float fontSize) -> std::vector<GlyphMetrics>;
-
 private:
     FontManager& fontManager_;  // 字体管理器引用
 };

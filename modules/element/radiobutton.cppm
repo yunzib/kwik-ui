@@ -64,5 +64,5 @@ protected:
 private:
     TextContent text_;                          // 文字内容
     RadioButtonProps radio_;                    // Radio 专有属性
-    TextLayoutToken layoutToken_;               // 文字排版缓存句柄
+    std::shared_ptr<TextLayoutResult> layoutResult_;  // 排版结果（元素自己持有）
 };

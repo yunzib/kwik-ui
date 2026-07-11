@@ -80,9 +80,9 @@ private:
     size_t cursorBytePos_ = 0;    // 光标位置 (UTF-8 字节偏移)
     bool cursorVisible_ = false;
     uint64_t lastBlinkTime_ = 0;
-    // ── 排版缓存 (TextRenderPipeline 内部管理) ─────
-    TextLayoutToken placeholderToken_;
-    TextLayoutToken layoutToken_;
+    // ── 排版结果（元素自己持有，无全局缓存） ─────────
+    std::shared_ptr<TextLayoutResult> textResult_;
+    std::shared_ptr<TextLayoutResult> placeholderResult_;
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
@@ -102,6 +102,4 @@ private:
     void fireChange();
     // ── 行工具 ──────────────────────────────────────
     float lineHeight() const;
-    void splitLines(std::vector<std::string> &out) const;
-    void cursorLineCol(int &lineIdx, int &col) const;
 };

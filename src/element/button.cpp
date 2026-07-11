@@ -23,11 +23,14 @@ Size Button::onMeasure(Constraints constraints) {
     if (fid == kInvalidFontId) fid = pipe.activeFont();
     TextLayoutConfig cfg;
     cfg.maxWidth = constraints.maxWidth;
-    layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
-    auto *result = pipe.getLayout(layoutToken_);
-    if (!result) return constraints.constrain({0, 0});
-    float w = result->totalWidth + props.padding.horizontal();
-    float h = std::max(result->totalHeight, 16.0f) + props.padding.vertical();
+
+    if (!textResult_ || !textResult_->matchesKey(text_.text, fid, text_.fontSize, cfg)) {
+        textResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+    }
+    if (!textResult_ || textResult_->glyphs.empty()) return constraints.constrain({0, 0});
+    
+    float w = textResult_->totalWidth + props.padding.horizontal();
+    float h = std::max(textResult_->totalHeight, 16.0f) + props.padding.vertical();
     if (props.width.has_value()) w = *props.width + props.padding.horizontal();
     if (props.height.has_value()) h = *props.height + props.padding.vertical();
     return constraints.constrain({w, h});
@@ -54,8 +57,7 @@ bool Button::onEvent(const DispatchEvent &event) {
         state_ = ButtonState::Idle;
         markDirty();
         break;
-    default:
-        break;
+    default: break;
     }
     return View::onEvent(event);
 }
@@ -67,7 +69,6 @@ void Button::onDraw(Graphics &graphics) {
     graphics.save();
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
 
-    // ── 状态感知属性 ──
     Color bg = props.background;
     Color borderColor = props.borderColor;
     std::optional<Shadow> shadow = props.shadow;
@@ -81,7 +82,6 @@ void Button::onDraw(Graphics &graphics) {
         if (button_.pressedShadow.has_value()) shadow = button_.pressedShadow;
     }
 
-    // ── Press 缩放变换 ──
     if (state_ == ButtonState::Pressed) {
         float cx = frame.x + frame.width * 0.5f;
         float cy = frame.y + frame.height * 0.5f;
@@ -101,34 +101,20 @@ void Button::onDraw(Graphics &graphics) {
                         frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
 
-    // ── 绘制子控件 ──
     for (auto &child : children) { child->draw(graphics); }
 
-    // ── 绘制文字 ──
-    if (!text_.text.empty()) {
+    // [改] token → shared_ptr, GlyphDrawData batch → drawTextCached
+    if (!text_.text.empty() && textResult_ && !textResult_->glyphs.empty()) {
         auto &pipe = TextRenderPipeline::instance();
-        pipe.ensureGlyphs(layoutToken_);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result && !result->glyphs.empty()) {
-            float contentW = frame.width - props.padding.horizontal();
-            float contentH = frame.height - props.padding.vertical();
-            float textW = result->totalWidth;
-            float textX = frame.x + props.padding.left + (contentW - textW) * 0.5f;
-            float textY = frame.y + props.padding.top + (contentH - result->totalHeight) * 0.5f;
-            std::vector<GlyphDrawData> batch;
-            batch.reserve(result->glyphs.size());
-            for (auto &sg : result->glyphs)
-                batch.push_back({
-                    .x = textX + sg.x,
-                    .y = textY + sg.y,
-                    .w = sg.width,
-                    .h = sg.height,
-                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
-                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
-                    .color = text_.textColor,
-                });
-            graphics.submitGlyphBatch(batch);
-        }
+        pipe.ensureGlyphs(*textResult_);
+        float contentW = frame.width - props.padding.horizontal();
+        float contentH = frame.height - props.padding.vertical();
+        float textX = frame.x + props.padding.left + (contentW - textResult_->totalWidth) * 0.5f;
+        float textY = frame.y + props.padding.top + (contentH - textResult_->totalHeight) * 0.5f;
+        graphics.save();
+        graphics.translate(textX, textY);
+        graphics.drawTextCached(textResult_->glyphs, text_.textColor);
+        graphics.restore();
     }
 
     graphics.restore();

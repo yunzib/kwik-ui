@@ -37,11 +37,14 @@ Size RadioButton::onMeasure(Constraints constraints) {
         if (fid == kInvalidFontId) fid = pipe.activeFont();
         TextLayoutConfig cfg;
         cfg.maxWidth = constraints.maxWidth;
-        layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result) {
-            w += result->totalWidth;
-            h = std::max(h, result->totalHeight);
+
+        if (!layoutResult_ || !layoutResult_->matchesKey(text_.text, fid, text_.fontSize, cfg)) {
+            layoutResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+        }
+
+        if (layoutResult_) {
+            w += layoutResult_->totalWidth;
+            h = std::max(h, layoutResult_->totalHeight);
         }
     }
     w += props.padding.horizontal();
@@ -80,8 +83,7 @@ bool RadioButton::onEvent(const DispatchEvent &event) {
         setChecked(!radio_.checked);
         if (radio_.checked != was && !js_is_null(handlers.onChange) && handlers.ctx) {
             JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked",
-                              JS_NewBool(handlers.ctx, radio_.checked));
+            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, radio_.checked));
             JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
             if (JS_IsException(ret)) {
                 JSValue exc = JS_GetException(handlers.ctx);
@@ -105,9 +107,7 @@ void RadioButton::onDraw(Graphics &graphics) {
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
 
     // 基类背景
-    if (props.background.isVisible()) {
-        graphics.drawRoundedRect(frame, props.borderRadius, props.background);
-    }
+    if (props.background.isVisible()) { graphics.drawRoundedRect(frame, props.borderRadius, props.background); }
 
     float contentH = frame.height - props.padding.vertical();
     float circleX = frame.x + props.padding.left;
@@ -127,26 +127,16 @@ void RadioButton::onDraw(Graphics &graphics) {
     }
 
     // ④ 文字标签（TextRenderPipeline）
-    if (!text_.text.empty()) {
+    if (!text_.text.empty() && layoutResult_ && !layoutResult_->glyphs.empty()) {
         auto &pipe = TextRenderPipeline::instance();
-        pipe.ensureGlyphs(layoutToken_);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result && !result->glyphs.empty()) {
-            float textX = circleX + radio_.radioSize + radio_.textSpacing;
-            float textY = circleY + radio_.radioSize * 0.5f - result->totalHeight * 0.5f;
-            std::vector<GlyphDrawData> batch;
-            batch.reserve(result->glyphs.size());
-            for (auto &sg : result->glyphs) {
-                batch.push_back({
-                    .x = textX + sg.x, .y = textY + sg.y,
-                    .w = sg.width, .h = sg.height,
-                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
-                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
-                    .color = text_.textColor,
-                });
-            }
-            graphics.submitGlyphBatch(batch);
-        }
+        pipe.ensureGlyphs(*layoutResult_);
+        float textX = circleX + radio_.radioSize + radio_.textSpacing;
+        float textY = circleY + radio_.radioSize * 0.5f - layoutResult_->totalHeight * 0.5f;
+        // [改] GlyphDrawData batch → drawTextCached
+        graphics.save();
+        graphics.translate(textX, textY);
+        graphics.drawTextCached(layoutResult_->glyphs, text_.textColor);
+        graphics.restore();
     }
 
     // 子控件
@@ -161,12 +151,8 @@ void RadioButton::onDraw(Graphics &graphics) {
 // checked 和 value，无需打破模块边界进行 static_cast。
 // ============================================================================
 std::string RadioButton::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) {
-        return radio_.checked ? "true" : "false";
-    }
-    if (std::strcmp(name, "value") == 0) {
-        return radio_.value;
-    }
+    if (std::strcmp(name, "checked") == 0) { return radio_.checked ? "true" : "false"; }
+    if (std::strcmp(name, "value") == 0) { return radio_.value; }
     return View::getProperty(name);
 }
 

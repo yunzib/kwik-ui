@@ -79,33 +79,7 @@ float TextArea::lineHeight() const {
     float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
     return fs * 1.4f;
 }
-void TextArea::splitLines(std::vector<std::string> &out) const {
-    out.clear();
-    size_t start = 0;
-    for (size_t i = 0; i < text_.size(); ++i) {
-        if (text_[i] == '\n') {
-            out.push_back(text_.substr(start, i - start));
-            start = i + 1;
-        }
-    }
-    out.push_back(text_.substr(start));
-    if (out.empty()) out.push_back("");
-}
-void TextArea::cursorLineCol(int &lineIdx, int &col) const {
-    lineIdx = 0;
-    col = 0;
-    for (size_t i = 0; i < cursorBytePos_ && i < text_.size();) {
-        if (text_[i] == '\n') {
-            ++lineIdx;
-            col = 0;
-            ++i;
-            continue;
-        }
-        if ((text_[i] & 0xC0) != 0x80) ++col;
-        ++i;
-        while (i < text_.size() && (text_[i] & 0xC0) == 0x80) ++i;
-    }
-}
+
 // ════════════════════════════════════════════════════════
 // onMeasure — rows 行高度
 // ════════════════════════════════════════════════════════
@@ -142,36 +116,43 @@ void TextArea::moveCursorLeft() {
 void TextArea::moveCursorRight() {
     skipForward(text_, cursorBytePos_);
 }
+
 void TextArea::moveCursorUp() {
-    int line = 0, col = 0;
-    cursorLineCol(line, col);
-    if (line == 0) {
-        cursorBytePos_ = 0;
-        return;
+    // 通过排版结果的 cluster 范围反推当前 cursorBytePos_ 所在 visual line
+    if (!textResult_ || textResult_->lines.empty()) { cursorBytePos_ = 0; return; }
+    size_t pos = cursorBytePos_;
+    int lineIdx = -1;
+    for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
+        auto &l = textResult_->lines[vi];
+        if (pos >= l.clusterStart && pos < l.clusterEnd) { lineIdx = (int)vi; break; }
     }
-    std::vector<std::string> lines;
-    splitLines(lines);
-    int prevLen = (int)utf8CharCount(lines[line - 1]);
-    int targetCol = (col <= prevLen) ? col : prevLen;
-    cursorBytePos_ = 0;
-    for (int i = 0; i < line - 1; ++i) cursorBytePos_ += lines[i].size() + 1;
-    for (int c = 0; c < targetCol; ++c) skipForward(text_, cursorBytePos_);
+    if (lineIdx <= 0) { cursorBytePos_ = 0; return; }
+    // 上一行同列位置
+    auto &prev = textResult_->lines[lineIdx - 1];
+    size_t col = pos - textResult_->lines[lineIdx].clusterStart;
+    size_t target = prev.clusterStart + std::min(col, size_t(prev.clusterEnd - prev.clusterStart - 1));
+    cursorBytePos_ = std::min(target, text_.size());
 }
+
 void TextArea::moveCursorDown() {
-    std::vector<std::string> lines;
-    splitLines(lines);
-    int line = 0, col = 0;
-    cursorLineCol(line, col);
-    if (line >= (int)lines.size() - 1) {
-        cursorBytePos_ = text_.size();
-        return;
+    if (!textResult_ || textResult_->lines.empty()) { cursorBytePos_ = text_.size(); return; }
+    size_t pos = cursorBytePos_;
+    int lineIdx = -1;
+    for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
+        auto &l = textResult_->lines[vi];
+        if (pos >= l.clusterStart && pos < l.clusterEnd) { lineIdx = (int)vi; break; }
     }
-    int nextLen = (int)utf8CharCount(lines[line + 1]);
-    int targetCol = (col <= nextLen) ? col : nextLen;
-    cursorBytePos_ = 0;
-    for (int i = 0; i <= line; ++i) cursorBytePos_ += lines[i].size() + 1;
-    for (int c = 0; c < targetCol; ++c) skipForward(text_, cursorBytePos_);
+    if (lineIdx < 0 || lineIdx >= (int)textResult_->lines.size() - 1) {
+        cursorBytePos_ = text_.size(); return;
+    }
+    // 下一行同列位置
+    auto &cur = textResult_->lines[lineIdx];
+    auto &next = textResult_->lines[lineIdx + 1];
+    size_t col = pos - cur.clusterStart;
+    size_t target = next.clusterStart + std::min(col, size_t(next.clusterEnd - next.clusterStart - 1));
+    cursorBytePos_ = std::min(target, text_.size());
 }
+
 // ════════════════════════════════════════════════════════
 // focus / blur / setValue
 // ════════════════════════════════════════════════════════
@@ -259,96 +240,93 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     default: return View::onEvent(event);
     }
 }
-// ════════════════════════════════════════════════════════
-// onDraw ─ 带缓存的逐行渲染 + 宽度换行 + 光标
-// ════════════════════════════════════════════════════════
+
+
+// ============================================================================
+// onDraw ─ 整段一次排版 + 逐行渲染 + 光标
+//
+// 与旧方案对比:
+//   - 不再 splitLines + 逐行 layoutText
+//   - 整段文本（含 \n）一次 layoutText，由 Layout 引擎处理硬/软换行
+//   - 每帧检查 text_/maxW 变化决定是否重排版
+// ============================================================================
 void TextArea::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
-    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, props_.focusedBorderColor, 2.0f); }
+    if (focused_) {
+        graphics.drawRoundedRectStroke(frame, props.borderRadius,
+                                       props_.focusedBorderColor, 2.0f);
+    }
 
     auto &pipe = TextRenderPipeline::instance();
     float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
     FontId fid = pipe.activeFont();
-    Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
+    Rect inner = frame.inset(props.padding.left, props.padding.top,
+                             props.padding.right, props.padding.bottom);
     float maxW = std::max(inner.width, 1.0f);
     float lh = lineHeight();
+
+    // ── 整段排版（\n 由 Layout 引擎处理，key 匹配时跳过） ────────
+    TextLayoutConfig cfg;
+    cfg.maxWidth = maxW;
+    cfg.wrap = WrapMode::WordWrap;
+    if (!textResult_ || !textResult_->matchesKey(text_, fid, fs, cfg)) {
+        textResult_ = pipe.layoutText(text_, fid, fs, cfg);
+    }
+    pipe.ensureGlyphs(*textResult_);
 
     graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
 
-    // ── 占位符 ────────────────────────────────────────
+    // ── 占位符 ────────────────────────────────────────────────────
     if (text_.empty() && !props_.placeholder.empty()) {
-        TextLayoutConfig cfg;
-        cfg.maxWidth = maxW;
-        placeholderToken_ = pipe.layoutText(props_.placeholder, fid, fs, cfg);
-        pipe.ensureGlyphs(placeholderToken_);
-        auto *result = pipe.getLayout(placeholderToken_);
-        if (result && !result->glyphs.empty()) {
+        TextLayoutConfig pcfg;
+        pcfg.maxWidth = maxW;
+        placeholderResult_ = pipe.layoutText(props_.placeholder, fid, fs, pcfg);
+        if (placeholderResult_) {
+            pipe.ensureGlyphs(*placeholderResult_);
             graphics.save();
             graphics.translate(inner.x, inner.y);
-            graphics.drawTextCached(result->glyphs, props_.placeholderColor);
+            graphics.drawTextCached(placeholderResult_->glyphs,
+                                     props_.placeholderColor);
             graphics.restore();
         }
     } else {
-        // ── 逐行换行渲染 (硬换行 + 宽度软换行) ──────────
-        std::vector<std::string> hardLines;
-        splitLines(hardLines);
+        // ── 逐 visual line 渲染 ──────────────────────────────────
         float yCursor = inner.y;
-        for (size_t hi = 0; hi < hardLines.size(); ++hi) {
-            TextLayoutConfig cfg;
-            cfg.maxWidth = maxW;
-            cfg.wrap = WrapMode::WordWrap;    // ← 新增
-            auto lineToken = pipe.layoutText(hardLines[hi], fid, fs, cfg);
-            pipe.ensureGlyphs(lineToken);
-            auto *result = pipe.getLayout(lineToken);
-            if (!result || result->glyphs.empty()) {
-                yCursor += lh;
-                continue;
-            }
-            for (auto &subline : result->lines) {
-                size_t start = subline.glyphStart;
-                size_t count = subline.glyphCount;
-                std::vector<ShapedGlyph> seg(result->glyphs.begin() + start, result->glyphs.begin() + start + count);
-                graphics.save();
-                graphics.translate(inner.x, yCursor);
-                graphics.drawTextCached(seg, props_.textColor);
-                graphics.restore();
-                yCursor += lh;
-            }
+        for (auto &sl : textResult_->lines) {
+            auto seg = std::vector<ShapedGlyph>(
+                textResult_->glyphs.begin() + sl.glyphStart,
+                textResult_->glyphs.begin() + sl.glyphStart + sl.glyphCount);
+            graphics.save();
+            graphics.translate(inner.x, yCursor);
+            graphics.drawTextCached(seg, props_.textColor);
+            graphics.restore();
+            yCursor += lh;
         }
     }
 
-    // ── 光标 ──────────────────────────────────────────
-    if (focused_ && !props_.readOnly) {
+    // ── 光标 ──────────────────────────────────────────────────────
+    if (focused_ && !props_.readOnly && textResult_) {
         if (updateCursorBlink()) markDirtyDeferred();
         if (cursorVisible_) {
-            int line = 0, col = 0;
-            cursorLineCol(line, col);
-            std::vector<std::string> lines;
-            splitLines(lines);
-            if (line < (int)lines.size()) {
-                TextLayoutConfig cfg;
-                cfg.maxWidth = maxW;
-                cfg.wrap = WrapMode::WordWrap;
-                auto lineToken = pipe.layoutText(lines[line], fid, fs, cfg);
-                pipe.ensureGlyphs(lineToken);
-                auto *result = pipe.getLayout(lineToken);
-                if (result && !result->lines.empty()) {
-                    int rem = col;
-                    float cx = inner.x;
-                    for (size_t vi = 0; vi < result->lines.size(); ++vi) {
-                        auto &sl = result->lines[vi];
-                        int gc = (int)sl.glyphCount;
-                        bool isLast = (vi == result->lines.size() - 1);
-                        if (rem < gc || (rem == gc && isLast)) {
-                            for (int c = 0; c < rem; ++c) cx += result->glyphs[sl.glyphStart + c].advanceX;
-                            float curY = inner.y + (float)vi * lh;
-                            cx = std::min(cx, inner.x + inner.width);
-                            graphics.drawRect({cx - 0.5f, curY, 1.5f, lh}, props_.cursorColor);
-                            break;
-                        }
-                        rem -= gc;
+            size_t pos = cursorBytePos_;
+            float cx = inner.x;
+            for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
+                auto &sl = textResult_->lines[vi];
+                bool isLast = (vi == textResult_->lines.size() - 1);
+                if (pos >= sl.clusterStart
+                    && (pos < sl.clusterEnd || (pos == sl.clusterEnd && isLast)))
+                {
+                    for (uint32_t j = 0; j < sl.glyphCount; ++j) {
+                        auto &g = textResult_->glyphs[sl.glyphStart + j];
+                        if (g.cluster < pos)
+                            cx += g.advanceX;
                     }
+                    float curY = inner.y + (float)vi * lh;
+                    cx = std::min(cx, inner.x + inner.width);
+                    graphics.drawRect({cx - 0.5f, curY, 1.5f, lh},
+                                      props_.cursorColor);
+                    break;
                 }
             }
         }
@@ -357,6 +335,7 @@ void TextArea::onDraw(Graphics &graphics) {
     graphics.resetClip();
     graphics.restore();
 }
+
 // ════════════════════════════════════════════════════════
 // updateCursorBlink — ~530ms 周期闪烁
 // ════════════════════════════════════════════════════════

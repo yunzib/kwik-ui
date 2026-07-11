@@ -38,11 +38,14 @@ Size Checkbox::onMeasure(Constraints constraints) {
         if (fid == kInvalidFontId) fid = pipe.activeFont();
         TextLayoutConfig cfg;
         cfg.maxWidth = constraints.maxWidth;
-        layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result) {
-            w += result->totalWidth;
-            h = std::max(h, result->totalHeight);
+
+        if (!layoutResult_ || !layoutResult_->matchesKey(text_.text, fid, text_.fontSize, cfg)) {
+            layoutResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+        }
+
+        if (layoutResult_) {
+            w += layoutResult_->totalWidth;
+            h = std::max(h, layoutResult_->totalHeight);
         }
     }
     w += props.padding.horizontal();
@@ -64,9 +67,7 @@ void Checkbox::setChecked(bool val) {
 // getProperty — getProp("chkId", "checked") 支持
 // ============================================================================
 std::string Checkbox::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) {
-        return check_.checked ? "true" : "false";
-    }
+    if (std::strcmp(name, "checked") == 0) { return check_.checked ? "true" : "false"; }
     return View::getProperty(name);
 }
 
@@ -98,15 +99,12 @@ bool Checkbox::onEvent(const DispatchEvent &event) {
         setChecked(newVal);
 
         // ① 双向绑定：自动更新 State（纯 C++ 接口，无 JS 依赖）
-        if (binding_) {
-            binding_->setBool(bindKey_, newVal);
-        }
+        if (binding_) { binding_->setBool(bindKey_, newVal); }
 
         // ② 显式 onChange 回调（向下兼容）
         if (!js_is_null(handlers.onChange) && handlers.ctx) {
             JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked",
-                              JS_NewBool(handlers.ctx, check_.checked));
+            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, check_.checked));
             JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
             if (JS_IsException(ret)) {
                 JSValue exc = JS_GetException(handlers.ctx);
@@ -130,9 +128,7 @@ void Checkbox::onDraw(Graphics &graphics) {
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
 
     // 基类背景（默认透明）
-    if (props.background.isVisible()) {
-        graphics.drawRoundedRect(frame, props.borderRadius, props.background);
-    }
+    if (props.background.isVisible()) { graphics.drawRoundedRect(frame, props.borderRadius, props.background); }
 
     float contentH = frame.height - props.padding.vertical();
     float boxX = frame.x + props.padding.left;
@@ -154,52 +150,31 @@ void Checkbox::onDraw(Graphics &graphics) {
         FontId fid = pipe.activeFont();
         TextLayoutConfig cfg;
         cfg.maxWidth = check_.boxSize;
-        TextLayoutToken markToken = pipe.layoutText("\xE2\x9C\x93", fid, markSize, cfg);
-        pipe.ensureGlyphs(markToken);
-        auto *result = pipe.getLayout(markToken);
-        if (result && !result->glyphs.empty()) {
-            float markX = boxX + (check_.boxSize - result->totalWidth) * 0.5f;
-            float markY = boxY + check_.boxSize * 0.5f - result->totalHeight * 0.5f;
-            std::vector<GlyphDrawData> batch;
-            batch.reserve(result->glyphs.size());
-            for (auto &sg : result->glyphs) {
-                batch.push_back({
-                    .x = markX + sg.x,
-                    .y = markY + sg.y,
-                    .w = sg.width,
-                    .h = sg.height,
-                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
-                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
-                    .color = check_.checkMarkColor,
-                });
-            }
-            graphics.submitGlyphBatch(batch);
+        // [改] token → shared_ptr
+        auto markResult = pipe.layoutText("\xE2\x9C\x93", fid, markSize, cfg);
+        pipe.ensureGlyphs(*markResult);
+        if (markResult && !markResult->glyphs.empty()) {
+            float markX = boxX + (check_.boxSize - markResult->totalWidth) * 0.5f;
+            float markY = boxY + check_.boxSize * 0.5f - markResult->totalHeight * 0.5f;
+            // [改] GlyphDrawData batch → drawTextCached
+            graphics.save();
+            graphics.translate(markX, markY);
+            graphics.drawTextCached(markResult->glyphs, check_.checkMarkColor);
+            graphics.restore();
         }
     }
 
     // 文字标签（通过 TextRenderPipeline 排版 + 字形批次提交）
-    if (!text_.text.empty()) {
+    if (!text_.text.empty() && layoutResult_ && !layoutResult_->glyphs.empty()) {
         auto &pipe = TextRenderPipeline::instance();
-        pipe.ensureGlyphs(layoutToken_);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result && !result->glyphs.empty()) {
-            float textX = boxX + check_.boxSize + check_.textSpacing;
-            float textY = boxY + check_.boxSize * 0.5f - result->totalHeight * 0.5f;
-            std::vector<GlyphDrawData> batch;
-            batch.reserve(result->glyphs.size());
-            for (auto &sg : result->glyphs) {
-                batch.push_back({
-                    .x = textX + sg.x,
-                    .y = textY + sg.y,
-                    .w = sg.width,
-                    .h = sg.height,
-                    .u0 = sg.uvLeft, .v0 = sg.uvTop,
-                    .u1 = sg.uvRight, .v1 = sg.uvBottom,
-                    .color = text_.textColor,
-                });
-            }
-            graphics.submitGlyphBatch(batch);
-        }
+        pipe.ensureGlyphs(*layoutResult_);
+        float textX = boxX + check_.boxSize + check_.textSpacing;
+        float textY = boxY + check_.boxSize * 0.5f - layoutResult_->totalHeight * 0.5f;
+        // [改] GlyphDrawData batch → drawTextCached
+        graphics.save();
+        graphics.translate(textX, textY);
+        graphics.drawTextCached(layoutResult_->glyphs, text_.textColor);
+        graphics.restore();
     }
 
     // 绘制子控件
@@ -211,9 +186,9 @@ void Checkbox::onDraw(Graphics &graphics) {
 // ============================================================================
 // setPropertyTyped — 类型安全属性写入
 // ============================================================================
-bool Checkbox::setPropertyTyped(const char* name, const TypedProp& value) {
+bool Checkbox::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "checked") == 0) {
-        if (auto* b = std::get_if<bool>(&value)) {
+        if (auto *b = std::get_if<bool>(&value)) {
             setChecked(*b);
             return true;
         }

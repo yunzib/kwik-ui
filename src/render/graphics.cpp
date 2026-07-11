@@ -153,29 +153,6 @@ void Graphics::drawText(const std::string &fontPath, const std::string &text, fl
 }
 
 // ============================================================================
-// submitGlyphBatch — 批量提交字形绘制 (单次 insert)
-// ============================================================================
-void Graphics::submitGlyphBatch(std::span<const GlyphDrawData> glyphs) {
-    if (glyphs.empty() || !commandBuffer_) return;
-    auto &s = currentState_;
-    std::vector<Command> batch;
-    batch.reserve(glyphs.size());
-    for (auto &g : glyphs) {
-        batch.push_back(DrawGlyphCmd{
-            0, 0,
-            g.x * s.sx + s.tx,
-            g.y * s.sy + s.ty,
-            g.w * s.sx,
-            g.h * s.sy,
-            g.u0, g.v0, g.u1, g.v1,
-            g.color,
-        });
-    }
-    // 单次 insert — 取代 N 次 addCommand
-    commandBuffer_->add(std::move(batch));
-}
-
-// ============================================================================
 // drawTextCached — 使用缓存的排版结果 (改为 batch 路径)
 // ============================================================================
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
@@ -195,22 +172,6 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
         });
     }
     commandBuffer_->add(std::move(batch));
-}
-
-// ============================================================================
-// drawGlyph — 单字绘制 (保留兼容性)
-// ============================================================================
-void Graphics::drawGlyph(const GlyphDrawData &g) {
-    float tx = g.x * currentState_.sx + currentState_.tx;
-    float ty = g.y * currentState_.sy + currentState_.ty;
-    float tw = g.w * currentState_.sx;
-    float th = g.h * currentState_.sy;
-    addCommand(DrawGlyphCmd{
-        0, 0,
-        tx, ty, tw, th,
-        g.u0, g.v0, g.u1, g.v1,
-        g.color
-    });
 }
 
 // ============================================================================

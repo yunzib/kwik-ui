@@ -385,7 +385,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     // 计算总大小并分配单个 staging buffer
     VkDeviceSize totalSize = 0;
     for (auto &job : jobs) {
-        if (!job.pixelData.empty()) totalSize += job.pixelData.size();
+        if (!job.pixels.empty()) totalSize += job.pixels.size();
     }
     if (totalSize == 0) return;
 
@@ -404,7 +404,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     size_t offset = 0;
 
     for (auto &job : jobs) {
-        auto &px = job.pixelData;
+        auto &px = job.pixels;
         if (px.empty()) continue;
 
         std::memcpy(static_cast<uint8_t *>(map) + offset, px.data(), px.size());
@@ -413,7 +413,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
         region.bufferOffset = offset;
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.layerCount = 1;
-        region.imageOffset = {(int32_t)job.x, (int32_t)job.y, 0};
+        region.imageOffset = {(int32_t)job.dstX, (int32_t)job.dstY, 0};
         region.imageExtent = {job.w, job.h, 1};
         regions.push_back(region);
 

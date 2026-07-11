@@ -63,5 +63,6 @@ private:
     TextContent text_;           // 文字内容属性
     ButtonStateProps button_;    // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
-    TextLayoutToken layoutToken_;   // 排版缓存句柄
+    /** @brief 排版结果（元素自己持有，无全局缓存） */
+    std::shared_ptr<TextLayoutResult> textResult_;
 };

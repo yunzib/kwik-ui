@@ -59,18 +59,22 @@ Size Input::onMeasure(Constraints constraints) {
     float lineH = fs * 1.4f;
 
     if (!text_.empty()) {
-        layoutToken_ = pipe.layoutText(text_, fid, fs, cfg);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (result) {
-            contentW = result->totalWidth;
-            lineH = result->totalHeight;
+        if (!textResult_ || !textResult_->matchesKey(text_, fid, fs, cfg)) {
+            textResult_ = pipe.layoutText(text_, fid, fs, cfg);
+        }
+
+        if (textResult_) {
+            contentW = textResult_->totalWidth;
+            lineH = textResult_->totalHeight;
         }
     } else if (!input_.placeholder.empty()) {
-        placeholderToken_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
-        auto *result = pipe.getLayout(placeholderToken_);
-        if (result) {
-            contentW = result->totalWidth;
-            lineH = result->totalHeight;
+        if (!placeholderResult_ || !placeholderResult_->matchesKey(input_.placeholder, fid, fs, cfg)) {
+            placeholderResult_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
+        }
+
+        if (placeholderResult_) {
+            contentW = placeholderResult_->totalWidth;
+            lineH = placeholderResult_->totalHeight;
         }
     }
 
@@ -80,6 +84,7 @@ Size Input::onMeasure(Constraints constraints) {
     if (props.height.has_value()) h = std::max(h, *props.height);
     return constraints.constrain({w, h});
 }
+
 // ============================================================================
 // onDraw — 渲染输入框 (含光标、密码掩码、裁剪)
 //
@@ -97,42 +102,42 @@ void Input::onDraw(Graphics &graphics) {
     TextLayoutConfig cfg;
     cfg.maxWidth = inner.width;
 
-    // ── 裁剪到 inner (防止文字溢出) ──
     graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
 
     if (text_.empty()) {
         // ── 占位符 ──
-        placeholderToken_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
-        pipe.ensureGlyphs(placeholderToken_);
-        auto *result = pipe.getLayout(placeholderToken_);
-        if (result && !result->glyphs.empty()) {
-            float textH = result->totalHeight;
+        if (!placeholderResult_ || !placeholderResult_->matchesKey(input_.placeholder, fid, fs, cfg)) {
+            placeholderResult_ = pipe.layoutText(input_.placeholder, fid, fs, cfg);
+        }
+
+        if (placeholderResult_) {
+            pipe.ensureGlyphs(*placeholderResult_);
+            float textH = placeholderResult_->totalHeight;
             float textY = inner.y + (inner.height - textH) * 0.5f;
             graphics.save();
             graphics.translate(inner.x, textY);
-            graphics.drawTextCached(result->glyphs, input_.placeholderColor);
+            graphics.drawTextCached(placeholderResult_->glyphs, input_.placeholderColor);
             graphics.restore();
         }
     } else {
         // ── 实际文字 ──
-        layoutToken_ = pipe.layoutText(text_, fid, fs, cfg);
-        pipe.ensureGlyphs(layoutToken_);
-        auto *result = pipe.getLayout(layoutToken_);
-        if (!result) {
+        if (!textResult_ || !textResult_->matchesKey(text_, fid, fs, cfg)) {
+            textResult_ = pipe.layoutText(text_, fid, fs, cfg);
+        }
+
+        pipe.ensureGlyphs(*textResult_);
+        if (!textResult_) {
             graphics.resetClip();
             graphics.restore();
             return;
         }
 
-        float textH = result->totalHeight;
+        float textH = textResult_->totalHeight;
         float textY = inner.y + (inner.height - textH) * 0.5f;
 
-        const std::vector<ShapedGlyph> *drawGlyphs;
-        std::vector<ShapedGlyph> maskedGlyphs;
-
         if (input_.isPassword) {
-            // ── 密码模式: 每个字符替换为 ● ──
+            // ── 密码模式 ──
             size_t charCount = 0;
             for (size_t i = 0; i < text_.size();) {
                 unsigned char c = static_cast<unsigned char>(text_[i]);
@@ -147,23 +152,18 @@ void Input::onDraw(Graphics &graphics) {
                 charCount++;
             }
             std::string masked;
-            for (size_t i = 0; i < charCount; i++) masked += "\xE2\x97\x8F";    // ●
-            auto maskedToken = pipe.layoutText(masked, fid, fs, cfg);
-            pipe.ensureGlyphs(maskedToken);
-            auto *maskedResult = pipe.getLayout(maskedToken);
-            if (maskedResult) maskedGlyphs = maskedResult->glyphs;
-
+            for (size_t i = 0; i < charCount; i++) masked += "\xE2\x97\x8F";
+            auto maskedResult = pipe.layoutText(masked, fid, fs, cfg);
+            pipe.ensureGlyphs(*maskedResult);
             graphics.save();
             graphics.translate(inner.x, textY);
-            graphics.drawTextCached(maskedGlyphs, input_.textColor);
+            if (maskedResult) graphics.drawTextCached(maskedResult->glyphs, input_.textColor);
             graphics.restore();
-            drawGlyphs = &maskedGlyphs;
         } else {
             graphics.save();
             graphics.translate(inner.x, textY);
-            graphics.drawTextCached(result->glyphs, input_.textColor);
+            graphics.drawTextCached(textResult_->glyphs, input_.textColor);
             graphics.restore();
-            drawGlyphs = &result->glyphs;
         }
 
         // ── 光标 ──
@@ -171,10 +171,13 @@ void Input::onDraw(Graphics &graphics) {
         if (focused_ && cursorVisible_ && !input_.readOnly) {
             size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
             float cx = inner.x;
-            for (size_t i = 0; i < glyphIdx && i < drawGlyphs->size(); i++) { cx += (*drawGlyphs)[i].advanceX; }
+            auto &glyphs = input_.isPassword ? textResult_->glyphs    // 密码模式下用 textResult_
+                                               :
+                                               textResult_->glyphs;
+            for (size_t i = 0; i < glyphIdx && i < glyphs.size(); i++) cx += glyphs[i].advanceX;
             cx = std::max(cx, inner.x);
             cx = std::min(cx, inner.x + inner.width - 1.5f);
-            float cursorH = fs * 1.4f;  //— 匹配行高
+            float cursorH = fs * 1.4f;
             float cy = inner.y + (inner.height - cursorH) * 0.5f;
             graphics.drawRect({cx, cy, 1.5f, cursorH}, input_.cursorColor);
         }
@@ -183,9 +186,9 @@ void Input::onDraw(Graphics &graphics) {
     graphics.resetClip();
     graphics.restore();
 
-    // ── 聚焦边框 ──
     if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f); }
 }
+
 // ============================================================================
 // onEvent — Tap / CharInput / KeyAction (DispatchEvent)
 // ============================================================================
@@ -256,37 +259,37 @@ bool Input::onEvent(const DispatchEvent &event) {
         return true;
     }
 
-case DispatchEvent::Type::KeyAction: {
-    if (!focused_) return false;
-    uint32_t vk = event.keyCode;
-    switch (vk) {
-    case 0x08:    // VK_BACK
-        if (!input_.readOnly) {
-            deleteBeforeCursor();
-            fireChange();
+    case DispatchEvent::Type::KeyAction: {
+        if (!focused_) return false;
+        uint32_t vk = event.keyCode;
+        switch (vk) {
+        case 0x08:    // VK_BACK
+            if (!input_.readOnly) {
+                deleteBeforeCursor();
+                fireChange();
+            }
+            break;
+        case 0x2E:    // VK_DELETE
+            if (!input_.readOnly) {
+                deleteAfterCursor();
+                fireChange();
+            }
+            break;
+        case 0x25: moveCursorLeft(); break;     // VK_LEFT
+        case 0x27: moveCursorRight(); break;    // VK_RIGHT
+        case 0x24: cursorToEnd(); break;        // VK_END
+        case 0x23: cursorToHome(); break;       // VK_HOME
         }
-        break;
-    case 0x2E:    // VK_DELETE
-        if (!input_.readOnly) {
-            deleteAfterCursor();
-            fireChange();
-        }
-        break;
-    case 0x25: moveCursorLeft(); break;     // VK_LEFT
-    case 0x27: moveCursorRight(); break;    // VK_RIGHT
-    case 0x24: cursorToEnd(); break;        // VK_END
-    case 0x23: cursorToHome(); break;       // VK_HOME
+        cursorVisible_ = true;
+        lastBlinkTime_ =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        markDirty();
+        return true;
     }
-    cursorVisible_ = true;
-    lastBlinkTime_ =
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
-            .count();
-    markDirty();
-    return true;
-}
 
-default: return View::onEvent(event);
-}
+    default: return View::onEvent(event);
+    }
 }
 // ============================================================================
 // 私有方法
@@ -367,8 +370,8 @@ void Input::focus() {
     focused_ = true;
     cursorVisible_ = true;
     lastBlinkTime_ =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
     markDirty();
     if (blinkTimerId_ == 0) scheduleBlinkTick();
 }

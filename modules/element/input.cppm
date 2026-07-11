@@ -90,9 +90,9 @@ private:
     size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
-    // 排版缓存 (TextRenderPipeline 内部管理)
-    TextLayoutToken layoutToken_;
-    TextLayoutToken placeholderToken_;
+   
+    std::shared_ptr<TextLayoutResult> textResult_;         // 文字排版结果
+    std::shared_ptr<TextLayoutResult> placeholderResult_;  // 占位符排版结果
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;

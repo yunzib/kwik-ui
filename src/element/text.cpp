@@ -26,30 +26,26 @@ import std;
 //
 // 注意: 此阶段不触发 FreeType 渲染（仅 HarfBuzz 排版）。
 // ═══════════════════════════════════════════════════════════════════════════
-
 Size Text::onMeasure(Constraints constraints) {
     auto &pipe = TextRenderPipeline::instance();
 
-    // ── 解析字体 ──
     FontId fid = pipe.loadFont(text_.fontFamily);
     if (fid == kInvalidFontId) { fid = pipe.activeFont(); }
 
-    // ── 排版配置 ──
     TextLayoutConfig cfg;
     cfg.maxWidth = constraints.maxWidth;
     cfg.align = static_cast<LayoutTextAlign>(text_.textAlign);
     cfg.fontWeight = static_cast<int>(text_.fontWeight);
     cfg.fontStyle = static_cast<int>(text_.fontStyle);
 
-    // ── 排版 + 缓存 ──
-    layoutToken_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+    if (!layoutResult_ || !layoutResult_->matchesKey(text_.text, fid, text_.fontSize, cfg)) {
+        layoutResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+    }
 
-    // ── 读取结果 ──
-    auto *result = pipe.getLayout(layoutToken_);
-    if (!result) { return constraints.constrain({0, 0}); }
+    if (!layoutResult_) { return constraints.constrain({0, 0}); }
 
-    float w = result->totalWidth;
-    float h = std::max(result->totalHeight, 16.0f);    // 空行最小高度
+    float w = layoutResult_->totalWidth;
+    float h = std::max(layoutResult_->totalHeight, 16.0f);
     return constraints.constrain({w, h});
 }
 
@@ -61,28 +57,15 @@ Size Text::onMeasure(Constraints constraints) {
 //   2. 单层 flat loop 构建 GlyphDrawData batch
 //   3. graphics.submitGlyphBatch → 一次命令 insert
 // ═══════════════════════════════════════════════════════════════════════════
-
 void Text::onDraw(Graphics &graphics) {
     if (text_.text.empty() || !props.visible) return;
     auto &pipe = TextRenderPipeline::instance();
-    pipe.ensureGlyphs(layoutToken_);
-    auto *result = pipe.getLayout(layoutToken_);
-    if (!result) return;
+    pipe.ensureGlyphs(*layoutResult_);
+    if (!layoutResult_ || layoutResult_->glyphs.empty()) return;
 
-    float bx = frame.x, by = frame.y;
-    std::vector<GlyphDrawData> batch;
-    batch.reserve(result->glyphs.size());
-    for (auto &sg : result->glyphs)
-        batch.push_back({
-            .x = bx + sg.x,
-            .y = by + sg.y,
-            .w = sg.width,
-            .h = sg.height,
-            .u0 = sg.uvLeft,
-            .v0 = sg.uvTop,
-            .u1 = sg.uvRight,
-            .v1 = sg.uvBottom,
-            .color = text_.textColor,
-        });
-    graphics.submitGlyphBatch(batch);
+    // [改] GlyphDrawData batch → drawTextCached
+    graphics.save();
+    graphics.translate(frame.x, frame.y);
+    graphics.drawTextCached(layoutResult_->glyphs, text_.textColor);
+    graphics.restore();
 }
