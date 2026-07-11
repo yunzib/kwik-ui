@@ -31,7 +31,7 @@ import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
 // import kwik.element.slider;
 // import kwik.element.progressbar;
-// import kwik.element.switch_button;
+import kwik.element.switch_button;
 // import kwik.element.line;
 // import kwik.element.spinner;
 // import kwik.element.table;
@@ -280,15 +280,15 @@ static struct InitBuiltinTypes {
         //     return pb;
         // });
 
-        // // ── Switch ──
-        // ElementParser::registerType("Switch", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto sw = std::make_unique<Switch>(parseViewProps(ex), parseSwitchProps(ex));
-        //     sw->propMeta = std::move(meta);
-        //     applyBindings(sw.get(), pv);
-        //     return sw;
-        // });
+        // ── Switch ──
+        ElementParser::registerType("Switch", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto sw = std::make_unique<Switch>(parseViewProps(ex), parseSwitchProps(ex));
+            sw->propMeta = std::move(meta);
+            applyBindings(sw.get(), pv);
+            return sw;
+        });
 
         // // ── Line ──
         // ElementParser::registerType("Line", [](const JSValueRef &pv) {

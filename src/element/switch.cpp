@@ -3,6 +3,7 @@
 //
 // 视觉: 水平圆角轨道 + 圆形滑块，选中 / 未选中两种状态
 // 交互: Tap 切换 checked，不响应拖拽 / 键盘
+// 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 
 module;
@@ -14,7 +15,7 @@ module;
 module kwik.element.switch_button;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -22,6 +23,7 @@ import kwik.render.command;
 import kwik.engine.js_value;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
+import kwik.event;
 
 import std;
 
@@ -29,10 +31,10 @@ import std;
 // thumbCenterX — 计算滑块中心 x 坐标（相对 frame.x）
 // ============================================================================
 float Switch::thumbCenterX() const {
-    float thumbR = sp_.thumbSize * 0.5f;  // = 10
-    float thumbPad = 0.0f;                // 取消间隙，圆贴边，和胶囊一体
-    float leftBound  = props.padding.left + thumbR + thumbPad;   // = 10
-    float rightBound = frame.width - props.padding.right - thumbR - thumbPad;  // = 38
+    float thumbR = sp_.thumbSize * 0.5f;
+    float thumbPad = 0.0f;
+    float leftBound  = props.padding.left + thumbR + thumbPad;
+    float rightBound = frame.width - props.padding.right - thumbR - thumbPad;
     if (rightBound <= leftBound) return (leftBound + rightBound) * 0.5f;
     return sp_.checked ? rightBound : leftBound;
 }
@@ -99,34 +101,33 @@ void Switch::onDraw(Graphics &graphics) {
 }
 
 // ============================================================================
-// onEvent — Tap 切换 checked
+// onEvent — Tap 切换 checked + 双向绑定 + 触发 onChange
+//
+// 事件通过 DispatchEvent 统一事件系统分发。
+// handlers.ctx 成员变量在 View 构造时赋值，无需额外传参。
 // ============================================================================
-bool Switch::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::Tap) {
+bool Switch::onEvent(const DispatchEvent &event) {
+    if (event.type == DispatchEvent::Type::Tap) {
         setChecked(!sp_.checked);
+
+        // ① 双向绑定：自动更新 State
         if (binding_) binding_->setBool(bindKey_, sp_.checked);
-        fireChange(ctx);
+
+        // ② 显式 onChange 回调（向下兼容）
+        if (!js_is_null(handlers.onChange) && handlers.ctx) {
+            JSValue eventObj = JS_NewObject(handlers.ctx);
+            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, sp_.checked));
+            JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
+            if (JS_IsException(ret)) {
+                JSValue exc = JS_GetException(handlers.ctx);
+                JS_FreeValue(handlers.ctx, exc);
+            }
+            JS_FreeValue(handlers.ctx, ret);
+            JS_FreeValue(handlers.ctx, eventObj);
+        }
         return true;
     }
-    return View::onEvent(code, localX, localY, ctx);
-}
-
-// ============================================================================
-// fireChange — 触发 onChange 回调
-// ============================================================================
-void Switch::fireChange(JSContext *ctx) {
-    if (!ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(ctx, handlers.onChange)) return;
-
-    JSValue eventObj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, eventObj, "checked", JS_NewBool(ctx, sp_.checked));
-    JSValue ret = JS_Call(ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(ctx);
-        JS_FreeValue(ctx, exc);
-    }
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, eventObj);
+    return View::onEvent(event);
 }
 
 // ============================================================================

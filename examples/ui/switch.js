@@ -57,29 +57,36 @@ export default View({
     // ── 操作按钮 ──
     Text({ text: "State 直接写入（触发 rebuild）", fontSize: 16, color: "#666", margin: [0, 0, 8, 0] }),
     Flex({ gap: 8, margin: [0, 0, 24, 0] }, [
-        Button({ text: "Wi-Fi = true", width: 110, height: 32, borderRadius: 4,
+        Button({ text: "Wi-Fi = true", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { state.wifi = true; } }),
-        Button({ text: "Wi-Fi = false", width: 110, height: 32, borderRadius: 4,
+        Button({ text: "Wi-Fi = false", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { state.wifi = false; } }),
-        Button({ text: "蓝牙 toggle", width: 110, height: 32, borderRadius: 4,
+        Button({ text: "蓝牙 toggle", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { state.bluetooth = !state.bluetooth; } }),
     ]),
 
     // ── getProp / setProp ──
     Text({ text: "getProp / setProp 测试", fontSize: 16, color: "#666", margin: [0, 0, 8, 0] }),
     Flex({ gap: 8, margin: [0, 0, 24, 0] }, [
-        Button({ text: "getProp('swWifi','checked')", width: 210, height: 32, borderRadius: 4,
+        Button({ text: "getProp('swWifi','checked')", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { console.log("swWifi.checked =", getProp("swWifi", "checked")); } }),
-        Button({ text: "setProp('swWifi','checked','true')", width: 260, height: 32, borderRadius: 4,
+        Button({ text: "setProp('swWifi','checked','true')", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { setProp("swWifi", "checked", "true"); } }),
-        Button({ text: "setProp('swWifi','checked','false')", width: 260, height: 32, borderRadius: 4,
+        Button({ text: "setProp('swWifi','checked','false')", flexGrow: 1, height: 36, borderRadius: 8,
+            background: "#FFFFFF", color: "#0F172A", borderWidth: 1, borderColor: "#E2E8F0", fontSize: 12,
             onClick: () => { setProp("swWifi", "checked", "false"); } }),
     ]),
 
     // ── 汇总 ──
     Button({
-        text: "打印所有状态", width: 160, height: 32, borderRadius: 4,
-        background: "#1976D2", textColor: "white",
+        text: "打印所有状态", width: 200, height: 38, borderRadius: 10,
+        background: "#6366F1", color: "#FFFFFF", fontSize: 13, fontWeight: "medium",
+        hoverBackground: "#4F46E5", pressedBackground: "#4338CA", pressedScale: 0.97,
         onClick: () => {
             console.log("═══════════ Switch 状态快照 ═══════════");
             console.log("State:");

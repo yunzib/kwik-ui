@@ -2,18 +2,17 @@ module;
 
 #include <string>
 #include <memory>
-#include "quickjs.h"
-
 
 export module kwik.element.switch_button;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
+import kwik.event;
 
 import std;
 
@@ -22,6 +21,7 @@ import std;
  *
  * 一条水平圆角轨道 + 圆形滑块，点击切换 checked 状态。
  * 无文字标签（由外部 Flex 组合 Text 实现）。
+ * 事件通过 DispatchEvent 统一事件系统。
  *
  * JS 用法:
  *   // 基本
@@ -67,7 +67,7 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     SwitchProps sp_;
@@ -75,11 +75,6 @@ private:
     // ─── 双向绑定 ─────────────────────────────────────
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
-
-    /**
-     * @brief 触发 onChange 回调 + 更新绑定
-     */
-    void fireChange(JSContext *ctx);
 
     /**
      * @brief 计算滑块中心 x 坐标（相对 frame.x）
