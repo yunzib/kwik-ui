@@ -1,4 +1,4 @@
-import { View, Text, Table, setProp } from 'kwikui';
+import { Root, View, Text, Table, setProp } from 'kwikui';
 
 const data = [
     { name: "Alice",   age: 28, email: "alice@example.com",   role: "前端开发" },
@@ -8,7 +8,7 @@ const data = [
     { name: "Eve",     age: 26, email: "eve@example.com",     role: "设计师" },
 ];
 
-export default () =>  View({
+export default () => Root(View({
     id: "root",
     background: "#f5f5f5", padding: 24,
 }, [
@@ -30,13 +30,14 @@ export default () =>  View({
         borderColor: "#e0e0e0",
         headerHeight: 38,
         rowHeight: 34,
-        fontSize: 13,
+        fontSize: 14,
         onRowClick: (e) => {
             console.log("row clicked .......");
             let row = e.row;
-            setProp("clickInfo", "text",
-                "点击行: [index=" + e.index + "] " +
-                row.name + ", " + row.age + "岁, " + row.role);
+            // setProp("clickInfo", "text",
+            //     "点击行: [index=" + e.index + "] " +
+            //     row.name + ", " + row.age + "岁, " + row.role);
+            console.log("row clicked .......", e.index, e.row.name, e.row.age, e.row.role);
         },
     }),
-]);
+]));

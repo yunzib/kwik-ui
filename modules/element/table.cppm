@@ -8,14 +8,16 @@ module;
 export module kwik.element.table;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font; // FontManager
+import kwik.render.text.types;    // TextLayoutResult, TextLayoutConfig, WrapMode, FontId
+import kwik.render.text.pipeline; // TextRenderPipeline
+import kwik.event;                // DispatchEvent
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
-import kwik.engine.js_value;
+import kwik.engine.js_value; 
 
 import std;
 
@@ -79,7 +81,7 @@ protected:
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     TableProps tp_;
@@ -88,16 +90,11 @@ private:
     JSContext *dataCtx_ = nullptr;
     JSValue data_{JS_UNDEFINED};
 
-    // ─── 字体路径 ─────────────────────────────────────
-    std::string fontPath_;
+    // ─── 字体缓存 ─────────────────────────────────────
+    FontId fontId_ = kInvalidFontId;    // TextRenderPipeline 字体 ID，首次 onDraw 初始化
 
     // ─── 布局缓存 ─────────────────────────────────────
-    float contentWidth_ = 0;
-
-    /**
-     * @brief 初始化字体路径（懒加载，首次 onDraw 时调用）
-     */
-    void ensureFontPath();
+    float contentWidth_ = 0;    // 各列宽度之和，onLayout 计算
 
     /**
      * @brief 计算各列实际宽度（固定宽优先，剩余按 flex 分配）
@@ -126,5 +123,5 @@ private:
     /**
      * @brief 触发 onRowClick 回调
      */
-    void fireRowClick(JSContext *ctx, int index, JSValue rowObj);
+    void fireRowClick(int index, JSValue rowObj);
 };

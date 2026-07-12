@@ -2,6 +2,7 @@
 // table.cpp — Table 数据表格控件
 //
 // 视觉: 表头行 + 数据行 + grid 边框 + 斑马纹
+// 渲染: 通过 TextRenderPipeline 排版文字, drawTextCached 绘制
 // 交互: 点击数据行回调 onRowClick（排序由 JS 侧处理）
 // ============================================================================
 
@@ -14,29 +15,20 @@ module;
 module kwik.element.table;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.command;
-import kwik.render.font;
-import kwik.engine.js_value;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+import kwik.event;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.core.log;
+import kwik.engine.js_value; 
 
 import std;
-
-// ============================================================================
-// ensureFontPath — 懒加载系统默认字体路径
-// ============================================================================
-void Table::ensureFontPath() {
-    if (!fontPath_.empty()) return;
-    auto &fm = FontManager::instance();
-    if (!tp_.fontFamily.empty()) { fontPath_ = fm.resolveFontPath(tp_.fontFamily); }
-    if (fontPath_.empty()) { fontPath_ = fm.resolveFontPath("NotoSansSC-Regular.otf"); }
-    if (fontPath_.empty()) { fontPath_ = FontManager::systemDefaultFont(); }
-}
 
 // ============================================================================
 // calcColumnWidths — 计算各列实际宽度
@@ -128,8 +120,6 @@ void Table::onLayout() {
 void Table::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
 
-    ensureFontPath();
-
     // 获取 JSContext：从 dataCtx_ 或 handlers.ctx
     JSContext *ctx = dataCtx_;
     if (!ctx) ctx = handlers.ctx;
@@ -180,7 +170,7 @@ void Table::onDraw(Graphics &graphics) {
 }
 
 // ============================================================================
-// drawHeader — 绘制表头行
+// drawHeader — 绘制表头行（TextRenderPipeline 排版）
 // ============================================================================
 void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const std::vector<float> &colWidths,
                        JSContext *ctx) {
@@ -193,6 +183,16 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
     // 表头背景
     g.drawRect(Rect{x, y, w, h}, bg);
 
+    // 获取 TextRenderPipeline 实例，首次调用时初始化 fontId_
+    auto &pipe = TextRenderPipeline::instance();
+    if (fontId_ == kInvalidFontId) {
+        fontId_ = pipe.activeFont();
+        if (fontId_ == kInvalidFontId) return; // 无可用字体，跳过文字
+    }
+
+    TextLayoutConfig cfg;
+    cfg.wrap = WrapMode::NoWrap;
+
     float cx = x;
     for (size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
         float cw = colWidths[i];
@@ -200,17 +200,16 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
 
         const auto &col = tp_.columns[i];
 
-        // 确保测量使用正确的字体
-        auto &fm = FontManager::instance();
-        fm.loadFont(fontPath_.c_str());
-        auto metrics = fm.getMetrics(fontSize);
-        auto glyphs = fm.shapeText(col.title.c_str(), fontSize);
-        float textW = 0;
-        for (auto &g : glyphs) {
-            textW = std::max(textW, g.x + g.width);
-        }
+        // 排版列标题
+        cfg.maxWidth = cw;
+        auto result = pipe.layoutText(col.title, fontId_, fontSize, cfg);
+        if (result->glyphs.empty()) { cx += cw; continue; }
+        pipe.ensureGlyphs(*result);
 
-        float textY = y + (h - metrics.lineHeight) * 0.5f + metrics.ascender;
+        float textW = result->totalWidth;
+        float textY = y + (h - result->totalHeight) * 0.5f;
+
+        // 水平对齐
         float drawX;
         if (col.align == "center") {
             drawX = cx + (cw - textW) * 0.5f;
@@ -220,10 +219,11 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
             drawX = cx + 8;
         }
 
-        // 列名文本（带列裁剪）
+        // 列裁剪 + 文本绘制
         g.save();
         g.clipRoundedRect(Rect{cx, y, cw, h}, 0);
-        g.drawText(fontPath_, col.title, fontSize, drawX, textY, textColor);
+        g.translate(drawX, textY);
+        g.drawTextCached(result->glyphs, textColor);
         g.restore();
 
         // 列间竖线
@@ -237,7 +237,7 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
 }
 
 // ============================================================================
-// drawRow — 绘制单行数据
+// drawRow — 绘制单行数据（TextRenderPipeline 排版）
 // ============================================================================
 void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<float> &colWidths, int rowIndex,
                     JSValue rowObj, bool isStriped, JSContext *ctx) {
@@ -249,6 +249,16 @@ void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<fl
     // 行背景（斑马纹）
     if (isStriped) { g.drawRect(Rect{x, y, contentWidth_, h}, tp_.stripeColor); }
 
+    // 获取 TextRenderPipeline 实例
+    auto &pipe = TextRenderPipeline::instance();
+    if (fontId_ == kInvalidFontId) {
+        fontId_ = pipe.activeFont();
+        if (fontId_ == kInvalidFontId) return;
+    }
+
+    TextLayoutConfig cfg;
+    cfg.wrap = WrapMode::NoWrap;
+
     float cx = x;
     for (size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
         float cw = colWidths[i];
@@ -259,36 +269,42 @@ void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<fl
         // 读取 cell 值并绘制
         if (ctx && !JS_IsUndefined(rowObj) && !JS_IsNull(rowObj)) {
             JSValue cellVal = JS_GetPropertyStr(ctx, rowObj, col.key.c_str());
-            const char *text = JS_ToCString(ctx, cellVal);
+
+            // 统一转字符串（兼容 number/boolean/null 等类型）
+            JSValue strVal = JS_ToString(ctx, cellVal);
+            const char *text = JS_ToCString(ctx, strVal);
             if (text) {
-                float textX = cx + 8;
+                if (text[0] != '\0') {
+                    // 排版单元格文本
+                    cfg.maxWidth = cw - 16;
+                    auto result = pipe.layoutText(text, fontId_, fontSize, cfg);
+                    if (result && !result->glyphs.empty()) {
+                        pipe.ensureGlyphs(*result);
 
-               // 测量文字实际渲染宽度（与 drawText 内部 shapeText 一致）
-                auto &fm = FontManager::instance();
-                fm.loadFont(fontPath_.c_str());
-                auto metrics = fm.getMetrics(fontSize);
-                auto glyphs = fm.shapeText(text, fontSize);
-                float textW = 0;
-                for (auto &g : glyphs) {
-                    textW = std::max(textW, g.x + g.width);
+                        float textW = result->totalWidth;
+                        float textY = y + (h - result->totalHeight) * 0.5f;
+
+                        // 水平对齐
+                        float textX;
+                        if (col.align == "center") {
+                            textX = cx + (cw - textW) * 0.5f;
+                        } else if (col.align == "right") {
+                            textX = cx + cw - textW - 8;
+                        } else {
+                            textX = cx + 8;
+                        }
+
+                        // 单元格裁剪 + 文本绘制
+                        g.save();
+                        g.clipRoundedRect(Rect{cx, y, cw, h}, 0);
+                        g.translate(textX, textY);
+                        g.drawTextCached(result->glyphs, textColor);
+                        g.restore();
+                    }
                 }
-
-                float textY = y + (h - metrics.lineHeight) * 0.5f + metrics.ascender;
-
-                if (col.align == "center") {
-                    textX = cx + (cw - textW) * 0.5f;
-                } else if (col.align == "right") {
-                    textX = cx + cw - textW - 8;
-                }
-
-                // 单元格文本（带列裁剪）
-                g.save();
-                g.clipRoundedRect(Rect{cx, y, cw, h}, 0);
-                g.drawText(fontPath_, text, fontSize, textX, textY, textColor);
-                g.restore();
-
                 JS_FreeCString(ctx, text);
             }
+            JS_FreeValue(ctx, strVal);
             JS_FreeValue(ctx, cellVal);
         }
 
@@ -303,12 +319,16 @@ void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<fl
 }
 
 // ============================================================================
-// onEvent — 事件处理
+// onEvent — 事件处理（接入 DispatchEvent）
 //
 // Tap 数据行 → fireRowClick
 // ============================================================================
-bool Table::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::Tap) {
+bool Table::onEvent(const DispatchEvent &event) {
+    // 全局坐标 → 局部坐标
+    float localX = event.globalX - frame.x;
+    float localY = event.globalY - frame.y;
+
+    if (event.type == DispatchEvent::Type::Tap) {
         // 确保 contentWidth_ 已初始化（容错 onLayout 未调用）
         if (contentWidth_ <= 0 && !tp_.columns.empty() && frame.width > 0) {
             float padH = props.padding.horizontal();
@@ -321,13 +341,15 @@ bool Table::onEvent(int code, float localX, float localY, JSContext *ctx) {
 
         // 只处理数据行点击，表头点击不处理
         if (localY >= headerEnd && localX >= x0 && localX < x0 + contentWidth_) {
-            if (!JS_IsUndefined(data_) && !JS_IsNull(data_) && JS_IsArray(data_)) {
+            JSContext *ctx = dataCtx_;
+            if (!ctx) ctx = handlers.ctx;
+            if (ctx && !JS_IsUndefined(data_) && !JS_IsNull(data_) && JS_IsArray(data_)) {
                 float rowStart = headerEnd;
                 int rowIndex = static_cast<int>((localY - rowStart) / tp_.rowHeight);
                 int total = rowCount(ctx);
                 if (rowIndex >= 0 && rowIndex < total) {
                     JSValue rowObj = JS_GetPropertyUint32(ctx, data_, rowIndex);
-                    fireRowClick(ctx, rowIndex, rowObj);
+                    fireRowClick(rowIndex, rowObj);
                     JS_FreeValue(ctx, rowObj);
                 }
             }
@@ -337,15 +359,15 @@ bool Table::onEvent(int code, float localX, float localY, JSContext *ctx) {
         return true;
     }
 
-    return View::onEvent(code, localX, localY, ctx);
+    return View::onEvent(event);
 }
 
 // ============================================================================
-// fireRowClick — 触发 onRowClick 回调
+// fireRowClick — 触发 onRowClick 回调（使用 handlers.ctx）
 // ============================================================================
-void Table::fireRowClick(JSContext *ctx, int index, JSValue rowObj) {
-    if (!ctx && !handlers.ctx) return;
-    if (!ctx) ctx = handlers.ctx;
+void Table::fireRowClick(int index, JSValue rowObj) {
+    JSContext *ctx = handlers.ctx;
+    if (!ctx) return;
     if (js_is_null(handlers.onRowClick)) return;
     if (!JS_IsFunction(ctx, handlers.onRowClick)) return;
 
@@ -357,9 +379,7 @@ void Table::fireRowClick(JSContext *ctx, int index, JSValue rowObj) {
     if (JS_IsException(ret)) {
         JSValue exc = JS_GetException(ctx);
         const char *msg = JS_ToCString(ctx, exc);
-        // 日志输出异常信息
         if (msg) {
-            // 使用框架现有的日志/错误输出机制
             Log::error("[Table::fireRowClick] %s\n", msg);
             JS_FreeCString(ctx, msg);
         }
@@ -374,7 +394,6 @@ void Table::fireRowClick(JSContext *ctx, int index, JSValue rowObj) {
 // ============================================================================
 std::string Table::getProperty(const char *name) const {
     if (std::strcmp(name, "rowCount") == 0) {
-        // 仅当有 dataCtx_ 时可返回行数
         return "0";
     }
     return View::getProperty(name);

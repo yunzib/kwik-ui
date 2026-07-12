@@ -25,7 +25,7 @@ target_sources(kwik_element
             modules/element/switch.cppm
             modules/element/line.cppm
             modules/element/spinner.cppm
-            # modules/element/table.cppm
+            modules/element/table.cppm
             # modules/element/textview.cppm
 
 
@@ -62,7 +62,7 @@ target_sources(kwik_element
         src/element/switch.cpp
         src/element/line.cpp
         src/element/spinner.cpp
-        # src/element/table.cpp
+        src/element/table.cpp
         # src/element/textview.cpp
 
         src/layout/flex_layout.cpp

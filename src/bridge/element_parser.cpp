@@ -34,7 +34,7 @@ import kwik.element.progressbar;
 import kwik.element.switch_button;
 import kwik.element.line;
 import kwik.element.spinner;
-// import kwik.element.table;
+import kwik.element.table;
 // import kwik.element.textview;
 import kwik.element.text;
 import kwik.element.button;
@@ -304,23 +304,23 @@ static struct InitBuiltinTypes {
             return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
         });
 
-        // // ── Table ──
-        // ElementParser::registerType("Table", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
+        // ── Table ──
+        ElementParser::registerType("Table", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
 
-        //     // 保留 data 数组的 JS 引用
-        //     if (pv.hasProperty("data")) {
-        //         auto dataVal = pv.getProperty("data");
-        //         if (dataVal.isArray()) {
-        //             JSContext *ctx = dataVal.context();
-        //             table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
-        //         }
-        //     }
+            // 保留 data 数组的 JS 引用
+            if (pv.hasProperty("data")) {
+                auto dataVal = pv.getProperty("data");
+                if (dataVal.isArray()) {
+                    JSContext *ctx = dataVal.context();
+                    table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
+                }
+            }
 
-        //     return table;
-        // });
+            return table;
+        });
 
         // // ── TextView（富文本编辑器）──
         // ElementParser::registerType("TextView", [](const JSValueRef &pv) {
