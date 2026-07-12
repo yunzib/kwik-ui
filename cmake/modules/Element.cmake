@@ -23,7 +23,7 @@ target_sources(kwik_element
             modules/element/slider.cppm
             modules/element/progressbar.cppm
             modules/element/switch.cppm
-            # modules/element/line.cppm
+            modules/element/line.cppm
             # modules/element/spinner.cppm
             # modules/element/table.cppm
             # modules/element/textview.cppm
@@ -60,7 +60,7 @@ target_sources(kwik_element
         src/element/slider.cpp
         src/element/progressbar.cpp
         src/element/switch.cpp
-        # src/element/line.cpp
+        src/element/line.cpp
         # src/element/spinner.cpp
         # src/element/table.cpp
         # src/element/textview.cpp
