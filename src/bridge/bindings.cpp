@@ -1074,6 +1074,11 @@ static JSValue js_dialog(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return makeElement(ctx, "Dialog", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+static JSValue js_tip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "Tip", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
@@ -1109,6 +1114,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("isAnimating", 2, js_isAnimating),
         JS_CFUNC_DEF("Tabs", 1, js_tabs),
         JS_CFUNC_DEF("Dialog", 1, js_dialog),
+        JS_CFUNC_DEF("Tip", 1, js_tip),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

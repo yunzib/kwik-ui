@@ -285,3 +285,4 @@ export TableProps parseTableProps(PropsExtractor &ex);
 export TextViewProps parseTextViewProps(PropsExtractor &ex);
 export TabsProps parseTabsProps(PropsExtractor &ex);
 export DialogProps parseDialogProps(PropsExtractor &ex);
+export TipProps parseTipProps(PropsExtractor &ex);

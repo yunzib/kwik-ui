@@ -634,3 +634,28 @@ DialogProps parseDialogProps(PropsExtractor &ex) {
     }
     return dp;
 }
+
+// ═══════════════════════════════════════════════════════
+// TipProps 解析
+// ═══════════════════════════════════════════════════════
+TipProps parseTipProps(PropsExtractor &ex) {
+    TipProps tp;
+    ex.get("target",       tp.target);
+    ex.get("text",         tp.text);
+    ex.get("position",     tp.position);
+    ex.get("offsetX",      tp.offsetX);
+    ex.get("offsetY",      tp.offsetY);
+    ex.get("fontSize",     tp.fontSize);
+    ex.get("borderRadius", tp.borderRadius);
+    if (ex.has("background")) {
+        auto val = ex.raw().getProperty("background");
+        if (!val.isNull() && !val.isUndefined())
+            tp.background = convertTo<Color>(val);
+    }
+    if (ex.has("textColor")) {
+        auto val = ex.raw().getProperty("textColor");
+        if (!val.isNull() && !val.isUndefined())
+            tp.textColor = convertTo<Color>(val);
+    }
+    return tp;
+}

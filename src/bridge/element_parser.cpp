@@ -46,6 +46,7 @@ import kwik.element.textarea;
 import kwik.element.dropdown;
 import kwik.element.tabs;
 import kwik.element.dialog;
+import kwik.element.tip;
 
 import std;
 
@@ -348,6 +349,13 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             return std::make_unique<Dialog>(parseViewProps(ex), parseDialogProps(ex));
+        });
+
+        // ── Tip ──
+        ElementParser::registerType("Tip", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Tip>(parseViewProps(ex), parseTipProps(ex));
         });
     }
 } _init_builtin_types;

@@ -21,6 +21,10 @@
   - ESC 键关闭（模态模式）
   - Portal 机制：始终绘制在最上层并优先命中事件
 - RootView Portal 支持（RootView::draw / RootView::hitTest 集成 portals_ 列表）
+- Tip 工具提示组件
+  - 独立于目标元素，通过 `target` id 引用定位
+  - 五种锚点：top / bottom / left / right / center
+  - Portal 最上层绘制，事件穿透
 
 ### 变更
 - 文本渲染架构重构 — 移除全局排版 ring buffer（`TextLayoutKey`/`LayoutEntry`/`TextLayoutToken`）

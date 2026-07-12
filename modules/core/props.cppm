@@ -469,3 +469,19 @@ export struct DialogProps {
     float offsetX = 0;                       ///< position 基础 X 偏移
     float offsetY = 0;                       ///< position 基础 Y 偏移
 };
+
+// ════════════════════════════════════════════════════════
+// Tip 属性 — 工具提示（独立元素，不包裹 target）
+// ════════════════════════════════════════════════════════
+export struct TipProps {
+    std::string target = "";             ///< 目标元素 id（用于定位）
+    std::string text = "";               ///< 提示文字
+    std::string position = "top";        ///< top|bottom|left|right|center
+    float offsetX = 0;                   ///< X 方向偏移
+    float offsetY = 6;                   ///< Y 方向偏移（默认 6px 间隔）
+    float fontSize = 12.0f;              ///< 提示文字字号
+    Color background{60, 60, 67, 230};   ///< 暗色半透明背景
+    Color textColor{255, 255, 255, 255}; ///< 文字颜色（白色）
+    float borderRadius = 4.0f;           ///< tooltip 圆角
+    EdgeInsets padding{4, 8, 4, 8};      ///< 文字内边距
+};
