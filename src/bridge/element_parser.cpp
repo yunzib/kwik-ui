@@ -45,6 +45,7 @@ import kwik.element.checkbox;
 import kwik.element.textarea;
 import kwik.element.dropdown;
 import kwik.element.tabs;
+import kwik.element.dialog;
 
 import std;
 
@@ -215,8 +216,7 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex),
-            parseRadioButtonProps(ex));
+            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
         });
 
         // ── RadioGroup ──
@@ -342,6 +342,13 @@ static struct InitBuiltinTypes {
             tabs->propMeta = std::move(meta);
             return tabs;
         });
+
+        // ── Dialog ──
+        ElementParser::registerType("Dialog", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Dialog>(parseViewProps(ex), parseDialogProps(ex));
+        });
     }
 } _init_builtin_types;
 
@@ -434,8 +441,9 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         tryBind("onHoverLeave");
         tryBind("onChange");
         tryBind("onRowClick");
+        tryBind("onClose");
     }
-    
+
     return element;
 }
 

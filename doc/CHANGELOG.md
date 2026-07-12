@@ -11,6 +11,16 @@
   - onChange 回调返回 {value, index}
   - getProp/setProp 读写 selectedIndex
   - 自定义颜色主题：文字色、标签背景色、指示线色
+- Dialog 弹框/模态浮层组件
+  - 模态模式：半透明遮罩覆盖全屏，阻断背景交互
+  - 非模态模式：无遮罩浮层，事件穿透到背景
+  - 9 个锚点定位 + offsetX/Y 微调（center/top/bottom/left/right/topLeft/topRight/bottomLeft/bottomRight）
+  - maskClosable 开关（点遮罩关闭）
+  - 自定义 maskColor / backgroundColor / borderRadius
+  - 自动高度适应内容，支持 maxHeight = 90% 视口
+  - ESC 键关闭（模态模式）
+  - Portal 机制：始终绘制在最上层并优先命中事件
+- RootView Portal 支持（RootView::draw / RootView::hitTest 集成 portals_ 列表）
 
 ### 变更
 - 文本渲染架构重构 — 移除全局排版 ring buffer（`TextLayoutKey`/`LayoutEntry`/`TextLayoutToken`）

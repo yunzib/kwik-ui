@@ -104,6 +104,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "button") return "../../examples/ui/button.js";
         if (arg == "animation") return "../../examples/ui/animation.js";
         if (arg == "tabs") return "../../examples/ui/tabs.js";
+        if (arg == "dialog") return "../../examples/ui/dialog.js";
         return arg;
     }
     return "../../examples/example.js";

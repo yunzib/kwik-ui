@@ -446,3 +446,26 @@ export struct TabsProps {
     Color activeTabBackground{0, 0, 0, 0};       ///< 选中 tab 的背景色 (默认透明)
     Color indicatorColor{25, 118, 210, 255};     ///< 指示线颜色 (默认同 activeColor)
 };
+
+// ════════════════════════════════════════════════════════
+// Dialog 属性 — 弹框 / 模态浮层
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 弹框专有属性
+ *
+ * 支持模态（遮罩+事件阻断）和非模态（浮层+事件穿透）两种模式。
+ * 通过 position + offsetX/Y 控制弹出位置。
+ */
+export struct DialogProps {
+    bool open = false;                       ///< 是否显示
+    Color maskColor{0, 0, 0, 102};           ///< 遮罩色 rgba(0,0,0,0.4)
+    bool maskClosable = true;                ///< 点遮罩关闭
+    float width = 400.0f;                    ///< 弹框容器宽度 px
+    float height = 0.0f;                     ///< 弹框容器高度 (0=auto)
+    float borderRadius = 8.0f;               ///< 容器圆角 px
+    Color backgroundColor{255, 255, 255, 255}; ///< 容器背景色
+    bool modal = true;                       ///< true=模态阻断; false=浮层穿透
+    std::string position = "center";         ///< center|top|bottom|left|right|topLeft|topRight|bottomLeft|bottomRight
+    float offsetX = 0;                       ///< position 基础 X 偏移
+    float offsetY = 0;                       ///< position 基础 Y 偏移
+};

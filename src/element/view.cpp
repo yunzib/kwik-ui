@@ -32,7 +32,9 @@ void ViewEventHandlers::bind(JSContext *c, const char *name, JSValue handler) {
         target = &onChange;
     else if (std::strcmp(name, "onRowClick") == 0) {
         target = &onRowClick;
-    } else
+    } else if (std::strcmp(name, "onClose") == 0)
+        target = &onClose;
+    else
         return;
     // 如果已有旧回调 (如 State 变更重建树), 先释放旧值
     if (!js_is_null(*target)) { JS_FreeValue(c, *target); }
@@ -94,6 +96,10 @@ void ViewEventHandlers::release() {
     if (!js_is_null(onRowClick)) {
         JS_FreeValue(ctx, onRowClick);
         onRowClick = JS_NULL;
+    }
+    if (!js_is_null(onClose)) {
+        JS_FreeValue(ctx, onClose);
+        onClose = JS_NULL;
     }
     ctx = nullptr;
 }

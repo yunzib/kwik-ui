@@ -28,6 +28,7 @@ target_sources(kwik_element
             modules/element/table.cppm
             modules/element/textview.cppm
             modules/element/tabs.cppm
+            modules/element/dialog.cppm
 
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
@@ -65,6 +66,7 @@ target_sources(kwik_element
         src/element/table.cpp
         src/element/textview.cpp
         src/element/tabs.cpp
+        src/element/dialog.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

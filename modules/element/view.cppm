@@ -38,6 +38,7 @@ export enum class ElementType : std::uint8_t {
     TextView,
     RootView,
     Tabs,
+    Dialog,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -65,6 +66,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::TextView: return "TextView";
     case ElementType::RootView: return "RootView";
     case ElementType::Tabs: return "Tabs";
+    case ElementType::Dialog: return "Dialog";
     }
     return "Unknown";
 }
@@ -90,6 +92,7 @@ export struct ViewEventHandlers {
     JSValue onHoverLeave = JS_NULL;    // 鼠标离开回调
     JSValue onChange = JS_NULL;        // Input 文本变更回调
     JSValue onRowClick = JS_NULL;      // 表格行点击
+    JSValue onClose = JS_NULL;         // Dialog 关闭回调
     JSContext *ctx = nullptr;          // QuickJS 上下文 (析构清理用)
     ViewEventHandlers() = default;
     /**
@@ -323,7 +326,7 @@ public:
      * @brief 绘制控件
      * @param graphics 绘图上下文
      */
-    void draw(Graphics &graphics);
+     virtual void draw(Graphics &graphics);
 
     // ==================== 子控件管理 ====================
     /**

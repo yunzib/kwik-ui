@@ -1,30 +1,66 @@
 module;
-#include "quickjs.h"
+#include <algorithm>
 
 module kwik.element.rootview;
-import kwik.element.view;
-import kwik.core.props;
+
 import kwik.core.types;
 import kwik.core.constraints;
+import kwik.render.graphics;
+import kwik.event;
 
-import std;
-
-// ============================================================================
-// RootView 布局实现
-// ============================================================================
-
-// onMeasure: 直接返回约束的最大尺寸 (跟随窗口)
-// 不做子节点测量 — Root 的尺寸由窗口决定，而非内容决定
 Size RootView::onMeasure(Constraints constraints) {
     return constraints.constrain({constraints.maxWidth, constraints.maxHeight});
 }
 
-// onLayout: 将自身 frame 原样传递给每个子节点
-// 不做垂直堆叠、不做 padding 内缩 — 子节点自行决定布局策略
 void RootView::onLayout() {
     Constraints cons = Constraints::loose(Size{frame.width, frame.height});
     for (auto &child : children) {
         Size s = child->measure(cons);
         child->layout(Rect{frame.x, frame.y, s.width, s.height});
     }
+}
+
+// ═══════════════════════════════════════════════════════
+// Portal 支持
+// ═══════════════════════════════════════════════════════
+void RootView::addPortal(View *portal) {
+    if (!portal) { return; }
+    // 避免重复注册
+    if (std::find(portals_.begin(), portals_.end(), portal) == portals_.end()) {
+        portals_.push_back(portal);
+    }
+}
+
+void RootView::removePortal(View *portal) {
+    auto it = std::remove(portals_.begin(), portals_.end(), portal);
+    portals_.erase(it, portals_.end());
+}
+
+// ═══════════════════════════════════════════════════════
+// draw — 先绘制普通 children，再绘制 Portal
+// ═══════════════════════════════════════════════════════
+void RootView::draw(Graphics &g) {
+    onDraw(g);  // 绘制背景
+
+    // 普通 View 树
+    for (auto &c : children) {
+        if (c->props.visible) { c->draw(g); }
+    }
+
+    // Portal 层（最上层）
+    for (auto *p : portals_) {
+        p->draw(g);
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// hitTest — 优先检查 Portal，再回退普通树
+// ═══════════════════════════════════════════════════════
+EventTarget* RootView::hitTest(Point p) {
+    // Portal 优先（逆序 = 最后注册的在上层）
+    for (auto it = portals_.rbegin(); it != portals_.rend(); ++it) {
+        if (auto *hit = (*it)->hitTest(p)) { return hit; }
+    }
+    // 回退普通树
+    return View::hitTest(p);
 }

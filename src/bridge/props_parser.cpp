@@ -603,3 +603,34 @@ TabsProps parseTabsProps(PropsExtractor &ex) {
     }
     return result;
 }
+
+// ═══════════════════════════════════════════════════════
+// DialogProps 解析
+// ═══════════════════════════════════════════════════════
+DialogProps parseDialogProps(PropsExtractor &ex) {
+    DialogProps dp;
+    ex.get("open", dp.open);
+    ex.get("maskClosable", dp.maskClosable);
+    ex.get("width", dp.width);
+    ex.get("height", dp.height);
+    ex.get("borderRadius", dp.borderRadius);
+    ex.get("modal", dp.modal);
+    ex.get("offsetX", dp.offsetX);
+    ex.get("offsetY", dp.offsetY);
+    ex.get("position", dp.position);
+
+    // 颜色（需特殊处理）
+    if (ex.has("maskColor")) {
+        auto val = ex.raw().getProperty("maskColor");
+        if (!val.isNull() && !val.isUndefined()) {
+            dp.maskColor = convertTo<Color>(val);
+        }
+    }
+    if (ex.has("backgroundColor")) {
+        auto val = ex.raw().getProperty("backgroundColor");
+        if (!val.isNull() && !val.isUndefined()) {
+            dp.backgroundColor = convertTo<Color>(val);
+        }
+    }
+    return dp;
+}
