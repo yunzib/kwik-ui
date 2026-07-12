@@ -29,8 +29,10 @@ EdgeInsets parseEdgeInsets(const JSValueRef &value) {
             return EdgeInsets(h, v);
         }
         if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(1).toFloat(), value.getArrayElement(2).toFloat(),
-                              value.getArrayElement(3).toFloat(), value.getArrayElement(0).toFloat());
+            return EdgeInsets(value.getArrayElement(3).toFloat(),      // left   = arr[3]
+                              value.getArrayElement(0).toFloat(),       // top    = arr[0]
+                              value.getArrayElement(1).toFloat(),     // right  = arr[1]
+                              value.getArrayElement(2).toFloat());   // bottom = arr[2]
         }
     }
     if (value.isObject()) {
@@ -103,7 +105,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     if (ex.has("margin")) result.margin = parseEdgeInsets(ex.raw().getProperty("margin"));
     ex.get("visible", result.visible);
     ex.get("opacity", result.opacity);
-    ex.get("scale", result.scale); 
+    ex.get("scale", result.scale);
 
     if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
     ex.get("flexGrow", result.flexGrow);
@@ -136,7 +138,6 @@ ViewProps parseViewProps(PropsExtractor &ex) {
                    {"bottomCenter", Align::BottomCenter},
                    {"bottomRight", Align::BottomRight},
                });
-    
 
     {
         float tmp = 0;
@@ -369,7 +370,7 @@ TextAreaProps parseTextAreaProps(PropsExtractor &ex) {
 DropdownProps parseDropdownProps(PropsExtractor &ex) {
     DropdownProps result;
     ex.get("placeholder", result.placeholder);
-    ex.get("value", result.value);      // 触发 tryRecordBinding → 激活 propMeta 绑定标记
+    ex.get("value", result.value);    // 触发 tryRecordBinding → 激活 propMeta 绑定标记
     ex.get("selectedIndex", result.selectedIndex);
     ex.get("fontSize", result.fontSize);
     ex.get("itemHeight", result.itemHeight);

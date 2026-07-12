@@ -68,19 +68,19 @@ export default View({
     // ── 操作按钮 ──
     Flex({ gap: 8, margin: [0, 0, 24, 0] }, [
         Button({
-            text: "进度 +10", width: 100, height: 32, borderRadius: 4,
+            text: "进度 +10", width: 100, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => { state.progress = Math.min(100, state.progress + 10); }
         }),
         Button({
-            text: "进度 -10", width: 100, height: 32, borderRadius: 4,
+            text: "进度 -10", width: 100, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => { state.progress = Math.max(0, state.progress - 10); }
         }),
         Button({
-            text: "自定义 +5", width: 110, height: 32, borderRadius: 4,
+            text: "自定义 +5", width: 110, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => { state.customProgress = Math.min(100, state.customProgress + 5); }
         }),
         Button({
-            text: "自定义 -5", width: 110, height: 32, borderRadius: 4,
+            text: "自定义 -5", width: 110, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => { state.customProgress = Math.max(0, state.customProgress - 5); }
         }),
     ]),
@@ -89,21 +89,21 @@ export default View({
     Text({ text: "getProp / setProp 测试", fontSize: 16, color: "#666", margin: [0, 0, 8, 0] }),
     Flex({ gap: 8, margin: [0, 0, 24, 0] }, [
         Button({
-            text: "getProp('pbRef','value')", width: 200, height: 32, borderRadius: 4,
+            text: "getProp('pbRef','value')", width: 200, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => {
                 let v = getProp("pbRef", "value");
                 console.log("[getProp] pbRef.value =", v);
             }
         }),
         Button({
-            text: "setProp('pbRef','value','80')", width: 220, height: 32, borderRadius: 4,
+            text: "setProp('pbRef','value','80')", width: 220, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => {
                 setProp("pbRef", "value", "80");
                 console.log("[setProp] pbRef.value → 80");
             }
         }),
         Button({
-            text: "setProp('pbRef','value','20')", width: 220, height: 32, borderRadius: 4,
+            text: "setProp('pbRef','value','20')", width: 220, height: 32, borderRadius: 4, color: "ffffff",
             onClick: () => {
                 setProp("pbRef", "value", "20");
                 console.log("[setProp] pbRef.value → 20");
@@ -113,7 +113,7 @@ export default View({
 
     // ── 汇总快照 ──
     Button({
-        text: "打印所有状态", width: 160, height: 32, borderRadius: 4,
+        text: "打印所有状态", width: 160, height: 32, borderRadius: 4, color: "ffffff",
         background: "#1976D2", textColor: "white",
         onClick: () => {
             console.log("═══════════ ProgressBar 状态快照 ═══════════");
