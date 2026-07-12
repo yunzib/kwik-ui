@@ -369,6 +369,7 @@ TextAreaProps parseTextAreaProps(PropsExtractor &ex) {
 DropdownProps parseDropdownProps(PropsExtractor &ex) {
     DropdownProps result;
     ex.get("placeholder", result.placeholder);
+    ex.get("value", result.value);      // 触发 tryRecordBinding → 激活 propMeta 绑定标记
     ex.get("selectedIndex", result.selectedIndex);
     ex.get("fontSize", result.fontSize);
     ex.get("itemHeight", result.itemHeight);

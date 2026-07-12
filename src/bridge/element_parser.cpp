@@ -43,7 +43,7 @@ import kwik.element.radiobutton;
 import kwik.layout.radio_group;
 import kwik.element.checkbox;
 import kwik.element.textarea;
-// import kwik.element.dropdown;
+import kwik.element.dropdown;
 
 import std;
 
@@ -250,15 +250,15 @@ static struct InitBuiltinTypes {
             return ta;
         });
 
-        // // ── Dropdown ──
-        // ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto dd = std::make_unique<Dropdown>(parseViewProps(ex), parseDropdownProps(ex));
-        //     dd->propMeta = std::move(meta);
-        //     applyBindings(dd.get(), pv);
-        //     return dd;
-        // });
+        // ── Dropdown ──
+        ElementParser::registerType("Dropdown", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto dd = std::make_unique<Dropdown>(parseViewProps(ex), parseDropdownProps(ex));
+            dd->propMeta = std::move(meta);
+            applyBindings(dd.get(), pv);
+            return dd;
+        });
 
         // // ── Slider ──
         // ElementParser::registerType("Slider", [](const JSValueRef &pv) {

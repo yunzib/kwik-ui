@@ -1,4 +1,4 @@
-import { View, Text, Dropdown, Button, Flex, getProp, setProp, State, ref } from 'kwikui';
+import { Root, View, Text, Dropdown, Button, Flex, getProp, setProp, State, ref } from 'kwikui';
 
 const form = new State({
     city: "上海",
@@ -9,13 +9,13 @@ const makeBtn = (label, bgColor, onClick) => Button({
     width: 100, height: 34,
     background: bgColor, borderRadius: 4,
     text: label,
-    textColor: "#ffffff",
+    color: "#ffffff",
     fontSize: 13,
     onClick: onClick,
     margin: [0, 0, 0, 0]
 });
 
-export default () => View({
+export default () => Root(View({
     width: 800,
     height: 600,
     background: "#f0f2f5",
@@ -127,4 +127,4 @@ export default () => View({
         makeBtn("设→Large", "#4285f4", () => setProp("sizeRef", "value", "Large")),
         makeBtn("form.size", "#9c27b0", () => console.log("form.size:", form.size)),
     ]),
-]);
+]));

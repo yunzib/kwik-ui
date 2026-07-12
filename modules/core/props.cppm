@@ -235,6 +235,7 @@ export struct TextAreaProps {
 // ════════════════════════════════════════════════════════
 export struct DropdownProps {
     std::string placeholder = "请选择...";           // 占位符 (未选择时显示)
+    std::string value;                                // 绑定值 (选中项文本, 用于 ref 双向绑定)
     std::vector<std::string> items;                  // 选项列表
     int selectedIndex = -1;                          // 选中索引 (-1 = 未选中)
     float fontSize = 14.0f;                          // 文字字号

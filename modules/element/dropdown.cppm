@@ -1,14 +1,17 @@
 module;
 #include <string>
+#include <memory>
 #include <vector>
 #include "quickjs.h"
 export module kwik.element.dropdown;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+import kwik.event;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
 
@@ -57,23 +60,19 @@ public:
 
     View *hitTest(Point point) override;
 
-    void applyWheel(float delta) override;
-
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     DropdownProps dp_;
     bool open_ = false;
-    int hoveredIndex_ = -1;     // 当前悬停的菜单项 (-1=无)
-    float scrollOffset_ = 0;    // 菜单滚动偏移 (px)
-    // ── 文字缓存 ──
-    ShapedTextCache triggerCache_;
-    std::vector<std::vector<ShapedGlyph>> itemGlyphsCache_;    // 菜单项字形缓存
-    int cachedItemCount_ = 0;
-    float cachedMenuFontSize_ = 0;
+    int hoveredIndex_ = -1;       // 当前悬停的菜单项 (-1=无)
+    float scrollOffset_ = 0;      // 菜单滚动偏移 (px)
+
+    // ── 文字 (TextRenderPipeline 排版) ──
+    std::shared_ptr<TextLayoutResult> triggerResult_;   // 触发区文字排版结果
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
@@ -82,6 +81,5 @@ private:
     float menuHeight() const;
     Rect menuRect() const;
     int hitMenuItem(float localX, float localY) const;
-    void reshapeText();
-    void fireChange(JSContext *ctx);
+    void fireChange();
 };

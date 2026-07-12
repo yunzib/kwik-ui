@@ -3,6 +3,7 @@
 //
 // 视觉: 触发区 (背景+文字+箭头) + 展开时菜单覆盖层
 // 交互: 点击触发区切换展开; 点击菜单项选中+关闭; 点击外部关闭
+// 文字: 通过 TextRenderPipeline 排版渲染, 元素持有 shared_ptr
 // ============================================================================
 module;
 #include "quickjs.h"
@@ -12,15 +13,16 @@ module;
 
 module kwik.element.dropdown;
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
 import kwik.render.command;
 import kwik.engine.js_value;
 import kwik.element.typed_prop;
-
+import kwik.event;
 
 import std;
 
@@ -45,15 +47,14 @@ int Dropdown::hitMenuItem(float localX, float localY) const {
     float itemY = frame.height;    // 菜单从触发区底部开始
     if (localY < itemY) return -1;
     int visualIdx = (int)((localY - itemY) / dp_.itemHeight);
-    int realIdx = visualIdx + (int)(scrollOffset_ / dp_.itemHeight);    // ← 滚动偏移
+    int realIdx = visualIdx + (int)(scrollOffset_ / dp_.itemHeight);
     float contentW = frame.width - props.padding.horizontal();
     if (localX < props.padding.left || localX > props.padding.left + contentW) return -1;
     if (realIdx < 0 || realIdx >= (int)dp_.items.size()) return -1;
     int maxN = std::min((int)dp_.items.size(), dp_.maxVisibleItems);
-    if (visualIdx < 0 || visualIdx >= maxN) return -1;    // ← 视觉窗口检查
+    if (visualIdx < 0 || visualIdx >= maxN) return -1;
     return realIdx;
 }
-
 
 // ════════════════════════════════════════════════════════
 // onMeasure — 仅返回触发区高度, 菜单不占布局空间
@@ -75,14 +76,9 @@ void Dropdown::setOpen(bool open) {
     props.z = open ? 100 : 0;
     if (open) {
         scrollOffset_ = 0;
-        auto &fm = FontManager::instance();
-        cachedItemCount_ = (int)dp_.items.size();
-        cachedMenuFontSize_ = dp_.fontSize;
-        itemGlyphsCache_.clear();
-        for (auto &item : dp_.items) { itemGlyphsCache_.push_back(fm.shapeText(item.c_str(), dp_.fontSize)); }
+        triggerResult_.reset();    // 重新展开时清除缓存
     }
     hoveredIndex_ = -1;
-    // ─ 完整可视区域 (trigger + 弹出菜单) 标记脏 ─
     Rect full = frame;
     full.height += menuHeight();
     addDirtyRect(full);
@@ -95,51 +91,65 @@ void Dropdown::selectItem(int index) {
 }
 
 // ════════════════════════════════════════════════════════
-// onEvent
+// onEvent (接入 DispatchEvent)
 // ════════════════════════════════════════════════════════
-bool Dropdown::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::Tap) {
-        // std::print("[Dropdown::onEvent] Tap at ({},{}) open={}\n", localX, localY, open_);  // ← 诊断
+bool Dropdown::onEvent(const DispatchEvent &event) {
+    float lx = event.globalX - frame.x;
+    float ly = event.globalY - frame.y;
+
+    switch (event.type) {
+    case DispatchEvent::Type::Tap:
         if (open_) {
-            int idx = hitMenuItem(localX, localY);
+            int idx = hitMenuItem(lx, ly);
             if (idx >= 0) {
                 selectItem(idx);
                 if (binding_) binding_->setString(bindKey_, dp_.items[idx]);
-                fireChange(ctx);
+                fireChange();
                 return true;
             }
-            // 点击菜单外 → 关闭
             setOpen(false);
             return true;
         } else {
-            // 点击触发区 → 打开
             setOpen(true);
             return true;
         }
-    }
-    if (code == ViewEventCode::HoverMove) {
+
+    case DispatchEvent::Type::HoverMove: {
         int prev = hoveredIndex_;
-        if (open_) { hoveredIndex_ = hitMenuItem(localX, localY); }
+        if (open_) { hoveredIndex_ = hitMenuItem(lx, ly); }
         if (open_ && hoveredIndex_ != prev) {
-            // ─ 菜单 hover 高亮变化 → 必须覆盖完整菜单可视区域 ─
             Rect full = frame;
             full.height += menuHeight();
             addDirtyRect(full);
         }
+        return false;    // 不吞没, 继续冒泡
     }
-    return View::onEvent(code, localX, localY, ctx);
+
+    case DispatchEvent::Type::Scroll:
+        if (!open_) break;
+        {
+            float totalH = (float)dp_.items.size() * dp_.itemHeight;
+            float visibleH = (float)dp_.maxVisibleItems * dp_.itemHeight;
+            float maxScroll = std::max(0.0f, totalH - visibleH);
+            scrollOffset_ = std::clamp(scrollOffset_ + event.scrollY, 0.0f, maxScroll);
+            markDirty();
+        }
+        return true;
+
+    default: break;
+    }
+    return View::onEvent(event);
 }
 
 // ════════════════════════════════════════════════════════
-// onDraw
+// onDraw — TextRenderPipeline 排版渲染
 // ════════════════════════════════════════════════════════
 void Dropdown::onDraw(Graphics &graphics) {
-    // ── 基类背景 / 阴影 ──
     View::onDraw(graphics);
 
-    auto &fm = FontManager::instance();
+    auto &pipe = TextRenderPipeline::instance();
+    FontId fid = pipe.activeFont();
     float fontSize = dp_.fontSize;
-    auto metrics = fm.getMetrics(fontSize);
     Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
 
     // ── 展开时蓝色聚焦边框 ──
@@ -147,35 +157,46 @@ void Dropdown::onDraw(Graphics &graphics) {
 
     // ── ① 触发区内容 (限定在 inner 内) ──
     graphics.clipRoundedRect(inner, props.borderRadius);
-    float textY = inner.y + (inner.height - fontSize) * 0.5f + metrics.ascender - 1.5f;
+
+    TextLayoutConfig cfg;
+    cfg.maxWidth = inner.width - 16;    // 左右留 8px padding
 
     if (dp_.selectedIndex < 0) {
-        auto placeholder = fm.shapeText(dp_.placeholder.c_str(), fontSize);
+        // 占位符
+        auto placeholderResult = pipe.layoutText(dp_.placeholder, fid, fontSize, cfg);
+        pipe.ensureGlyphs(*placeholderResult);
+        float textY = inner.y + (inner.height - placeholderResult->totalHeight) * 0.5f;
         graphics.save();
         graphics.translate(inner.x + 8, textY);
-        graphics.drawTextCached(placeholder, dp_.placeholderColor);
+        graphics.drawTextCached(placeholderResult->glyphs, dp_.placeholderColor);
         graphics.restore();
     } else {
+        // 已选中项
         std::string display = dp_.items[dp_.selectedIndex];
-        if (!triggerCache_.valid(display.c_str(), dp_.fontSize, fm.atlasVersion())) {
-            triggerCache_.set(fm.shapeText(display.c_str(), dp_.fontSize), display.c_str(), dp_.fontSize,
-                              fm.atlasVersion());
+        if (!triggerResult_ || !triggerResult_->matchesKey(display, fid, fontSize, cfg)) {
+            triggerResult_ = pipe.layoutText(display, fid, fontSize, cfg);
         }
+        pipe.ensureGlyphs(*triggerResult_);
+        float textY = inner.y + (inner.height - triggerResult_->totalHeight) * 0.5f;
         graphics.save();
         graphics.translate(inner.x + 8, textY);
-        graphics.drawTextCached(triggerCache_.glyphs, dp_.textColor);
+        graphics.drawTextCached(triggerResult_->glyphs, dp_.textColor);
         graphics.restore();
     }
 
     // 箭头 ▼
-    auto arrowGlyphs = fm.shapeText("\xE2\x96\xBC", fontSize * 0.85f);
+    TextLayoutConfig arrowCfg;
+    arrowCfg.maxWidth = 30;
+    auto arrowResult = pipe.layoutText("\xE2\x96\xBC", fid, fontSize * 0.85f, arrowCfg);
+    pipe.ensureGlyphs(*arrowResult);
     float arrowX = inner.x + inner.width - 20;
+    float arrowY = inner.y + (inner.height - arrowResult->totalHeight) * 0.5f;
     graphics.save();
-    graphics.translate(arrowX, textY - 1.5f);
-    graphics.drawTextCached(arrowGlyphs, dp_.arrowColor);
+    graphics.translate(arrowX, arrowY);
+    graphics.drawTextCached(arrowResult->glyphs, dp_.arrowColor);
     graphics.restore();
 
-    graphics.resetClip();    // ← 触发区内容结束, 解除裁剪
+    graphics.resetClip();
 
     // ── 展开菜单 (resetClip 后, 不受触发区裁剪限制) ──
     if (open_ && !dp_.items.empty()) {
@@ -189,26 +210,30 @@ void Dropdown::onDraw(Graphics &graphics) {
         // 整体背景
         Rect menuFull{menu.x, menu.y, menu.width, totalH};
         graphics.drawRoundedRect(menuFull, 6.0f, dp_.menuBackground);
-        graphics.clipRoundedRect(menuFull, 6.0f);    // ← 裁剪滚动溢出
+        graphics.clipRoundedRect(menuFull, 6.0f);
 
-        yCursor -= subOff;                      // ← 亚像素平滑偏移
-        for (int vi = 0; vi <= maxN; ++vi) {    // vi: 视觉索引
-            int i = skipItems + vi;             // i: 实际数据索引
+        TextLayoutConfig itemCfg;
+        itemCfg.maxWidth = menu.width - 12;
+        yCursor -= subOff;
+        for (int vi = 0; vi <= maxN; ++vi) {
+            int i = skipItems + vi;
             if (i < 0 || i >= (int)dp_.items.size()) continue;
-            if (i == dp_.selectedIndex || i == hoveredIndex_) {    // ← 高亮
+            if (i == dp_.selectedIndex || i == hoveredIndex_) {
                 Rect itemRect{menu.x, yCursor, menu.width, dp_.itemHeight};
                 Color hl = (i == dp_.selectedIndex) ? dp_.selectedBackground : dp_.hoverBackground;
                 graphics.drawRoundedRect(itemRect, 0.0f, hl);
             }
-            auto itemGlyphs = fm.shapeText(dp_.items[i].c_str(), fontSize);
-            float itemTextY = yCursor + (dp_.itemHeight - fontSize) * 0.5f + metrics.ascender;
+            // [改] 每项独立排版, ensureGlyphs 确保图集就绪
+            auto itemResult = pipe.layoutText(dp_.items[i], fid, fontSize, itemCfg);
+            pipe.ensureGlyphs(*itemResult);
+            float itemTextY = yCursor + (dp_.itemHeight - itemResult->totalHeight) * 0.5f;
             graphics.save();
             graphics.translate(menu.x + 12, itemTextY);
-            graphics.drawTextCached(itemGlyphs, dp_.textColor);
+            graphics.drawTextCached(itemResult->glyphs, dp_.textColor);
             graphics.restore();
             yCursor += dp_.itemHeight;
         }
-        graphics.resetClip();    // ← 解除裁剪
+        graphics.resetClip();
 
         // 描边
         graphics.drawRoundedRectStroke(menuFull, 6.0f, {203, 213, 225, 255}, 1.0f);
@@ -226,19 +251,20 @@ void Dropdown::onDraw(Graphics &graphics) {
 // ════════════════════════════════════════════════════════
 // fireChange
 // ════════════════════════════════════════════════════════
-void Dropdown::fireChange(JSContext *ctx) {
-    if (!ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(ctx, handlers.onChange)) return;
-    JSValue eventObj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, eventObj, "value", JS_NewString(ctx, dp_.items[dp_.selectedIndex].c_str()));
-    JS_SetPropertyStr(ctx, eventObj, "index", JS_NewInt32(ctx, dp_.selectedIndex));
-    JSValue ret = JS_Call(ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
+void Dropdown::fireChange() {
+    if (!handlers.ctx || js_is_null(handlers.onChange)) return;
+    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
+    JSValue eventObj = JS_NewObject(handlers.ctx);
+    JS_SetPropertyStr(handlers.ctx, eventObj, "value",
+                      JS_NewString(handlers.ctx, dp_.items[dp_.selectedIndex].c_str()));
+    JS_SetPropertyStr(handlers.ctx, eventObj, "index", JS_NewInt32(handlers.ctx, dp_.selectedIndex));
+    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
     if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(ctx);
-        JS_FreeValue(ctx, exc);
+        JSValue exc = JS_GetException(handlers.ctx);
+        JS_FreeValue(handlers.ctx, exc);
     }
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, eventObj);
+    JS_FreeValue(handlers.ctx, ret);
+    JS_FreeValue(handlers.ctx, eventObj);
 }
 
 View *Dropdown::hitTest(Point point) {
@@ -288,18 +314,9 @@ bool Dropdown::setProperty(const char *name, const char *value) {
     return View::setProperty(name, value);
 }
 
-void Dropdown::applyWheel(float delta) {
-    if (!open_) return;
-    float totalH = (float)dp_.items.size() * dp_.itemHeight;
-    float visibleH = (float)dp_.maxVisibleItems * dp_.itemHeight;
-    float maxScroll = std::max(0.0f, totalH - visibleH);
-    scrollOffset_ = std::clamp(scrollOffset_ + delta, 0.0f, maxScroll);
-    markDirty();
-}
-
-bool Dropdown::setPropertyTyped(const char* name, const TypedProp& value) {
+bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {
-        if (auto* s = std::get_if<std::string>(&value)) {
+        if (auto *s = std::get_if<std::string>(&value)) {
             for (int i = 0; i < (int)dp_.items.size(); ++i) {
                 if (dp_.items[i] == *s) {
                     selectItem(i);
@@ -311,11 +328,13 @@ bool Dropdown::setPropertyTyped(const char* name, const TypedProp& value) {
         return false;
     }
     if (std::strcmp(name, "index") == 0) {
-        if (auto* i = std::get_if<int64_t>(&value)) {
+        if (auto *i = std::get_if<int64_t>(&value)) {
             int idx = static_cast<int>(*i);
             if (idx >= -1 && idx < (int)dp_.items.size()) {
-                if (idx == -1) dp_.selectedIndex = -1;
-                else selectItem(idx);
+                if (idx == -1)
+                    dp_.selectedIndex = -1;
+                else
+                    selectItem(idx);
                 markDirty();
                 return true;
             }
