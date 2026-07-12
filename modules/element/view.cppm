@@ -37,6 +37,7 @@ export enum class ElementType : std::uint8_t {
     Table,
     TextView,
     RootView,
+    Tabs,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -63,6 +64,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Table: return "Table";
     case ElementType::TextView: return "TextView";
     case ElementType::RootView: return "RootView";
+    case ElementType::Tabs: return "Tabs";
     }
     return "Unknown";
 }

@@ -1063,6 +1063,13 @@ static JSValue js_channel_handle(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
+static JSValue js_tabs(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    resolveRefProp(ctx, props, "selectedIndex");
+    return makeElement(ctx, "Tabs", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
     // 只导出 View 和 Text 为普通工厂函数
@@ -1095,6 +1102,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("animate", 3, js_animate),
         JS_CFUNC_DEF("stop", 2, js_stop),
         JS_CFUNC_DEF("isAnimating", 2, js_isAnimating),
+        JS_CFUNC_DEF("Tabs", 1, js_tabs),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

@@ -29,10 +29,10 @@ EdgeInsets parseEdgeInsets(const JSValueRef &value) {
             return EdgeInsets(h, v);
         }
         if (len >= 4) {
-            return EdgeInsets(value.getArrayElement(3).toFloat(),      // left   = arr[3]
-                              value.getArrayElement(0).toFloat(),       // top    = arr[0]
+            return EdgeInsets(value.getArrayElement(3).toFloat(),     // left   = arr[3]
+                              value.getArrayElement(0).toFloat(),     // top    = arr[0]
                               value.getArrayElement(1).toFloat(),     // right  = arr[1]
-                              value.getArrayElement(2).toFloat());   // bottom = arr[2]
+                              value.getArrayElement(2).toFloat());    // bottom = arr[2]
         }
     }
     if (value.isObject()) {
@@ -568,4 +568,38 @@ TextViewProps parseTextViewProps(const JSValueRef &pv) {
     TypedPropMap meta;
     PropsExtractor ex(pv, &meta);
     return parseTextViewProps(ex);
+}
+
+// ════════════════════════════════════════════════════════
+// parseTabsProps
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 解析 Tabs 专有属性
+ * @param ex PropsExtractor 引用
+ * @return 填充后的 TabsProps
+ */
+TabsProps parseTabsProps(PropsExtractor &ex) {
+    TabsProps result;
+    ex.get("selectedIndex", result.selectedIndex);
+    ex.get("fontSize", result.fontSize);
+    ex.get("indicatorHeight", result.indicatorHeight);
+    ex.get("tabSpacing", result.tabSpacing);
+    ex.get("tabColor", result.tabColor);
+    ex.get("activeColor", result.activeColor);
+    ex.get("tabBackground", result.tabBackground);
+    ex.get("activeTabBackground", result.activeTabBackground);
+    ex.get("indicatorColor", result.indicatorColor);
+
+    // 解析 items 数组
+    if (ex.has("items")) {
+        auto itemsVal = ex.raw().getProperty("items");
+        if (itemsVal.isArray()) {
+            int len = itemsVal.getArrayLength();
+            for (int i = 0; i < len; ++i) {
+                auto item = itemsVal.getArrayElement(i);
+                if (item.isString()) result.items.push_back(item.toString());
+            }
+        }
+    }
+    return result;
 }

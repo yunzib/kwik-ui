@@ -283,3 +283,4 @@ export LineProps parseLineProps(PropsExtractor &ex);
 export SpinnerProps parseSpinnerProps(PropsExtractor &ex);
 export TableProps parseTableProps(PropsExtractor &ex);
 export TextViewProps parseTextViewProps(PropsExtractor &ex);
+export TabsProps parseTabsProps(PropsExtractor &ex);

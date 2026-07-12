@@ -417,3 +417,32 @@ export struct TextViewProps {
     int maxLength = 0;                              ///< 最大字符数（0 = 不限）
     bool readOnly = false;                          ///< 只读
 };
+
+// ════════════════════════════════════════════════════════
+// Tabs 属性 — 标签页导航
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 标签页导航专有属性
+ *
+ * 横向排列多个标签，点击切换选中项，底部指示线跟随。
+ * tabSpacing == 0 时等宽平分；> 0 时按文字自然宽度 + 间距。
+ *
+ * JS 用法:
+ *   Tabs({
+ *       items: ["首页", "发现", "我的"],
+ *       selectedIndex: 0,
+ *       onChange: (e) => console.log(e.value, e.index),
+ *   })
+ */
+export struct TabsProps {
+    std::vector<std::string> items;              ///< 标签文字列表
+    int selectedIndex = 0;                       ///< 当前选中索引
+    float fontSize = 14.0f;                      ///< 标签字号
+    float indicatorHeight = 2.0f;                ///< 底部指示线高度 (px)
+    float tabSpacing = 0.0f;                     ///< 标签间距 (0 = 等宽平分)
+    Color tabColor{102, 102, 102, 255};          ///< 未选中文字色 (#666)
+    Color activeColor{25, 118, 210, 255};        ///< 选中文字色 / 指示线色 (#1976D2)
+    Color tabBackground{0, 0, 0, 0};             ///< 每个 Tab 的背景色 (默认透明)
+    Color activeTabBackground{0, 0, 0, 0};       ///< 选中 tab 的背景色 (默认透明)
+    Color indicatorColor{25, 118, 210, 255};     ///< 指示线颜色 (默认同 activeColor)
+};

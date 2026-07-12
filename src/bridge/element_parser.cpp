@@ -44,6 +44,7 @@ import kwik.layout.radio_group;
 import kwik.element.checkbox;
 import kwik.element.textarea;
 import kwik.element.dropdown;
+import kwik.element.tabs;
 
 import std;
 
@@ -331,6 +332,15 @@ static struct InitBuiltinTypes {
             applyBindings(tv.get(), pv);
             Log::debug("TextView created: id={}", tv->getProperty("id"));
             return tv;
+        });
+
+        // ── Tabs ──
+        ElementParser::registerType("Tabs", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto tabs = std::make_unique<Tabs>(parseViewProps(ex), parseTabsProps(ex));
+            tabs->propMeta = std::move(meta);
+            return tabs;
         });
     }
 } _init_builtin_types;
