@@ -33,7 +33,7 @@ import kwik.element.slider;
 import kwik.element.progressbar;
 import kwik.element.switch_button;
 import kwik.element.line;
-// import kwik.element.spinner;
+import kwik.element.spinner;
 // import kwik.element.table;
 // import kwik.element.textview;
 import kwik.element.text;
@@ -297,12 +297,12 @@ static struct InitBuiltinTypes {
             return std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
         });
 
-        // // ── Spinner ──
-        // ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
-        // });
+        // ── Spinner ──
+        ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
+        });
 
         // // ── Table ──
         // ElementParser::registerType("Table", [](const JSValueRef &pv) {
