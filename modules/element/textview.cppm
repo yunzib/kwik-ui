@@ -12,6 +12,7 @@
 //     - JS onChange(content: Array<TextRun>) 回调
 // ============================================================================
 module;
+
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -21,14 +22,15 @@ module;
 export module kwik.element.textview;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;      // TextLayoutResult, ShapedGlyph, FontId, FontMetrics, WrapMode
+import kwik.render.text.pipeline;   // TextRenderPipeline
+import kwik.event;                  // DispatchEvent
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
-import kwik.engine.js_value;
 import kwik.core.log;
 
 import std;
@@ -67,13 +69,13 @@ struct LineInfo {
 /**
  * @brief 单个 TextRun 的排版缓存
  *
- * 包含 HarfBuzz 排版的全部字形信息，以及该 run 的样式引用。
- * onDraw 中直接使用 runShapes_[runIndex].glyphs 进行 drawTextCached。
+ * 包含 pipeline 排版结果（TextLayoutResult），其中携带所有字形 + 行元数据。
+ * onDraw 中直接使用 layoutResult->glyphs 进行 drawTextCached。
  */
 struct RunShape {
-    TextStyle style;                    ///< 本段样式（决定绘制参数）
-    std::vector<ShapedGlyph> glyphs;    ///< HarfBuzz 排版结果（含 UV）
-    float advance = 0;                  ///< 整段 advanceX 总和
+    TextStyle style;                              ///< 本段样式（决定绘制参数）
+    std::shared_ptr<TextLayoutResult> layoutResult;  ///< pipeline 排版结果
+    float advance = 0;                            ///< 整段 advanceX 总和
 };
 
 // ============================================================================
@@ -127,10 +129,10 @@ protected:
     // ==================== View 虚函数覆写 ====================
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
     void onLayout() override;
 
-   
+
 private:
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
@@ -143,6 +145,8 @@ private:
     std::vector<LineInfo> lines_;        ///< 换行结果
     float lastAvailWidth_ = 0;           ///< 最近一次建行的可用宽度
 
+    FontId fontId_ = kInvalidFontId;     ///< TextRenderPipeline 字体 ID，首次 rebuild_ 时初始化
+
     bool focused_ = false;          ///< 聚焦状态
     size_t cursorPos_ = 0;          ///< 光标在 plainText_ 中的字节偏移
     size_t selectionStart_ = 0;     ///< 选区起点（= cursorPos_ 时无选区）
@@ -150,8 +154,7 @@ private:
     uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
 
     // ── 内部方法 ──
-    std::string fontPath() const;    ///< 返回字体文件路径
-    float lh_(float fs) const;       ///< 计算行高
+    static float lh_(float fs) { return std::ceil(fs * 1.4f); }  ///< 计算行高
 
     void locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const;
 
@@ -180,6 +183,6 @@ private:
     size_t lineForByte_(size_t pos) const;
     float xForByte_(size_t pos) const;
 
-    void fireChange_(JSContext *ctx);
+    void fireChange_();
     bool updateCursorBlink_();
 };

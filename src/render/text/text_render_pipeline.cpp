@@ -41,6 +41,10 @@ FontId TextRenderPipeline::activeFont() const {
     return fontManager_.activeFont();
 }
 
+FontMetrics TextRenderPipeline::getFontMetrics(FontId font, float fontSize) {
+    return fontManager_.getMetrics(font, fontSize);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 排版 — 塑形 + 布局，结果由元素持有
 // ═══════════════════════════════════════════════════════════════════════════

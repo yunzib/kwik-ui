@@ -1,4 +1,4 @@
-import { View, Text, Button, TextView, State, ref, setProp, getProp } from 'kwikui';
+import { Root, View, Text, Button, TextView, State, ref, setProp, getProp } from 'kwikui';
 
 // ─── 双向绑定的 State ───
 const form = new State({ content: "Hello World from State" });
@@ -20,7 +20,7 @@ function BasicRichText() {
             width: 400, height: 120, borderRadius: 6,
             background: "#FFFFFF",
             borderColor: "#E0E0E0", borderWidth: 1,
-            onchange: (content) => console.log("TextView onChange:", JSON.stringify(content)),
+            onChange: (content) => console.log("TextView onChange:", JSON.stringify(content)),
         }),
     ]);
 }
@@ -39,11 +39,11 @@ function BoundTextView() {
         }),
         View({ flexDirection: "row", gap: 8, margin: [8, 0, 0, 0] }, [
             Button({
-                text: "Reset", width: 80, height: 32,
+                text: "Reset", width: 80, height: 32, color: "ffffff",
                 onClick: () => form.update({ content: "Hello World from State" }),
             }),
             Button({
-                text: "Clear", width: 80, height: 32,
+                text: "Clear", width: 80, height: 32, color: "ffffff",
                 onClick: () => form.update({ content: "" }),
             }),
         ]),
@@ -72,14 +72,14 @@ function ControlPanel() {
         Text({ text: "getProp / setProp", fontSize: 18, fontWeight: "bold", margin: [0, 0, 8, 0] }),
         View({ flexDirection: "row", gap: 8 }, [
             Button({
-                text: "Get value", width: 100, height: 32,
+                text: "Get value", width: 100, height: 32, color: "ffffff",
                 onClick: () => {
                     let val = getProp("boundTextview", "value");
                     console.log("Current value:", val);
                 },
             }),
             Button({
-                text: "Set plain", width: 100, height: 32,
+                text: "Set plain", width: 100, height: 32, color: "ffffff",
                 onClick: () => {
                     setProp("boundTextview", "value", "替换为纯文本");
                 },
@@ -89,7 +89,7 @@ function ControlPanel() {
 }
 
 // ─── export default ───
-export default () => View({ id: "root", width: 800, height: 600, background: "#FAFAFA", gap: 8 }, [
+export default () => Root(View({ id: "root", width: 800, height: 600, background: "#FAFAFA", gap: 8 }, [
     BasicRichText(),
     View({ height: 1, background: "#E0E0E0" }),
     BoundTextView(),
@@ -97,4 +97,4 @@ export default () => View({ id: "root", width: 800, height: 600, background: "#F
     ReadOnlyTextView(),
     View({ height: 1, background: "#E0E0E0" }),
     ControlPanel(),
-]);
+]));

@@ -51,6 +51,16 @@ public:
      */
     FontId activeFont() const;
 
+    /**
+     * @brief 获取字体度量信息
+     * @param font     字体 ID
+     * @param fontSize 字号（像素）
+     * @return FontMetrics 结构体（ascender / descender / lineHeight / underline 等）
+     *
+     * 用于 TextView 这样的组件需要精确的基线偏移量来定位下划线和删除线。
+     */
+    FontMetrics getFontMetrics(FontId font, float fontSize);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // 排版 — 返回 shared_ptr，元素自己持有
     // ═══════════════════════════════════════════════════════════════════════════

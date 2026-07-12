@@ -35,7 +35,7 @@ import kwik.element.switch_button;
 import kwik.element.line;
 import kwik.element.spinner;
 import kwik.element.table;
-// import kwik.element.textview;
+import kwik.element.textview;
 import kwik.element.text;
 import kwik.element.button;
 import kwik.element.input;
@@ -322,16 +322,16 @@ static struct InitBuiltinTypes {
             return table;
         });
 
-        // // ── TextView（富文本编辑器）──
-        // ElementParser::registerType("TextView", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto tv = std::make_unique<TextView>(parseViewProps(ex), parseTextViewProps(ex));
-        //     tv->propMeta = std::move(meta);
-        //     applyBindings(tv.get(), pv);
-        //     Log::debug("TextView created: id={}", tv->getProperty("id"));
-        //     return tv;
-        // });
+        // ── TextView（富文本编辑器）──
+        ElementParser::registerType("TextView", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto tv = std::make_unique<TextView>(parseViewProps(ex), parseTextViewProps(ex));
+            tv->propMeta = std::move(meta);
+            applyBindings(tv.get(), pv);
+            Log::debug("TextView created: id={}", tv->getProperty("id"));
+            return tv;
+        });
     }
 } _init_builtin_types;
 

@@ -19,14 +19,16 @@ module;
 module kwik.element.textview;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.font;
+import kwik.render.text.types;
+import kwik.render.text.pipeline;
+import kwik.event;
+import kwik.element.typed_prop;
 import kwik.core.log;
 import kwik.engine.js_value;
-import kwik.element.typed_prop;
 
 import std;
 using namespace std::chrono;
@@ -68,25 +70,6 @@ TextView::TextView(ViewProps vp, TextViewProps tvp) : View(std::move(vp)), tvp_(
     rebuild_();
 }
 
-/**
- * @brief 确定字体路径
- *
- * 当前固定使用 NotoSansSC-Regular.otf，后续扩展 FontManager 多 face 时
- * 可依 fontWeight / fontStyle 返回不同变体路径。
- */
-std::string TextView::fontPath() const {
-    return FontManager::instance().resolveFontPath("NotoSansSC-Regular.otf");
-}
-
-/**
- * @brief 计算行高
- * @param fs 字号
- * @return 行高 ≈ fontSize × 1.4（接近 CSS line-height: normal）
- */
-float TextView::lh_(float fs) const {
-    return std::ceil(fs * 1.4f);
-}
-
 // ============================================================================
 // 定位工具
 // ============================================================================
@@ -120,7 +103,7 @@ void TextView::locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const
  * 编辑操作（insertAtCursor_ / deleteBeforeCursor_ / toggleStyle_）修改
  * content_ 后必须调用此方法以同步：
  *   1. plainText_  ← content_ 各 run text 拼接
- *   2. runShapes_  ← HarfBuzz 逐 run 排版
+ *   2. runShapes_  ← TextRenderPipeline 逐 run 排版
  *   3. lines_      ← 基于 lastAvailWidth_ 重建行
  *
  * 此方法不依赖外部宽度，lines_ 的完整重建在 rebuildLines_() 中。
@@ -130,18 +113,26 @@ void TextView::rebuild_() {
     plainText_.clear();
     for (auto &run : content_) plainText_ += run.text;
 
-    // 2. 排版每个 run
-    auto &fm = FontManager::instance();
-    fm.loadFont(fontPath().c_str());
+    // 2. 通过 TextRenderPipeline 排版每个 run
+    auto &pipe = TextRenderPipeline::instance();
+    if (fontId_ == kInvalidFontId) {
+        fontId_ = pipe.activeFont();
+    }
+
+    TextLayoutConfig cfg;
+    cfg.wrap = WrapMode::NoWrap;
+    cfg.maxWidth = 1e10f;
 
     runShapes_.clear();
     for (auto &run : content_) {
         RunShape rs;
         rs.style = run.style;
         float fs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
-        if (!run.text.empty()) {
-            rs.glyphs = fm.shapeText(run.text.c_str(), fs);
-            for (auto &g : rs.glyphs) rs.advance += g.advanceX;
+        if (fontId_ != kInvalidFontId && !run.text.empty()) {
+            rs.layoutResult = pipe.layoutText(run.text, fontId_, fs, cfg);
+            if (rs.layoutResult) {
+                for (auto &g : rs.layoutResult->glyphs) rs.advance += g.advanceX;
+            }
         }
         runShapes_.push_back(std::move(rs));
     }
@@ -177,10 +168,11 @@ void TextView::rebuildLines_(float availWidth) {
 
     for (size_t ri = 0; ri < runShapes_.size(); ++ri) {
         auto &rs = runShapes_[ri];
-        if (rs.glyphs.empty()) {
+        if (!rs.layoutResult || rs.layoutResult->glyphs.empty()) {
             byteAcc += content_[ri].text.size();
             continue;
         }
+        auto &glyphs = rs.layoutResult->glyphs;
 
         float fs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
         float lh = lh_(fs);
@@ -188,8 +180,8 @@ void TextView::rebuildLines_(float availWidth) {
 
         size_t runByteStart = byteAcc;
 
-        for (size_t gi = 0; gi < rs.glyphs.size(); ++gi) {
-            auto &g = rs.glyphs[gi];
+        for (size_t gi = 0; gi < glyphs.size(); ++gi) {
+            auto &g = glyphs[gi];
 
             // ── 计算该 glyph 对应的字节偏移 ──
             size_t gBytePos = runByteStart;
@@ -353,7 +345,8 @@ Size TextView::onMeasure(Constraints constraints) {
  *   2. clip 到内容区
  *   3. 逐行渲染：
  *      a. 选区高亮矩形（半透明 selectionColor）
- *      b. 文字（drawTextCached），fontWeight==Bold 时再叠画一次
+ *      b. 文字（drawTextCached，先 ensureGlyphs 确保图集就绪）
+ *         fontWeight==Bold 时再叠画一次（伪粗体 x+1）
  *      c. 下划线 / 删除线（drawRect）
  *   4. 光标竖线（focused 且 cursorVisible 时）
  *   5. restore clip
@@ -362,8 +355,11 @@ void TextView::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
     if (lines_.empty()) return;
 
-    auto &fm = FontManager::instance();
-    fm.loadFont(fontPath().c_str());
+    auto &pipe = TextRenderPipeline::instance();
+    if (fontId_ == kInvalidFontId) {
+        fontId_ = pipe.activeFont();
+        if (fontId_ == kInvalidFontId) return;
+    }
 
     Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
                   frame.height - props.padding.vertical()};
@@ -391,20 +387,26 @@ void TextView::onDraw(Graphics &graphics) {
         for (size_t gi = 0; gi < line.glyphs.size();) {
             auto &lg = line.glyphs[gi];
             auto &rs = runShapes_[lg.runIndex];
+            if (!rs.layoutResult) { gi++; continue; }
+            auto &glyphs = rs.layoutResult->glyphs;
             auto &style = rs.style;
             float fs = style.fontSize > 0 ? style.fontSize : 16.0f;
 
-            auto metrics = fm.getMetrics(fs);
+            // 从 pipeline 获取字体度量（基线、下划线位置等）
+            auto metrics = pipe.getFontMetrics(fontId_, fs);
             float textH = metrics.ascender - metrics.descender;
             float baseY = drawY + (lh - textH) * 0.5f + metrics.ascender;
             Color color = style.textColor;
 
-            // 收集同 run 连续 glyphs
+            // ── 文字：先 ensureGlyphs 确保 UV/尺寸已回填，再拷贝 batch ──
+            if (rs.layoutResult) pipe.ensureGlyphs(*rs.layoutResult);
+
+            // 收集同 run 连续 glyphs（此时 UV 已就绪）
             std::vector<ShapedGlyph> batch;
             float runStartX = inner.x + line.glyphs[gi].x;
             while (gi < line.glyphs.size() && line.glyphs[gi].runIndex == lg.runIndex) {
                 auto &lg2 = line.glyphs[gi];
-                auto &sg = rs.glyphs[lg2.glyphIndex];
+                auto &sg = glyphs[lg2.glyphIndex];
                 ShapedGlyph copy = sg;
                 copy.x = inner.x + lg2.x;
                 copy.y = baseY + sg.y;
@@ -419,13 +421,10 @@ void TextView::onDraw(Graphics &graphics) {
                 size_t selE = std::max(selectionStart_, cursorPos_);
                 for (auto &sg : batch) {
                     // 近似判断 glyph 在选区内：通过全局字节序
-                    // (更精确的方案需要 byteOffset 映射，此处简化)
                 }
-                // 整段高亮
                 graphics.drawRect({runStartX, drawY, runEndX - runStartX, lh}, tvp_.selectionColor);
             }
 
-            // ── 文字 ──
             graphics.save();
             if (style.fontWeight == FontWeight::Bold) {
                 // 伪粗体：偏移 +1px 再画一次
@@ -483,54 +482,49 @@ void TextView::onDraw(Graphics &graphics) {
  *   Back    — 退格
  *   Delete  — 删除
  *
- * @param code    ViewEventCode::KeyAction 或 CharInput
- * @param localX  keyCode (KeyAction) 或 Unicode codepoint (CharInput)
- * @param localY  modifiers (位掩码)
- * @param ctx     JSContext 指针（用于 fireChange_）
+ * @param event DispatchEvent 事件（Type::KeyAction / Type::CharInput）
  * @return true 表示事件已消费
  */
-bool TextView::onEvent(int code, float localX, float localY, JSContext *ctx) {
-    if (code == ViewEventCode::KeyAction) {
+bool TextView::onEvent(const DispatchEvent &event) {
+    if (event.type == DispatchEvent::Type::KeyAction) {
         if (!focused_) return false;
-        uint32_t vk = static_cast<uint32_t>(localX);
-        bool ctrl = (static_cast<int>(localY) & 0x02) != 0;
+        auto vk = event.keyCode;
+        bool ctrl = (event.modifiers & 0x02) != 0;
 
         if (ctrl) {
-            // Ctrl 组合键（不含 goto）
             switch (vk) {
             case 0x42:
                 toggleStyle_(toggleBold_);
                 rebuild_();
-                fireChange_(ctx);
+                fireChange_();
                 break;
             case 0x49:
                 toggleStyle_(toggleItalic_);
                 rebuild_();
-                fireChange_(ctx);
+                fireChange_();
                 break;
             case 0x55:
                 toggleStyle_(toggleUnderline_);
                 rebuild_();
-                fireChange_(ctx);
+                fireChange_();
                 break;
             case 0x41: selectAll_(); break;
             default: return false;
             }
         } else {
-            // 普通键
             switch (vk) {
             case 0x08:
                 if (!tvp_.readOnly) {
                     deleteBeforeCursor_();
                     rebuild_();
-                    fireChange_(ctx);
+                    fireChange_();
                 }
                 break;
             case 0x2E:
                 if (!tvp_.readOnly) {
                     deleteAfterCursor_();
                     rebuild_();
-                    fireChange_(ctx);
+                    fireChange_();
                 }
                 break;
             case 0x25: moveCursorLeft_(); break;
@@ -556,9 +550,9 @@ bool TextView::onEvent(int code, float localX, float localY, JSContext *ctx) {
     }
 
     // ── 字符输入 ──
-    if (code == ViewEventCode::CharInput) {
+    if (event.type == DispatchEvent::Type::CharInput) {
         if (!focused_ || tvp_.readOnly) return false;
-        uint32_t cp = static_cast<uint32_t>(localX);
+        auto cp = event.charCode;
         if (cp == 0) return true;
 
         // maxLength 检查
@@ -601,10 +595,10 @@ bool TextView::onEvent(int code, float localX, float localY, JSContext *ctx) {
 
         insertAtCursor_(utf8);
         rebuild_();
-        fireChange_(ctx);
+        fireChange_();
     }
 
-    return View::onEvent(code, localX, localY, ctx);
+    return View::onEvent(event);
 }
 
 // ============================================================================
@@ -615,6 +609,7 @@ void TextView::focus() {
     cursorVisible_ = true;
     lastBlinkTime_ = duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
+
 // ============================================================================
 // 文本编辑（直接操作 content_）
 // ============================================================================
@@ -844,14 +839,12 @@ void TextView::toggleStyle_(void (*mod)(TextStyle &)) {
     size_t e = std::max(selectionStart_, cursorPos_);
 
     if (s == e) {
-        // 无选区 → 切换光标所在 run 的样式
         size_t ri, off;
         locateByte_(s > 0 ? s - 1 : 0, ri, off);
         if (ri < content_.size()) mod(content_[ri].style);
         return;
     }
 
-    // 有选区 → 切换选区涉及的所有 run
     for (size_t ri = 0; ri < content_.size(); ++ri) {
         size_t runS = 0;
         for (size_t j = 0; j < ri; ++j) runS += content_[j].text.size();
@@ -914,12 +907,14 @@ bool TextView::updateCursorBlink_() {
 /**
  * @brief 触发 JS onChange 回调
  *
+ * 使用 handlers.ctx 作为 QuickJS 上下文。
  * 参数数组:
  *   args[0] = [{text, fontWeight, fontStyle, underline, strikethrough, fontSize, textColor}, ...]
  *
  * selection 信息暂不回传（可后续扩展）。
  */
-void TextView::fireChange_(JSContext *ctx) {
+void TextView::fireChange_() {
+    JSContext *ctx = handlers.ctx;
     if (!ctx) return;
     if (js_is_null(handlers.onChange)) return;
     if (!JS_IsFunction(ctx, handlers.onChange)) return;
