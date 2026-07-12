@@ -1,4 +1,4 @@
-import { View, Text, Slider, State, ref, setProp } from 'kwikui';
+import { Root, View, Text, Slider, State, ref, setProp, Flex } from 'kwikui';
 
 // ─── 模块级 State ───
 const form = new State({ volume: 42, brightness: 80 });
@@ -85,11 +85,47 @@ function SettingsPage() {
     ]);
 }
 
+// ─── 竖直 Slider ───
+function VerticalSlider() {
+    return Flex({ direction: "row", gap: 32, padding: 20, justifyContent: "center", alignItems: "flex-end" }, [
+        View({ alignItems: "center", gap: 8 }, [
+            Text({ text: "音量", fontSize: 14, color: "#666" }),
+            Slider({
+                vertical: true, value: 50,
+                showThumb: false,
+                trackHeight: 4, thumbSize: 0,
+                height: 150,
+                trackHeight: 30,
+                onChange: (e) => console.log(`竖直音量: ${e.value}`),
+            }),
+            Text({ text: `${form.volume}`, fontSize: 13, color: "#999" }),
+        ]),
+        View({ alignItems: "center", gap: 8 }, [
+            Text({ text: "亮度", fontSize: 14, color: "#666" }),
+            Slider({
+                vertical: true,
+                // value: ref(form, "brightness"),
+                min: 0, max: 100, step: 5,
+                height: 150,
+                color: "#FF9800",
+                trackHeight: 30,
+                thumbColor: "#ff4444",
+                thumbBorderColor: "#cc0000",
+                thumbSize: 28,
+                onChange: (e) => console.log(`竖直亮度: ${e.value}`),
+            }),
+            Text({ text: `${form.brightness}%`, fontSize: 13, color: "#999" }),
+        ]),
+    ]);
+}
+
 // ─── 默认导出 ───
-export default () => View({ gap: 32 }, [
+export default () => Root(View({ gap: 32 }, [
     BasicSlider(),
     View({ height: 1, background: "#E0E0E0" }),
     BoundSlider(),
     View({ height: 1, background: "#E0E0E0" }),
+    VerticalSlider(),
+    View({ height: 1, background: "#E0E0E0" }),
     SettingsPage(),
-]);
+]));

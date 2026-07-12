@@ -7,10 +7,11 @@ module;
 export module kwik.element.slider;
 
 import kwik.element.view;
-import kwik.element.props;
+import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
+import kwik.event;
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
 
@@ -19,12 +20,15 @@ import std;
 /**
  * @brief 滑动条控件
  *
- * 一条水平轨道 + 可拖拽的圆形滑块。
+ * 水平或竖直轨道 + 可拖拽的圆形滑块。
  * 支持鼠标拖拽 / 触屏 Pan / 键盘方向键调整值。
  *
  * JS 用法:
- *   // 基本
- *   Slider({ value: 50, min: 0, max: 100, step: 1, color: "#FF5252" })
+ *   // 水平 (默认)
+ *   Slider({ value: 50, min: 0, max: 100, step: 1 })
+ *
+ *   // 竖直
+ *   Slider({ value: 50, vertical: true, height: 200 })
  *
  *   // 双向绑定
  *   Slider({ value: ref(form, "volume") })
@@ -61,7 +65,7 @@ public:
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
-    bool onEvent(int code, float localX, float localY, JSContext *ctx) override;
+    bool onEvent(const DispatchEvent &event) override;
 
 private:
     SliderProps sp_;
@@ -70,19 +74,24 @@ private:
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
 
+    // ─── 拖拽状态 ─────────────────────────────────────
+    bool isDragging_ = false;             // Pointer 拖拽中
+
     // ─── 内部辅助 ─────────────────────────────────────
     /**
-     * @brief 将 localX 映射到 [min, max] 区间值, 按 step 取整
+     * @brief 将坐标映射到 [min, max] 区间值, 按 step 取整
+     * @param localX 元素局部 X (水平方向用)
+     * @param localY 元素局部 Y (竖直方向用)
      */
-    float calcValueFromX(float localX) const;
+    float calcValueFromPos(float localX, float localY) const;
 
     /**
-     * @brief 将 value 映射为 thumb 中心在 track 上的 x 偏移
+     * @brief 计算 thumb 圆心坐标 (元素窗口坐标)
      */
-    float thumbCenterX() const;
+    Point thumbCenter() const;
 
     /**
      * @brief 触发 onChange 回调 + 更新绑定
      */
-    void fireChange(JSContext *ctx);
+    void fireChange();
 };

@@ -411,6 +411,10 @@ SliderProps parseSliderProps(PropsExtractor &ex) {
     ex.get("trackColor", result.trackColor);
     ex.get("thumbSize", result.thumbSize);
     ex.get("trackHeight", result.trackHeight);
+    ex.get("vertical", result.vertical);
+    ex.get("thumbColor", result.thumbColor);
+    ex.get("thumbBorderColor", result.thumbBorderColor);
+    ex.get("showThumb", result.showThumb);
     return result;
 }
 

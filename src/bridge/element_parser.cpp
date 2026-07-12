@@ -29,7 +29,7 @@ import kwik.element.image;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
-// import kwik.element.slider;
+import kwik.element.slider;
 // import kwik.element.progressbar;
 import kwik.element.switch_button;
 // import kwik.element.line;
@@ -260,15 +260,15 @@ static struct InitBuiltinTypes {
             return dd;
         });
 
-        // // ── Slider ──
-        // ElementParser::registerType("Slider", [](const JSValueRef &pv) {
-        //     TypedPropMap meta;
-        //     PropsExtractor ex(pv, &meta);
-        //     auto slider = std::make_unique<Slider>(parseViewProps(ex), parseSliderProps(ex));
-        //     slider->propMeta = std::move(meta);
-        //     applyBindings(slider.get(), pv);
-        //     return slider;
-        // });
+        // ── Slider ──
+        ElementParser::registerType("Slider", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto slider = std::make_unique<Slider>(parseViewProps(ex), parseSliderProps(ex));
+            slider->propMeta = std::move(meta);
+            applyBindings(slider.get(), pv);
+            return slider;
+        });
 
         // // ── ProgressBar ──
         // ElementParser::registerType("ProgressBar", [](const JSValueRef &pv) {

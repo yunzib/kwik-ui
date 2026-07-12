@@ -260,7 +260,11 @@ export struct SliderProps {
     Color color{25, 118, 210, 255};          // 滑块 + 激活轨道色 (Material Blue 700)
     Color trackColor{224, 224, 224, 255};    // 未激活轨道色 (Grey 300)
     float thumbSize = 20.0f;                 // 滑块圆形直径 (像素)
-    float trackHeight = 6.0f;                // 轨道高度 (像素)
+    float trackHeight = 6.0f;                // 轨道高度/宽度 (像素, 竖直时作宽度)
+    bool vertical = false;                   // true=竖直方向, false=水平方向
+    Color thumbColor{255, 255, 255, 255};    // 滑块填充色 (白色)
+    Color thumbBorderColor{0, 0, 0, 0};      // 滑块描边色 (a==0 时跟随 color)
+    bool showThumb = true;                   // 是否显示滑块 (false=仅轨道激活段)
 };
 
 // ════════════════════════════════════════════════════════
