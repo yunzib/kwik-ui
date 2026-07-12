@@ -2,6 +2,16 @@
 
 ## [0.0.0] — 2026-07-12
 
+### 新增
+- Tabs 标签页导航组件
+  - 横向标签条 + 内容面板切换（children 按索引对应 items）
+  - 仅选中面板参与布局和绘制，非选中面板不占空间
+  - 支持等宽 / 自然宽度 + 间距两种布局模式
+  - 底部指示线高亮选中项
+  - onChange 回调返回 {value, index}
+  - getProp/setProp 读写 selectedIndex
+  - 自定义颜色主题：文字色、标签背景色、指示线色
+
 ### 变更
 - 文本渲染架构重构 — 移除全局排版 ring buffer（`TextLayoutKey`/`LayoutEntry`/`TextLayoutToken`）
   - 排版结果改为 `shared_ptr<TextLayoutResult>`，由元素自己持有，无全局缓存
@@ -24,6 +34,10 @@
 - `vulkan_glyph_renderer.cpp` `UploadJob` 旧字段名（`pixelData`→`pixels`, `x/y`→`dstX/dstY`）
 - `graphics.cppm` 移除已废弃的 `submitGlyphBatch`/`drawGlyph`（依赖已被删除的 `GlyphDrawData`）
 - TextArea `moveCursorUp/Down` 引用已删除的 `splitLines`/`cursorLineCol`
+- Tabs 切换时闪退
+  - 根因：requestLayout() 设的 needsRelayout_ 标记未被主循环消费，
+    renderFrame() 仅 draw 不 relayout，新选中 child 未 measure → layoutResult_ 为 null → ensureGlyphs(*null) 崩
+  - 修复：setSelectedIndex 中直接 measure+layout 新 child，
 
 ### 移除
 - `TextLayoutToken` / `TextLayoutKey` / `GlyphMetrics` / `GlyphDrawData` 类型
