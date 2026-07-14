@@ -60,7 +60,7 @@ if(KWIK_BUILD_EXAMPLES)
     # target_link_libraries(vk_resize_test PRIVATE kwik)
 
     # example
-    add_executable(example ${CMAKE_SOURCE_DIR}/examples/example.cpp)
+    add_executable(example ${CMAKE_SOURCE_DIR}/test/example.cpp)
     target_link_libraries(example PRIVATE kwik)
 
 endif()

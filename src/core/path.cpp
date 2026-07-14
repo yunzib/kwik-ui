@@ -72,9 +72,9 @@ void Path::arc(float cx, float cy, float r, float startAngle, float endAngle, bo
     float da = ccw ? startAngle - endAngle : endAngle - startAngle;
     if (da < 0.0f) da += std::numbers::pi_v<float> * 2.0f;
     if (da > std::numbers::pi_v<float> * 2.0f) da = std::numbers::pi_v<float> * 2.0f;
-    int steps = std::max(static_cast<int>(std::ceil(da * r * 0.6f)), 6);
+    int steps = std::max(static_cast<int>(std::ceil(da * r * 1.5f)), 12);
     if (!hasOpenContour()) { moveTo(cx + r * std::cos(startAngle), cy + r * std::sin(startAngle)); }
-    for (int i = 1; i <= steps; ++i) {
+    for (int i = 0; i <= steps; ++i) {
         float a = startAngle + (endAngle - startAngle) * static_cast<float>(i) / static_cast<float>(steps);
         addPoint(cx + r * std::cos(a), cy + r * std::sin(a));
     }
@@ -84,14 +84,14 @@ void Path::ellipse(float cx, float cy, float rx, float ry, float rotation, float
     if (rx <= 0.0f || ry <= 0.0f) return;
     float da = ccw ? startAngle - endAngle : endAngle - startAngle;
     if (da < 0.0f) da += std::numbers::pi_v<float> * 2.0f;
-    int steps = std::max(static_cast<int>(std::ceil(da * std::max(rx, ry) * 0.6f)), 6);
+    int steps = std::max(static_cast<int>(std::ceil(da * std::max(rx, ry) * 1.5f)), 12);
     float cosR = std::cos(rotation);
     float sinR = std::sin(rotation);
     if (!hasOpenContour()) {
         float c = std::cos(startAngle), s = std::sin(startAngle);
         moveTo(cx + rx * c * cosR - ry * s * sinR, cy + rx * c * sinR + ry * s * cosR);
     }
-    for (int i = 1; i <= steps; ++i) {
+    for (int i = 0; i <= steps; ++i) {
         float a = startAngle + (endAngle - startAngle) * static_cast<float>(i) / static_cast<float>(steps);
         float c = std::cos(a), s = std::sin(a);
         addPoint(cx + rx * c * cosR - ry * s * sinR, cy + rx * c * sinR + ry * s * cosR);

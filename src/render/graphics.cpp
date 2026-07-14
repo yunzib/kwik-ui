@@ -23,8 +23,7 @@ Graphics::Graphics(BackendType backend, int width, int height) : width_(width), 
     // 记录一个警告或什么也不做
 }
 
-Graphics::Graphics(CommandBuffer *commandBuffer) : commandBuffer_(commandBuffer) {
-}
+Graphics::Graphics(CommandBuffer *commandBuffer) : commandBuffer_(commandBuffer) {}
 
 Graphics::~Graphics() = default;
 
@@ -162,12 +161,16 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
     batch.reserve(glyphs.size());
     for (auto &g : glyphs) {
         batch.push_back(DrawGlyphCmd{
-            g.fontId, g.glyphIndex,
+            g.fontId,
+            g.glyphIndex,
             g.x * s.sx + s.tx,
             g.y * s.sy + s.ty,
             g.width * s.sx,
             g.height * s.sy,
-            g.uvLeft, g.uvTop, g.uvRight, g.uvBottom,
+            g.uvLeft,
+            g.uvTop,
+            g.uvRight,
+            g.uvBottom,
             color,
         });
     }
@@ -234,12 +237,9 @@ void Graphics::fillPath(const Path &path, const Color &color) {
     verts.reserve(triangles.size() * 3);
     for (auto &t : triangles) {
         // 应用当前变换
-        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx,
-                     t.p0.y * currentState_.sy + currentState_.ty};
-        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx,
-                     t.p1.y * currentState_.sy + currentState_.ty};
-        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx,
-                     t.p2.y * currentState_.sy + currentState_.ty};
+        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx, t.p0.y * currentState_.sy + currentState_.ty};
+        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx, t.p1.y * currentState_.sy + currentState_.ty};
+        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx, t.p2.y * currentState_.sy + currentState_.ty};
         verts.push_back(tp0);
         verts.push_back(tp1);
         verts.push_back(tp2);
@@ -247,19 +247,15 @@ void Graphics::fillPath(const Path &path, const Color &color) {
     addCommand(FillTrianglesCmd{std::move(verts), applyOpacity(color)});
 }
 
-void Graphics::strokePath(const Path &path, const Color &color,
-                          float lineWidth) {
-    auto triangles = triangulateStroke(path, lineWidth * currentState_.sx);
+void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
+    auto triangles = triangulateStroke(path, lineWidth);
     if (triangles.empty()) return;
     std::vector<Vec2> verts;
     verts.reserve(triangles.size() * 3);
     for (auto &t : triangles) {
-        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx,
-                     t.p0.y * currentState_.sy + currentState_.ty};
-        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx,
-                     t.p1.y * currentState_.sy + currentState_.ty};
-        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx,
-                     t.p2.y * currentState_.sy + currentState_.ty};
+        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx, t.p0.y * currentState_.sy + currentState_.ty};
+        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx, t.p1.y * currentState_.sy + currentState_.ty};
+        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx, t.p2.y * currentState_.sy + currentState_.ty};
         verts.push_back(tp0);
         verts.push_back(tp1);
         verts.push_back(tp2);

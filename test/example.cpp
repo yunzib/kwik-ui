@@ -77,39 +77,39 @@ private:
 static std::string resolveDemo(int argc, char *argv[]) {
     if (argc >= 2) {
         std::string arg = argv[1];
-        if (arg == "channel") return "../../examples/ui/channel.js";
-        if (arg == "view") return "../../examples/ui/view.js";
-        if (arg == "text") return "../../examples/ui/text.js";
-        if (arg == "event") return "../../examples/ui/event.js";
-        if (arg == "flex") return "../../examples/ui/flex.js";
-        if (arg == "list") return "../../examples/ui/list.js";
-        if (arg == "grid") return "../../examples/ui/grid.js";
-        if (arg == "stack") return "../../examples/ui/stack.js";
-        if (arg == "image") return "../../examples/ui/image.js";
-        if (arg == "input") return "../../examples/ui/input.js";
-        if (arg == "example") return "../../examples/ui/example.js";
-        if (arg == "radiobutton") return "../../examples/ui/radiobutton.js";
-        if (arg == "checkbox") return "../../examples/ui/checkbox.js";
-        if (arg == "textarea") return "../../examples/ui/textarea.js";
-        if (arg == "dropdown") return "../../examples/ui/dropdown.js";
-        if (arg == "test") return "../../examples/ui/test.js";
-        if (arg == "test_gap") return "../../examples/ui/test_gap_click.js";
-        if (arg == "slider") return "../../examples/ui/slider.js";
-        if (arg == "progress") return "../../examples/ui/progress.js";
-        if (arg == "switch") return "../../examples/ui/switch.js";
-        if (arg == "line") return "../../examples/ui/line.js";
-        if (arg == "spinner") return "../../examples/ui/spinner.js";
-        if (arg == "table") return "../../examples/ui/table.js";
-        if (arg == "textview") return "../../examples/ui/textview.js";
-        if (arg == "button") return "../../examples/ui/button.js";
-        if (arg == "animation") return "../../examples/ui/animation.js";
-        if (arg == "tabs") return "../../examples/ui/tabs.js";
-        if (arg == "dialog") return "../../examples/ui/dialog.js";
-        if (arg == "tip") return "../../examples/ui/tip.js";
-        if (arg == "g2d") return "../../examples/ui/g2d.js";
+        if (arg == "channel") return "../../test/ui/channel.js";
+        if (arg == "view") return "../../test/ui/view.js";
+        if (arg == "text") return "../../test/ui/text.js";
+        if (arg == "event") return "../../test/ui/event.js";
+        if (arg == "flex") return "../../test/ui/flex.js";
+        if (arg == "list") return "../../test/ui/list.js";
+        if (arg == "grid") return "../../test/ui/grid.js";
+        if (arg == "stack") return "../../test/ui/stack.js";
+        if (arg == "image") return "../../test/ui/image.js";
+        if (arg == "input") return "../../test/ui/input.js";
+        if (arg == "example") return "../../test/ui/example.js";
+        if (arg == "radiobutton") return "../../test/ui/radiobutton.js";
+        if (arg == "checkbox") return "../../test/ui/checkbox.js";
+        if (arg == "textarea") return "../../test/ui/textarea.js";
+        if (arg == "dropdown") return "../../test/ui/dropdown.js";
+        if (arg == "test") return "../../test/ui/test.js";
+        if (arg == "test_gap") return "../../test/ui/test_gap_click.js";
+        if (arg == "slider") return "../../test/ui/slider.js";
+        if (arg == "progress") return "../../test/ui/progress.js";
+        if (arg == "switch") return "../../test/ui/switch.js";
+        if (arg == "line") return "../../test/ui/line.js";
+        if (arg == "spinner") return "../../test/ui/spinner.js";
+        if (arg == "table") return "../../test/ui/table.js";
+        if (arg == "textview") return "../../test/ui/textview.js";
+        if (arg == "button") return "../../test/ui/button.js";
+        if (arg == "animation") return "../../test/ui/animation.js";
+        if (arg == "tabs") return "../../test/ui/tabs.js";
+        if (arg == "dialog") return "../../test/ui/dialog.js";
+        if (arg == "tip") return "../../test/ui/tip.js";
+        if (arg == "g2d") return "../../test/ui/g2d.js";
         return arg;
     }
-    return "../../examples/example.js";
+    return "../../test/ui/example.js";
 }
 
 int main(int argc, char *argv[]) {

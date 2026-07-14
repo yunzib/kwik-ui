@@ -77,10 +77,10 @@ private:
 static std::string resolveDemo(int argc, char *argv[]) {
     if (argc >= 2) {
         std::string arg = argv[1];
-        if (arg == "test") return "../../examples/test.js";
+        if (arg == "test") return "../../test/ui/test.js";
         return arg;
     }
-    return "../../test.js";
+    return "../../test/ui/test.js";
 }
 
 int main(int argc, char *argv[]) {

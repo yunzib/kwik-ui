@@ -172,7 +172,7 @@ target_link_libraries(kwik INTERFACE
 
 # 示例程序
 if(KWIK_BUILD_EXAMPLES)
-    add_subdirectory(examples)
+    add_subdirectory(test)
 endif()
 # 输出配置摘要
 message(STATUS "========================================")
