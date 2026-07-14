@@ -222,3 +222,55 @@ Color Graphics::applyOpacity(const Color &color) const {
     result.a = static_cast<uint8_t>(color.a * currentState_.opacity);
     return result;
 }
+
+// ============================================================================
+// Canvas 路径绘制
+// ============================================================================
+
+void Graphics::fillPath(const Path &path, const Color &color) {
+    auto triangles = triangulateFill(path);
+    if (triangles.empty()) return;
+    std::vector<Vec2> verts;
+    verts.reserve(triangles.size() * 3);
+    for (auto &t : triangles) {
+        // 应用当前变换
+        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx,
+                     t.p0.y * currentState_.sy + currentState_.ty};
+        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx,
+                     t.p1.y * currentState_.sy + currentState_.ty};
+        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx,
+                     t.p2.y * currentState_.sy + currentState_.ty};
+        verts.push_back(tp0);
+        verts.push_back(tp1);
+        verts.push_back(tp2);
+    }
+    addCommand(FillTrianglesCmd{std::move(verts), applyOpacity(color)});
+}
+
+void Graphics::strokePath(const Path &path, const Color &color,
+                          float lineWidth) {
+    auto triangles = triangulateStroke(path, lineWidth * currentState_.sx);
+    if (triangles.empty()) return;
+    std::vector<Vec2> verts;
+    verts.reserve(triangles.size() * 3);
+    for (auto &t : triangles) {
+        Vec2 tp0 = {t.p0.x * currentState_.sx + currentState_.tx,
+                     t.p0.y * currentState_.sy + currentState_.ty};
+        Vec2 tp1 = {t.p1.x * currentState_.sx + currentState_.tx,
+                     t.p1.y * currentState_.sy + currentState_.ty};
+        Vec2 tp2 = {t.p2.x * currentState_.sx + currentState_.tx,
+                     t.p2.y * currentState_.sy + currentState_.ty};
+        verts.push_back(tp0);
+        verts.push_back(tp1);
+        verts.push_back(tp2);
+    }
+    addCommand(StrokeTrianglesCmd{std::move(verts), applyOpacity(color)});
+}
+
+// ============================================================================
+// clearRectArea — 清除矩形区域
+// ============================================================================
+void Graphics::clearRectArea(const Rect &rect) {
+    Rect transformed = transformRect(rect);
+    addCommand(FillRectCmd{transformed, Color::transparent(), BlendMode::SrcCopy});
+}

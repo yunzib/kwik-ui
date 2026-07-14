@@ -7,7 +7,7 @@ module kwik.bridge.binding_registry;
 import kwik.core.types;
 import kwik.element.view;
 import kwik.element.typed_prop;
-import kwik.bridge.color_parser;
+import kwik.core.color_parser;
 import kwik.engine.vm_callbacks;
 import kwik.core.log;
 

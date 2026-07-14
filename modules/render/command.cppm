@@ -6,6 +6,7 @@ module;
 export module kwik.render.command;
 
 import kwik.core.types;
+import kwik.core.path;
 
 import std;
 
@@ -31,7 +32,20 @@ export enum class CommandType {
     EndFrame,             // endFrame()
     Present,              // present()
     Resize,               // resize()
-    DrawImage             // drawImage()
+    DrawImage,            // drawImage()
+    FillTriangles,        ///< fillPath() 的结果
+    StrokeTriangles,      ///< strokePath() 的结果
+};
+
+/**
+ * @brief 混合模式枚举
+ *
+ * 控制绘制操作的颜色混合方式。
+ * SrcOver 为标准 Alpha 混合，SrcCopy 为直接覆盖（= 清除操作）。
+ */
+export enum class BlendMode {
+    SrcOver,   ///< 标准 Alpha 混合：src * srcA + dst * (1 - srcA)
+    SrcCopy,   ///< 直接覆盖：src * 1 + dst * 0，用于 clearRect 等清除
 };
 
 /**
@@ -45,8 +59,9 @@ export struct ClearCmd {
  * @brief 填充矩形命令
  */
 export struct FillRectCmd {
-    Rect rect;
-    Color color;
+    Rect rect;                       ///< 矩形区域（屏幕坐标，已变换）
+    Color color;                     ///< 填充颜色
+    BlendMode mode = BlendMode::SrcOver;  ///< 混合模式（默认 SrcOver）
 };
 
 /**
@@ -146,6 +161,27 @@ export struct ResizeCmd {
     int height;
 };
 
+/**
+ * @brief 填充三角形网格命令
+ *
+ * 由 Graphics::fillPath() 生成，包含已转换到屏幕坐标的顶点。
+ * vertices 按 float2 连续排列，每 3 个一组构成一个三角形。
+ */
+export struct FillTrianglesCmd {
+    std::vector<Vec2> vertices;           ///< 三角形顶点数组 (float2)
+    Color color;                          ///< 纯色填充
+    BlendMode mode = BlendMode::SrcOver;  ///< 混合模式（默认 SrcOver）
+};
+
+/**
+ * @brief 描边三角形网格命令
+ * 结构与 FillTrianglesCmd 相同，语义上由 strokePath 生成。
+ */
+export struct StrokeTrianglesCmd {
+    std::vector<Vec2> vertices;
+    Color color;
+};
+
 // 空命令结构体定义（仅作为标记）
 export struct SaveStateCmd {};
 export struct RestoreStateCmd {};
@@ -169,7 +205,8 @@ export using Command =
                  EndFrameCmd,      // 空结构体，仅作为标记
                  PresentCmd,       // 空结构体，仅作为标记
                  ResizeCmd,        // resize()
-                 DrawImageCmd>;    // drawImage()
+                 DrawImageCmd,     // drawImage()
+                 FillTrianglesCmd, StrokeTrianglesCmd>;
 
 /**
  * @brief 命令缓冲区
@@ -223,15 +260,11 @@ public:
      * @brief 设置本帧脏矩形
      * @param r 脏区域 (逻辑坐标，由主线程设置)
      */
-    void setDirtyRect(const Rect &r) {
-        dirtyRect_ = r;
-    }
+    void setDirtyRect(const Rect &r) { dirtyRect_ = r; }
     /**
      * @brief 获取本帧脏矩形
      */
-    Rect dirtyRect() const {
-        return dirtyRect_;
-    }
+    Rect dirtyRect() const { return dirtyRect_; }
 
 private:
     std::vector<Command> commands_;

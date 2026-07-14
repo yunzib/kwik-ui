@@ -46,6 +46,7 @@ if(KWIK_RENDER_VULKAN)
         modules/render/vulkan/vulkan_image_renderer.cppm
         modules/render/vulkan/vulkan_clip_manager.cppm
         modules/render/vulkan/vulkan_backend.cppm
+        modules/render/vulkan/vulkan_triangle_renderer.cppm
     )
     list(APPEND RENDER_PRIVATE_SOURCES
         src/render/vulkan/vulkan_context.cpp
@@ -54,6 +55,7 @@ if(KWIK_RENDER_VULKAN)
         src/render/vulkan/vulkan_image_renderer.cpp
         src/render/vulkan/vulkan_clip_manager.cpp
         src/render/vulkan/vulkan_backend.cpp
+        src/render/vulkan/vulkan_triangle_renderer.cpp
     )
 
     list(APPEND RENDER_LINK_LIBRARIES Vulkan::Vulkan)
@@ -167,6 +169,26 @@ add_custom_command(
     COMMENT "Compiling image shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/image_shaders.h)
+
+# ── Triangle shaders ──
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/triangle_shaders.h
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/triangle.vert
+            -o ${SHADER_GEN_DIR}/triangle.vert.spv
+    COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC_DIR}/triangle.frag
+            -o ${SHADER_GEN_DIR}/triangle.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/triangle.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/triangle.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/triangle_shaders.h
+        -DNAME=kTriangle
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/triangle.vert
+            ${SHADER_SRC_DIR}/triangle.frag
+            ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling triangle shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/triangle_shaders.h)
 
 
 install(TARGETS kwik_render

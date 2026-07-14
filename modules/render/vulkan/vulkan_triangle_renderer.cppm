@@ -1,0 +1,87 @@
+/**
+ * @file vulkan_triangle_renderer.cppm
+ * @brief Vulkan 纯色三角形网格渲染器
+ *
+ * 接收 FillTrianglesCmd / StrokeTrianglesCmd 中的顶点数据，
+ * 上传到 GPU 并绘制。使用 push constants 传递颜色和视口信息。
+ */
+
+module;
+#include <vulkan/vulkan.h>
+#include <cstdint>
+#include <vector>
+
+export module kwik.render.vulkan.triangle_renderer;
+
+import kwik.core.types;
+import kwik.core.path;
+
+import std;
+
+/**
+ * @brief 三角形网格渲染器
+ *
+ * Pipeline 配置:
+ *   - 顶点输入: float2 (R32G32_SFLOAT)
+ *   - 图元: TRIANGLE_LIST
+ *   - Push constants: { color(vec4), opacity(float), pad, viewport(vec2)
+ *   - 混合: SRC_ALPHA / ONE_MINUS_SRC_ALPHA
+ */
+export class TriangleRenderer {
+public:
+    TriangleRenderer() = default;
+    ~TriangleRenderer();
+
+    TriangleRenderer(const TriangleRenderer &) = delete;
+    TriangleRenderer &operator=(const TriangleRenderer &) = delete;
+
+    /**
+     * @brief 创建 pipeline、pipeline layout 和 host-visible 顶点缓存
+     * @param device       Vulkan 设备
+     * @param physDevice   Vulkan 物理设备
+     * @param renderPass   渲染通道
+     * @param vertexBuffer 预分配的顶点缓冲区（当前仅 rect 使用，triangle 使用自有缓存）
+     * @param indexBuffer  预分配的索引缓冲区（暂不使用）
+     * @return 成功返回 true
+     */
+    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
+                VkBuffer indexBuffer);
+
+    /** @brief 销毁 pipeline、layout 和 host-visible 顶点缓存 */
+    void destroy();
+
+    /** @brief 重置每帧顶点写入偏移（由 VulkanBackend::beginFrame 调用） */
+    void resetOffset() { writeOffset_ = 0; }
+
+    /**
+     * @brief 绘制三角形列表
+     * @param cmd      命令缓冲区
+     * @param extent   视口尺寸
+     * @param vertices float2 数组 (每 3 个一组 = 1 个三角形)
+     * @param color    填充颜色
+     * @param alpha    全局透明度
+     *
+     * 顶点数据通过 memcpy 写入内部 host-visible 顶点缓冲，
+     * 避免在 render pass 内使用 vkCmdUpdateBuffer。
+     * 适合单帧 ≤64KB 三角形数据，Canvas Phase 1 使用。
+     */
+    void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const std::vector<Vec2> &vertices, const Color &color,
+                       float alpha);
+
+    /** @brief 获取 pipeline layout（供外部使用） */
+    VkPipelineLayout layout() const { return pipelineLayout_; }
+
+private:
+    VkDevice device_ = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+    VkPipeline pipeline_ = VK_NULL_HANDLE;
+    VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
+    VkBuffer indexBuffer_ = VK_NULL_HANDLE;
+    VkPhysicalDevice physDevice_ = VK_NULL_HANDLE;
+    VkBuffer stagingBuffer_ = VK_NULL_HANDLE;            ///< host-visible 顶点缓冲
+    VkDeviceMemory stagingMemory_ = VK_NULL_HANDLE;      ///< 缓冲内存
+    void *mappedData_ = nullptr;                         ///< 映射指针
+    size_t bufferCapacity_ = 0;                          ///< 缓冲容量
+    size_t writeOffset_ = 0;                             ///< 当前帧内顶点写入偏移（每帧从 0 开始，逐命令累加）
+    static constexpr size_t kDefaultCapacity = 65536;    ///< 默认 64KB
+};

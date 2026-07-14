@@ -5,7 +5,7 @@ module;
 
 module kwik.bridge.props_parser;
 
-import kwik.bridge.color_parser;
+import kwik.core.color_parser;
 import kwik.core.types;
 import kwik.core.props;
 import kwik.engine.js_value;

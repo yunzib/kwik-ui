@@ -12,6 +12,7 @@ import kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.clip_manager;
 import kwik.render.text.pipeline;
 import kwik.render.text.types;
+import kwik.render.vulkan.triangle_renderer;
 
 import kwik.core.types;
 
@@ -35,7 +36,13 @@ public:
     void present() override;
     // 形状
     void clear(const Color &color) override;
-    void fillRect(const Rect &rect, const Color &color) override;
+    /**
+     * @brief 填充矩形
+     * @param rect  矩形区域
+     * @param color 填充颜色
+     * @param mode  混合模式：SrcOver（默认）走 rect renderer，SrcCopy 走 vkCmdClearAttachments
+     */
+    void fillRect(const Rect &rect, const Color &color, BlendMode mode) override;
     void fillRoundedRect(const Rect &rect, float radius, const Color &color) override;
     void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth) override;
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
@@ -62,6 +69,8 @@ public:
         return height_;
     }
 
+    void fillTriangles(const FillTrianglesCmd &cmd) override;
+
 
 private:
     VulkanContext ctx_;
@@ -73,4 +82,5 @@ private:
     DeviceContext deviceCtx_;
     int width_ = 0;
     int height_ = 0;
+    TriangleRenderer triangle_;     ///< 三角形网格渲染器
 };

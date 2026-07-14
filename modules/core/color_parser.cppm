@@ -3,7 +3,7 @@ module;
 #include <cstdint>
 #include <string>
 
-export module kwik.bridge.color_parser;
+export module kwik.core.color_parser;
 
 import kwik.core.types;
 import std;

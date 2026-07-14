@@ -217,9 +217,7 @@ void RenderThread::processCommands(const CommandBuffer &buffer) {
 
     // 先处理 resize 命令（必须在 beginFrame 之前）
     for (const auto &cmd : buffer.commands()) {
-        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { 
-            executeCommand(cmd);
-        }
+        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { executeCommand(cmd); }
     }
 
     // 开始帧
@@ -245,6 +243,9 @@ void RenderThread::executeCommand(const Command &cmd) {
 
             if constexpr (std::is_same_v<T, ClearCmd>) {
                 backend_->clear(arg.color);
+            } else if constexpr (std::is_same_v<T, FillRectCmd>) {
+                // 带混合模式转发给后端
+                backend_->fillRect(arg.rect, arg.color, arg.mode);
             } else if constexpr (std::is_same_v<T, FillRectCmd>) {
                 backend_->fillRect(arg.rect, arg.color);
             } else if constexpr (std::is_same_v<T, FillRoundedRectCmd>) {
@@ -282,6 +283,12 @@ void RenderThread::executeCommand(const Command &cmd) {
             } else if constexpr (std::is_same_v<T, ResizeCmd>) {
                 // 窗口resize事件处理
                 if (arg.width > 0 && arg.height > 0) { backend_->resize(arg.width, arg.height); }
+            } else if constexpr (std::is_same_v<T, FillTrianglesCmd>) {
+                backend_->fillTriangles(arg);
+            } else if constexpr (std::is_same_v<T, StrokeTrianglesCmd>) {
+                // Stroke 当前复用 fillTriangles（纯色填充无区别）
+                FillTrianglesCmd fc{std::move(arg.vertices), arg.color};
+                backend_->fillTriangles(fc);
             }
         },
         cmd);

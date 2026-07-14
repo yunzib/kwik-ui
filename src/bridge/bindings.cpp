@@ -1,6 +1,7 @@
 module;
 
 #include "quickjs.h"
+#include <atomic>
 
 extern "C" JSCFunction *kwik_prop_get_fn();
 extern "C" JSCFunction *kwik_prop_set_fn();
@@ -17,7 +18,8 @@ import kwik.core.types;         // TypedProp
 import kwik.animation.easing;   // parseEasing
 import kwik.animation.animator; // AnimationTarget
 import kwik.core.prop_meta;     // PropMeta
-import kwik.bridge.color_parser;
+import kwik.core.color_parser;
+import kwik.element.g2d;
 
 import std;
 
@@ -204,8 +206,6 @@ static void channel_finalizer(JSRuntime *rt, JSValue val) {
     }
     delete cd;
 }
-
-
 
 // JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
 //     if (channel_class_id == 0) {
@@ -1079,6 +1079,315 @@ static JSValue js_tip(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     return makeElement(ctx, "Tip", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+/**
+ * @brief 通用 G2D 方法调度回调
+ *
+ * 每个 G2D 方法（fillRect、beginPath 等）共享此回调。
+ * 方法名存储在函数对象的 __g2dMethod 属性中。
+ */
+// ── 辅助宏：提取 G2D* 指针 ──
+#define G2D_FROM_THIS(ctx, this_val)                                                           \
+    [&]() -> G2D * {                                                                           \
+        JSValue _p = JS_GetPropertyStr(ctx, this_val, "props");                                \
+        /* 优先读 __g2d_ptr（eager 创建 or 首次 findById 后缓存） */                              \
+        JSValue _ptr = JS_GetPropertyStr(ctx, _p, "__g2d_ptr");                                \
+        if (!JS_IsUndefined(_ptr)) {                                                           \
+            double _v; JS_ToFloat64(ctx, &_v, _ptr);                                           \
+            JS_FreeValue(ctx, _ptr); JS_FreeValue(ctx, _p);                                   \
+            return reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                        \
+        }                                                                                      \
+        JS_FreeValue(ctx, _ptr);                                                               \
+        /* Fallback: findById（兼容树已建好但没有缓存的场景） */                                    \
+        JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                        \
+        const char *_idStr = JS_ToCString(ctx, _id);                                           \
+        auto *_qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));                 \
+        View *_root = static_cast<View *>(_qctx->getUserPointer());                            \
+        auto *_r = dynamic_cast<G2D *>(_root ? _root->findById(_idStr) : nullptr);             \
+        if (_r) { /* 缓存到 __g2d_ptr 下次直接走快路径 */                                          \
+            JS_SetPropertyStr(ctx, _p, "__g2d_ptr",                                            \
+                JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));      \
+        }                                                                                      \
+        JS_FreeCString(ctx, _idStr); JS_FreeValue(ctx, _id); JS_FreeValue(ctx, _p);            \
+        return _r;                                                                             \
+    }()
+
+// ── 各方法回调 ──
+static JSValue js_g2d_fillRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->fillRect(f(0), f(1), f(2), f(3));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_strokeRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->strokeRect(f(0), f(1), f(2), f(3));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_clearRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->clearRect(f(0), f(1), f(2), f(3));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_beginPath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->beginPath();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_moveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->moveTo(f(0), f(1));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_lineTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->lineTo(f(0), f(1));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_quadraticCurveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->quadraticCurveTo(f(0), f(1), f(2), f(3));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_bezierCurveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->bezierCurveTo(f(0), f(1), f(2), f(3), f(4), f(5));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_arc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    bool ccw = argc > 5 ? JS_ToBool(ctx, argv[5]) != 0 : false;
+    g2d->arc(f(0), f(1), f(2), f(3), f(4), ccw);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_ellipse(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    bool ccw = argc > 7 ? JS_ToBool(ctx, argv[7]) != 0 : false;
+    g2d->ellipse(f(0), f(1), f(2), f(3), f(4), f(5), f(6), ccw);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_closePath(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->closePath();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_fill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->fill();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_stroke(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->stroke();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_clip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->clip();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_save(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->save();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_restore(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->restore();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_drawImage(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    double texId;
+    JS_ToFloat64(ctx, &texId, argv[0]);
+    auto f = [&](int i) {
+        double v;
+        JS_ToFloat64(ctx, &v, argv[i]);
+        return float(v);
+    };
+    g2d->drawImage(uint32_t(texId), f(1), f(2), f(3), f(4));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_setFillStyle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (s) {
+        g2d->setFillStyle(parseColor(s));
+        JS_FreeCString(ctx, s);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_setStrokeStyle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (s) {
+        g2d->setStrokeStyle(parseColor(s));
+        JS_FreeCString(ctx, s);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_setLineWidth(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    g2d->setLineWidth(float(v));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_setGlobalAlpha(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    g2d->setGlobalAlpha(float(v));
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_reset(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    g2d->reset();
+    return JS_UNDEFINED;
+}
+
+static void bindG2DMethods(JSContext *ctx, JSValue obj) {
+    struct {
+        const char *name;
+        JSCFunction *fn;
+        int argc;
+    } methods[] = {
+        {"fillRect", js_g2d_fillRect, 4},
+        {"strokeRect", js_g2d_strokeRect, 4},
+        {"clearRect", js_g2d_clearRect, 4},
+        {"beginPath", js_g2d_beginPath, 0},
+        {"moveTo", js_g2d_moveTo, 2},
+        {"lineTo", js_g2d_lineTo, 2},
+        {"quadraticCurveTo", js_g2d_quadraticCurveTo, 4},
+        {"bezierCurveTo", js_g2d_bezierCurveTo, 6},
+        {"arc", js_g2d_arc, 6},
+        {"ellipse", js_g2d_ellipse, 8},
+        {"closePath", js_g2d_closePath, 0},
+        {"fill", js_g2d_fill, 0},
+        {"stroke", js_g2d_stroke, 0},
+        {"clip", js_g2d_clip, 0},
+        {"save", js_g2d_save, 0},
+        {"restore", js_g2d_restore, 0},
+        {"drawImage", js_g2d_drawImage, 5},
+        {"reset", js_g2d_reset, 0},
+        {"setFillStyle", js_g2d_setFillStyle, 1},
+        {"setStrokeStyle", js_g2d_setStrokeStyle, 1},
+        {"setLineWidth", js_g2d_setLineWidth, 1},
+        {"setGlobalAlpha", js_g2d_setGlobalAlpha, 1},
+    };
+    for (auto &m : methods) { JS_SetPropertyStr(ctx, obj, m.name, JS_NewCFunction(ctx, m.fn, m.name, m.argc)); }
+}
+
+static JSValue js_g2d(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+
+    if (JS_IsObject(props)) {
+        JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
+        if (JS_IsUndefined(idVal)) {
+            static std::atomic<uint32_t> g2d_id_counter{0};
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "__g2d_%u", g2d_id_counter++);
+            JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
+        }
+        JS_FreeValue(ctx, idVal);
+    }
+
+    JSValue obj = makeElement(ctx, "G2D", props, JS_UNDEFINED);
+    bindG2DMethods(ctx, obj);
+
+    // ═══ 新增：立即创建 C++ G2D，指针存到 props ═══
+    auto *g2d = new G2D();
+    JS_SetPropertyStr(ctx, props, "__g2d_ptr",
+        JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
+        
+    return obj;
+}
 
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
@@ -1115,6 +1424,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("Tabs", 1, js_tabs),
         JS_CFUNC_DEF("Dialog", 1, js_dialog),
         JS_CFUNC_DEF("Tip", 1, js_tip),
+        JS_CFUNC_DEF("G2D", 1, js_g2d),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

@@ -239,7 +239,7 @@ void View::onDraw(Graphics &graphics) {
     }
 
     // ── 应用位移变换 ──
-    if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
+    // if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
 
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;

@@ -20,3 +20,4 @@ file(WRITE "${OUTPUT}"
     "inline const std::size_t ${NAME}FragSize = sizeof(${NAME}Frag);\n"
     "}\n"
 )
+

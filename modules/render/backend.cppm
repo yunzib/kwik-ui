@@ -62,7 +62,6 @@ public:
     virtual void present() = 0;
 
     virtual void drawGlyph(const DrawGlyphCmd &cmd) = 0;
-   
 
     /**
      * @brief 设置全局透明度（0.0 - 1.0）
@@ -86,8 +85,11 @@ public:
 
     /**
      * @brief 填充矩形
+     * @param rect 矩形区域（屏幕坐标）
+     * @param color 填充颜色
+     * @param mode  混合模式（默认 SrcOver 标准混合，SrcCopy 用于清除）
      */
-    virtual void fillRect(const Rect &rect, const Color &color) = 0;
+    virtual void fillRect(const Rect &rect, const Color &color, BlendMode mode = BlendMode::SrcOver) = 0;
 
     /**
      * @brief 填充圆角矩形
@@ -109,6 +111,13 @@ public:
      * @param cmd 包含纹理句柄、目标矩形、透明度
      */
     virtual void drawImage(const DrawImageCmd &cmd) = 0;
+
+    /**
+     * @brief 填充三角形网格
+     * @param cmd FillTrianglesCmd（顶点 + 颜色）
+     */
+    virtual void fillTriangles(const FillTrianglesCmd &cmd) = 0;
+
     /**
      * @brief 创建图像纹理并上传 RGBA 像素到 GPU
      * @param rgba    RGBA8 像素数据 (4 bytes per pixel)

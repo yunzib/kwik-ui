@@ -43,9 +43,9 @@ void RootView::draw(Graphics &g) {
     onDraw(g);  // 绘制背景
 
     // 普通 View 树
-    for (auto &c : children) {
-        if (c->props.visible) { c->draw(g); }
-    }
+    // for (auto &c : children) {
+    //     if (c->props.visible) { c->draw(g); }
+    // }
 
     // Portal 层（最上层）
     for (auto *p : portals_) {

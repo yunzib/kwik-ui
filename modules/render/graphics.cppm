@@ -8,6 +8,7 @@ import kwik.core.types;
 import kwik.render.command;
 import kwik.render.backend;
 import kwik.render.text.types;
+import kwik.core.path;
 
 import std;
 
@@ -51,10 +52,20 @@ public:
 
     // 绘制命令
     void clear(const Color &color);
+    /**
+     * @brief 清除矩形区域（对应 Canvas `clearRect`）
+     *
+     * 将指定矩形区域置为透明黑，不受 fillStyle / globalAlpha 影响。
+     * 内部发出 FillRectCmd{rect, transparent, SrcCopy}。
+     *
+     * @param rect 要清除的矩形区域（逻辑坐标）
+     */
+    void clearRectArea(const Rect &rect);
     void drawRect(const Rect &rect, const Color &color);
-    void drawRoundedRect(const Rect &rect, float radius, const Color &color);                          // 填充圆角矩形
-    void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth); // 圆角矩形描边
-    void drawShadow(const Rect &rect, float radius, const Shadow &shadow);                             // 绘制阴影
+    void drawRoundedRect(const Rect &rect, float radius, const Color &color);    // 填充圆角矩形
+    void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color,
+                               float strokeWidth);                            // 圆角矩形描边
+    void drawShadow(const Rect &rect, float radius, const Shadow &shadow);    // 绘制阴影
     void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
                   const Color &color);
     /**
@@ -79,6 +90,22 @@ public:
      */
     void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
 
+    // ── Canvas 路径绘制 ──
+    /**
+     * @brief 填充路径（三角剖分后录制为 FillTrianglesCmd）
+     * @param path  待填充路径
+     * @param color 填充颜色
+     */
+    void fillPath(const Path &path, const Color &color);
+
+    /**
+     * @brief 描边路径（三角剖分后录制为 StrokeTrianglesCmd）
+     * @param path      待描边路径
+     * @param color     描边颜色
+     * @param lineWidth 线宽
+     */
+    void strokePath(const Path &path, const Color &color, float lineWidth);
+
     // 帧控制（命令记录）
     void beginFrame();
     void endFrame();
@@ -94,9 +121,7 @@ public:
     /**
      * @brief 获取当前命令缓冲区
      */
-    CommandBuffer *commandBuffer() const {
-        return commandBuffer_;
-    }
+    CommandBuffer *commandBuffer() const { return commandBuffer_; }
 
     /**
      * @brief 获取当前尺寸
@@ -114,17 +139,15 @@ private:
     int height_ = 0;
 
     struct State {
-        float tx = 0.0f, ty = 0.0f; // 坐标平移量
-        float sx = 1.0f, sy = 1.0f; // 缩放因子
-        float opacity = 1.0f;       // 全局透明度
+        float tx = 0.0f, ty = 0.0f;    // 坐标平移量
+        float sx = 1.0f, sy = 1.0f;    // 缩放因子
+        float opacity = 1.0f;          // 全局透明度
     };
     std::vector<State> stateStack_;
     State currentState_;
 
     Rect transformRect(const Rect &rect) const;
     Color applyOpacity(const Color &color) const;
-
-    
 
     /**
      * @brief 检查命令缓冲区是否有效

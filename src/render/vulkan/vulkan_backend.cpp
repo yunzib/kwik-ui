@@ -10,6 +10,7 @@ import kwik.render.command;
 import kwik.core.types;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
+import kwik.core.log;
 
 import std;
 
@@ -34,12 +35,22 @@ bool VulkanBackend::initialize(void *native) {
         return false;
     }
     if (!glyph_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.commandPool(), ctx_.graphicsQueue(),
-                   ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
+                       ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         rect_.destroy();
         ctx_.shutdown();
         return false;
     }
-    if (!image_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
+    if (!image_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+                       ctx_.indexBuffer())) {
+        glyph_.destroy();
+        rect_.destroy();
+        ctx_.shutdown();
+        return false;
+    }
+    // 创建 triangle 渲染器，传入物理设备用于分配 host-visible 顶点缓冲
+    if (!triangle_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+                          ctx_.indexBuffer())) {
+        Log::error("TriangleRenderer init failed");
         glyph_.destroy();
         rect_.destroy();
         ctx_.shutdown();
@@ -73,6 +84,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
 
     clip_.beginFrame(currentToken_->extent, sc);
+    triangle_.resetOffset();  // 每帧重置 triangle vertex buffer 写入偏移（从 0 开始写入新帧数据）
     return true;
 }
 
@@ -91,9 +103,27 @@ void VulkanBackend::present() {
 void VulkanBackend::clear(const Color &c) {
     rect_.clear(currentToken_->commandBuffer, currentToken_->extent, c);
 }
-void VulkanBackend::fillRect(const Rect &r, const Color &c) {
+
+void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode) {
+    // ── clearRect 路径：直接清除到透明黑 ──
+    if (mode == BlendMode::SrcCopy) {
+        VkClearAttachment att{};
+        att.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        att.clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+        att.colorAttachment = 0;
+        VkClearRect cr{};
+        cr.rect = {{static_cast<int32_t>(r.x), static_cast<int32_t>(r.y)},
+                   {static_cast<uint32_t>(std::ceil(r.width)),
+                    static_cast<uint32_t>(std::ceil(r.height))}};
+        cr.baseArrayLayer = 0;
+        cr.layerCount = 1;
+        vkCmdClearAttachments(currentToken_->commandBuffer, 1, &att, 1, &cr);
+        return;
+    }
+    // ── 正常填充路径（原有逻辑完全不变）──
     rect_.fillRect(currentToken_->commandBuffer, currentToken_->extent, r, c);
 }
+
 void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c) {
     rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, clip_.globalAlpha());
 }
@@ -147,4 +177,9 @@ void VulkanBackend::restoreState() {
 }
 void VulkanBackend::setGlobalAlpha(float a) {
     clip_.setGlobalAlpha(a);
+}
+
+void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd) {
+    triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, cmd.vertices, cmd.color,
+                            clip_.globalAlpha());
 }

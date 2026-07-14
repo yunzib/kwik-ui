@@ -47,6 +47,7 @@ import kwik.element.dropdown;
 import kwik.element.tabs;
 import kwik.element.dialog;
 import kwik.element.tip;
+import kwik.element.g2d;
 
 import std;
 
@@ -356,6 +357,26 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             return std::make_unique<Tip>(parseViewProps(ex), parseTipProps(ex));
+        });
+
+        ElementParser::registerType("G2D", [](const JSValueRef &pv) {
+            // 检查是否已有 eager 创建的 C++ G2D
+            if (pv.hasProperty("__g2d_ptr")) {
+                auto ptrVal = pv.getProperty("__g2d_ptr");
+                JSContext *ctx = pv.context();
+                double v;
+                JS_ToFloat64(ctx, &v, ptrVal.raw());
+                auto *existing = reinterpret_cast<G2D *>(static_cast<uintptr_t>(v));
+                // 从 JS props 更新 ViewProps（width/height 等）
+                TypedPropMap meta;
+                PropsExtractor ex(pv, &meta);
+                existing->props = parseViewProps(ex);
+                return std::unique_ptr<G2D>(existing);    // 树接管所有权
+            }
+            // 降级：正常创建（无 eager 创建的场景）
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            return std::make_unique<G2D>(parseViewProps(ex));
         });
     }
 } _init_builtin_types;

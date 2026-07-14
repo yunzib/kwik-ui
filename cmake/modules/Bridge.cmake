@@ -4,7 +4,6 @@ target_sources(kwik_bridge
         FILE_SET cxx_modules TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/bridge
         FILES
-            modules/bridge/color_parser.cppm
             modules/bridge/props_parser.cppm
             modules/bridge/element_parser.cppm
             modules/bridge/prop_bus.cppm
@@ -12,7 +11,6 @@ target_sources(kwik_bridge
             modules/bridge/bindings.cppm
     
     PRIVATE
-        src/bridge/color_parser.cpp
         src/bridge/props_parser.cpp
         src/bridge/element_parser.cpp
         src/bridge/prop_bus.cpp
