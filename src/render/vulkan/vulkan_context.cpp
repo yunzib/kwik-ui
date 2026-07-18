@@ -122,17 +122,48 @@ bool VulkanContext::initialize(void *nativeHandle) {
 // ================================================================
 // resize — 重建 swapchain + canvas，返回 bool
 // ================================================================
+// ================================================================
+// resize — 重建 swapchain + canvas，返回 bool
+// 短路判断改用 surface 实际尺寸（caps.currentExtent），事件参数 w/h 仅作日志参考；
+// 成功重建后置位 justRecreated_，通知下一成功帧强制全量重绘。
+// ================================================================
 bool VulkanContext::resize(int w, int h) {
-    if (swapchainExtent_.width == static_cast<uint32_t>(w) && swapchainExtent_.height == static_cast<uint32_t>(h))
+    // ── ① 查询 surface 当前真实尺寸（Windows 上 currentExtent 恒为窗口客户区）──
+    VkSurfaceCapabilitiesKHR caps;
+    VkResult capsResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
+    if (capsResult != VK_SUCCESS) {
+        Log::error("resize: vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed: {}", static_cast<int>(capsResult),
+                   std::source_location::current());
+        return false;
+    }
+
+    // ── ② 最小化/不可见（0×0）：不可重建，直接失败（调用方决定跳帧/重试）──
+    if (caps.currentExtent.width == 0 || caps.currentExtent.height == 0) {
+        Log::debug("resize: surface 0x0 (minimized), skip (event {}x{})", w, h, std::source_location::current());
+        return false;
+    }
+
+    // ── ③ 短路：以 surface 真实尺寸为准（而非事件参数，事件可能滞后）──
+    //    currentExtent 为 UINT32_MAX 表示由 swapchain 决定（Win32 不会出现），此时退回事件尺寸比较
+    const bool extentDefined = caps.currentExtent.width != UINT32_MAX;
+    const uint32_t targetW = extentDefined ? caps.currentExtent.width : static_cast<uint32_t>(w);
+    const uint32_t targetH = extentDefined ? caps.currentExtent.height : static_cast<uint32_t>(h);
+    if (swapchainExtent_.width == targetW && swapchainExtent_.height == targetH) {
+        Log::debug("resize: extent unchanged {}x{} (event {}x{}), skip", swapchainExtent_.width,
+                   swapchainExtent_.height, w, h, std::source_location::current());
         return true;
+    }
+
+    const uint32_t oldW = swapchainExtent_.width;
+    const uint32_t oldH = swapchainExtent_.height;
 
     vkDeviceWaitIdle(vkDevice_);
-    Log::info("VulkanContext::resize: {}x{} → {}x{}", swapchainExtent_.width, swapchainExtent_.height, w, h,
-              std::source_location::current());
 
-    // 仅释放 + 重建 swapchain 和 canvas（不碰 sync objects / command buffers / frameIndex）
+    // ── ④ 仅释放 + 重建 swapchain 和 canvas（不碰 sync objects / command buffers）──
     destroyCanvas();
-    // 保存旧 swapchain handle，释放 image views
+
+    // 保留旧 swapchain 句柄，经 oldSwapchain 传入新建（spec 要求：同 surface 上存在
+    // 未 retire 的 swapchain 时必须传 oldSwapchain，否则可能 NATIVE_WINDOW_IN_USE）
     VkSwapchainKHR oldSwapchain = swapchain_;
     swapchain_ = VK_NULL_HANDLE;
     for (auto &iv : swapchainImageViews_) {
@@ -141,14 +172,15 @@ bool VulkanContext::resize(int w, int h) {
     swapchainImageViews_.clear();
     swapchainImages_.clear();
 
-    // 带 oldSwapchain 创建新 swapchain（关键修复）
-    if (!createSwapchain()) {
-        Log::error("resize: createSwapchain failed ({}x{})", w, h, std::source_location::current());
+    if (!createSwapchain(oldSwapchain)) {    // ← 签名微调，见下
+        Log::error("resize: createSwapchain failed ({}x{})", targetW, targetH, std::source_location::current());
+        if (oldSwapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(vkDevice_, oldSwapchain, nullptr); }
         return false;
     }
 
-    // 安全销毁旧的
+    // 新链已建立，安全销毁旧链
     if (oldSwapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(vkDevice_, oldSwapchain, nullptr); }
+
     if (!createCanvasImage()) {
         Log::error("resize: createCanvasImage failed", std::source_location::current());
         return false;
@@ -160,7 +192,10 @@ bool VulkanContext::resize(int w, int h) {
 
     currentImageIndex_ = 0;
     frameIndex_ = 0;
+    justRecreated_ = true;    // ← 下一成功帧强制全量重绘（canvas 已是 undefined/黑）
 
+    Log::info("resize: recreated swapchain+canvas {}x{} → {}x{} (event {}x{})", oldW, oldH, swapchainExtent_.width,
+              swapchainExtent_.height, w, h, std::source_location::current());
     return true;
 }
 
@@ -299,6 +334,15 @@ bool VulkanContext::createLogicalDevice() {
 // 返回 FrameToken 或 nullopt（swapchain 不可用）
 // ================================================================
 std::optional<FrameToken> VulkanContext::beginFrame() {
+    // ── ⓪ 上一帧报告过 SUBOPTIMAL：surface 与 swapchain 已不匹配 ──
+    // 主动重建（resize 内部以 caps.currentExtent 为准，参数仅作日志），
+    // 本帧跳过；重建置位 justRecreated_，下一帧强制全量重绘。
+    if (suboptimalPending_) {
+        suboptimalPending_ = false;
+        Log::info("beginFrame: suboptimal pending -> recreate swapchain");
+        resize(0, 0);
+        return std::nullopt;
+    }
     // ── ① 等待当前帧槽完成 ──
     VkResult fenceWait = vkWaitForFences(vkDevice_, 1, &inFlightFences_[frameIndex_], VK_TRUE, UINT64_MAX);
     if (fenceWait != VK_SUCCESS) {
@@ -336,6 +380,17 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
                    std::source_location::current());
         return std::nullopt;
     }
+
+    // ── SUBOPTIMAL：图像本身可用（信号量已 signal，必须正常走完本帧消费它），──
+    // ── 但 surface 与 swapchain 尺寸已不匹配，标记下一帧重建。              ──
+    // ── 注意：不能像 OUT_OF_DATE 一样直接跳帧——跳帧会遗留已 signal 的     ──
+    // ── imageAvailable 信号量，破坏后续 acquire/submit 同步。              ──
+    if (r == VK_SUBOPTIMAL_KHR) {
+        Log::info("beginFrame: acquire SUBOPTIMAL -> schedule recreate");
+        suboptimalPending_ = true;
+    }
+
+    Log::info("beginFrame: acquired img={} slot={} result={}", currentImageIndex_, frameIndex_, (int)r);
 
     vkResetFences(vkDevice_, 1, &inFlightFences_[frameIndex_]);
 
@@ -464,6 +519,8 @@ bool VulkanContext::present() {
     if (submitResult != VK_SUCCESS) {
         Log::error("present: vkQueueSubmit failed: {}", static_cast<int>(submitResult),
                    std::source_location::current());
+        frameIndex_ = (frameIndex_ + 1) % MAX_FRAMES_IN_FLIGHT;    // ← 新增：保持槽位轮转
+        return false;
     }
 
     VkPresentInfoKHR pi{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
@@ -474,8 +531,13 @@ bool VulkanContext::present() {
     pi.pImageIndices = &currentImageIndex_;
 
     VkResult presentResult = vkQueuePresentKHR(vkQueue_, &pi);
-    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR) { Log::warn("present: OUT_OF_DATE (will heal in next beginFrame)"); }
-    // VK_SUBOPTIMAL_KHR 不触发任何动作
+    Log::info("present: result={} img={} slot={}", (int)presentResult, currentImageIndex_, frameIndex_);
+    if (presentResult != VK_SUCCESS && presentResult != VK_SUBOPTIMAL_KHR) {
+        Log::warn("present: failed result={} (frame not shown)", (int)presentResult);
+    }
+
+    // present 侧 SUBOPTIMAL 同样安排下一帧重建（帧已正常呈现，仅是被拉伸）
+    if (presentResult == VK_SUBOPTIMAL_KHR) { suboptimalPending_ = true; }
 
     frameIndex_ = (frameIndex_ + 1) % MAX_FRAMES_IN_FLIGHT;
     return presentResult == VK_SUCCESS || presentResult == VK_SUBOPTIMAL_KHR;
@@ -483,7 +545,7 @@ bool VulkanContext::present() {
 // ======================================================================
 // 交换链
 // ======================================================================
-bool VulkanContext::createSwapchain() {
+bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
     uint32_t fmtCount;
@@ -534,6 +596,7 @@ bool VulkanContext::createSwapchain() {
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     sci.presentMode = pm;
     sci.clipped = VK_TRUE;
+    sci.oldSwapchain = oldSwapchain;
     if (vkCreateSwapchainKHR(vkDevice_, &sci, nullptr, &swapchain_) != VK_SUCCESS) return false;
     uint32_t n;
     vkGetSwapchainImagesKHR(vkDevice_, swapchain_, &n, nullptr);

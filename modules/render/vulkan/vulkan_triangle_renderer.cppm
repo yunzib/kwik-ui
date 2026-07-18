@@ -65,8 +65,9 @@ public:
      * 避免在 render pass 内使用 vkCmdUpdateBuffer。
      * 适合单帧 ≤64KB 三角形数据，Canvas Phase 1 使用。
      */
-    void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const std::vector<Vec2> &vertices, const Color &color,
-                       float alpha);
+    void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
+                   const Vec2 *vertices, uint32_t vertexCount,
+                   const Color &color, float alpha);
 
     /** @brief 获取 pipeline layout（供外部使用） */
     VkPipelineLayout layout() const { return pipelineLayout_; }

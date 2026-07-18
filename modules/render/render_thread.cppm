@@ -7,7 +7,7 @@ export module kwik.render.render_thread;
 import kwik.core.types;
 import kwik.platform.window;
 import kwik.render.backend;
-import kwik.render.command;
+import kwik.render.command_queue;
 import std;
 
 /**
@@ -35,11 +35,11 @@ export struct RenderThreadCallbacks {
  * @brief 渲染线程状态
  */
 export enum class RenderThreadState {
-    Stopped,  // 已停止
-    Starting, // 正在启动
-    Running,  // 运行中
-    Stopping, // 正在停止
-    Error     // 错误状态
+    Stopped,     // 已停止
+    Starting,    // 正在启动
+    Running,     // 运行中
+    Stopping,    // 正在停止
+    Error        // 错误状态
 };
 
 /**
@@ -50,7 +50,7 @@ export struct RenderThreadConfig {
     int initialWidth = 800;
     int initialHeight = 600;
     bool vsync = true;
-    int maxFrameLatency = 2; // 最大帧延迟（用于交换链）
+    int maxFrameLatency = 2;    // 最大帧延迟（用于交换链）
     RenderThreadCallbacks callbacks;
 };
 
@@ -112,7 +112,6 @@ public:
      */
     BackendType backendType() const;
 
-
     /**
      * @brief 获取帧统计信息
      */
@@ -131,9 +130,7 @@ public:
     void resetFrameStats();
 
     // render_thread.cppm — 暴露 backend 访问器
-    RenderBackend *backend() {
-        return backend_.get();
-    }
+    RenderBackend *backend() { return backend_.get(); }
 
 private:
     /**
@@ -152,15 +149,17 @@ private:
     void cleanup();
 
     /**
-     * @brief 处理命令缓冲区
+     * @brief 执行一帧的层树遍历
+     * @param frame 帧元数据（含 rootLayer 层树根）
+     *
+     * 使用 SceneBuilder DFS 遍历层树，逐层 push/pop 后端状态。
      */
-    void processCommands(const CommandBuffer &buffer);
-
+    bool processCommands(const FrameSubmit &frame);
 
     /**
-     * @brief 执行单个命令
+     * @brief 重置后端 GPU 状态缓存（结构变化时调用）
      */
-    void executeCommand(const Command &cmd);
+    void resetRendererCache();
 
     /**
      * @brief 更新帧统计信息
@@ -194,4 +193,7 @@ private:
 
     // 错误处理
     std::string lastError_;
+
+    uint32_t retryCount_ = 0;
+    static constexpr uint32_t kMaxRetries = 240;    // ≈0.5s，兜底最小化等持久失败
 };

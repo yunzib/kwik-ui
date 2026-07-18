@@ -80,22 +80,33 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     int32_t sy = std::max(0, static_cast<int32_t>(dirtyRect.y));
     uint32_t sw = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.width)));
     uint32_t sh = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.height)));
+
+    if (ctx_.consumeJustRecreated()) {               // ← 移到声明之后
+        Log::info("beginFrame: swapchain recreated -> force full redraw {}x{}",
+                  currentToken_->extent.width, currentToken_->extent.height);
+        sx = 0; sy = 0;
+        sw = currentToken_->extent.width;
+        sh = currentToken_->extent.height;           // 覆盖 dirtyRect，黑 canvas 整幅重绘
+    }
+
     VkRect2D sc{{sx, sy}, {sw, sh}};
     vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
-
     clip_.beginFrame(currentToken_->extent, sc);
-    triangle_.resetOffset();  // 每帧重置 triangle vertex buffer 写入偏移（从 0 开始写入新帧数据）
+    triangle_.resetOffset();
     return true;
 }
 
 void VulkanBackend::endFrame() {
+    Log::info("endFrame: drawCalls={}", drawCalls_);   // ← 新增
+    drawCalls_ = 0;                                     // ← 新增
     glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();
 }
 
-void VulkanBackend::present() {
-    ctx_.present();
+bool VulkanBackend::present() {
+    bool ok = ctx_.present();
     currentToken_.reset();
+    return ok;
 }
 // ================================================================
 // 委托 — 全部通过 currentToken_ 获取 Vulkan 句柄
@@ -105,6 +116,7 @@ void VulkanBackend::clear(const Color &c) {
 }
 
 void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode) {
+    drawCalls_++;
     // ── clearRect 路径：直接清除到透明黑 ──
     if (mode == BlendMode::SrcCopy) {
         VkClearAttachment att{};
@@ -113,8 +125,7 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode) {
         att.colorAttachment = 0;
         VkClearRect cr{};
         cr.rect = {{static_cast<int32_t>(r.x), static_cast<int32_t>(r.y)},
-                   {static_cast<uint32_t>(std::ceil(r.width)),
-                    static_cast<uint32_t>(std::ceil(r.height))}};
+                   {static_cast<uint32_t>(std::ceil(r.width)), static_cast<uint32_t>(std::ceil(r.height))}};
         cr.baseArrayLayer = 0;
         cr.layerCount = 1;
         vkCmdClearAttachments(currentToken_->commandBuffer, 1, &att, 1, &cr);
@@ -125,15 +136,19 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode) {
 }
 
 void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c) {
+    drawCalls_++;
     rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, clip_.globalAlpha());
 }
 void VulkanBackend::strokeRoundedRect(const Rect &r, float rad, const Color &c, float sw) {
+    drawCalls_++;
     rect_.strokeRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, sw, clip_.globalAlpha());
 }
 void VulkanBackend::drawShadow(const Rect &r, float rad, const Shadow &s) {
+    drawCalls_++;
     rect_.drawShadow(currentToken_->commandBuffer, currentToken_->extent, r, rad, s, clip_.globalAlpha());
 }
 void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
+    drawCalls_++;
     if (clip_.level() > 0) {
         glyph_.drawGlyphClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     } else {
@@ -142,6 +157,7 @@ void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
 }
 
 void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
+    drawCalls_++;
     if (clip_.level() > 0) {
         image_.drawImageClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
     } else {
@@ -163,23 +179,49 @@ void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad) {
         vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
     }
     clip_.pushClipRoundedRect(currentToken_->commandBuffer, r, rad);
-}
-void VulkanBackend::resetClip() {
-    clip_.resetClip(currentToken_->commandBuffer);
-    if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
-}
-void VulkanBackend::saveState() {
-    clip_.saveState();
-}
-void VulkanBackend::restoreState() {
-    clip_.restoreState(currentToken_->commandBuffer);
-    if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
-}
-void VulkanBackend::setGlobalAlpha(float a) {
-    clip_.setGlobalAlpha(a);
+    pushKinds_.push_back(PushKind::Clip);
 }
 
-void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd) {
-    triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, cmd.vertices, cmd.color,
+void VulkanBackend::setGlobalAlpha(float a) {
+    stateStack_.push_back(currentState_);
+    currentState_.alpha = a;
+    clip_.setGlobalAlpha(a);
+    pushKinds_.push_back(PushKind::Alpha);
+}
+
+void VulkanBackend::pushTransform(float tx, float ty, float sx, float sy) {
+    // 保存当前状态
+    stateStack_.push_back(currentState_);
+    // 复合变换
+    currentState_.tx += tx * currentState_.sx;
+    currentState_.ty += ty * currentState_.sy;
+    currentState_.sx *= sx;
+    currentState_.sy *= sy;
+    // 更新 push constant（Vulkan 命令缓冲区写入）
+    // 实际需要在 shader 中定义 transform uniform 并在此更新
+    pushKinds_.push_back(PushKind::Transform);
+}
+
+void VulkanBackend::popState() {
+    if (pushKinds_.empty()) return;
+    PushKind kind = pushKinds_.back();
+    pushKinds_.pop_back();
+    switch (kind) {
+    case PushKind::Clip:
+        if (currentToken_) clip_.resetClip(currentToken_->commandBuffer);  // ← 还原 scissor
+        break;
+    case PushKind::Alpha:
+        if (!stateStack_.empty()) { currentState_ = stateStack_.back(); stateStack_.pop_back(); }
+        clip_.setGlobalAlpha(currentState_.alpha);   // ← 同步还原 ClipManager 里的 alpha
+        break;
+    case PushKind::Transform:
+        if (!stateStack_.empty()) { currentState_ = stateStack_.back(); stateStack_.pop_back(); }
+        break;
+    }
+}
+
+void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) {
+    drawCalls_++;
+    triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, vertices, cmd.vertexCount, cmd.color,
                             clip_.globalAlpha());
 }

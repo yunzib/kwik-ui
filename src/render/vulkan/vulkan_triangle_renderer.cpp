@@ -189,19 +189,31 @@ bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRe
     return res == VK_SUCCESS;
 }
 
-void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const std::vector<Vec2> &vertices,
+/**
+ * @brief 绘制三角形列表（Arena 内联顶点版）
+ *
+ * 顶点数据来自 CommandArena::vertexData_ 连续内存，
+ * 通过 memcpy 一次性写入 host-visible staging buffer，
+ * 避免在 render pass 内使用 vkCmdUpdateBuffer。
+ *
+ * @param vertices    Arena 顶点区的连续 float2 指针
+ * @param vertexCount 顶点总数（= 三角形数 × 3，必须 ≥ 3 且为 3 的倍数）
+ */
+void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
+                                     const Vec2 *vertices, uint32_t vertexCount,
                                      const Color &color, float alpha) {
-    if (vertices.size() < 3 || (vertices.size() % 3) != 0) return;
+    // 顶点校验：至少 1 个三角形，且数量为 3 的倍数
+    if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
-    VkDeviceSize dataSize = vertices.size() * sizeof(Vec2);
-    // 检测剩余空间是否足够（每帧 vertex buffer 首地址从 writeOffset_ 开始）
+    VkDeviceSize dataSize = vertexCount * sizeof(Vec2);
+    // 检测 staging buffer 剩余空间是否足够
     if (writeOffset_ + dataSize > bufferCapacity_) return;
 
     // ── 写入顶点数据到当前偏移位置 ──
-    // 每次 drawTriangles 追加到 staging buffer 的不同偏移，避免帧内多次调用互相覆盖
-    memcpy(static_cast<char *>(mappedData_) + writeOffset_, vertices.data(), dataSize);
+    // 从 Arena 连续内存直接 memcpy 到 GPU staging buffer，零中间拷贝
+    memcpy(static_cast<char *>(mappedData_) + writeOffset_, vertices, dataSize);
 
-    // ── Push constants ──
+    // ── Push constants：颜色 + 视口 + 透明度 ──
     PushConstants pc;
     pc.r = color.r / 255.0f;
     pc.g = color.g / 255.0f;
@@ -214,21 +226,21 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, con
     pc._pad1 = 0.0f;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
-    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(PushConstants), &pc);
+    vkCmdPushConstants(cmd, pipelineLayout_,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(PushConstants), &pc);
 
     // ── 视口（Y 翻转：NDC Y↑ → 屏幕 Y↓）──
-    VkViewport vp{0.0f,
-                   0.0f,
+    VkViewport vp{0.0f, 0.0f,
                   static_cast<float>(extent.width),
                   static_cast<float>(extent.height),
-                  0.0f,
-                  1.0f};
+                  0.0f, 1.0f};
     vkCmdSetViewport(cmd, 0, 1, &vp);
 
+    // ── 绑定 staging buffer 并绘制 ──
     VkDeviceSize offset = writeOffset_;
     vkCmdBindVertexBuffers(cmd, 0, 1, &stagingBuffer_, &offset);
-    vkCmdDraw(cmd, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    vkCmdDraw(cmd, vertexCount, 1, 0, 0);
 
     // 写入偏移前移，为下一组顶点腾出空间
     writeOffset_ += dataSize;

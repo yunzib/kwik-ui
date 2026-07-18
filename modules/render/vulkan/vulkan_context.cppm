@@ -18,30 +18,29 @@ import std;
 
 // ── 字形绘制 Push Constants (56 字节) ──
 export struct GlyphPushConstants {
-    float posX, posY;          // offset  0
-    float sizeX, sizeY;        // offset  8
-    float uvU0, uvV0;          // offset 16
-    float uvU1, uvV1;          // offset 24
-    float colorR, colorG, colorB, colorA; // offset 32
-    float viewportW, viewportH; // offset 48
-    float textContrast;          // offset 56
+    float posX, posY;                        // offset  0
+    float sizeX, sizeY;                      // offset  8
+    float uvU0, uvV0;                        // offset 16
+    float uvU1, uvV1;                        // offset 24
+    float colorR, colorG, colorB, colorA;    // offset 32
+    float viewportW, viewportH;              // offset 48
+    float textContrast;                      // offset 56
     // 总计 60 字节
 };
 static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match glyph shader layout");
 
 // ── 图片绘制 Push Constants (60 字节，保留 cornerRadius) ──
 export struct ImagePushConstants {
-    float posX, posY;           // offset  0
-    float sizeX, sizeY;         // offset  8
-    float uvU0, uvV0;           // offset 16
-    float uvU1, uvV1;           // offset 24
-    float colorR, colorG, colorB, colorA; // offset 32
-    float viewportW, viewportH;  // offset 48
-    float cornerRadius;          // offset 56
+    float posX, posY;                        // offset  0
+    float sizeX, sizeY;                      // offset  8
+    float uvU0, uvV0;                        // offset 16
+    float uvU1, uvV1;                        // offset 24
+    float colorR, colorG, colorB, colorA;    // offset 32
+    float viewportW, viewportH;              // offset 48
+    float cornerRadius;                      // offset 56
     // 总计 60 字节
 };
 static_assert(sizeof(ImagePushConstants) == 60, "ImagePushConstants size must match image shader layout");
-
 
 // ── FrameToken: 每帧由 beginFrame 产出，子渲染器通过此对象获取 Vulkan 句柄 ──
 export struct FrameToken {
@@ -93,6 +92,12 @@ public:
     bool createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkBuffer &buffer,
                       VkDeviceMemory &memory);
 
+    bool consumeJustRecreated() {
+        bool v = justRecreated_;
+        justRecreated_ = false;
+        return v;
+    }
+
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     VkInstance vkInstance_ = VK_NULL_HANDLE;
@@ -127,12 +132,17 @@ private:
     VkImageView canvasStencilView_ = VK_NULL_HANDLE;
     VkFramebuffer canvasFramebuffer_ = VK_NULL_HANDLE;
 
+    bool justRecreated_ = false;   ///< swapchain/canvas 刚重建，首个成功帧需全量重绘
+    bool suboptimalPending_ = false;  ///< acquire/present 报告过 SUBOPTIMAL，下帧主动重建
+                                      ///< （部分驱动尺寸不匹配时只报 SUBOPTIMAL 不报 OUT_OF_DATE，
+                                      ///<   若无视会导致画面被驱动拉伸——本次拉伸 bug 的防御位）
+
     bool createInstance(void *nativeHandle);
     bool pickPhysicalDevice();
     bool createLogicalDevice();
     bool createCanvasImage();
     void destroyCanvas();
-    bool createSwapchain();
+    bool createSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
     void cleanupSwapchain();
     bool createRenderPass();
     bool createCanvasFramebuffer();

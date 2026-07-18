@@ -13,10 +13,11 @@ export module kwik.render.text.cache;
 import std;
 import kwik.core.types;
 import kwik.render.text.types;
+import kwik.render.text.font.manager;
 
 export class TextCache {
 public:
-    explicit TextCache(class FontManager &fontManager);
+    explicit TextCache(FontManager &fontManager);
     ~TextCache(); 
     TextCache(const TextCache &) = delete;
     TextCache &operator=(const TextCache &) = delete;

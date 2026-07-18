@@ -181,8 +181,9 @@ public:
 
     /**
      * @brief 获取当前脏矩形 (只读, 不清空)
+     * （fullRedraw 期间对外呈现"空" = 全屏语义）:
      */
-    Rect current() const { return dirtyRect_; }
+    Rect current() const { return fullRedraw_ ? Rect{} : dirtyRect_; }
 
     /**
      * @brief 取走脏矩形并重置状态

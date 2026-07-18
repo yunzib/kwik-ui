@@ -13,6 +13,7 @@ import kwik.render.vulkan.clip_manager;
 import kwik.render.text.pipeline;
 import kwik.render.text.types;
 import kwik.render.vulkan.triangle_renderer;
+import kwik.core.path;
 
 import kwik.core.types;
 
@@ -33,7 +34,7 @@ public:
     bool resize(int width, int height) override;    // 返回 bool
     bool beginFrame(const Rect &dirtyRect) override;
     void endFrame() override;
-    void present() override;
+    bool present() override;
     // 形状
     void clear(const Color &color) override;
     /**
@@ -55,22 +56,23 @@ public:
     void destroyImageTexture(uint32_t id) override;
     // 裁剪
     void pushClipRoundedRect(const Rect &rect, float radius) override;
-    void resetClip() override;
-    void saveState() override;
-    void restoreState() override;
+
     void setGlobalAlpha(float alpha) override;
-    BackendType getType() const override {
-        return BackendType::Vulkan;
-    }
-    int getWidth() const override {
-        return width_;
-    }
-    int getHeight() const override {
-        return height_;
-    }
+    void pushTransform(float tx, float ty, float sx, float sy) override;
+    void popState() override;
+    BackendType getType() const override { return BackendType::Vulkan; }
+    int getWidth() const override { return width_; }
+    int getHeight() const override { return height_; }
 
-    void fillTriangles(const FillTrianglesCmd &cmd) override;
+    void fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) override;
 
+    /**
+     * @brief 重置帧内 GPU 状态缓存（结构变化时调用）
+     *
+     * 当前为 no-op：Vulkan 后端无帧级状态缓存。
+     * 保留接口供未来添加 dirty rect 追踪、管线缓存等优化。
+     */
+    void resetFrameCache() {}
 
 private:
     VulkanContext ctx_;
@@ -82,5 +84,19 @@ private:
     DeviceContext deviceCtx_;
     int width_ = 0;
     int height_ = 0;
-    TriangleRenderer triangle_;     ///< 三角形网格渲染器
+    TriangleRenderer triangle_;    ///< 三角形网格渲染器
+
+    // 状态栈：变换矩阵、透明度
+    struct State {
+        float tx = 0, ty = 0;
+        float sx = 1, sy = 1;
+        float alpha = 1.0f;
+    };
+    std::vector<State> stateStack_;
+    State currentState_;
+
+    enum class PushKind : uint8_t { Transform, Clip, Alpha };
+    std::vector<PushKind> pushKinds_;
+
+    uint32_t drawCalls_ = 0;   ///< 临时探针：本帧绘制调用计数
 };

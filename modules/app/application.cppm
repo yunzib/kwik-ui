@@ -136,6 +136,12 @@ private:
 
     EventRouter eventRouter_;
 
+    /** @brief 结构变化标志，rebuildTree 后设为 true，renderFrame 消费后清空 */
+    bool treeStructureChanged_ = true;
+    uint64_t frameId_ = 0;              /**< 单调递增帧序号，写入 FrameSubmit.frameId */
+
+    int resizeBurstFrames_ = 0;
+
 
     void handleResize(int width, int height);
 

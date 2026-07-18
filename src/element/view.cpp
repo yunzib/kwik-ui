@@ -130,13 +130,25 @@ Size View::onMeasure(Constraints constraints) {
         Constraints childConstraints = constraints.inset(props.padding);
         float maxChildWidth = 0;
         float totalChildHeight = 0;
+        float maxExplicitBottom = 0;    // 显式 y 定位子节点的下边界包络
         for (auto &child : children) {
             Size childSize = child->measure(childConstraints);
-            maxChildWidth = std::max(maxChildWidth, childSize.width);
-            totalChildHeight += childSize.height + child->props.margin.vertical();
+            float cw = childSize.width + child->props.margin.horizontal();
+            float ch = childSize.height + child->props.margin.vertical();
+
+            // 显式 x：实际占用 = 偏移 + 自身宽（含 margin）；流式子节点取最大宽
+            float extentW = child->props.hasExplicitX ? child->props.x + cw : cw;
+            maxChildWidth = std::max(maxChildWidth, extentW);
+
+            // 显式 y：脱离纵向流（与 onLayout 的 yCursor 跳过逻辑对齐），取 y+高 包络
+            if (child->props.hasExplicitY) {
+                maxExplicitBottom = std::max(maxExplicitBottom, child->props.y + ch);
+            } else {
+                totalChildHeight += ch;
+            }
         }
         if (!props.width.has_value()) w = maxChildWidth + props.padding.horizontal();
-        if (!props.height.has_value()) h = totalChildHeight + props.padding.vertical();
+        if (!props.height.has_value()) h = std::max(totalChildHeight, maxExplicitBottom) + props.padding.vertical();
     }
     return constraints.constrain({w, h});
 }
@@ -239,7 +251,8 @@ void View::onDraw(Graphics &graphics) {
     }
 
     // ── 应用位移变换 ──
-    // if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
+    // if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY);
+    // }
 
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;

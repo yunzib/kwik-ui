@@ -12,7 +12,7 @@ import kwik.platform.window;
 import kwik.engine.context;
 import kwik.render.render_thread;
 import kwik.render.graphics;
-import kwik.render.command;
+import kwik.render.command_queue;
 import kwik.event;
 import kwik.element.view;
 import kwik.core.props;
@@ -177,14 +177,26 @@ void Application::rebuildTree() {
 
     dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
     jsCtx_.setUserPointer(tree_.get());
+
+    treeStructureChanged_ = true;
 }
 
-// ============================================================================
-// renderFrame — 录制并提交一帧 (脏区域跳过干净子树)
-// ============================================================================
+/**
+ * @brief 录制并提交一帧（层树路径）
+ *
+ * 步骤：
+ * ① 获取当前槽位的层树根（已有层树或 nullptr）
+ * ② 构造 LayerTreeBuilder 开始构建
+ * ③ 遍历 View 树，View::onDraw 录制到层树
+ * ④ 获取构建完成的层树根
+ * ⑤ 填入 FrameSubmit 并提交到三缓冲队列
+ */
 void Application::renderFrame() {
     float dpi = window_.GetDpiScale();
-    Rect dr = dirtyTracker_.consume();    // 取走脏矩形 (逻辑坐标)
+    Rect dr = dirtyTracker_.current();    // 只读，不消费
+
+    Log::debug("renderFrame: dirty=({},{},{}x{}) empty={} structural={}", dr.x, dr.y, dr.width, dr.height, dr.isEmpty(),
+               treeStructureChanged_);
 
     if (dr.isEmpty()) {
         int w, h;
@@ -192,21 +204,30 @@ void Application::renderFrame() {
         dr = Rect{0, 0, static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
     }
 
-    auto &cmdBuffer = renderThread_.commandQueue().currentBuffer();
-    Graphics canvas(&cmdBuffer);
-    canvas.beginFrame();
+    bool structural = treeStructureChanged_;
+    treeStructureChanged_ = false;
+
+    // ── Graphics API 不变（适配器模式）──
+    Graphics canvas;
+    canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
+    canvas.beginFrame(structural);
     canvas.scale(dpi, dpi);
-
-    // ─ 只清空脏区域 — 非脏区域由 canvas 持久保留 ─
     canvas.drawRect(dr, Color::white());
+    tree_->draw(canvas);
 
-    tree_->draw(canvas);    // View::draw 内部跳过干净子树
+    dirtyTracker_.consume();
 
-    canvas.endFrame();
+    // endFrame 返回层树根
+    auto rootLayer = canvas.endFrame();
 
-    // ─ 转换为物理像素坐标传递渲染线程 ─
-    Rect physDirty = {dr.x * dpi, dr.y * dpi, dr.width * dpi, dr.height * dpi};
-    cmdBuffer.setDirtyRect(physDirty);
+    // 填入帧元数据
+    auto &frame = renderThread_.commandQueue().currentFrame();
+    frame.frameId = ++frameId_;
+    frame.rootLayer = std::move(rootLayer);
+    frame.dirtyRect = {dr.x * dpi, dr.y * dpi, dr.width * dpi, dr.height * dpi};
+    frame.structuralChange = structural;
+    frame.needsResize = false;
+
     renderThread_.commandQueue().submit();
 }
 
@@ -241,7 +262,7 @@ int Application::run() {
                 return;
             }
             if (rawEvent.action == RawEvent::Action::WindowResize && rawEvent.width > 0 && rawEvent.height > 0) {
-                // 提交 ResizeCmd + re-layout
+                // 直连 FrameSubmit.needsResize + re-layout
                 handleResize(rawEvent.width, rawEvent.height);
                 return;
             }
@@ -268,7 +289,7 @@ int Application::run() {
         // 必须在 rebuildTree 之前全部消费，确保状态变更被渲染捕获
         jsCtx_.processMicrotasks();
 
-        CoreTimer::tick();   // 驱动定时器
+        CoreTimer::tick();    // 驱动定时器
 
         AnimationEngine::instance().update(
             std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(),
@@ -286,6 +307,11 @@ int Application::run() {
             // 重建树前先停止所有动画，避免 target_ 悬空
             AnimationEngine::instance().stopAll();
             rebuildTree();
+        }
+
+        if (resizeBurstFrames_ > 0) {
+            resizeBurstFrames_--;
+            dirtyTracker_.markFull();
         }
 
         if (dirtyTracker_.needsRedraw()) {
@@ -323,10 +349,18 @@ void Application::preloadImageTextures(View *view) {
 // handleResize — 窗口大小变化处理
 // ============================================================================
 void Application::handleResize(int width, int height) {
-    auto &buf = renderThread_.commandQueue().currentBuffer();
-    buf.add(ResizeCmd{width, height});
-    buf.setDirtyRect({0, 0, static_cast<float>(width), static_cast<float>(height)});
+    // 直连 FrameSubmit，不经过 Graphics/LayerTreeBuilder
+    auto &frame = renderThread_.commandQueue().currentFrame();
+    frame.frameId = ++frameId_;
+    frame.rootLayer = nullptr;    // resize 帧只重建 swapchain，不携带旧树绘制
+    frame.needsResize = true;
+    frame.resizeWidth = width;
+    frame.resizeHeight = height;
+    frame.dirtyRect = {0, 0, static_cast<float>(width), static_cast<float>(height)};
+    frame.structuralChange = true;
     renderThread_.commandQueue().submit();
+
+    treeStructureChanged_ = true;
 
     float dpi = window_.GetDpiScale();
     auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
@@ -335,5 +369,5 @@ void Application::handleResize(int width, int height) {
     eventRouter_.setDpiScale(dpi);
     dirtyTracker_.markFull();
 
-    Log::info("[App] resize: {}x{} (logical {:.0f}x{:.0f})", width, height, sz.width, sz.height);
+    resizeBurstFrames_ = 10;    // resize 后连续 10 帧全量重绘（≈0.4s，覆盖 DWM 过渡期）
 }

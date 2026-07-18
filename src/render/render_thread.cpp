@@ -17,10 +17,12 @@ module kwik.render.render_thread;
 import kwik.core.types;
 import kwik.platform.window;
 import kwik.render.backend;
-import kwik.render.command;
+import kwik.render.command_queue;
 // import kwik.render.software_backend;
 import kwik.render.vulkan_backend;
 import kwik.core.log;
+import kwik.core.path; // Vec2 — 三角形网格顶点
+import kwik.render.scene_builder;
 
 import std;
 
@@ -130,27 +132,33 @@ void RenderThread::threadMain() {
 
         // 主渲染循环
         while (true) {
-            // 检查停止请求
             {
                 std::lock_guard<std::mutex> lock(stateMutex_);
-                if (state_ == RenderThreadState::Stopping) { break; }
+                if (state_ == RenderThreadState::Stopping) break;
             }
 
             auto frameStartTime = std::chrono::high_resolution_clock::now();
 
-            // 获取命令缓冲区
-            // // Windows 上 WaitOnAddress 可能丢失 notify_one。当主线程 sleep 导致 ring 经常空时：
             if (commandQueue_.acquire(false)) {
-                // 处理命令
-                processCommands(commandQueue_.pendingBuffer());
-
-                // 释放命令缓冲区
-                commandQueue_.release();
-
-                // 更新帧统计
-                updateFrameStats(frameStartTime);
+                const auto &frame = commandQueue_.pendingFrame();
+                bool ok = processCommands(frame);
+                if (ok) {
+                    if (retryCount_ > 0) Log::info("frame {} recovered after {} retries", frame.frameId, retryCount_);
+                    retryCount_ = 0;
+                    commandQueue_.releaseRead();
+                    commandQueue_.releaseGPU();
+                    updateFrameStats(frameStartTime);
+                } else if (++retryCount_ >= kMaxRetries) {
+                    Log::error("frame {} dropped after {} retries", frame.frameId, retryCount_);
+                    retryCount_ = 0;
+                    commandQueue_.releaseRead();
+                    commandQueue_.releaseGPU();
+                } else {
+                    if (retryCount_ == 1)
+                        Log::warn("frame {} begin/present failed, retrying (slot kept)", frame.frameId);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                }
             } else {
-                // 队列为空，短暂休眠避免忙等待
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
@@ -212,86 +220,40 @@ void RenderThread::cleanup() {
     backend_.reset();
 }
 
-void RenderThread::processCommands(const CommandBuffer &buffer) {
-    if (!backend_) { return; }
+/**
+ * @brief 层树遍历执行
+ *
+ * 使用 SceneBuilder DFS 遍历，遇 PictureLayer 则回放 Picture。
+ * Layer 树中的变换/裁剪/透明度由 SceneBuilder 映射为后端 push/pop。
+ */
+bool RenderThread::processCommands(const FrameSubmit &frame) {
+    if (!backend_) return true;                       // 无后端：消费丢弃，不重试
 
-    // 先处理 resize 命令（必须在 beginFrame 之前）
-    for (const auto &cmd : buffer.commands()) {
-        if (auto *rc = std::get_if<ResizeCmd>(&cmd)) { executeCommand(cmd); }
-    }
+    // ── resize（在 beginFrame 之前，需重建 swapchain）──
+    if (frame.needsResize) { backend_->resize(frame.resizeWidth, frame.resizeHeight); }
 
-    // 开始帧
-    Rect dr = buffer.dirtyRect();
-    if (!backend_->beginFrame(dr)) return;
-    // 执行所有命令
-    for (const auto &cmd : buffer.commands()) {
-        if (!std::holds_alternative<ResizeCmd>(cmd)) { executeCommand(cmd); }
-    }
+    if (!frame.rootLayer) return true;                // resize-only 帧：正常消费
 
-    // 结束帧
+    if (frame.structuralChange) { resetRendererCache(); }
+
+    if (!backend_->beginFrame(frame.dirtyRect)) return false;   // acquire失败/自愈跳帧 → 保槽重试
+
+    SceneBuilder sb(*backend_);
+    frame.rootLayer->visit(sb);
+
     backend_->endFrame();
-    backend_->present();
+    return backend_->present();                       // present失败 → 保槽重试
 }
 
-void RenderThread::executeCommand(const Command &cmd) {
-    if (!backend_) { return; }
-
-    // 使用std::visit处理变体类型
-    std::visit(
-        [this](auto &&arg) {
-            using T = std::decay_t<decltype(arg)>;
-
-            if constexpr (std::is_same_v<T, ClearCmd>) {
-                backend_->clear(arg.color);
-            } else if constexpr (std::is_same_v<T, FillRectCmd>) {
-                // 带混合模式转发给后端
-                backend_->fillRect(arg.rect, arg.color, arg.mode);
-            } else if constexpr (std::is_same_v<T, FillRectCmd>) {
-                backend_->fillRect(arg.rect, arg.color);
-            } else if constexpr (std::is_same_v<T, FillRoundedRectCmd>) {
-                backend_->fillRoundedRect(arg.rect, arg.radius, arg.color);
-            } else if constexpr (std::is_same_v<T, StrokeRoundedRectCmd>) {
-                backend_->strokeRoundedRect(arg.rect, arg.radius, arg.color, arg.strokeWidth);
-            } else if constexpr (std::is_same_v<T, DrawShadowCmd>) {
-                backend_->drawShadow(arg.rect, arg.radius, arg.shadow);
-            } else if constexpr (std::is_same_v<T, SaveStateCmd>) {
-                // 状态保存由后端处理（如果需要）
-                backend_->saveState();
-            } else if constexpr (std::is_same_v<T, RestoreStateCmd>) {
-                // 状态恢复由后端处理（如果需要）
-                backend_->restoreState();
-            } else if constexpr (std::is_same_v<T, TranslateCmd>) {
-                // 变换已由主线程应用，这里无需处理
-            } else if constexpr (std::is_same_v<T, ScaleCmd>) {
-                // 变换已由主线程应用，这里无需处理
-            } else if constexpr (std::is_same_v<T, SetOpacityCmd>) {
-                backend_->setGlobalAlpha(arg.opacity);
-            } else if constexpr (std::is_same_v<T, ClipRoundedRectCmd>) {
-                backend_->pushClipRoundedRect(arg.rect, arg.radius);
-            } else if constexpr (std::is_same_v<T, ResetClipCmd>) {
-                backend_->resetClip();
-            } else if constexpr (std::is_same_v<T, BeginFrameCmd>) {
-                // 已由processCommands处理
-            } else if constexpr (std::is_same_v<T, EndFrameCmd>) {
-                // 已由processCommands处理
-            } else if constexpr (std::is_same_v<T, DrawGlyphCmd>) {
-                backend_->drawGlyph(arg);
-            } else if constexpr (std::is_same_v<T, DrawImageCmd>) {
-                backend_->drawImage(arg);
-            } else if constexpr (std::is_same_v<T, PresentCmd>) {
-                // 已由threadMain处理
-            } else if constexpr (std::is_same_v<T, ResizeCmd>) {
-                // 窗口resize事件处理
-                if (arg.width > 0 && arg.height > 0) { backend_->resize(arg.width, arg.height); }
-            } else if constexpr (std::is_same_v<T, FillTrianglesCmd>) {
-                backend_->fillTriangles(arg);
-            } else if constexpr (std::is_same_v<T, StrokeTrianglesCmd>) {
-                // Stroke 当前复用 fillTriangles（纯色填充无区别）
-                FillTrianglesCmd fc{std::move(arg.vertices), arg.color};
-                backend_->fillTriangles(fc);
-            }
-        },
-        cmd);
+/**
+ * @brief 重置后端 GPU 状态缓存
+ *
+ * 结构变化时调用，清空版本号缓存。
+ * 下次遇到所有命令都当作"新命令"处理。
+ */
+void RenderThread::resetRendererCache() {
+    if (!backend_) return;
+    if (auto *vk = dynamic_cast<VulkanBackend *>(backend_.get())) { vk->resetFrameCache(); }
 }
 
 void RenderThread::updateFrameStats(std::chrono::high_resolution_clock::time_point frameStartTime) {
@@ -309,10 +271,6 @@ void RenderThread::updateFrameStats(std::chrono::high_resolution_clock::time_poi
     } else {
         frameStats_.averageFrameTimeMs = 0.9f * frameStats_.averageFrameTimeMs + 0.1f * frameTime;
     }
-
-    // 更新最大队列深度
-    size_t currentDepth = commandQueue_.depth();
-    if (currentDepth > frameStats_.maxQueueDepth) { frameStats_.maxQueueDepth = currentDepth; }
 
     // 检查是否丢帧（帧时间过长）
     if (frameTime > 16.67f) {    // 超过60Hz的帧时间

@@ -1,5 +1,36 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-19
+
+### 变更
+- 渲染线程命令缓冲重构 — 三缓冲槽位从 CommandArena 命令流改为 FrameSubmit + 层树
+  - CommandQueue：环形索引改 % 取模（修 &kMask 槽位错乱与 rootLayers 越界闪退）；
+    背压前移至取槽处（waitWritable，修在途帧覆写导致的拉伸/闪退）
+  - 渲染线程消费 FrameSubmit{rootLayer, dirtyRect, needsResize}；失败帧保槽重试不丢弃
+- 命令树（Layer Tree）重构 — 录制目标从命令流改为跨帧保留层树
+  - 新增 Layer 族：ContainerLayer / TransformLayer / ClipRRectLayer / OpacityLayer / DrawListLayer
+  - 新增 DrawList（原 Picture 更名，19 种命令瘦身为 9 种纯绘制）+ DrawListRecorder
+  - 主线程 LayerTreeBuilder 建树，渲染线程 SceneBuilder DFS 翻译为 backend push/pop/replay
+  - Graphics 降级为适配器：公有 API 不变，21 个 View 子类零修改；
+    save/restore→Group，clip→ClipRRectLayer，坐标/透明度过渡期仍主线程烘烤
+
+### 修复
+- 窗口最大化/还原后黑屏（偶发拉伸、闪退）
+  - 根因：resize 销毁旧 swapchain 时窗口内容立即失效，重建后仅 present 一帧，
+    该帧被 DWM 窗口过渡动画吞掉或因丢帧/脏区残留而内容残缺，此后 UI 静止
+    再无新帧 → 黑屏定格；burst 补帧又暴露取槽先于背压的在途帧覆写
+    （resize 帧被抹掉 → 驱动拉伸上屏、层树 use-after-free → 闪退）
+  - 修复：渲染线程失败帧保槽重试；重建后首帧强制全量重绘（justRecreated_）；
+    resize 后连续 30 帧全量补帧覆盖 DWM 过渡期（resizeBurstFrames_）；
+    CommandQueue::waitWritable() 将背压前移至取槽处；
+    SUBOPTIMAL 置 suboptimalPending_ 下帧主动重建
+- view.js 只显示第一个 View：backend popState 未还原裁剪（scissor 泄漏到后续兄弟节点）
+  + Graphics restore 只弹一层导致栈失衡 + 透明度烘烤与 OpacityLayer 双重应用
+- text.js 文字不显示：drawTextCached 漏坐标烘烤（其依赖的 GPU TransformLayer 过渡期未启用）
+- C++26 模块附属实体链接错误：module purview 内 `class X` 前向声明会创建附属本模块的
+  新实体（SceneBuilder/RenderBackend/FontManager 三处），改为 import 属主模块
+- View::onMeasure 自动尺寸未计入显式 x/y 子节点偏移，右侧内容被圆角裁剪切除
+
 ## [0.0.0] — 2026-07-12
 
 ### 新增

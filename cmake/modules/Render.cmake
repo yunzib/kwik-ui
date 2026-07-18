@@ -10,6 +10,11 @@ set(RENDER_PUBLIC_MODULES
     modules/render/backend.cppm
     modules/render/command.cppm
     modules/render/render_thread.cppm
+    modules/render/command_queue.cppm
+    modules/render/layer.cppm               
+    modules/render/draw_list.cppm         
+    modules/render/layer_tree_builder.cppm  
+    modules/render/scene_builder.cppm       
     modules/render/texture_manager.cppm
     modules/render/text/text_types.cppm
     modules/render/text/text_face.cppm
@@ -18,12 +23,16 @@ set(RENDER_PUBLIC_MODULES
     modules/render/text/text_layout.cppm
     modules/render/text/text_cache.cppm
     modules/render/text/text_render_pipeline.cppm
+
     
 )
 set(RENDER_PRIVATE_SOURCES
     src/render/graphics.cpp
-    src/render/command.cpp
     src/render/render_thread.cpp
+    src/render/command_queue.cpp
+    src/render/layer.cpp                    
+    src/render/draw_list.cpp              
+    src/render/layer_tree_builder.cpp       
     src/render/text/text_face_ft.cpp
     src/render/text/text_shaper.cpp
     src/render/text/text_font_manager.cpp
