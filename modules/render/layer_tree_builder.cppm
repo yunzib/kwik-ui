@@ -34,21 +34,17 @@ public:
     LayerTreeBuilder();
 
     // ── 帧管理 ──
+    /**
+     * @brief 开启一个新 Group（对应 Graphics::save）
+     * @param injectedDrawList 非空→注入缓存的 DrawList，跳过录制；空→创建新的 Recorder
+     */
+    void pushGroup(std::shared_ptr<DrawList> injectedDrawList = nullptr);
 
     /**
-     * @brief 开启一个组（对应 Graphics::save）
-     *
-     * 创建一个 ContainerLayer 作为新的当前容器。
-     * 组内的所有操作（draw/push）都是此层的子节点。
+     * @brief 关闭当前 Group（对应 Graphics::restore）
+     * @return 本 Group 产生的 DrawList（录制模式下返回录制结果，注入模式下返回 nullptr）
      */
-    void pushGroup();
-
-    /**
-     * @brief 关闭当前组（对应 Graphics::restore）
-     *
-     * 定稿当前 Picture，弹出所有子层，回到父容器。
-     */
-    void popGroup();
+    std::shared_ptr<DrawList> popGroup();
 
     // ── 新增：供 Graphics 适配器调用的绘制方法 ──
 
@@ -112,4 +108,19 @@ private:
 
     /** @brief 录制计数器（用于 endFrame 统计） */
     size_t recordCount_ = 0;
+
+    /** @brief 当前录制器（shared_ptr 持有所有权，currentRecorder_ 是裸指针别名） */
+    std::shared_ptr<DrawListRecorder> activeRecorder_;
+
+    /** @brief 缓存注入模式标志：pushGroup 贴了缓存后为 true，draw* 应 no-op */
+    bool injectionMode_ = false;
+
+    /**
+     * @brief 刷新当前录制器：endRecording → 将 DrawListLayer 插入当前容器
+     *
+     * 任何结构操作（pushClip/pushTransform/pushOpacity/pop/popGroup）之前调用，
+     * 确保结构 Layer 节点之前的所有绘制内容已定稿为 DrawListLayer。
+     * 刷新后 currentRecorder_ 置空，后续 draw* 将走旧路径直到新的 Recorder 被创建。
+     */
+    void flushRecorder();
 };

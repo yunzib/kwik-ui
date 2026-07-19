@@ -91,23 +91,20 @@ std::shared_ptr<Layer> Graphics::endFrame() {
 // ============================================================================
 // 状态管理 — save / restore
 // ============================================================================
-
 void Graphics::save() {
     stateStack_.push_back(currentState_);
-    currentState_.pushes = 0;              // ← 新作用域计数清零（核心修复）
+    currentState_.pushes = 0;
     if (!recording_) return;
-
-    // 委托 builder：
-    // save() 在 LayerTreeBuilder 中开启一个新的 Group（ContainerLayer）
-    // 后续的 draw 和 push 操作都在此 Group 内
-    builder_.pushGroup();
+    builder_.pushGroup(injectedDrawList_);    // ← 传入注入的 DrawList
+    injectedDrawList_.reset();                // ← 消费后清零（嵌套 save 不继承）
 }
 
 void Graphics::restore() {
     if (recording_) {
-        int n = currentState_.pushes;      // 用局部变量，避免成员残留 -1
-        while (currentState_.pushes-- > 0) builder_.pop();   // ← 新增：清算未弹出的 clip
-        builder_.popGroup();
+        int n = currentState_.pushes;
+        while (currentState_.pushes-- > 0) builder_.pop();
+        auto dl = builder_.popGroup();            // ← 改为获取返回值
+        if (dl && contentDepth_ > 0) capturedDrawList_ = dl;  // ← 最外层才缓存到 capturedDrawList_
     }
     if (!stateStack_.empty()) {
         currentState_ = stateStack_.back();

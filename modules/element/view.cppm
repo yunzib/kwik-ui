@@ -11,6 +11,7 @@ import kwik.render.graphics;
 import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
+import kwik.render.draw_list;
 
 import std;
 
@@ -492,10 +493,17 @@ public:
      */
     void drawForced(Graphics &g) {
         if (!props.visible) return;
-        g.setForceDraw(true);    // 开启穿透模式
+        g.setForceDraw(true);
+        // drawForced 不参与缓存决策——由调用方（ListLayout）保证子节点已独立判定
+        // 这里始终走录制模式
+        g.beginContent(nullptr);
         onDraw(g);
-        g.setForceDraw(false);    // 退出穿透模式
+        auto dl = g.endContent();
+        if (dl) cachedDrawList_ = dl;
+        g.setForceDraw(false);
     }
+
+    void invalidateDrawCache() { cachedDrawList_.reset(); }    ///< 清空缓存（markDirty时调用可选项）
 
 protected:
     /**
@@ -543,6 +551,8 @@ private:
     bool dirty_ = true;                  // 新建后默认脏 (首帧必画)
     DirtyTracker *tracker_ = nullptr;    // 脏矩形追踪器 (由 Application 注入)
     bool needsRelayout_ = false;         // 标记需要 re-layout
+
+    std::shared_ptr<DrawList> cachedDrawList_;    ///< 上次录制的绘制列表（null=未录制）
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针

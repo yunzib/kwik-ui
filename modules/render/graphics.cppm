@@ -134,6 +134,28 @@ public:
     void setForceDraw(bool v) { forceDraw_ = v; }
     bool isForceDraw() const { return forceDraw_; }
 
+    /**
+     * @brief 开启一个 View 的内容录制域
+     *
+     * 在 View::draw 中调用。若 cachedDrawList 非空→注入模式（Builder 直接复用）；
+     * 若空→录制模式（Builder 创建 Recorder，endContent 返回录制结果）。
+     */
+    void beginContent(std::shared_ptr<DrawList> cachedDrawList) {
+        injectedDrawList_ = std::move(cachedDrawList);
+        contentDepth_++;
+    }
+
+    /**
+     * @brief 关闭 View 的内容录制域
+     * @return 录制产生的 DrawList（注入模式返回 nullptr）
+     */
+    std::shared_ptr<DrawList> endContent() {
+        contentDepth_--;
+        auto dl = std::move(capturedDrawList_);
+        capturedDrawList_.reset();
+        return dl;
+    }
+
 private:
     // ── 保留原状态栈（坐标烘烤仍需要）──
     struct State {
@@ -168,4 +190,8 @@ private:
     int height_ = 0;
 
     bool forceDraw_ = false;
+
+    std::shared_ptr<DrawList> injectedDrawList_;    ///< View→Builder 注入通道（非空=复用）
+    std::shared_ptr<DrawList> capturedDrawList_;    ///< Builder→View 捕获通道（popGroup 返回）
+    int contentDepth_ = 0;                          ///< 嵌套域深度（最外层才捕获）
 };

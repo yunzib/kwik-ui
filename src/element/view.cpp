@@ -230,13 +230,25 @@ void View::onLayout() {
 void View::draw(Graphics &graphics) {
     if (!props.visible) return;
 
-    // ─ 非脏且 frame 与全局脏矩形无交集 → 跳过整棵子树 ─
-    // 但如果父容器已开启 forceDraw（如 ListLayout 滚动），则穿透跳过
-    if (!dirty_ && !graphics.isForceDraw()    // ← 新增条件
-        && !tracker_->current().isEmpty() && !frame.intersects(tracker_->current())) {
+    // 全局脏区跳过（forceDraw 模式下绕过）
+    if (!dirty_ && !graphics.isForceDraw()
+        && !tracker_->current().isEmpty()
+        && !frame.intersects(tracker_->current())) {
         return;
     }
+
+    // 脏 → 录制；干净+有缓存 → 注入
+    if (!dirty_ && cachedDrawList_) {
+        graphics.beginContent(cachedDrawList_);        // 注入模式
+    } else {
+        graphics.beginContent(nullptr);                 // 录制模式
+    }
     onDraw(graphics);
+    if (!dirty_ && cachedDrawList_) {
+        graphics.endContent();                          // 注入模式不产生新 DrawList
+    } else {
+        cachedDrawList_ = graphics.endContent();        // 录制模式取回结果并缓存
+    }
 }
 
 void View::onDraw(Graphics &graphics) {
@@ -469,7 +481,8 @@ bool View::setProperty(const char *name, const char *value) {
 // ============================================================================
 void View::markDirty() {
     dirty_ = true;
-    if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
+    cachedDrawList_.reset();           // ← 脏了→缓存作废
+    if (tracker_) tracker_->add(frame);
 }
 
 bool View::setPropertyTyped(const char *name, const TypedProp &value) {
