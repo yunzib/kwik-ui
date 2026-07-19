@@ -112,7 +112,7 @@ public:
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
      // ── 绑定支持（同 Input/TextArea 模式）──
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
         binding_ = std::move(binding);
         bindKey_ = key;
     }

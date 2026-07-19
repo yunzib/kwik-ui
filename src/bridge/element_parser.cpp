@@ -52,44 +52,43 @@ import kwik.element.g2d;
 import std;
 
 /**
- * @brief 统一绑定注入
+ * @brief 统一绑定注入 — 遍历 propMeta 中 hasBinding=true 的属性，
+ *        逐一建立双向绑定链路：
  *
- * 遍历 View::propMeta 中 hasBinding=true 的属性，逐一从 JS props
- * 读取 __bind_{propName}State / __bind_{propName}Key，
- * 调用 View::setBinding() 建立双向绑定。
+ *   State → View（增量更新）: 注册到 BindingRegistry，
+ *       后续 state.key 变更直接调用 setPropertyTyped + markDirty，
+ *       跳过 rebuildTree。
  *
- * 替代原先 Input/Checkbox/RadioGroup/TextArea/Dropdown 各自手写的
- * if (pv.hasProperty("__bind_*Key")) 检测分支，消除重复代码。
+ *   View → State（背向传播）: 调用 View::setBinding()。
+ *       基类默认空实现；Input/Checkbox/Dropdown 等交互组件覆写此虚函数，
+ *       将 View 属性变更回写到 State。
  *
- * Dropdown 特殊处理：resolveRefProp 已将 value 替换为 State 当前值，
- * 但 Dropdown 初始化时需通过 setProperty("value", ...) 将字符串值
- * 映射为 selectedIndex，否则绑定值正确但索引未同步。
- *
- *（模板版本）
- *
- * T 必须是 Input / Checkbox / RadioGroup / TextArea / Dropdown 之一，
- * 它们都有 setBinding() 方法。View 基类没有此方法。
- *
- * propMeta 是 View 的公共成员，通过 view->propMeta 访问。
+ * @param view  任意 View 子类（原模板仅覆盖 Input 等 9 种交互组件，
+ *              去模板化后覆盖全部 26 种组件类型）
+ * @param pv    JS props 对象（含 __bind_*State / __bind_*Key 隐藏属性）
  */
-template <typename T>
-static void applyBindings(T *view, const JSValueRef &pv) {
+static void applyBindings(View *view, const JSValueRef &pv) {
     auto &meta = view->propMeta;
     JSContext *ctx = pv.context();
+
     meta.forEachBinding([&](const std::string &propName, const PropEntry &) {
         std::string stateName = "__bind_" + propName + "State";
         std::string keyName = "__bind_" + propName + "Key";
         auto stateVal = pv.getProperty(stateName.c_str());
         auto keyVal = pv.getProperty(keyName.c_str());
+
         if (!stateVal.isUndefined() && !keyVal.isUndefined() && !JS_IsNull(stateVal.raw())) {
+            // ── View → State 反向绑定（基类默认空实现，交互组件覆写）──
             view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
 
-            // 注册到 BindingRegistry，使 state 变更可增量更新到此 View
+            // ── State → View 增量绑定（通用，所有组件受益）──
             if (auto *reg = getRegisteredRegistry()) {
                 void *statePtr = JS_VALUE_GET_PTR(stateVal.raw());
                 reg->bind(statePtr, keyVal.toString(), view, propName);
             }
 
+            // Dropdown 特殊处理：ref 已将 value 替换为 State 当前值，
+            // 但 Dropdown 需将字符串值映射为 selectedIndex
             if (view->type() == ElementType::Dropdown && pv.hasProperty("value")) {
                 std::string val = pv.getProperty("value").toString();
                 if (!val.empty()) view->setProperty("value", val.c_str());
@@ -139,43 +138,64 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("View", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<View>(parseViewProps(ex));
+            auto v = std::make_unique<View>(parseViewProps(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
         ElementParser::registerType("Root", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<RootView>(parseViewProps(ex));
+            auto v = std::make_unique<RootView>(parseViewProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         ElementParser::registerType("Text", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
+            auto v = std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
-        ElementParser::registerType("Button", [](const JSValueRef &pv) {
+         ElementParser::registerType("Button", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
+            auto v = std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
         ElementParser::registerType("Flex", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<FlexLayout>(parseViewProps(ex), parseContainerProps(ex));
+            auto v = std::make_unique<FlexLayout>(parseViewProps(ex), parseContainerProps(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
         ElementParser::registerType("Grid", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<GridLayout>(parseViewProps(ex), parseContainerProps(ex));
+            auto v = std::make_unique<GridLayout>(parseViewProps(ex), parseContainerProps(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
         ElementParser::registerType("Stack", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<StackLayout>(parseViewProps(ex));
+            auto v = std::make_unique<StackLayout>(parseViewProps(ex));
+            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            return v;
         });
 
         ElementParser::registerType("List", [](const JSValueRef &pv) {
@@ -196,13 +216,18 @@ static struct InitBuiltinTypes {
                 JSValueRef node(c, dup);
                 list->footer = ElementParser::parseNode(node);
             }
+            list->propMeta = std::move(meta);        
+            applyBindings(list.get(), pv);           
             return list;
         });
 
         ElementParser::registerType("Image", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Image>(parseViewProps(ex), parseImageProps(ex));
+            auto v = std::make_unique<Image>(parseViewProps(ex), parseImageProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         // ── Input — 绑定注入统一由 applyBindings 处理 ──
@@ -218,7 +243,10 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("RadioButton", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
+            auto v = std::make_unique<RadioButton>(parseViewProps(ex), parseTextContent(ex), parseRadioButtonProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         // ── RadioGroup ──
@@ -297,14 +325,20 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("Line", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
+            auto v = std::make_unique<Line>(parseViewProps(ex), parseLineProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         // ── Spinner ──
         ElementParser::registerType("Spinner", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
+            auto v = std::make_unique<Spinner>(parseViewProps(ex), parseSpinnerProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         // ── Table ──
@@ -322,6 +356,8 @@ static struct InitBuiltinTypes {
                 }
             }
 
+            table->propMeta = std::move(meta);        // ← 新增（在 data引用保留之后）
+            applyBindings(table.get(), pv);           // ← 新增
             return table;
         });
 
@@ -342,6 +378,7 @@ static struct InitBuiltinTypes {
             PropsExtractor ex(pv, &meta);
             auto tabs = std::make_unique<Tabs>(parseViewProps(ex), parseTabsProps(ex));
             tabs->propMeta = std::move(meta);
+            applyBindings(tabs.get(), pv);          
             return tabs;
         });
 
@@ -349,14 +386,20 @@ static struct InitBuiltinTypes {
         ElementParser::registerType("Dialog", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Dialog>(parseViewProps(ex), parseDialogProps(ex));
+            auto v = std::make_unique<Dialog>(parseViewProps(ex), parseDialogProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         // ── Tip ──
         ElementParser::registerType("Tip", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<Tip>(parseViewProps(ex), parseTipProps(ex));
+            auto v = std::make_unique<Tip>(parseViewProps(ex), parseTipProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
 
         ElementParser::registerType("G2D", [](const JSValueRef &pv) {
@@ -376,7 +419,10 @@ static struct InitBuiltinTypes {
             // 降级：正常创建（无 eager 创建的场景）
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
-            return std::make_unique<G2D>(parseViewProps(ex));
+            auto v = std::make_unique<G2D>(parseViewProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
     }
 } _init_builtin_types;

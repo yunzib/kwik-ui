@@ -56,7 +56,7 @@ public:
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
 
     // ─── 双向绑定设置 ─────────────────────────────────
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key);
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override;
 
     // ─── 查询方法 ─────────────────────────────────────
     ElementType type() const override { return ElementType::Checkbox; }

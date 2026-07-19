@@ -12,6 +12,7 @@ import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.render.draw_list;
+import kwik.engine.state_binding;  // StateBinding, createJSBinding — State 双向绑定
 
 import std;
 
@@ -504,6 +505,19 @@ public:
     }
 
     void invalidateDrawCache() { cachedDrawList_.reset(); }    ///< 清空缓存（markDirty时调用可选项）
+
+    /**
+     * @brief 建立 View → State 的反向绑定
+     *
+     * 交互组件（Input/Checkbox/Dropdown 等）覆写此方法，
+     * 将 View 属性变更回写到 State（如输入框文本变化 → state.value）。
+     * 非交互组件（View/Text/Flex 等）保留基类空实现，
+     * applyBindings 始终调用此方法，由子类的覆写决定是否启用背向传播。
+     *
+     * @param binding State 绑定对象（含 JS context + state 对象引用）
+     * @param key     State 中与本 View 属性对应的键名
+     */
+    virtual void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {}
 
 protected:
     /**

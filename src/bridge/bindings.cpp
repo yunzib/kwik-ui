@@ -111,14 +111,40 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
 }
 
 /**
+ * @brief 批量解析 props 中的所有 ref 绑定标记
+ *
+ * 遍历 props 对象的所有可枚举属性，对每个属性执行 resolveRefProp。
+ * 被 makeElement 调用，统一处理所有组件的 ref 绑定，无需各 js_xxx 工厂函数手写。
+ */
+static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
+    if (!JS_IsObject(props)) return;
+
+    JSPropertyEnum *tab;
+    uint32_t len;
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_ENUM_ONLY) != 0) return;
+
+    for (uint32_t i = 0; i < len; ++i) {
+        const char *name = JS_AtomToCString(ctx, tab[i].atom);
+        if (name) {
+            resolveRefProp(ctx, props, name);     // 复用已有单属性解析逻辑
+            JS_FreeCString(ctx, name);
+        }
+        JS_FreeAtom(ctx, tab[i].atom);
+    }
+    js_free(ctx, tab);
+}
+
+/**
  * @brief 通用的组件创建：返回一个普通 JS 对象 { type, props, children }
- * @param ctx      QuickJS 上下文
- * @param type     组件类型，如 "View", "Text"
- * @param props    组件属性对象
- * @param children 子节点数组
- * @return JS 组件对象
+ *
+ * 所有 js_xxx 工厂函数统一调用此入口。
+ * resolveAllRefProps 在此处统一处理 ref(state, "key") 绑定标记：
+ *   - 将 ref 替换为 state 当前值
+ *   - 注入 __bind_{name}State / __bind_{name}Key 隐藏属性
+ * 后续由 element_parser 的 applyBindings 消费隐藏属性完成绑定注册。
  */
 static JSValue makeElement(JSContext *ctx, const char *type, JSValueConst props, JSValueConst children) {
+    resolveAllRefProps(ctx, props);   // ← 统一解析 ref 绑定（所有组件自动受益）
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, type));
     JS_SetPropertyStr(ctx, obj, "props", JS_DupValue(ctx, props));
@@ -207,32 +233,6 @@ static void channel_finalizer(JSRuntime *rt, JSValue val) {
     delete cd;
 }
 
-// JSValue register_channel_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-//     if (channel_class_id == 0) {
-//         JS_NewClassID(JS_GetRuntime(ctx), &channel_class_id);
-//         static JSClassDef class_def = {
-//             .class_name = "Channel",
-//             .finalizer = channel_finalizer,
-//             .gc_mark = nullptr,
-//             .call = nullptr,
-//             .exotic = nullptr,
-//         };
-//         if (JS_NewClass(JS_GetRuntime(ctx), channel_class_id, &class_def) != 0) return JS_UNDEFINED;
-
-//         // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
-//         JSValue proto = JS_NewObject(ctx);
-//         JS_SetPropertyStr(ctx, proto, "send", JS_NewCFunction(ctx, js_channel_send, "send", 1));
-//         JS_SetPropertyStr(ctx, proto, "receive", JS_NewCFunction(ctx, js_channel_receive, "receive", 0));
-
-//         JSValue ctor = JS_NewCFunction2(ctx, js_channel_constructor, "Channel", 0, JS_CFUNC_constructor, 0);
-//         JS_SetConstructor(ctx, ctor, proto);
-//         JS_SetClassProto(ctx, channel_class_id, proto);
-
-//         return ctor;
-//     }
-//     return JS_UNDEFINED;
-// }
-
 // ---------- 导出的 JS 绑定函数实现 ----------
 static JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = JS_UNDEFINED, children = JS_UNDEFINED;
@@ -296,7 +296,6 @@ static JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
 static JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");    // 处理 ref 绑定
     return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
@@ -337,122 +336,63 @@ fail:
     return JS_EXCEPTION;
 }
 
+/**
+ * @brief State.update({...}) — 批量更新多个 key
+ *
+ * 分三阶段执行：
+ *  ① 将新值批量写入 sd->data（QuickJS 侧完成）
+ *  ② 逐键通过 incCb（→ BindingRegistry::notify）尝试增量更新
+ *  ③ 全部命中 → 跳过重建；有任一未命中 → renCb 触发 rebuildTree 兜底
+ *
+ * 与 state.count++（走 set_property trap → 单键增量）互补：
+ *  update() 是多键批量版本，优先走增量、回退全量。
+ */
 static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     StateData *sd = static_cast<StateData *>(JS_GetOpaque2(ctx, this_val, state_class_id));
     if (!sd) return JS_ThrowTypeError(ctx, "not a State object");
-    if (argc > 0 && JS_IsObject(argv[0])) {
-        JSValue props = argv[0];
-        JSPropertyEnum *tab;
-        uint32_t len;
-        if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_ENUM_ONLY) == 0) {
-            for (uint32_t i = 0; i < len; ++i) {
+    if (argc == 0 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    JSValue props = argv[0];
+    JSPropertyEnum *tab;
+    uint32_t len;
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_ENUM_ONLY) != 0) return JS_UNDEFINED;
+
+    // ── 阶段 ①：批量写入 JS 数据层 ──
+    for (uint32_t i = 0; i < len; ++i) {
+        JSAtom atom = tab[i].atom;
+        JSValue val = JS_GetProperty(ctx, props, atom);
+        JS_SetProperty(ctx, sd->data, atom, val);
+        JS_FreeAtom(ctx, atom);
+    }
+
+    // ── 阶段 ②：逐键尝试增量更新 ──
+    auto incCb = get_incremental_callback();
+    bool allHandled = true;
+    if (incCb) {
+        for (uint32_t i = 0; i < len && allHandled; ++i) {
+            const char *key = JS_AtomToCString(ctx, tab[i].atom);
+            if (key) {
+                // 从 sd->data 读回已写入的新值
                 JSAtom atom = tab[i].atom;
-                JSValue val = JS_GetProperty(ctx, props, atom);
-
-                // 【唯一修复点】：JS_SetProperty 会消费掉 val 的引用。
-                // 绝对不能再调用 JS_FreeValue(ctx, val) !!!
-                JS_SetProperty(ctx, sd->data, atom, val);
-
-                JS_FreeAtom(ctx, atom);
+                JSValue newVal = JS_GetProperty(ctx, sd->data, atom);
+                bool handled = incCb(JS_VALUE_GET_PTR(this_val), key, ctx, newVal);
+                JS_FreeValue(ctx, newVal);
+                if (!handled) allHandled = false;
+                JS_FreeCString(ctx, key);
             }
-            js_free(ctx, tab);
         }
+    }
+
+    js_free(ctx, tab);
+
+    // ── 阶段 ③：全部增量命中 → 跳过重建；有未命中 → 全量兜底 ──
+    if (!allHandled) {
         auto renCb = get_render_callback();
         if (renCb) renCb();
     }
+
     return JS_UNDEFINED;
 }
-
-// JSValue js_channel_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
-//     Log::info("Creating Channel instance");
-//     ChannelData *cd;
-//     JSValue obj = JS_UNDEFINED;
-//     JSValue proto;
-
-//     cd = (ChannelData *)js_mallocz(ctx, sizeof(*cd));
-//     if (!cd) return JS_EXCEPTION;
-//     cd->closed = false;
-
-//     proto = JS_GetPropertyStr(ctx, new_target, "prototype");
-//     if (JS_IsException(proto)) goto fail;
-
-//     obj = JS_NewObjectProtoClass(ctx, proto, channel_class_id);
-//     JS_FreeValue(ctx, proto);
-//     if (JS_IsException(obj)) goto fail;
-
-//     JS_SetOpaque(obj, cd);
-//     return obj;
-
-// fail:
-//     js_free(ctx, cd);
-//     JS_FreeValue(ctx, obj);
-//     return JS_EXCEPTION;
-// }
-
-// JSValue js_channel_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-//     ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
-//     if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
-//     if (argc < 1) return JS_ThrowTypeError(ctx, "missing argument");
-//     JSValue msg = JS_DupValue(ctx, argv[0]);
-//     // 有等待接收者时，直接 resolve 消息
-//     if (!cd->pendingReceivers.empty()) {
-//         JSValue resolve = cd->pendingReceivers.front();
-//         cd->pendingReceivers.pop();
-//         JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
-//         JS_FreeValue(ctx, resolve);
-//         JS_FreeValue(ctx, msg);
-//         if (JS_IsException(ret)) {
-//             JS_FreeValue(ctx, ret);
-//             return JS_EXCEPTION;
-//         }
-//         JS_FreeValue(ctx, ret);
-//         return JS_UNDEFINED;
-//     } else {
-//         // 暂无接收者，放入消息队列等待
-//         cd->messages.push(msg);
-//         return JS_UNDEFINED;
-//     }
-// }
-
-// JSValue js_channel_receive(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-//     ChannelData *cd = static_cast<ChannelData *>(JS_GetOpaque2(ctx, this_val, channel_class_id));
-//     if (!cd) return JS_ThrowTypeError(ctx, "not a Channel");
-//     // 队列中有消息：立即resolve 的Promise
-//     if (!cd->messages.empty()) {
-//         JSValue msg = cd->messages.front();
-//         cd->messages.pop();
-//         JSValue resolving_funcs[2];
-//         JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-//         if (JS_IsException(promise)) {
-//             JS_FreeValue(ctx, msg);
-//             return promise;
-//         }
-//         JSValue resolve = resolving_funcs[0];
-//         JSValue reject = resolving_funcs[1];
-//         JSValue ret = JS_Call(ctx, resolve, JS_UNDEFINED, 1, &msg);
-//         JS_FreeValue(ctx, resolve);
-//         JS_FreeValue(ctx, reject);
-//         JS_FreeValue(ctx, msg);
-//         if (JS_IsException(ret)) {
-//             JS_FreeValue(ctx, ret);
-//             JS_FreeValue(ctx, promise);
-//             return JS_EXCEPTION;
-//         }
-//         JS_FreeValue(ctx, ret);
-//         return promise;
-//     } else {
-//         // 无消息，将 resolve 放入等待队列
-//         JSValue resolving_funcs[2];
-//         JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
-//         if (JS_IsException(promise)) return promise;
-//         JSValue resolve = resolving_funcs[0];
-//         JSValue reject = resolving_funcs[1];
-//         cd->pendingReceivers.push(JS_DupValue(ctx, resolve));
-//         JS_FreeValue(ctx, resolve);
-//         JS_FreeValue(ctx, reject);
-//         return promise;
-//     }
-// }
 
 static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
@@ -463,45 +403,37 @@ static JSValue js_radiobutton(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue js_radiogroup(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "selected");    // 处理 ref 绑定（selected: ref(form, "size")）
     return makeElement(ctx, "RadioGroup", props, children);
 }
 
 static JSValue js_checkbox(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-
-    resolveRefProp(ctx, props, "checked");    // 处理 ref 绑定
     return makeElement(ctx, "Checkbox", props, children);
 }
 
 static JSValue js_textarea(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "TextArea", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
 static JSValue js_dropdown(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "Dropdown", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
 static JSValue js_slider(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "Slider", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
 static JSValue js_progressbar(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "ProgressBar", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
 static JSValue js_switch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "checked");
     return makeElement(ctx, "Switch", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
@@ -522,7 +454,6 @@ static JSValue js_table(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
 static JSValue js_textview(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "value");
     return makeElement(ctx, "TextView", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
@@ -1065,7 +996,6 @@ static JSValue js_channel_handle(JSContext *ctx, JSValueConst this_val, int argc
 
 static JSValue js_tabs(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    resolveRefProp(ctx, props, "selectedIndex");
     return makeElement(ctx, "Tabs", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 

@@ -13,6 +13,18 @@
   - 主线程 LayerTreeBuilder 建树，渲染线程 SceneBuilder DFS 翻译为 backend push/pop/replay
   - Graphics 降级为适配器：公有 API 不变，21 个 View 子类零修改；
     save/restore→Group，clip→ClipRRectLayer，坐标/透明度过渡期仍主线程烘烤
+- State 响应式系统泛化 — `ref(state, "key")` 绑定覆盖全部 26 种组件类型
+  - `makeElement` 统一调用 `resolveAllRefProps` 批量解析 props 中的 ref 绑定标记，
+    无需各 js_xxx 工厂函数手写 `resolveRefProp`
+  - View 基类新增 `virtual setBinding()`，`applyBindings` 从模板 `<T>` 改为接受 `View*`，
+    17 个原未注册的组件类型补全 `propMeta` 赋值 + BindingRegistry 注册
+  - `View::drawForced`/`draw` 包装 `beginContent`/`endContent`，启用 DrawList 跨帧缓存
+- `state.update({...})` 改为批量增量优先：逐键尝试 BindingRegistry 命中，
+  全部命中跳过 `rebuildTree`；有任一未绑定键退回全量重建兜底
+- LayerTreeBuilder 录制/注入模式区分 — 新增 `injectionMode_` 标志 + `flushRecorder()`
+  - 结构操作（pushClip/pushTransform/pushOpacity/pop）前自动 flush Recorder，
+    确保结构与绘制内容的 Layer 节点顺序正确
+  - 注入模式下 `draw*` 为 no-op，消除缓存注入时的重复 DrawListLayer 创建
 
 ### 修复
 - 窗口最大化/还原后黑屏（偶发拉伸、闪退）
@@ -30,6 +42,10 @@
 - C++26 模块附属实体链接错误：module purview 内 `class X` 前向声明会创建附属本模块的
   新实体（SceneBuilder/RenderBackend/FontManager 三处），改为 import 属主模块
 - View::onMeasure 自动尺寸未计入显式 x/y 子节点偏移，右侧内容被圆角裁剪切除
+- flex.js 只显示第一行：`Graphics::save()` 漏重置 `pushes`（子作用域继承父的 clip 计数）
+  + `LayerTreeBuilder::popState` Clip 分支缺失 `disableStencilTest`
+- 命令树缓存注入模式下 `draw*` 重复创建 DrawListLayer（缺少 `injectionMode_` 守卫）
+- 9 个组件 `setBinding` 声明缺 `override` 关键字（基类新增 virtual 后的 -Winconsistent-missing-override）
 
 ## [0.0.0] — 2026-07-12
 

@@ -62,7 +62,7 @@ public:
     bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
 
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
+    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
         binding_ = std::move(binding);
         bindKey_ = key;
     }
