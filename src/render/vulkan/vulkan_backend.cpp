@@ -81,12 +81,13 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     uint32_t sw = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.width)));
     uint32_t sh = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.height)));
 
-    if (ctx_.consumeJustRecreated()) {               // ← 移到声明之后
-        Log::info("beginFrame: swapchain recreated -> force full redraw {}x{}",
-                  currentToken_->extent.width, currentToken_->extent.height);
-        sx = 0; sy = 0;
+    if (ctx_.consumeJustRecreated()) {    // ← 移到声明之后
+        Log::info("beginFrame: swapchain recreated -> force full redraw {}x{}", currentToken_->extent.width,
+                  currentToken_->extent.height);
+        sx = 0;
+        sy = 0;
         sw = currentToken_->extent.width;
-        sh = currentToken_->extent.height;           // 覆盖 dirtyRect，黑 canvas 整幅重绘
+        sh = currentToken_->extent.height;    // 覆盖 dirtyRect，黑 canvas 整幅重绘
     }
 
     VkRect2D sc{{sx, sy}, {sw, sh}};
@@ -97,7 +98,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
 }
 
 void VulkanBackend::endFrame() {
-    Log::info("endFrame: drawCalls={}", drawCalls_);   // ← 新增
+    Log::info("endFrame: drawCalls={}", drawCalls_);    // ← 新增
     drawCalls_ = 0;                                     // ← 新增
     glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();
@@ -208,14 +209,26 @@ void VulkanBackend::popState() {
     pushKinds_.pop_back();
     switch (kind) {
     case PushKind::Clip:
-        if (currentToken_) clip_.resetClip(currentToken_->commandBuffer);  // ← 还原 scissor
+        if(currentToken_) {
+            clip_.resetClip(currentToken_->commandBuffer);    // 还原 scissor（现有）
+            // 最外层圆角裁剪退出：关闭 stencil 测试（恢复动态 compareMask=0x00），
+            // 否则 EQUAL(ref=1) 持续生效，掩码矩形之外的所有后续绘制被剔除。
+            // 与重构前 resetClip() 的行为完全对齐。
+            if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
+        }
         break;
     case PushKind::Alpha:
-        if (!stateStack_.empty()) { currentState_ = stateStack_.back(); stateStack_.pop_back(); }
-        clip_.setGlobalAlpha(currentState_.alpha);   // ← 同步还原 ClipManager 里的 alpha
+        if (!stateStack_.empty()) {
+            currentState_ = stateStack_.back();
+            stateStack_.pop_back();
+        }
+        clip_.setGlobalAlpha(currentState_.alpha);    // ← 同步还原 ClipManager 里的 alpha
         break;
     case PushKind::Transform:
-        if (!stateStack_.empty()) { currentState_ = stateStack_.back(); stateStack_.pop_back(); }
+        if (!stateStack_.empty()) {
+            currentState_ = stateStack_.back();
+            stateStack_.pop_back();
+        }
         break;
     }
 }

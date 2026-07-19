@@ -131,13 +131,16 @@ public:
     void resize(int width, int height);
     void getSize(int *width, int *height) const;
 
+    void setForceDraw(bool v) { forceDraw_ = v; }
+    bool isForceDraw() const { return forceDraw_; }
+
 private:
     // ── 保留原状态栈（坐标烘烤仍需要）──
     struct State {
         float tx = 0.0f, ty = 0.0f;
         float sx = 1.0f, sy = 1.0f;
         float opacity = 1.0f;
-        int   pushes = 0;      // 本 save 作用域内未弹出的 builder push 数（clip 等）
+        int pushes = 0;    // 本 save 作用域内未弹出的 builder push 数（clip 等）
     };
     std::vector<State> stateStack_;
     State currentState_;
@@ -163,4 +166,6 @@ private:
     /** @brief 尺寸 */
     int width_ = 0;
     int height_ = 0;
+
+    bool forceDraw_ = false;
 };

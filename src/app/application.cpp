@@ -212,9 +212,11 @@ void Application::renderFrame() {
     canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
     canvas.beginFrame(structural);
     canvas.scale(dpi, dpi);
+    
     canvas.drawRect(dr, Color::white());
+    canvas.setForceDraw(true);      // ← 开启：整个层树录制期间跳过所有脏区剔除
     tree_->draw(canvas);
-
+    canvas.setForceDraw(false);     // ← 关闭
     dirtyTracker_.consume();
 
     // endFrame 返回层树根

@@ -231,7 +231,11 @@ void View::draw(Graphics &graphics) {
     if (!props.visible) return;
 
     // ─ 非脏且 frame 与全局脏矩形无交集 → 跳过整棵子树 ─
-    if (!dirty_ && !tracker_->current().isEmpty() && !frame.intersects(tracker_->current())) { return; }
+    // 但如果父容器已开启 forceDraw（如 ListLayout 滚动），则穿透跳过
+    if (!dirty_ && !graphics.isForceDraw()    // ← 新增条件
+        && !tracker_->current().isEmpty() && !frame.intersects(tracker_->current())) {
+        return;
+    }
     onDraw(graphics);
 }
 

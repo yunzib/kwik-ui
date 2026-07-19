@@ -84,39 +84,13 @@ export default () => Root(
             shadow: "0 4 12 rgba(0,0,0,0.3)"
         }, [
             View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#1DB954", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Blinding Lights", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "The Weeknd", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
+            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
+                View({ width: 40, height: 40, background: "#FF00FF", borderRadius: 4, x: 6, y: 6 }),
+                Text({ text: "Test Card", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
             ]),
             View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#E94560", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Shape of You", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Ed Sheeran", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
-            ]),
-            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#F59E0B", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Stairway to Heaven", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Led Zeppelin", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
-            ]),
-            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#8B5CF6", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Bohemian Rhapsody", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Queen", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
-            ]),
-            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#06B6D4", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Hotel California", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Eagles", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
-            ]),
-            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#EC4899", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Bad Guy", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Billie Eilish", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
-            ]),
-            View({ height: 52, background: "#1A1A1A", borderRadius: 8, margin: [0, 0, 4, 0] }, [
-                View({ width: 40, height: 40, background: "#fff", borderRadius: 4, x: 6, y: 6 }),
-                Text({ text: "Rolling in the Deep", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
-                Text({ text: "Adele", fontSize: 11, color: "#9CA3AF", x: 54, y: 28 }),
+                View({ width: 40, height: 40, background: "#FF00FF", borderRadius: 4, x: 6, y: 6 }),
+                Text({ text: "Test Card 2", fontSize: 14, fontWeight: "bold", color: "#E8E8E8", x: 54, y: 8 }),
             ]),
         ]),
     ])

@@ -9,7 +9,7 @@ const state = new State({ count: 0, last: "", lastX: 0, lastY: 0 });
 
 export default () => Root(
     View({
-        width: 800,
+        width: 900,
         height: 780,
         background: "#F8FAFC",
         padding: 24

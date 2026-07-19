@@ -94,6 +94,7 @@ std::shared_ptr<Layer> Graphics::endFrame() {
 
 void Graphics::save() {
     stateStack_.push_back(currentState_);
+    currentState_.pushes = 0;              // ← 新作用域计数清零（核心修复）
     if (!recording_) return;
 
     // 委托 builder：
@@ -104,6 +105,7 @@ void Graphics::save() {
 
 void Graphics::restore() {
     if (recording_) {
+        int n = currentState_.pushes;      // 用局部变量，避免成员残留 -1
         while (currentState_.pushes-- > 0) builder_.pop();   // ← 新增：清算未弹出的 clip
         builder_.popGroup();
     }
@@ -145,6 +147,7 @@ void Graphics::clipRoundedRect(const Rect &rect, float radius) {
 
     // 创建 ClipRRectLayer（不再写入命令流）
     builder_.pushClipRRect(transformed, radius * currentState_.sx);
+    currentState_.pushes++;    // ← 补上：与 restore 的清算配对（上轮方案漏落盘的一行）
 }
 
 void Graphics::resetClip() {

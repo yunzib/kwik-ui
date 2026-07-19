@@ -331,7 +331,7 @@ public:
      * @brief 绘制控件
      * @param graphics 绘图上下文
      */
-     virtual void draw(Graphics &graphics);
+    virtual void draw(Graphics &graphics);
 
     // ==================== 子控件管理 ====================
     /**
@@ -483,6 +483,19 @@ public:
      *  设置 needsRelayout_ 标志，Application 主循环检测后执行 relayoutTree。
      */
     void requestLayout();
+
+    /**
+     * @brief 强制绘制：跳过全局脏区剔除（tracker 相交测试）
+     *
+     * 供 ListLayout 等滚动容器调用——其子项的有效屏幕位置 = frame - scrollOffset，
+     * 与 DirtyTracker 的布局坐标系不一致，剔除必须由容器自行按滚动偏移完成。
+     */
+    void drawForced(Graphics &g) {
+        if (!props.visible) return;
+        g.setForceDraw(true);    // 开启穿透模式
+        onDraw(g);
+        g.setForceDraw(false);    // 退出穿透模式
+    }
 
 protected:
     /**

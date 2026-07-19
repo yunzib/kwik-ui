@@ -174,7 +174,7 @@ void ListLayout::onDraw(Graphics &g) {
         Rect hdrRect = {contentX, contentY, availW, header->frame.height};
         g.save();
         g.clipRoundedRect(hdrRect, 0);
-        header->draw(g);
+        header->drawForced(g);
         g.restore();
     }
 
@@ -189,9 +189,13 @@ void ListLayout::onDraw(Graphics &g) {
     g.clipRoundedRect(clipRect, 0);
     g.translate(-scrollOffset.x, -scrollOffset.y);
 
+    // ↓↓↓ 新增：可视窗口（把裁剪区换算回未滚动的布局坐标系）
+    Rect visRect = {clipX + scrollOffset.x, clipY + scrollOffset.y, clipW, clipH};
+
     // 绘制子项 + 分割线
     for (size_t i = 0; i < children.size(); ++i) {
-        children[i]->draw(g);
+       if (!children[i]->frame.intersects(visRect)) continue;  // 容器自管剔除（滚动感知）
+        children[i]->drawForced(g);                             // 跳过全局脏区剔除
 
         // divider 绘制
         if (container_.dividerColor.isVisible() && container_.dividerHeight > 0 && i + 1 < children.size()) {
@@ -216,7 +220,7 @@ void ListLayout::onDraw(Graphics &g) {
                         footer->frame.height};
         g.save();
         g.clipRoundedRect(ftrRect, 0);
-        footer->draw(g);
+        footer->drawForced(g);
         g.restore();
     }
 
