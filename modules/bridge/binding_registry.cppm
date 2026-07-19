@@ -61,6 +61,14 @@ public:
      */
     void clear();
 
+    /**
+     * @brief 移除指定 View 的所有绑定（View 销毁前调用）
+     *
+     * 替代全局 clear()：reconcile 时只解绑被销毁的 View，
+     * 被复用的 View 的绑定保持不变。
+     */
+    void unbind(View *view);
+
 private:
     struct Entry {
         View* view;

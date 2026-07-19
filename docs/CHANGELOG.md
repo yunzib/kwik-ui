@@ -25,6 +25,14 @@
   - 结构操作（pushClip/pushTransform/pushOpacity/pop）前自动 flush Recorder，
     确保结构与绘制内容的 Layer 节点顺序正确
   - 注入模式下 `draw*` 为 no-op，消除缓存注入时的重复 DrawListLayer 创建
+- 增量组件树 reconcile — rebuildTree 不再全量销毁+重建 C++ View 树
+  - 新增 `elementTypeFromString`（26 种 JS 类型名 → ElementType 映射）
+  - reconcileNode：类型一致 → parseViewProps 原地更新 + 组件专有属性赋值 + 递归 reconcileChildren；
+    类型不一致 → 解绑 BindingRegistry → 新建 parseNode
+  - reconcileChildren：id 优先 + 位置匹配，未被认领的旧节点自动解绑析构
+  - BindingRegistry 新增 `unbind(View*)` 精确解绑（替代全局 clear），
+    被复用 View 的绑定保持不变
+  - Layout 剪枝：`needsRelayout_` 标记（setPropertyTyped 已设置），只 layout 变化节点
 
 ### 修复
 - 窗口最大化/还原后黑屏（偶发拉伸、闪退）
@@ -46,6 +54,17 @@
   + `LayerTreeBuilder::popState` Clip 分支缺失 `disableStencilTest`
 - 命令树缓存注入模式下 `draw*` 重复创建 DrawListLayer（缺少 `injectionMode_` 守卫）
 - 9 个组件 `setBinding` 声明缺 `override` 关键字（基类新增 virtual 后的 -Winconsistent-missing-override）
+- State 增量更新首次点击失效：`setRegisteredRegistry` 在首次 `ElementParser::parse` 之后调用，
+  applyBindings 时 registry 为空 → 绑定未注册 → 首次增量降级全量重建
+  - 修复：将 `setRegisteredRegistry` 移到首次 parse 之前
+- ref 绑定解析失效：`resolveAllRefProps` 中 `JS_GetOwnPropertyNames` 仅传 `JS_GPN_ENUM_ONLY`
+  未组合 `JS_GPN_STRING_MASK`，QuickJS 无法确定属性类型 → 返回 0 条属性 → 所有 ref 标记漏解析
+- Text/Button 组件专有属性增量更新断裂：`BindingRegistry::notify → setPropertyTyped("text",...)`
+  到达 View 基类的 `propIdFromName` 不识 "text" → 返回 false → 文字不更新
+  - 修复：Text/Button 覆写 `setPropertyTyped`，`std::get_if<std::string>` 提取 → text_ 赋值 → markDirty
+- 增量组件树 reconcile 后组件专有属性不更新：reconcileNode 只更新 ViewProps 通用字段，
+  Text 的 text_ 等专有字段保留旧值
+  - 修复：reconcileNode switch 加专有属性解析赋值；Text/Button 的 text_/button_ 提升为 public
 
 ## [0.0.0] — 2026-07-12
 

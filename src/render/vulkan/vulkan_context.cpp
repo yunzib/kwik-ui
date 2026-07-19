@@ -390,7 +390,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
         suboptimalPending_ = true;
     }
 
-    Log::info("beginFrame: acquired img={} slot={} result={}", currentImageIndex_, frameIndex_, (int)r);
+    // Log::info("beginFrame: acquired img={} slot={} result={}", currentImageIndex_, frameIndex_, (int)r);
 
     vkResetFences(vkDevice_, 1, &inFlightFences_[frameIndex_]);
 
@@ -531,7 +531,7 @@ bool VulkanContext::present() {
     pi.pImageIndices = &currentImageIndex_;
 
     VkResult presentResult = vkQueuePresentKHR(vkQueue_, &pi);
-    Log::info("present: result={} img={} slot={}", (int)presentResult, currentImageIndex_, frameIndex_);
+    // Log::info("present: result={} img={} slot={}", (int)presentResult, currentImageIndex_, frameIndex_);
     if (presentResult != VK_SUCCESS && presentResult != VK_SUBOPTIMAL_KHR) {
         Log::warn("present: failed result={} (frame not shown)", (int)presentResult);
     }

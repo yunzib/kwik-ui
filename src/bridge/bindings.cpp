@@ -58,6 +58,8 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
     if (!propName || !JS_IsObject(props)) return;
 
     JSValue val = JS_GetPropertyStr(ctx, props, propName);
+    bool isArr = JS_IsArray(val);
+    Log::debug("[ref] CHECK: prop='{}' isArray={}", propName, isArr);
     if (JS_IsUndefined(val) || !JS_IsArray(val)) {
         JS_FreeValue(ctx, val);
         return;
@@ -94,6 +96,11 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
     const char *stateKey = JS_ToCString(ctx, keyVal);
     JSValue current = JS_GetPropertyStr(ctx, stateObj, stateKey);
 
+    const char *resolvedStr = JS_ToCString(ctx, current);
+    Log::info("[ref] RESOLVED: prop='{}' key='{}' value='{}'", propName, stateKey,
+              resolvedStr ? resolvedStr : "(null)");
+    JS_FreeCString(ctx, resolvedStr);
+
     // 替换 prop 为当前值（使用显式 dup，不依赖 SetProperty 的 ref 约定）
     JS_SetPropertyStr(ctx, props, propName, JS_DupValue(ctx, current));
     JS_FreeValue(ctx, current);
@@ -121,12 +128,16 @@ static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
 
     JSPropertyEnum *tab;
     uint32_t len;
-    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_ENUM_ONLY) != 0) return;
-
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
+    // JS_GPN_STRING_MASK + JS_GPN_ENUM_ONLY = "只列字符串类型的可枚举属性"
+    // 不组合 STRING_MASK 时 QuickJS 无法确定要列哪种类型的属性 → 返回 0 条
+    
+    Log::debug("[ref] ALL_ENTER: propsIsObj={} propCount={}", JS_IsObject(props), len);
     for (uint32_t i = 0; i < len; ++i) {
         const char *name = JS_AtomToCString(ctx, tab[i].atom);
         if (name) {
-            resolveRefProp(ctx, props, name);     // 复用已有单属性解析逻辑
+            Log::debug("[ref] ALL: prop='{}'", name);
+            resolveRefProp(ctx, props, name);    // 复用已有单属性解析逻辑
             JS_FreeCString(ctx, name);
         }
         JS_FreeAtom(ctx, tab[i].atom);
@@ -144,7 +155,15 @@ static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
  * 后续由 element_parser 的 applyBindings 消费隐藏属性完成绑定注册。
  */
 static JSValue makeElement(JSContext *ctx, const char *type, JSValueConst props, JSValueConst children) {
-    resolveAllRefProps(ctx, props);   // ← 统一解析 ref 绑定（所有组件自动受益）
+    resolveAllRefProps(ctx, props);    // ← 统一解析 ref 绑定（所有组件自动受益）
+
+    if (JS_IsObject(props)) {
+        JSValue tv = JS_GetPropertyStr(ctx, props, "text");
+        bool isArr = JS_IsArray(tv);
+        Log::debug("[ref] FINAL: type='{}' textIsArray={}", type, isArr);
+        JS_FreeValue(ctx, tv);
+    }
+
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, type));
     JS_SetPropertyStr(ctx, obj, "props", JS_DupValue(ctx, props));
@@ -1016,29 +1035,33 @@ static JSValue js_tip(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
  * 方法名存储在函数对象的 __g2dMethod 属性中。
  */
 // ── 辅助宏：提取 G2D* 指针 ──
-#define G2D_FROM_THIS(ctx, this_val)                                                           \
-    [&]() -> G2D * {                                                                           \
-        JSValue _p = JS_GetPropertyStr(ctx, this_val, "props");                                \
-        /* 优先读 __g2d_ptr（eager 创建 or 首次 findById 后缓存） */                              \
-        JSValue _ptr = JS_GetPropertyStr(ctx, _p, "__g2d_ptr");                                \
-        if (!JS_IsUndefined(_ptr)) {                                                           \
-            double _v; JS_ToFloat64(ctx, &_v, _ptr);                                           \
-            JS_FreeValue(ctx, _ptr); JS_FreeValue(ctx, _p);                                   \
-            return reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                        \
-        }                                                                                      \
-        JS_FreeValue(ctx, _ptr);                                                               \
-        /* Fallback: findById（兼容树已建好但没有缓存的场景） */                                    \
-        JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                        \
-        const char *_idStr = JS_ToCString(ctx, _id);                                           \
-        auto *_qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));                 \
-        View *_root = static_cast<View *>(_qctx->getUserPointer());                            \
-        auto *_r = dynamic_cast<G2D *>(_root ? _root->findById(_idStr) : nullptr);             \
-        if (_r) { /* 缓存到 __g2d_ptr 下次直接走快路径 */                                          \
-            JS_SetPropertyStr(ctx, _p, "__g2d_ptr",                                            \
-                JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));      \
-        }                                                                                      \
-        JS_FreeCString(ctx, _idStr); JS_FreeValue(ctx, _id); JS_FreeValue(ctx, _p);            \
-        return _r;                                                                             \
+#define G2D_FROM_THIS(ctx, this_val)                                                                                   \
+    [&]() -> G2D * {                                                                                                   \
+        JSValue _p = JS_GetPropertyStr(ctx, this_val, "props");                                                        \
+        /* 优先读 __g2d_ptr（eager 创建 or 首次 findById 后缓存） */                                                   \
+        JSValue _ptr = JS_GetPropertyStr(ctx, _p, "__g2d_ptr");                                                        \
+        if (!JS_IsUndefined(_ptr)) {                                                                                   \
+            double _v;                                                                                                 \
+            JS_ToFloat64(ctx, &_v, _ptr);                                                                              \
+            JS_FreeValue(ctx, _ptr);                                                                                   \
+            JS_FreeValue(ctx, _p);                                                                                     \
+            return reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                                                \
+        }                                                                                                              \
+        JS_FreeValue(ctx, _ptr);                                                                                       \
+        /* Fallback: findById（兼容树已建好但没有缓存的场景） */                                                       \
+        JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                                                \
+        const char *_idStr = JS_ToCString(ctx, _id);                                                                   \
+        auto *_qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));                                         \
+        View *_root = static_cast<View *>(_qctx->getUserPointer());                                                    \
+        auto *_r = dynamic_cast<G2D *>(_root ? _root->findById(_idStr) : nullptr);                                     \
+        if (_r) { /* 缓存到 __g2d_ptr 下次直接走快路径 */                                                              \
+            JS_SetPropertyStr(ctx, _p, "__g2d_ptr",                                                                    \
+                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));               \
+        }                                                                                                              \
+        JS_FreeCString(ctx, _idStr);                                                                                   \
+        JS_FreeValue(ctx, _id);                                                                                        \
+        JS_FreeValue(ctx, _p);                                                                                         \
+        return _r;                                                                                                     \
     }()
 
 // ── 各方法回调 ──
@@ -1314,8 +1337,8 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     // ═══ 新增：立即创建 C++ G2D，指针存到 props ═══
     auto *g2d = new G2D();
     JS_SetPropertyStr(ctx, props, "__g2d_ptr",
-        JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
-        
+                      JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
+
     return obj;
 }
 

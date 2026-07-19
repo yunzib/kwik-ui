@@ -28,7 +28,7 @@ Size Button::onMeasure(Constraints constraints) {
         textResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
     }
     if (!textResult_ || textResult_->glyphs.empty()) return constraints.constrain({0, 0});
-    
+
     float w = textResult_->totalWidth + props.padding.horizontal();
     float h = std::max(textResult_->totalHeight, 16.0f) + props.padding.vertical();
     if (props.width.has_value()) w = *props.width + props.padding.horizontal();
@@ -118,4 +118,17 @@ void Button::onDraw(Graphics &graphics) {
     }
 
     graphics.restore();
+}
+
+bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
+    if (std::strcmp(name, "text") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            text_.text = *s;
+            textResult_.reset();    // ← 排版缓存废止，下次 onMeasure/onDraw 惰性重建
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

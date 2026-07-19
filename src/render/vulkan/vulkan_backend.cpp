@@ -98,7 +98,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
 }
 
 void VulkanBackend::endFrame() {
-    Log::info("endFrame: drawCalls={}", drawCalls_);    // ← 新增
+    // Log::info("endFrame: drawCalls={}", drawCalls_);    // ← 新增
     drawCalls_ = 0;                                     // ← 新增
     glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();

@@ -3,9 +3,19 @@
  *
  * 现代按钮风格展示，参考 Flutter Material 3 设计语言
  */
-import { View, Text, Button, State, Root, Flex } from 'kwikui';
+import { View, Text, Button, State, Root, Flex, ref } from 'kwikui';
 
-const state = new State({ count: 0, last: "", lastX: 0, lastY: 0 });
+let clickCount = 0;
+const state = new State({
+    displayText: "Clicked: 0 times",
+    lastText: "Click a button below"
+});
+
+function updateClick(e, label) {
+    clickCount++;
+    state.displayText = "Clicked: " + clickCount + " times";
+    state.lastText = "Last: \"" + label + "\" at (" + e.x.toFixed(0) + ", " + e.y.toFixed(0) + ")";
+}
 
 export default () => Root(
     View({
@@ -43,19 +53,12 @@ export default () => Root(
             width: 400
         }, [
             Text({
-                text: "Clicked: " + state.count + " times",
-                fontSize: 18,
-                fontWeight: "bold",
-                color: "#0F172A",
-                margin: [0, 0, 0, 2]
+                text: ref(state, "displayText"),
+                fontSize: 18, fontWeight: "bold", color: "#0F172A", margin: [0, 0, 0, 2]
             }),
             Text({
-                text: state.last
-                    ? "Last: \"" + state.last + "\" at (" + state.lastX.toFixed(0) + ", " + state.lastY.toFixed(0) + ")"
-                    : "Click a button below",
-                fontSize: 13,
-                color: "#64748B",
-                margin: 10
+                text: ref(state, "lastText"),
+                fontSize: 13, color: "#64748B", margin: 10
             })
         ]),
 
@@ -77,7 +80,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Primary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Secondary",
@@ -91,7 +94,7 @@ export default () => Root(
                 hoverBackground: "#7C3AED",
                 pressedBackground: "#6D28D9",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Secondary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Tertiary",
@@ -105,7 +108,7 @@ export default () => Root(
                 hoverBackground: "#0284C7",
                 pressedBackground: "#0369A1",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Tertiary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
         ]),
 
@@ -127,7 +130,7 @@ export default () => Root(
                 hoverBackground: "#C7D2FE",
                 pressedBackground: "#A5B4FC",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Tonal Primary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Tonal Secondary",
@@ -141,7 +144,7 @@ export default () => Root(
                 hoverBackground: "#DDD6FE",
                 pressedBackground: "#C4B5FD",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Tonal Secondary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Tonal Tertiary",
@@ -155,7 +158,7 @@ export default () => Root(
                 hoverBackground: "#BAE6FD",
                 pressedBackground: "#7DD3FC",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Tonal Tertiary"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
         ]),
 
@@ -181,7 +184,7 @@ export default () => Root(
                 hoverBackground: "#F8FAFC",
                 pressedBackground: "#F1F5F9",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Elevated"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
         ]),
 
@@ -205,7 +208,7 @@ export default () => Root(
                 hoverBackground: "rgba(99,102,241,0.06)",
                 pressedBackground: "rgba(99,102,241,0.12)",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Outlined"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Text Button",
@@ -219,7 +222,7 @@ export default () => Root(
                 hoverBackground: "rgba(99,102,241,0.08)",
                 pressedBackground: "rgba(99,102,241,0.16)",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Text"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
         ]),
 
@@ -241,7 +244,7 @@ export default () => Root(
                 hoverBackground: "#16A34A",
                 pressedBackground: "#15803D",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Success"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Warning",
@@ -255,7 +258,7 @@ export default () => Root(
                 hoverBackground: "#D97706",
                 pressedBackground: "#B45309",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Warning"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Danger",
@@ -269,7 +272,7 @@ export default () => Root(
                 hoverBackground: "#DC2626",
                 pressedBackground: "#B91C1C",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Danger"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
         ]),
 
@@ -292,7 +295,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Large"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Default",
@@ -307,7 +310,7 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Default"; state.lastX = e.x; state.lastY = e.y; }
+                onClick: function (e) { updateClick(e, "Primary"); }
             }),
             Button({
                 text: "Small",
@@ -322,8 +325,10 @@ export default () => Root(
                 hoverBackground: "#4F46E5",
                 pressedBackground: "#4338CA",
                 pressedScale: 0.97,
-                onClick: function (e) { state.count++; state.last = "Small"; state.lastX = e.x; state.lastY = e.y; 
-                    console.log("Small button clicked at (" + state.count + "," + state.last + ")"); }
+                onClick: function (e) {
+                    updateClick(e, "Primary");
+                    console.log("Small button clicked at (" + state.count + "," + state.last + ")");
+                }
             }),
         ]),
     ])

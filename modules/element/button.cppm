@@ -24,6 +24,8 @@ export enum class ButtonState { Idle, Hovered, Pressed };
  */
 export class Button : public View {
 public:
+    TextContent text_;    // 文字内容属性
+
     Button() = default;
     explicit Button(ViewProps p, TextContent tc = {}, ButtonStateProps bs = {}) :
         View(std::move(p)), text_(std::move(tc)), button_(std::move(bs)) {
@@ -43,24 +45,25 @@ public:
     }
     ~Button() override = default;
 
-    ElementType type() const override {
-        return ElementType::Button;
-    }
+    ElementType type() const override { return ElementType::Button; }
 
-    const TextContent &textContent() const {
-        return text_;
-    }
-    const ButtonStateProps &buttonState() const {
-        return button_;
-    }
+    const TextContent &textContent() const { return text_; }
+    const ButtonStateProps &buttonState() const { return button_; }
 
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
     bool onEvent(const DispatchEvent &event) override;
 
+    /**
+     * @brief 处理 Button 专有属性的增量更新
+     *
+     * BindingRegistry → setPropertyTyped("text", ...) 链路，
+     * View 基类不识 "text"，需子类覆写处理。
+     */
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
+
 private:
-    TextContent text_;           // 文字内容属性
     ButtonStateProps button_;    // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
     /** @brief 排版结果（元素自己持有，无全局缓存） */

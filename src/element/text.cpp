@@ -12,6 +12,8 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
+import kwik.element.typed_prop;
+import kwik.core.log;
 
 import std;
 
@@ -60,7 +62,20 @@ Size Text::onMeasure(Constraints constraints) {
 void Text::onDraw(Graphics &graphics) {
     if (text_.text.empty() || !props.visible) return;
     auto &pipe = TextRenderPipeline::instance();
-    pipe.ensureGlyphs(*layoutResult_);
+
+    // ── setPropertyTyped 重置 layoutResult_ 后惰性重建排版 ──
+    if (!layoutResult_) {
+        FontId fid = pipe.loadFont(text_.fontFamily);
+        if (fid == kInvalidFontId) fid = pipe.activeFont();
+        TextLayoutConfig cfg;
+        cfg.maxWidth  = frame.width > 0 ? frame.width : 800.0f;
+        cfg.align     = static_cast<LayoutTextAlign>(text_.textAlign);
+        cfg.fontWeight = static_cast<int>(text_.fontWeight);
+        cfg.fontStyle = static_cast<int>(text_.fontStyle);
+        layoutResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
+    }
+
+    pipe.ensureGlyphs(*layoutResult_);       
     if (!layoutResult_ || layoutResult_->glyphs.empty()) return;
 
     // [改] GlyphDrawData batch → drawTextCached
@@ -68,4 +83,20 @@ void Text::onDraw(Graphics &graphics) {
     graphics.translate(frame.x, frame.y);
     graphics.drawTextCached(layoutResult_->glyphs, text_.textColor);
     graphics.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Text::setPropertyTyped — 处理 text_ 属性的增量更新
+// ═══════════════════════════════════════════════════════════════════════════
+bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
+    if (std::strcmp(name, "text") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            text_.text = *s;
+            layoutResult_.reset();   // ← 排版结果废止，下次 onDraw 时惰性重建
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

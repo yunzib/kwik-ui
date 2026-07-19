@@ -82,8 +82,15 @@ CMake:       cmake/modules/Element.cmake
 6. 在 src/bridge/element_parser.cpp 的 InitBuiltinTypes 注册类型
 7. 在 cmake/modules/Element.cmake 添加 .cppm 和 .cpp
 8. 判断是否需要 State 双向绑定：
-   - 需要 `ref(state, key)` 增量更新 → 加 `binding_` + `setPropertyTyped` + `element_parser` 中 `applyBindings`
-   - 仅通过 `getProp/setProp` 读写 → **不加** binding（如 Tabs, Line, Spinner）
+   - 需要 `ref(state, key)` 增量更新 → _所有_组件均受益（applyBindings 已泛化到 View*），
+     不限于交互组件。但组件专有属性（text_/button_ 等）需额外两步：
+     a) **setPropertyTyped 覆写** — 在 cppm 声明 + cpp 实现，用 `std::get_if<T>` 提取值，
+        更新专有字段后调 `markDirty()`，text 类字段还需 `layoutResult_/textResult_.reset()`
+     b) **字段提 public** — reconcile 复用旧 View 时直接赋值（通过 `parseTextContent(ex)` 等同源解析函数），
+        需将 text_/button_/container_ 等从 private 提升到 public
+     c) **reconcileNode 补 switch** — `src/bridge/element_parser.cpp` 的 reconcileNode 中
+        `parseViewProps(ex)` 之后加组件的专有属性赋值
+   - 仅通过 `getProp/setProp` 读写 → 不需覆写 setPropertyTyped（如 Tabs, Line, Spinner）
 9. 若 children 做功能面板（如 Tabs），onLayout 中仅布局选中 child，onDraw 中用 `graphics.clipRoundedRect()` 防止内容溢出 tab 条。
 10. 若需要 JS 回调（如 onChange），实现 `fireChange()` 方法：
    - `JS_NewObject` → `JS_SetPropertyStr` 填充 `{value, index}` → `JS_Call` dispatch → `JS_FreeValue`
@@ -97,6 +104,35 @@ CMake:       cmake/modules/Element.cmake
 文字:     drawText(fontPath, text, fontSize, x, y, color)
           drawTextCached(glyphs, color)
 图片:     drawImage(textureId, rect, opacity, cornerRadius)
+
+## State 增量绑定完整链路
+
+### ref 解析（JS 侧）
+- `ref(state, "key")` → 返回标记数组 `["__kwik_bind__", state, "key"]`
+- `makeElement` → `resolveAllRefProps(ctx, props)` → 遍历所有 prop → `resolveRefProp`
+  → 检测 `["__kwik_bind__", ...]` 标记 → 读取 state 当前值替换 → 注入 `__bind_*State/Key` 隐藏属性
+- **必须**：`JS_GetOwnPropertyNames` flags 组合 `JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY`，
+  单独 `JS_GPN_ENUM_ONLY` 在 QuickJS 中返回 0 条属性
+
+### 绑定注册（C++ 侧，parse 时）
+- `PropsExtractor::tryRecordBinding` → propMeta 标记 `hasBinding=true`
+- `applyBindings(View*, props)` → `propMeta.forEachBinding` → 读 `__bind_*State/Key`
+  → `view->setBinding(...)`（反向，基类默认空实现）
+  → `BindingRegistry::bind(statePtr, key, view, propName)`（正向，增量更新查询表）
+- **关键顺序**：`setRegisteredRegistry(&bindingRegistry_)` 必须在**首次 parse 之前**调用，
+  否则首次 parse 时 registry 为空，所有绑定丢失，需要首次 state 变更触发 rebuildTree 才能补注册
+
+### 增量更新（State 变更时）
+- `state.count++` → QuickJS trap → `state_set_property`
+  → `incCb` → `BindingRegistry::notify(statePtr, key, newValue)`
+  → `jsValueToTypedProp(newValue, typeHint)` → `view->setPropertyTyped(propName, typed)`
+  → View 基类 `propIdFromName` 分派（ViewProps 字段）
+  → 子类 `setPropertyTyped` 覆写（text_ 等专有字段）→ `markDirty()`
+  → 主循环 `needsRedraw()` → `renderFrame()`
+
+### 非绑定属性回退
+- `state.count++` 的 key 在 BindingRegistry 中未命中 → `handled=false`
+  → `renCb` → `jsCtx_.setRenderNeeded()` → 主循环 `isRenderNeeded()` → `rebuildTree`
 
 ## 组件模式
 
@@ -115,6 +151,29 @@ CMake:       cmake/modules/Element.cmake
 - 先调 `View::onDraw(graphics)` 绘制背景+边框（或复制其前半段代码）。
 - 再绘制组件特有内容（tab 条、指示线等）。
 - 最后遍历 children 中活跃 child 绘制。
+
+## 增量组件树 reconcile
+
+### 触发时机
+- `rebuildTree()` 时：JS 重新执行 → 元素描述符变化 → `ElementParser::reconcile(oldTree, newJsTree)`
+  替代原来的整树销毁+重建
+
+### 复用决策
+- `reconcileNode(jsVal, oldView)`：
+  ① 类型一致（`elementTypeFromString(jsType) == oldView->type()`）→ 复用
+     - `parseViewProps(ex)` 更新 ViewProps 通用字段
+     - **switch 补丁**：组件专有字段（text_/button_ 等 public 字段）通过 `parse*Prop(ex)` 直接赋值
+     - `reconcileChildren` 递归处理子节点
+  ② 类型不一致 → 销毁旧 View（`unbind` → 析构）→ `parseNode` 新建
+- `reconcileChildren(parent, jsChildren, oldChildren)`：
+  ① 建 id→索引 映射
+  ② 遍历新 JS children：id 命中优先匹配 → 位置匹配回退 → 类型不一致则新建
+  ③ 未认领的旧 View → `unbind` → 析构
+
+### 新增组件时需同步修改的位置
+- `elementTypeFromString`（view.cppm）— 加 JS 类型名映射
+- `reconcileNode` 的 switch（element_parser.cpp）— 加专有属性解析赋值
+- `element_parser.cpp` 的 `InitBuiltinTypes` — 加 `propMeta = std::move(meta)` + `applyBindings`
 
 ## 调试
 - C++ 日志: `Log::info("var = {}", val);` (import kwik.core.log;)

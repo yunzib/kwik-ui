@@ -24,6 +24,9 @@ import std;
  */
 export class Text : public View {
 public:
+    TextContent text_; /**< 文本内容（字符串、字号、颜色、字体） */
+
+
     Text() = default;
 
     /**
@@ -31,29 +34,30 @@ public:
      * @param p  视图属性
      * @param tc 文本内容
      */
-    explicit Text(ViewProps p, TextContent tc = {})
-        : View(std::move(p)), text_(std::move(tc)) {
-    }
+    explicit Text(ViewProps p, TextContent tc = {}) : View(std::move(p)), text_(std::move(tc)) {}
 
     ~Text() override = default;
 
-    ElementType type() const override {
-        return ElementType::Text;
-    }
+    ElementType type() const override { return ElementType::Text; }
 
     /** @brief 获取文本内容 */
-    const TextContent& textContent() const {
-        return text_;
-    }
+    const TextContent &textContent() const { return text_; }
 
 protected:
     /** @brief 测量文本尺寸（只排版，不触发 MSDF） */
     Size onMeasure(Constraints constraints) override;
 
     /** @brief 绘制文本（ensureGlyphs + collectDraws） */
-    void onDraw(Graphics& graphics) override;
+    void onDraw(Graphics &graphics) override;
+
+    /**
+     * @brief 处理 Text 专有属性的增量更新
+     *
+     * BindingRegistry → setPropertyTyped("text", ...) 链路中，
+     * View 基类的 propIdFromName 不识 "text"，需子类覆写处理。
+     */
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
 private:
-    TextContent text_;              /**< 文本内容（字符串、字号、颜色、字体） */
-    std::shared_ptr<TextLayoutResult> layoutResult_;  /**< 排版结果 */
+    std::shared_ptr<TextLayoutResult> layoutResult_; /**< 排版结果 */
 };

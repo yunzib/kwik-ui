@@ -109,6 +109,10 @@ bool Application::init() {
         Log::error("JS 加载失败: {}", config_.jsPath);
         return false;
     }
+
+    // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
+    setRegisteredRegistry(&bindingRegistry_);
+
     // ④ 解析 View 树
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     if (!tree_) {
@@ -141,9 +145,6 @@ bool Application::init() {
     eventRouter_.setRootTarget(tree_.get());
     eventRouter_.setDpiScale(window_.GetDpiScale());
 
-    // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
-    setRegisteredRegistry(&bindingRegistry_);
-
     // ⑥ 初始化 Channel（必须在线程池和队列就绪后）
     Channel::init(
         jsCtx_.getPtr(), [this](std::function<void()> task) { mainThreadTaskQueue_.post(std::move(task)); },
@@ -157,27 +158,29 @@ bool Application::init() {
 // rebuildTree — State 变更后重建树
 // ============================================================================
 void Application::rebuildTree() {
-    // 清除 BindingRegistry 中旧 View 的映射
-    bindingRegistry_.clear();
-
     jsCtx_.expandRootView();
-    tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
-    if (tree_) setTracker(tree_.get(), &dirtyTracker_);
+
+    // ── 增量 reconcile：旧树传入，类型一致的原位更新，不一致的自动析构 ──
+    tree_ = ElementParser::reconcile(jsCtx_.getPtr(), jsCtx_.getRootView(),
+                                     std::move(tree_)    // 旧树所有权转移 → reconcileNode 逐个判定复用/销毁
+    );
+
+    // bindingRegistry 不再全局 clear —— unbind 已 inline 处理被销毁的单个 View
+
     if (tree_) {
+        setTracker(tree_.get(), &dirtyTracker_);
         int w, h;
         window_.GetSize(&w, &h);
         float dpi = window_.GetDpiScale();
         auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
-        relayoutTree(sz);
+        relayoutTree(sz);    // needsRelayout_ 已在 setPropertyTyped 中标记
     }
 
     eventRouter_.setRootTarget(tree_.get());
     eventRouter_.reset();
     jsCtx_.clearRenderFlag();
-
-    dirtyTracker_.markFull();    // ─ 重建后下帧全屏重绘 ─
+    dirtyTracker_.markFull();
     jsCtx_.setUserPointer(tree_.get());
-
     treeStructureChanged_ = true;
 }
 
@@ -192,11 +195,12 @@ void Application::rebuildTree() {
  * ⑤ 填入 FrameSubmit 并提交到三缓冲队列
  */
 void Application::renderFrame() {
+    Log::info("[renderFrame] called dirtyTracker.needsRedraw={}", dirtyTracker_.needsRedraw());
     float dpi = window_.GetDpiScale();
     Rect dr = dirtyTracker_.current();    // 只读，不消费
 
-    Log::debug("renderFrame: dirty=({},{},{}x{}) empty={} structural={}", dr.x, dr.y, dr.width, dr.height, dr.isEmpty(),
-               treeStructureChanged_);
+    // Log::debug("renderFrame: dirty=({},{},{}x{}) empty={} structural={}", dr.x, dr.y, dr.width, dr.height,
+    // dr.isEmpty(), treeStructureChanged_);
 
     if (dr.isEmpty()) {
         int w, h;
@@ -212,11 +216,11 @@ void Application::renderFrame() {
     canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
     canvas.beginFrame(structural);
     canvas.scale(dpi, dpi);
-    
+
     canvas.drawRect(dr, Color::white());
-    canvas.setForceDraw(true);      // ← 开启：整个层树录制期间跳过所有脏区剔除
+    canvas.setForceDraw(true);    // ← 开启：整个层树录制期间跳过所有脏区剔除
     tree_->draw(canvas);
-    canvas.setForceDraw(false);     // ← 关闭
+    canvas.setForceDraw(false);    // ← 关闭
     dirtyTracker_.consume();
 
     // endFrame 返回层树根

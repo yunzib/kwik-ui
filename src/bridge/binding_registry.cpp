@@ -97,6 +97,15 @@ void BindingRegistry::clear() {
     bindings_.clear();
 }
 
+void BindingRegistry::unbind(View *view) {
+    for (auto it = bindings_.begin(); it != bindings_.end();) {
+        if (it->second.view == view)
+            it = bindings_.erase(it);
+        else
+            ++it;
+    }
+}
+
 bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *ctx, JSValueConst newValue) {
     BindingKey bk{statePtr, key};
     auto range = bindings_.equal_range(bk);

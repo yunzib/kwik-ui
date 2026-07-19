@@ -77,6 +77,43 @@ export inline std::string_view to_string(ElementType t) {
     return "Unknown";
 }
 
+/**
+ * @brief 从 JS 组件类型名反查 ElementType
+ *
+ * JS 侧 "Flex" → ElementType::FlexLayout, "Root" → ElementType::RootView
+ * 供 reconcileNode 判断新旧节点的类型是否一致。
+ * 空=类型未注册（降级为 View）。
+ */
+export inline ElementType elementTypeFromString(std::string_view s) {
+    if (s == "View")         return ElementType::View;
+    if (s == "Root")         return ElementType::RootView;
+    if (s == "Text")         return ElementType::Text;
+    if (s == "Button")       return ElementType::Button;
+    if (s == "Input")        return ElementType::Input;
+    if (s == "Image")        return ElementType::Image;
+    if (s == "Checkbox")     return ElementType::Checkbox;
+    if (s == "RadioButton")  return ElementType::RadioButton;
+    if (s == "Dropdown")     return ElementType::Dropdown;
+    if (s == "TextArea")      return ElementType::TextArea;
+    if (s == "Flex")         return ElementType::FlexLayout;
+    if (s == "Grid")         return ElementType::GridLayout;
+    if (s == "Stack")        return ElementType::StackLayout;
+    if (s == "List")         return ElementType::ListLayout;
+    if (s == "RadioGroup")   return ElementType::RadioGroup;
+    if (s == "Slider")       return ElementType::Slider;
+    if (s == "ProgressBar")  return ElementType::ProgressBar;
+    if (s == "Switch")       return ElementType::Switch;
+    if (s == "Line")         return ElementType::Line;
+    if (s == "Spinner")      return ElementType::Spinner;
+    if (s == "Table")        return ElementType::Table;
+    if (s == "TextView")     return ElementType::TextView;
+    if (s == "Tabs")         return ElementType::Tabs;
+    if (s == "Dialog")       return ElementType::Dialog;
+    if (s == "Tip")          return ElementType::Tip;
+    if (s == "G2D")          return ElementType::G2D;
+    return ElementType::View;  // 未知类型退回 View
+}
+
 // ============================================================================
 // ViewEventHandlers —— 事件处理器封装
 // ============================================================================

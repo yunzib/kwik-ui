@@ -139,8 +139,8 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<View>(parseViewProps(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
@@ -157,17 +157,17 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<Text>(parseViewProps(ex), parseTextContent(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
-         ElementParser::registerType("Button", [](const JSValueRef &pv) {
+        ElementParser::registerType("Button", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<Button>(parseViewProps(ex), parseTextContent(ex), parseButtonState(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
@@ -175,8 +175,8 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<FlexLayout>(parseViewProps(ex), parseContainerProps(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
@@ -184,8 +184,8 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<GridLayout>(parseViewProps(ex), parseContainerProps(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
@@ -193,8 +193,8 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<StackLayout>(parseViewProps(ex));
-            v->propMeta = std::move(meta);        // 保存绑定元数据（hasBinding 标记等）
-            applyBindings(v.get(), pv);           // 注册到 BindingRegistry（State→View 增量）
+            v->propMeta = std::move(meta);    // 保存绑定元数据（hasBinding 标记等）
+            applyBindings(v.get(), pv);       // 注册到 BindingRegistry（State→View 增量）
             return v;
         });
 
@@ -216,8 +216,8 @@ static struct InitBuiltinTypes {
                 JSValueRef node(c, dup);
                 list->footer = ElementParser::parseNode(node);
             }
-            list->propMeta = std::move(meta);        
-            applyBindings(list.get(), pv);           
+            list->propMeta = std::move(meta);
+            applyBindings(list.get(), pv);
             return list;
         });
 
@@ -356,8 +356,8 @@ static struct InitBuiltinTypes {
                 }
             }
 
-            table->propMeta = std::move(meta);        // ← 新增（在 data引用保留之后）
-            applyBindings(table.get(), pv);           // ← 新增
+            table->propMeta = std::move(meta);    // ← 新增（在 data引用保留之后）
+            applyBindings(table.get(), pv);       // ← 新增
             return table;
         });
 
@@ -378,7 +378,7 @@ static struct InitBuiltinTypes {
             PropsExtractor ex(pv, &meta);
             auto tabs = std::make_unique<Tabs>(parseViewProps(ex), parseTabsProps(ex));
             tabs->propMeta = std::move(meta);
-            applyBindings(tabs.get(), pv);          
+            applyBindings(tabs.get(), pv);
             return tabs;
         });
 
@@ -520,6 +520,171 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
     }
 
     return element;
+}
+
+/** @brief 重新绑定事件处理器（reconcile 复用旧 View 后调用） */
+void ElementParser::rebindHandlers(View *view, const JSValueRef &propsVal) {
+    if (!propsVal.isObject()) return;
+    JSContext *ctx = propsVal.context();
+    auto tryBind = [&](const char *propName) {
+        if (propsVal.hasProperty(propName)) {
+            auto handler = propsVal.getProperty(propName);
+            if (JS_IsFunction(ctx, handler.raw())) view->handlers.bind(ctx, propName, handler.raw());
+        }
+    };
+    tryBind("onClick");
+    tryBind("onLongPress");
+    tryBind("onHoverEnter");
+    tryBind("onHoverLeave");
+    tryBind("onChange");
+    tryBind("onRowClick");
+    tryBind("onClose");
+}
+
+/**
+ * @brief 按 id + 位置对齐新旧子节点列表
+ *
+ * ① 扫描旧 children，将带 id 的节点建 map（id→索引）
+ * ② 遍历新 JS children：
+ *    - id 命中 → 取出旧节点 → reconcileNode 复用
+ *    - id 未命中 → 按遍历顺序取下一个未被认领的旧节点（位置匹配）
+ *    - 无可用旧节点 → parseNode 新建
+ * ③ 剩余未被认领的旧节点 → 解绑 BindingRegistry → 析构
+ */
+void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVal,
+                                      std::vector<std::unique_ptr<View>> &oldChildren) {
+    if (!childrenVal.isArray()) return;
+
+    size_t oldN = oldChildren.size();
+
+    // ── ① 建 id→索引 映射 ──
+    std::unordered_map<std::string, size_t> oldById;
+    for (size_t i = 0; i < oldN; ++i) {
+        if (!oldChildren[i]->props.id.empty()) oldById[oldChildren[i]->props.id] = i;
+    }
+
+    // ── ② 逐个新节点匹配 ──
+    std::vector<bool> claimed(oldN, false);
+    std::vector<std::unique_ptr<View>> newChildren;
+    int newLen = childrenVal.getArrayLength();
+    size_t posCursor = 0;    // 位置匹配游标（遍历 oldN，跳过已被 id 认领的）
+
+    for (int i = 0; i < newLen; ++i) {
+        auto jsChild = childrenVal.getArrayElement(i);
+        std::string jsType = jsChild.getProperty("type").toString();
+        auto jsProps = jsChild.getProperty("props");
+        std::string jsId;
+
+        // 尝试读 id
+        if (jsProps.isObject() && jsProps.hasProperty("id")) jsId = jsProps.getProperty("id").toString();
+
+        size_t matchIdx = SIZE_MAX;
+
+        // ── id 优先匹配 ──
+        if (!jsId.empty()) {
+            auto it = oldById.find(jsId);
+            if (it != oldById.end() && !claimed[it->second]) {
+                ElementType oldType = oldChildren[it->second]->type();
+                ElementType newType = elementTypeFromString(jsType);
+                if (oldType == newType) { matchIdx = it->second; }
+            }
+        }
+
+        // ── id 未命中 → 位置+类型匹配 ──
+        if (matchIdx == SIZE_MAX) {
+            ElementType newType = elementTypeFromString(jsType);
+            for (; posCursor < oldN; ++posCursor) {
+                if (claimed[posCursor]) continue;
+                ElementType oldType = oldChildren[posCursor]->type();
+                if (oldType == newType) {
+                    matchIdx = posCursor;
+                    ++posCursor;
+                    break;
+                }
+            }
+        }
+
+        // ── 复用 or 新建 ──
+        if (matchIdx != SIZE_MAX) {
+            claimed[matchIdx] = true;
+            auto oldView = std::move(oldChildren[matchIdx]);
+            newChildren.push_back(reconcileNode(jsChild, std::move(oldView)));
+        } else {
+            newChildren.push_back(parseNode(jsChild));
+        }
+    }
+
+    // ── ③ 清理未被认领的旧节点 ──
+    auto *reg = getRegisteredRegistry();
+    for (size_t i = 0; i < oldN; ++i) {
+        if (!claimed[i] && oldChildren[i]) {
+            if (reg) reg->unbind(oldChildren[i].get());
+            // unique_ptr 在此析构 → 递归 ~View()
+        }
+    }
+
+    // 替换 parent 的 children
+    parent->children.clear();    // View::children 是 public vector<unique_ptr<View>>
+    for (auto &child : newChildren) parent->addChild(std::move(child));
+}
+
+/**
+ * @brief 尝试复用旧 View
+ *
+ * 若 jsVal.type 与 oldView.type() 一致 → 原地更新 props + propMeta + handlers，
+ * 并在 reconcileChildren 中递归处理子节点。
+ * 若类型不一致 → 解绑旧 View + parseNode 创建新 View。
+ * oldView 为 nullptr 时走 parseNode 创建。
+ */
+std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std::unique_ptr<View> oldView) {
+    if (!oldView) return parseNode(jsVal);
+
+    // ── 读 JS 节点信息 ──
+    auto typeVal = jsVal.getProperty("type");
+    std::string jsType = typeVal.toString();
+    auto propsVal = jsVal.getProperty("props");
+
+    ElementType newType = elementTypeFromString(jsType);
+    ElementType oldType = oldView->type();
+
+    // ── 类型不一致 → 销毁旧 View，创建新 View ──
+    if (newType != oldType) {
+        if (auto *reg = getRegisteredRegistry()) reg->unbind(oldView.get());
+        return parseNode(jsVal);
+    }
+
+    // ── 类型一致 → 原地更新 props ──
+    TypedPropMap meta;
+    PropsExtractor ex(propsVal, &meta);
+    oldView->props = parseViewProps(ex);    // ← ViewProps 字段级覆盖
+
+    // ── 组件专有属性解析（text_ 已 public，直接赋值，复用 TypeCreator 同源解析函数）──
+    switch (oldView->type()) {
+    case ElementType::Text: static_cast<Text *>(oldView.get())->text_ = parseTextContent(ex); break;
+    case ElementType::Button:
+        static_cast<Button *>(oldView.get())->text_ = parseTextContent(ex);
+        static_cast<Button *>(oldView.get())->button_ = parseButtonState(ex);
+        break;
+    default: break;
+    }
+
+    oldView->propMeta = std::move(meta);       // ← 更新 hasBinding 标记
+    applyBindings(oldView.get(), propsVal);    // ← 重新注册到 BindingRegistry
+
+    // ── 递归 reconcile children ──
+    auto childrenVal = jsVal.getProperty("children");
+    if (childrenVal.isArray()) { reconcileChildren(oldView.get(), childrenVal, oldView->children); }
+
+    // ── 重新绑定事件处理器 ──
+    rebindHandlers(oldView.get(), propsVal);
+
+    return oldView;
+}
+
+std::unique_ptr<View> ElementParser::reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot) {
+    JSValueRef jsVal(ctx, JS_DupValue(ctx, value));
+    if (!jsVal.isObject() || jsVal.isNull()) return std::move(oldRoot);
+    return reconcileNode(jsVal, std::move(oldRoot));
 }
 
 // ============================================================================

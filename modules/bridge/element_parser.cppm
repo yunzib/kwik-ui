@@ -101,6 +101,20 @@ public:
      */
     static std::unique_ptr<View> parseNode(const JSValueRef &jsVal);
 
+    /**
+     * @brief 带旧树复用的解析（增量 reconcile）
+     *
+     * 在 rebuildTree 中替代 parse() 调用。传入上一帧的 C++ View 树（unique_ptr），
+     * 内部按位置+id 匹配新旧节点：类型一致的原地更新 props，不一致的销毁+新建。
+     * 未被匹配的旧节点自动解绑 BindingRegistry → 析构。
+     *
+     * @param ctx     QuickJS 上下文
+     * @param value   expandRootView 输出的新 JS 元素描述符
+     * @param oldRoot 上一帧的 C++ View 树根（所有权传入，匹配到的节点原地保留）
+     * @return 增量更新后的 View 树根
+     */
+    static std::unique_ptr<View> reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot);
+
 private:
     // ==================== 内部实现 ====================
     /**
@@ -110,4 +124,9 @@ private:
      * 且首次调用时构造，确保内置类型在解析前就绪
      */
     static std::unordered_map<std::string, TypeCreator> &creators();
+
+    static std::unique_ptr<View> reconcileNode(const JSValueRef &jsVal, std::unique_ptr<View> oldView);
+    static void reconcileChildren(View *parent, const JSValueRef &childrenVal,
+                                  std::vector<std::unique_ptr<View>> &oldChildren);
+    static void rebindHandlers(View *view, const JSValueRef &propsVal);
 };
