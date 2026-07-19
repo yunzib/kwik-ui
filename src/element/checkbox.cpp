@@ -23,6 +23,7 @@ import kwik.engine.js_value;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.event;
+import kwik.core.log;
 
 import std;
 
@@ -124,6 +125,7 @@ bool Checkbox::onEvent(const DispatchEvent &event) {
 // 外层 save/restore 保证变换/透明度不影响兄弟控件。
 // ============================================================================
 void Checkbox::onDraw(Graphics &graphics) {
+    // Log::info("[Checkbox] onDraw text='{}' checked={}", text_.text, check_.checked);
     graphics.save();
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
 
@@ -138,6 +140,10 @@ void Checkbox::onDraw(Graphics &graphics) {
     // 方框填充
     Color fillColor = check_.checked ? check_.checkedFillColor : Color::white();
     graphics.drawRoundedRect(boxRect, check_.borderRadius, fillColor);
+
+    Log::info("[Checkbox] draw box rect=({},{},{}x{}) checked={} fillColor=({},{},{},{})",
+        boxX, boxY, check_.boxSize, check_.boxSize, check_.checked,
+        fillColor.r, fillColor.g, fillColor.b, fillColor.a);           
 
     // 方框边框
     Color borderColor = check_.checked ? check_.checkedColor : check_.uncheckedColor;

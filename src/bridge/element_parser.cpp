@@ -267,7 +267,7 @@ static struct InitBuiltinTypes {
                 std::make_unique<Checkbox>(parseViewProps(ex), parseTextContent(ex), parseCheckboxProps(ex));
             checkbox->propMeta = std::move(meta);
             applyBindings(checkbox.get(), pv);
-            Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
+            // Log::debug("Checkbox created: id={}", checkbox->getProperty("id"));
             return checkbox;
         });
 

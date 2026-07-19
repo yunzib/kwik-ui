@@ -59,7 +59,7 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
 
     JSValue val = JS_GetPropertyStr(ctx, props, propName);
     bool isArr = JS_IsArray(val);
-    Log::debug("[ref] CHECK: prop='{}' isArray={}", propName, isArr);
+    // Log::debug("[ref] CHECK: prop='{}' isArray={}", propName, isArr);
     if (JS_IsUndefined(val) || !JS_IsArray(val)) {
         JS_FreeValue(ctx, val);
         return;
@@ -136,7 +136,7 @@ static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
     for (uint32_t i = 0; i < len; ++i) {
         const char *name = JS_AtomToCString(ctx, tab[i].atom);
         if (name) {
-            Log::debug("[ref] ALL: prop='{}'", name);
+            // Log::debug("[ref] ALL: prop='{}'", name);
             resolveRefProp(ctx, props, name);    // 复用已有单属性解析逻辑
             JS_FreeCString(ctx, name);
         }
@@ -160,7 +160,7 @@ static JSValue makeElement(JSContext *ctx, const char *type, JSValueConst props,
     if (JS_IsObject(props)) {
         JSValue tv = JS_GetPropertyStr(ctx, props, "text");
         bool isArr = JS_IsArray(tv);
-        Log::debug("[ref] FINAL: type='{}' textIsArray={}", type, isArr);
+        // Log::debug("[ref] FINAL: type='{}' textIsArray={}", type, isArr);
         JS_FreeValue(ctx, tv);
     }
 

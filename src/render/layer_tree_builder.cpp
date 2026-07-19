@@ -98,6 +98,11 @@ void LayerTreeBuilder::pop() {
 // ── Group 管理 ──
 
 void LayerTreeBuilder::pushGroup(std::shared_ptr<DrawList> injectedDrawList) {
+    // 推开新 Group 之前，先将当前 Recorder 中的内容定稿为 DrawListLayer。
+    // 否则嵌套 save/restore（如 Checkbox 文字区）会覆盖外层的 activeRecorder_，
+    // 导致外层已录制的绘制命令全部丢失。
+    flushRecorder();
+    
     // 保存当前容器位置到栈（不含 Recorder——flush++ 后 currentRecorder_ 总是 null）
     stack_.push_back({currentContainer_, nullptr});
 

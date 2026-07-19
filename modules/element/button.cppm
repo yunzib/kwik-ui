@@ -25,6 +25,7 @@ export enum class ButtonState { Idle, Hovered, Pressed };
 export class Button : public View {
 public:
     TextContent text_;    // 文字内容属性
+    ButtonStateProps button_;    // 按钮交互状态属性
 
     Button() = default;
     explicit Button(ViewProps p, TextContent tc = {}, ButtonStateProps bs = {}) :
@@ -64,7 +65,6 @@ protected:
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
 private:
-    ButtonStateProps button_;    // 按钮交互状态属性
     ButtonState state_ = ButtonState::Idle;
     /** @brief 排版结果（元素自己持有，无全局缓存） */
     std::shared_ptr<TextLayoutResult> textResult_;

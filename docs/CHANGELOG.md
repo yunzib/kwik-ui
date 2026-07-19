@@ -65,6 +65,12 @@
 - 增量组件树 reconcile 后组件专有属性不更新：reconcileNode 只更新 ViewProps 通用字段，
   Text 的 text_ 等专有字段保留旧值
   - 修复：reconcileNode switch 加专有属性解析赋值；Text/Button 的 text_/button_ 提升为 public
+- Checkbox/RadioButton 复选框和圆框不显示：`pushGroup` 嵌套时外层 `activeRecorder_` 被覆盖丢失
+  - 根因：嵌套 save/restore（如 Checkbox 文字区）调用 pushGroup 时直接 `make_shared<Recorder>`
+    覆盖外层已录制的绘制命令（box fill+stroke），popGroup 时内容丢失
+  - 修复：`pushGroup` 首行加 `flushRecorder()`，推开新 Group 前先定稿当前 Recorder 为 DrawListLayer
+- Button 增量文字更新后 layoutResult_/textResult_ 未重置，旧排版结果导致字形不更新
+  - 修复：`setPropertyTyped("text")` 中同步 `layoutResult_.reset()` / `textResult_.reset()`
 
 ## [0.0.0] — 2026-07-12
 
