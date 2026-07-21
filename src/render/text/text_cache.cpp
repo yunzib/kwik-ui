@@ -17,7 +17,6 @@ TextCache::~TextCache() = default;
 // ═══════════════════════════════════════════════════════════════════════════
 void TextCache::ensureGlyphs(TextLayoutResult &result) {
     float atlasSize = static_cast<float>(kAtlasSize);
-    float uvPad = 0.5f / atlasSize;
     uint32_t currentGen = atlasGeneration_;
 
     for (auto &g : result.glyphs) {
@@ -26,58 +25,51 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
         g.fontSize = std::round(g.fontSize);
         if (g.fontSize < 1.0f) g.fontSize = 1.0f;
 
-        // 子像素偏移（x 小数部分 × 8）
-        float frac = g.x - std::floor(g.x);
-        uint32_t so = static_cast<uint32_t>(std::round(frac * 8.0f)) % 8;
-        g.x = std::floor(g.x) + so * 0.125f;
-
-        // 栅格化 + 打包（内部私有 ensureGlyph，复用现有逻辑）
-        GlyphKey key{g.fontId, g.glyphIndex, g.fontSize, so};
+        GlyphKey key{g.fontId, g.glyphIndex, g.fontSize, 0};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
             CachedGlyph entry;
-            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, so);
+            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
             packGlyph(entry);
             entry.atlasGeneration = atlasGeneration_;
             it = glyphCache_.insert({key, std::move(entry)}).first;
         } else {
             auto &entry = it->second;
             if (!entry.packed || entry.atlasGeneration != currentGen) {
-                if (entry.info.pixelData.empty())
-                    rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, so);
+                if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
                 packGlyph(entry);
                 entry.atlasGeneration = currentGen;
             }
         }
 
-        // 回填 UV/尺寸
         auto &entry = it->second;
-        g.uvLeft   = static_cast<float>(entry.atlasX) / atlasSize + uvPad;
-        g.uvTop    = static_cast<float>(entry.atlasY) / atlasSize + uvPad;
-        g.uvRight  = static_cast<float>(entry.atlasX + entry.packedW) / atlasSize - uvPad;
-        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH) / atlasSize - uvPad;
-        g.width    = static_cast<float>(entry.packedW);
-        g.height   = static_cast<float>(entry.packedH);
+        g.pageIndex = static_cast<uint32_t>(entry.pageIndex);
+        g.uvLeft = static_cast<float>(entry.atlasX + 1) / atlasSize;
+        g.uvTop = static_cast<float>(entry.atlasY + 1) / atlasSize;
+        g.uvRight = static_cast<float>(entry.atlasX + entry.packedW - 1) / atlasSize;
+        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize;
+        // 还原为逻辑像素：atlas 内容像素 / (超采样倍数 × DPI 比例)
+        g.width = static_cast<float>(entry.packedW - 2) / supersample_ / dpiScale_;
+        g.height = static_cast<float>(entry.packedH - 2) / supersample_ / dpiScale_;
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 栅格化 — FreeType LCD 子像素位图 → RGBA
 // ═══════════════════════════════════════════════════════════════════════════
-
 void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
-                               uint32_t subpixelOffset) {
+                               uint32_t /*subpixelOffset*/) {
     auto *face = fontManager_.getFace(font);
     if (!face) return;
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
-    FT_Vector shift = {static_cast<FT_Pos>(subpixelOffset * 8), 0};
-    FT_Set_Transform(ftFace, nullptr, &shift);
-    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_TARGET_LCD);
+    // 栅格化分辨率 = 逻辑字号 × DPI 比例 × 超采样倍数
+    // supersample_ 在低 DPI 下自动提升以补偿物理像素不足
+    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_ * supersample_));
 
-    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_LCD) != 0) return;
+    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
+    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
@@ -87,45 +79,39 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
     entry.info.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
 
-    // pixel_mode 检查: LCD 模式宽度=像素宽×3, 灰度模式(内嵌位图)宽度=像素宽
-    bool isLCD = (bmp->pixel_mode == FT_PIXEL_MODE_LCD);
-    uint32_t pixelW = isLCD ? (bmp->width / 3) : bmp->width;
+    uint32_t pixelW = bmp->width;
     uint32_t rawH = bmp->rows;
-    uint32_t padW = pixelW + 2;    // 2px 边框防止线性滤波渗色
-    uint32_t padH = rawH + 2;
 
     if (pixelW == 0 || rawH == 0) {
-        entry.packedW = 1;
-        entry.packedH = 1;
-        entry.info.pixelData.resize(4, 0);    // RGBA 1 像素占位
+        entry.packedW = 3;
+        entry.packedH = 3;
+        entry.info.pixelData.resize(9, 0);
         return;
     }
 
-    entry.packedW = padW;
-    entry.packedH = padH;
-    entry.info.pixelData.assign((size_t)padW * padH * 4, 0);    // RGBA 4 字节/像素
+    entry.packedW = pixelW + 2;
+    entry.packedH = rawH + 2;
+    entry.info.pixelData.assign((size_t)(pixelW + 2) * (rawH + 2), 0);
 
+    uint32_t stride = pixelW + 2;
     for (unsigned int r = 0; r < rawH; r++) {
         const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * padW * 4 + 4;    // 跳过左 padding
-        if (isLCD) {
-            // LCD 位图 → RGBA: 3 字节/像素 (RGB 子像素) → 4 字节/像素
-            for (unsigned int x = 0; x < pixelW; x++) {
-                dst[x * 4 + 0] = src[x * 3 + 0];    // R 子像素覆盖
-                dst[x * 4 + 1] = src[x * 3 + 1];    // G 子像素覆盖
-                dst[x * 4 + 2] = src[x * 3 + 2];    // B 子像素覆盖
-                dst[x * 4 + 3] = (uint8_t)((src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2]) / 3);
-            }
-        } else {
-            // 灰度位图 (内嵌位图) → RGBA: 1 字节/像素 → 4 字节/像素, R=G=B=灰度值
-            for (unsigned int x = 0; x < pixelW; x++) {
-                uint8_t g = src[x];
-                dst[x * 4 + 0] = g;
-                dst[x * 4 + 1] = g;
-                dst[x * 4 + 2] = g;
-                dst[x * 4 + 3] = g;
-            }
-        }
+        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * stride + 1;
+        for (unsigned int x = 0; x < pixelW; x++) { dst[x] = src[x]; }
+    }
+
+    // 填充左右 padding 为最近的 content 列值
+    auto getPixel = [&](unsigned int r, unsigned int c) -> uint8_t & {
+        return entry.info.pixelData[(size_t)r * stride + c];
+    };
+    for (unsigned int r = 1; r <= rawH; r++) {
+        getPixel(r, 0) = getPixel(r, 1);
+        getPixel(r, pixelW + 1) = getPixel(r, pixelW);
+    }
+    // 填充上下 padding 为最近的 content 行值
+    for (unsigned int c = 0; c < pixelW + 2; c++) {
+        getPixel(0, c) = getPixel(1, c);
+        getPixel(rawH + 1, c) = getPixel(rawH, c);
     }
 }
 
@@ -159,8 +145,7 @@ auto TextCache::tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optiona
     for (int j = bestX; j < bestX + width; j++) { page.skyline[j] = newTop; }
 
     page.lastFrameUsed = frameCounter_;
-    return PackResult{
-        .x = static_cast<uint32_t>(bestX), .y = static_cast<uint32_t>(bestTop)};
+    return PackResult{.x = static_cast<uint32_t>(bestX), .y = static_cast<uint32_t>(bestTop)};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -184,7 +169,6 @@ void TextCache::packGlyph(CachedGlyph &entry) {
 
     if (!pr.has_value()) {
         if (pageCount_ < kMaxPages) {
-            atlasGeneration_++;
             AtlasPage newPage;
             newPage.skyline.assign(kAtlasSize, 0);
             newPage.lastFrameUsed = frameCounter_;

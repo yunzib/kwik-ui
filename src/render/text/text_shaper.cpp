@@ -49,6 +49,9 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
 
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) { return result; }
+    // 保存主字体指针和 ascender，回落字体字形需对齐主字体基线
+    auto *primaryFtFace = ftFace;
+    float primaryAscender = static_cast<float>(primaryFtFace->size->metrics.ascender) / 64.0f;
 
     // ── 设定 HarfBuzz 缩放 + FreeType 像素尺寸 ──
     hb_font_set_scale(face->harfbuzzFont(), static_cast<int>(fontSize * 64.0f), static_cast<int>(fontSize * 64.0f));
@@ -135,7 +138,13 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         }
 
         // 用回退字体时需重新设定像素尺寸
-        if (activeFont != fontId) { FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize)); }
+        float baselineAdjust = 0.0f;
+        if (activeFont != fontId) {
+            FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
+            // 回落字体的基线偏移量 = 主字体 ascender - 回落字体 ascender
+            float fbAscender = static_cast<float>(ftFace->size->metrics.ascender) / 64.0f;
+            baselineAdjust = primaryAscender - fbAscender;
+        }
         face->loadGlyph(activeGid);
 
         ShapedGlyph sg;
@@ -143,7 +152,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         sg.glyphIndex = activeGid;
         sg.fontSize = fontSize;
         sg.x = cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
-        sg.y = cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
+        sg.y = cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust;
         sg.advanceX = xAdv;
         sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
         sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;

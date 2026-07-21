@@ -34,6 +34,7 @@ export struct DrawGlyphCmd {
     float x, y, width, height;
     float uvLeft, uvTop, uvRight, uvBottom;
     Color color;
+    float pageIndex = 0;
 };
 export struct FillTrianglesCmd {
     size_t vertexOffset;

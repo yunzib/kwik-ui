@@ -60,6 +60,7 @@ export {
         float uvLeft = 0, uvRight = 0;     ///< 图集 UV（x 方向）
         float uvTop = 0, uvBottom = 0;     ///< 图集 UV（y 方向）
         uint32_t cluster = 0;              ///< 原始文本 UTF-8 字节偏移
+        uint32_t pageIndex = 0;
         bool isNewline = false;            ///< 是否为 \n 标记字形（不渲染）
     };
 

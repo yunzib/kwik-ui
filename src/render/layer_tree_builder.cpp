@@ -217,6 +217,7 @@ void LayerTreeBuilder::drawTextCached(const std::vector<ShapedGlyph> &glyphs, co
         for (auto &g : glyphs) {
             DrawGlyphCmd cmd{
                 g.fontId, g.glyphIndex, g.x, g.y, g.width, g.height, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color,
+                static_cast<float>(g.pageIndex),
             };
             currentRecorder_->drawGlyph(cmd);
         }
@@ -226,6 +227,7 @@ void LayerTreeBuilder::drawTextCached(const std::vector<ShapedGlyph> &glyphs, co
         for (auto &g : glyphs) {
             DrawGlyphCmd cmd{
                 g.fontId, g.glyphIndex, g.x, g.y, g.width, g.height, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color,
+                static_cast<float>(g.pageIndex),
             };
             recorder->drawGlyph(cmd);
         }

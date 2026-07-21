@@ -8,12 +8,13 @@ layout(push_constant) uniform PushConstants {
     vec4  color;
     vec2  viewportSize;
     float textContrast;
+    float pageIndex;
 } pc;
 layout(location = 0) out vec2 fragUV;
 layout(location = 1) out flat vec4 fragColor;
 void main() {
     vec2 screenPos = pc.pos + inPosition * pc.size;
-    vec2 ndc = (screenPos + 0.5) / pc.viewportSize * 2.0 - 1.0;
+    vec2 ndc = screenPos / pc.viewportSize * 2.0 - 1.0;
     gl_Position = vec4(ndc, 0.0, 1.0);
     fragUV = vec2(
         mix(pc.uvRect.x, pc.uvRect.z, inPosition.x),

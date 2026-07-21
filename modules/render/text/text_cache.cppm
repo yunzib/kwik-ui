@@ -18,7 +18,7 @@ import kwik.render.text.font.manager;
 export class TextCache {
 public:
     explicit TextCache(FontManager &fontManager);
-    ~TextCache(); 
+    ~TextCache();
     TextCache(const TextCache &) = delete;
     TextCache &operator=(const TextCache &) = delete;
 
@@ -49,6 +49,21 @@ public:
     /** @brief 当前图集版本号（淘汰时递增） */
     uint32_t atlasGeneration() const { return atlasGeneration_; }
 
+    /**
+     * @brief 设置当前 DPI 缩放比例，字形将在 rasterize 时按此比例缩放
+     * @param dpi DPI 比例 (96 DPI = 1.0, 192 DPI = 2.0)
+     */
+    void setDpiScale(float dpi) {
+        if (dpiScale_ != dpi) {
+            dpiScale_ = dpi;
+            // 低 DPI 屏幕用更高超采样比补偿物理像素密度不足:
+            // 2x 是单个 LINEAR 采样的最优超采样比,
+            // 每像素 UV 精确落于 2 个 texel 之间, 50/50 稳定混合
+            supersample_ = 2.0f;
+            atlasGeneration_++;
+        }
+    }
+
 private:
     FontManager &fontManager_;
 
@@ -63,16 +78,14 @@ private:
         float fontSize;
         uint32_t subpixelOffset = 0;
         bool operator==(const GlyphKey &o) const {
-            return fontId == o.fontId && glyph == o.glyph
-                && fontSize == o.fontSize && subpixelOffset == o.subpixelOffset;
+            return fontId == o.fontId && glyph == o.glyph && fontSize == o.fontSize
+                   && subpixelOffset == o.subpixelOffset;
         }
     };
     struct GlyphKeyHash {
         size_t operator()(const GlyphKey &k) const {
-            return std::hash<uint32_t>{}(k.fontId)
-                 ^ (std::hash<uint32_t>{}(k.glyph) << 1)
-                 ^ (std::hash<float>{}(k.fontSize) << 2)
-                 ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3);
+            return std::hash<uint32_t>{}(k.fontId) ^ (std::hash<uint32_t>{}(k.glyph) << 1)
+                   ^ (std::hash<float>{}(k.fontSize) << 2) ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3);
         }
     };
 
@@ -90,8 +103,8 @@ private:
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
     /** @brief 栅格化字形（FreeType LCD 子像素） */
-    void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
-                        CachedGlyph &entry, uint32_t subpixelOffset = 0);
+    void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
+                        uint32_t subpixelOffset = 0);
 
     /** @brief Skyline 打包 + 加入上传队列 */
     void packGlyph(CachedGlyph &entry);
@@ -107,17 +120,16 @@ private:
         uint64_t lastFrameUsed = 0;
     };
 
-    /** @brief 尝试在指定页上打包 w×h 矩形 */
-    auto tryPack(AtlasPage &page, uint32_t w, uint32_t h)
-        -> std::optional<PackResult>;
-
     std::vector<AtlasPage> pages_;
     uint32_t pageCount_ = 0;
     uint64_t frameCounter_ = 0;
     uint32_t atlasGeneration_ = 0;
     std::vector<UploadJob> uploads_;
+    /** @brief 当前 DPI 缩放比例，默认 1.0 */
+    float dpiScale_ = 1.0f;
+    /** @brief 当前超采样倍数, 根据 dpiScale_ 动态计算, 默认 2x */
+    float supersample_ = 2.0f;
 
-    // ── 单字形栅格化 + 打包（私有，供 ensureGlyphs 调用） ──
-    void ensureGlyph(FontId fontId, uint32_t glyphIndex, float fontSize,
-                     uint32_t subpixelOffset);
+    /** @brief 尝试在指定页上打包 w×h 矩形 */
+    auto tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optional<PackResult>;
 };

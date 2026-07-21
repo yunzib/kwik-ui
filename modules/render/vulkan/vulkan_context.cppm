@@ -24,10 +24,11 @@ export struct GlyphPushConstants {
     float uvU1, uvV1;                        // offset 24
     float colorR, colorG, colorB, colorA;    // offset 32
     float viewportW, viewportH;              // offset 48
-    float textContrast;                      // offset 56
-    // 总计 60 字节
+    float textContrast;                      // offset 56  (reserved, 固定 1.0)
+    float pageIndex;                         // offset 60
+    // 总计 64 字节
 };
-static_assert(sizeof(GlyphPushConstants) == 60, "GlyphPushConstants size must match glyph shader layout");
+static_assert(sizeof(GlyphPushConstants) == 64, "GlyphPushConstants size must match glyph shader layout");
 
 // ── 图片绘制 Push Constants (60 字节，保留 cornerRadius) ──
 export struct ImagePushConstants {

@@ -130,6 +130,10 @@ bool Application::init() {
     float dpi = window_.GetDpiScale();
     auto sz = Size{(float)w / dpi, (float)h / dpi};
 
+    // 通知文本渲染管线更新 DPI 比例，
+    // 使字形栅格化分辨率随屏幕物理密度自适应
+    TextRenderPipeline::instance().setDpiScale(dpi);
+
     // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
     relayoutTree(sz);
 
@@ -369,6 +373,9 @@ void Application::handleResize(int width, int height) {
     treeStructureChanged_ = true;
 
     float dpi = window_.GetDpiScale();
+    // 通知文本渲染管线更新 DPI 比例，
+    // 使字形栅格化分辨率随新屏幕物理密度自适应
+    TextRenderPipeline::instance().setDpiScale(dpi);
     auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
     relayoutTree(sz);
     eventRouter_.reset();

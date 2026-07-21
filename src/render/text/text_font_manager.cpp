@@ -6,7 +6,6 @@ module;
 #include <fstream>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include FT_LCD_FILTER_H
 
 module kwik.render.text.font.manager;
 
@@ -31,8 +30,6 @@ FontManager::FontManager() {
         ftLib_ = nullptr;
         return;
     }
-    // LCD 子像素渲染滤波器 — 减少 RGB 子像素的色彩渗漏
-    FT_Library_SetLcdFilter(ftLib_, FT_LCD_FILTER_DEFAULT);
 }
 
 FontManager::~FontManager() {

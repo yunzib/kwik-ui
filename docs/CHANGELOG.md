@@ -1,5 +1,34 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-21
+
+### 变更
+- 文字渲染管线重构 — LCD 子像素 bitmap atlas 方案存在原理性缺陷，统一为纯灰度渲染
+  - 移除 `TextRenderMode` 枚举、LCD 着色器分支、gamma 校正逻辑、
+    `FT_LCD_FILTER_H` 依赖、`TextCache::clear()` 方法
+  - 栅格化: `FT_RENDER_MODE_NORMAL` → R8 单通道 atlas → LINEAR 采样 → 标准 alpha 混合
+  - `FT_LOAD_TARGET_LIGHT` 替代默认 hinting，禁用 stem darkening，笔画比例更均匀
+- 图集格式 RGBA8 → R8 单通道，4x 空间节省抵消超采的内存代价
+- GPU 图集从单层 2D 纹理发为二维数组纹理 `VK_IMAGE_VIEW_TYPE_2D_ARRAY`
+  - 16 层每层对应一个逻辑页，物理隔离消除跨页覆盖闪动
+  - `GlyphPushConstants` 新增 `pageIndex` 字段（60→64 字节），`sampler2D→sampler2DArray`，
+    `DrawGlyphCmd`/`ShapedGlyph`/`UploadJob` 全部追加 `pageIndex`
+  - 上传管线 `VkBufferImageCopy::baseArrayLayer` 指向目标层
+- 2x 超采样 — `FT_Set_Pixel_Sizes` 使用 `fontSize × dpiScale × supersample_` 栅格化，
+  quad 尺寸除以 `supersample_` 还原为逻辑像素，`supersample_` 固定 2x（单次 LINEAR 采样的理论最优值）
+- DPI 自适应 — `TextCache::setDpiScale()` DPI 变更时递增 `atlasGeneration_` 触发全量重栅格化，
+  `Application::init()` 和 `handleResize()` 同步调用，跨屏拖动字形物理密度自动匹配
+- 多页按需增长 — `packGlyph` 创建新页时不再递增 `atlasGeneration_`，
+  旧页字形完整保留，避免无效全量重打包和僵尸 skyline 区
+- padding 填充改进 — 字形周围 1px padding 填充为最近的内容像素值（替代零值），
+  消除 LINEAR 在子像素偏移位置的 alpha 稀释和颜色污染
+- 字体回落基线修正 — 回落字体字形 `g.y` 加入 `baselineAdjust = primaryAscender - fbAscender`，
+  归一化到主字体基线坐标系，消除同行内回落字符的上下偏移
+
+### 修复
+- 空字形 `packedW/H` 从 1 改为 3，杜绝负尺寸 quad 产生的阶梯状彩色矩形伪影
+- Vertex shader 移除 `+0.5` 半像素偏移，消除 NDC 映射的亚像素偏差导致的粘连感
+
 ## [0.0.0] — 2026-07-19
 
 ### 变更
