@@ -295,3 +295,19 @@ void Dialog::draw(Graphics &g) {
         if (c->props.visible) { c->draw(g); }
     }
 }
+
+void Dialog::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("maskColor", dp_.maskColor))
+        if (dp_.maskColor.isTransparent())
+            dp_.maskColor = Color{0, 0, 0, 102};  // hardcoded 不 theme
+    if (!c("backgroundColor", dp_.backgroundColor))
+        if (dp_.backgroundColor.isTransparent())
+            dp_.backgroundColor = t.colors.surface;
+}

@@ -163,3 +163,22 @@ bool RadioButton::setProperty(const char *name, const char *value) {
     }
     return View::setProperty(name, value);
 }
+
+void RadioButton::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("checkedColor", radio_.checkedColor))
+        if (radio_.checkedColor.isTransparent())
+            radio_.checkedColor = t.colors.primary;
+    if (!c("uncheckedColor", radio_.uncheckedColor))
+        if (radio_.uncheckedColor.isTransparent())
+            radio_.uncheckedColor = t.colors.outline;
+    if (!c("dotColor", radio_.dotColor))
+        if (radio_.dotColor.isTransparent())
+            radio_.dotColor = t.colors.primary;
+}

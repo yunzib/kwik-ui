@@ -20,6 +20,8 @@ import kwik.animation.animator; // AnimationTarget
 import kwik.core.prop_meta;     // PropMeta
 import kwik.core.color_parser;
 import kwik.element.g2d;
+import kwik.bridge.theme_bridge;
+import kwik.core.theme;
 
 import std;
 
@@ -1342,6 +1344,54 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     return obj;
 }
 
+/**
+ * @brief JS theme(opts) — 创建主题 opaque 对象
+ *
+ * 用法:
+ *   const myTheme = theme({ mode: "dark", colors: { primary: "#90CAF9" } });
+ *   Root({ theme: myTheme }, [
+ *     Button({ text: "保存", background: "@primary" }),
+ *   ]);
+ *
+ * 解析规则:
+ *   mode="dark" → 以 darkBase() 为基底, 否则 defaultTheme()
+ *   传入的 colors/text/shape 字段逐一覆盖基底值,
+ *   未传入的保留基底默认, 返回 opaque ThemeData 对象传给 ThemeProvider。
+ */
+static JSValue js_theme(JSContext* ctx, JSValueConst this_val,
+                        int argc, JSValueConst* argv) {
+    ThemeData data = (argc >= 1 && JS_IsObject(argv[0]))
+                     ? parseTheme(ctx, argv[0])
+                     : ThemeData::defaultTheme();
+    return wrapThemeData(ctx, data);
+}
+
+/**
+ * @brief JS ThemeProvider({theme: t}, ...children) — 主题注入容器
+ *
+ * 第一个参数为 props 对象（含 theme 字段），其余参数为子元素。
+ * 用法:
+ *   Root(
+ *     ThemeProvider({ theme: myTheme },
+ *       Button({ text: "保存", background: "@primary" }),
+ *       Text({ text: "标题" }),
+ *     ),
+ *   )
+ */
+static JSValue js_theme_provider(JSContext* ctx, JSValueConst this_val,
+                                 int argc, JSValueConst* argv) {
+    // 第一个参数是 JS 对象 → props；否则无 props
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+    int childStart = (argc > 0 && JS_IsObject(argv[0])) ? 1 : 0;
+    JSValue children = JS_NewArray(ctx);
+    for (int i = childStart; i < argc; i++) {
+        JS_SetPropertyUint32(ctx, children, i - childStart, JS_DupValue(ctx, argv[i]));
+    }
+    JSValue result = makeElement(ctx, "ThemeProvider", props, children);
+    JS_FreeValue(ctx, children);
+    return result;
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
     // 只导出 View 和 Text 为普通工厂函数
@@ -1378,6 +1428,8 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("Dialog", 1, js_dialog),
         JS_CFUNC_DEF("Tip", 1, js_tip),
         JS_CFUNC_DEF("G2D", 1, js_g2d),
+        JS_CFUNC_DEF("theme", 1, js_theme),
+        JS_CFUNC_DEF("ThemeProvider", 1, js_theme_provider),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
@@ -1412,6 +1464,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
     JS_AddModuleExport(ctx, m, "State");
     // JS_AddModuleExport(ctx, m, "Channel");
     JS_AddModuleExport(ctx, m, "channel");    // 导出 channel 单例对象， 原有预留Channel类接口后续可废弃
+    JS_AddModuleExport(ctx, m, "theme");
 
     qctx.setKwikuiModule(m);
     Log::info("Registering kwikui module done");

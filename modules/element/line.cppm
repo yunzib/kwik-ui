@@ -32,8 +32,7 @@ export class Line : public View {
 public:
     Line() = default;
 
-    explicit Line(ViewProps vp, LineProps lp)
-        : View(std::move(vp)), lp_(std::move(lp)) {}
+    explicit Line(ViewProps vp, LineProps lp) : View(std::move(vp)), lp_(std::move(lp)) {}
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;

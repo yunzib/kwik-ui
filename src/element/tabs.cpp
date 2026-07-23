@@ -366,3 +366,22 @@ bool Tabs::setPropertyTyped(const char* name, const TypedProp& value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+void Tabs::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("tabColor", tp_.tabColor))
+        if (tp_.tabColor.isTransparent())
+            tp_.tabColor = t.colors.onSurfaceVariant;
+    if (!c("activeColor", tp_.activeColor))
+        if (tp_.activeColor.isTransparent())
+            tp_.activeColor = t.colors.primary;
+    if (!c("indicatorColor", tp_.indicatorColor))
+        if (tp_.indicatorColor.isTransparent())
+            tp_.indicatorColor = t.colors.primary;
+}

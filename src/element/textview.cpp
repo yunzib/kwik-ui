@@ -53,7 +53,7 @@ TextView::TextView() {
  * @param tvp TextView 专有属性（content / placeholder / cursorColor 等）
  *
  * 若 tvp.content 为空，创建一个空 run 保证文档模型非空。
- * 若背景为默认透明 (0,0,0)，覆写为白色。
+ *  background 默认由 resolveThemeDefaults 从 theme 填充。
  */
 TextView::TextView(ViewProps vp, TextViewProps tvp) : View(std::move(vp)), tvp_(std::move(tvp)) {
     if (!tvp_.value.empty()) {
@@ -63,8 +63,7 @@ TextView::TextView(ViewProps vp, TextViewProps tvp) : View(std::move(vp)), tvp_(
         tvp_.content.push_back({{}, {}});
     }
     content_ = tvp_.content;
-    if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0)
-        props.background = Color{255, 255, 255, 255};
+
     if (props.borderWidth == 0) props.borderWidth = 1.0f;
     if (props.borderRadius == 0) props.borderRadius = 4.0f;
     rebuild_();
@@ -115,9 +114,7 @@ void TextView::rebuild_() {
 
     // 2. 通过 TextRenderPipeline 排版每个 run
     auto &pipe = TextRenderPipeline::instance();
-    if (fontId_ == kInvalidFontId) {
-        fontId_ = pipe.activeFont();
-    }
+    if (fontId_ == kInvalidFontId) { fontId_ = pipe.activeFont(); }
 
     TextLayoutConfig cfg;
     cfg.wrap = WrapMode::NoWrap;
@@ -387,7 +384,10 @@ void TextView::onDraw(Graphics &graphics) {
         for (size_t gi = 0; gi < line.glyphs.size();) {
             auto &lg = line.glyphs[gi];
             auto &rs = runShapes_[lg.runIndex];
-            if (!rs.layoutResult) { gi++; continue; }
+            if (!rs.layoutResult) {
+                gi++;
+                continue;
+            }
             auto &glyphs = rs.layoutResult->glyphs;
             auto &style = rs.style;
             float fs = style.fontSize > 0 ? style.fontSize : 16.0f;
@@ -984,4 +984,29 @@ void TextView::blur() {
     focused_ = false;
     if (binding_) binding_->setString(bindKey_, plainText_);
     markDirty();
+}
+
+void TextView::resolveThemeDefaults() {
+    auto &t = theme();
+    auto &tokens = props.themeTokens;
+    auto c = [&](const std::string &p, Color &v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) {
+            v = *t.resolveToken(it->second);
+            return true;
+        }
+        return false;
+    };
+    if (!c("background", props.background))
+        if (props.background.isTransparent()) props.background = t.colors.surface;
+    if (!c("borderColor", props.borderColor))
+        if (props.borderColor.isTransparent()) props.borderColor = t.colors.outline;
+    if (!c("focusedBorderColor", tvp_.focusedBorderColor))
+        if (tvp_.focusedBorderColor.isTransparent()) tvp_.focusedBorderColor = t.colors.primary;
+    if (!c("cursorColor", tvp_.cursorColor))
+        if (tvp_.cursorColor.isTransparent()) tvp_.cursorColor = t.colors.primary;
+    if (!c("selectionColor", tvp_.selectionColor))
+        if (tvp_.selectionColor.isTransparent()) tvp_.selectionColor = Color{173, 216, 230, 120};
+    if (!c("placeholderColor", tvp_.placeholderColor))
+        if (tvp_.placeholderColor.isTransparent()) tvp_.placeholderColor = t.colors.onSurfaceVariant;
 }

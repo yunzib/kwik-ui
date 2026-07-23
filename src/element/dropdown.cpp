@@ -343,3 +343,31 @@ bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+void Dropdown::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("textColor", dp_.textColor))
+        if (dp_.textColor.isTransparent())
+            dp_.textColor = t.colors.onSurface;
+    if (!c("placeholderColor", dp_.placeholderColor))
+        if (dp_.placeholderColor.isTransparent())
+            dp_.placeholderColor = t.colors.onSurfaceVariant;
+    if (!c("arrowColor", dp_.arrowColor))
+        if (dp_.arrowColor.isTransparent())
+            dp_.arrowColor = t.colors.onSurfaceVariant;
+    if (!c("menuBackground", dp_.menuBackground))
+        if (dp_.menuBackground.isTransparent())
+            dp_.menuBackground = t.colors.surface;
+    if (!c("hoverBackground", dp_.hoverBackground))
+        if (dp_.hoverBackground.isTransparent())
+            dp_.hoverBackground = t.colors.surfaceVariant;
+    if (!c("selectedBackground", dp_.selectedBackground))
+        if (dp_.selectedBackground.isTransparent())
+            dp_.selectedBackground = t.colors.surfaceVariant;
+}

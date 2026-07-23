@@ -561,3 +561,8 @@ void View::applyAnimationFrame(PropId prop, const TypedProp &value) {
 void View::requestLayout() {
     needsRelayout_ = true;
 }
+
+const ThemeData &View::theme() const {
+    if (parent_) return parent_->theme();
+    return ThemeData::defaultTheme();
+}

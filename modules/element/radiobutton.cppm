@@ -56,6 +56,8 @@ public:
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

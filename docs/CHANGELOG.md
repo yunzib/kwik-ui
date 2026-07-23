@@ -1,5 +1,15 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-23
+
+### 新增
+- 主题 token 系统 — 通过 `@` 前缀引用主题色值
+  - `ThemeProvider` 注入节点，子树共享主题
+  - `theme()` 函数创建主题数据（亮/暗模式 + 12 色 token）
+  - 所有颜色属性（background / color / borderColor 等）支持 `@` 引用
+  - `extractThemeTokens()` 统一扫描 JS props 中的 `@` token，
+    修复组件专有属性（如 Button color）引用主题不生效的问题
+
 ## [0.0.0] — 2026-07-21
 
 ### 变更

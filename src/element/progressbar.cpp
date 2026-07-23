@@ -132,3 +132,19 @@ void ProgressBar::setBinding(std::unique_ptr<StateBinding> binding, const std::s
     binding_ = std::move(binding);
     bindKey_ = key;
 }
+
+void ProgressBar::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("color", pp_.color))
+        if (pp_.color.isTransparent())
+            pp_.color = t.colors.primary;
+    if (!c("trackColor", pp_.trackColor))
+        if (pp_.trackColor.isTransparent())
+            pp_.trackColor = t.colors.surfaceVariant;
+}

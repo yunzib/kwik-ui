@@ -12,7 +12,8 @@ import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.render.draw_list;
-import kwik.engine.state_binding;  // StateBinding, createJSBinding — State 双向绑定
+import kwik.engine.state_binding; // StateBinding, createJSBinding — State 双向绑定
+import kwik.core.theme;
 
 import std;
 
@@ -43,6 +44,7 @@ export enum class ElementType : std::uint8_t {
     Dialog,
     Tip,
     G2D,
+    ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -73,6 +75,8 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Dialog: return "Dialog";
     case ElementType::Tip: return "Tip";
     case ElementType::G2D: return "G2D";
+    default:
+        return "View";
     }
     return "Unknown";
 }
@@ -85,33 +89,33 @@ export inline std::string_view to_string(ElementType t) {
  * 空=类型未注册（降级为 View）。
  */
 export inline ElementType elementTypeFromString(std::string_view s) {
-    if (s == "View")         return ElementType::View;
-    if (s == "Root")         return ElementType::RootView;
-    if (s == "Text")         return ElementType::Text;
-    if (s == "Button")       return ElementType::Button;
-    if (s == "Input")        return ElementType::Input;
-    if (s == "Image")        return ElementType::Image;
-    if (s == "Checkbox")     return ElementType::Checkbox;
-    if (s == "RadioButton")  return ElementType::RadioButton;
-    if (s == "Dropdown")     return ElementType::Dropdown;
-    if (s == "TextArea")      return ElementType::TextArea;
-    if (s == "Flex")         return ElementType::FlexLayout;
-    if (s == "Grid")         return ElementType::GridLayout;
-    if (s == "Stack")        return ElementType::StackLayout;
-    if (s == "List")         return ElementType::ListLayout;
-    if (s == "RadioGroup")   return ElementType::RadioGroup;
-    if (s == "Slider")       return ElementType::Slider;
-    if (s == "ProgressBar")  return ElementType::ProgressBar;
-    if (s == "Switch")       return ElementType::Switch;
-    if (s == "Line")         return ElementType::Line;
-    if (s == "Spinner")      return ElementType::Spinner;
-    if (s == "Table")        return ElementType::Table;
-    if (s == "TextView")     return ElementType::TextView;
-    if (s == "Tabs")         return ElementType::Tabs;
-    if (s == "Dialog")       return ElementType::Dialog;
-    if (s == "Tip")          return ElementType::Tip;
-    if (s == "G2D")          return ElementType::G2D;
-    return ElementType::View;  // 未知类型退回 View
+    if (s == "View") return ElementType::View;
+    if (s == "Root") return ElementType::RootView;
+    if (s == "Text") return ElementType::Text;
+    if (s == "Button") return ElementType::Button;
+    if (s == "Input") return ElementType::Input;
+    if (s == "Image") return ElementType::Image;
+    if (s == "Checkbox") return ElementType::Checkbox;
+    if (s == "RadioButton") return ElementType::RadioButton;
+    if (s == "Dropdown") return ElementType::Dropdown;
+    if (s == "TextArea") return ElementType::TextArea;
+    if (s == "Flex") return ElementType::FlexLayout;
+    if (s == "Grid") return ElementType::GridLayout;
+    if (s == "Stack") return ElementType::StackLayout;
+    if (s == "List") return ElementType::ListLayout;
+    if (s == "RadioGroup") return ElementType::RadioGroup;
+    if (s == "Slider") return ElementType::Slider;
+    if (s == "ProgressBar") return ElementType::ProgressBar;
+    if (s == "Switch") return ElementType::Switch;
+    if (s == "Line") return ElementType::Line;
+    if (s == "Spinner") return ElementType::Spinner;
+    if (s == "Table") return ElementType::Table;
+    if (s == "TextView") return ElementType::TextView;
+    if (s == "Tabs") return ElementType::Tabs;
+    if (s == "Dialog") return ElementType::Dialog;
+    if (s == "Tip") return ElementType::Tip;
+    if (s == "G2D") return ElementType::G2D;
+    return ElementType::View;    // 未知类型退回 View
 }
 
 // ============================================================================
@@ -555,6 +559,26 @@ public:
      * @param key     State 中与本 View 属性对应的键名
      */
     virtual void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {}
+
+    /**
+     * @brief 获取当前 View 从父树继承的主题数据
+     *
+     * 沿 parent_ 链向上查找最近的 ThemeProvider 节点,
+     * 返回其持有的 ThemeData const 引用。
+     * 若树中无 ThemeProvider, 返回 ThemeData::defaultTheme() 兜底。
+     */
+    virtual const ThemeData &theme() const;  
+
+    /**
+     * @brief 解析主题默认值（树构建完成后由 parseNode 调用）
+     *
+     * 组件构造时 parent_ 尚未挂接，theme() 总是返回 defaultTheme()。
+     * parseNode 在 addChild（设置 parent_）后调用此方法，
+     * 子类可在此处用 theme() 获取正确的 ThemeData 并覆写默认属性。
+     *
+     * 基类空实现——无主题消费需求的组件无需覆写。
+     */
+    virtual void resolveThemeDefaults() {}
 
 protected:
     /**

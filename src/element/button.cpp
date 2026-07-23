@@ -132,3 +132,48 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+void Button::resolveThemeDefaults() {
+    auto &t = theme();
+    auto &tokens = props.themeTokens;
+
+    // ── 辅助 lambda：解析 Color 类型 token ──
+    auto resolveColor = [&](const std::string &prop, Color &target) {
+        auto it = tokens.find(prop);
+        if (it != tokens.end()) {
+            if (auto v = t.resolveToken(it->second)) {
+                target = *v;
+                return true;
+            }
+        }
+        return false;
+    };
+    // ── 辅助 lambda：解析 float 类型 token ──
+    auto resolveFloat_ = [&](const std::string &prop, float &target) {
+        auto it = tokens.find(prop);
+        if (it != tokens.end()) {
+            if (auto v = t.resolveFloat(it->second)) {
+                target = *v;
+                return true;
+            }
+        }
+        return false;
+    };
+    // ── darker 辅助 ──
+    auto darken = [](Color c, float f) {
+        return Color{(uint8_t)(c.r * f), (uint8_t)(c.g * f), (uint8_t)(c.b * f), c.a};
+    };
+
+    // ── background：token 优先 → theme 兜底 → hardcoded 兜底 ──
+    if (!resolveColor("background", props.background))
+        if (props.background.isTransparent()) props.background = t.colors.primary;
+    // ── textColor ──
+    if (!resolveColor("color", text_.textColor))
+        if (text_.textColor == Color{0, 0, 0, 255})
+            text_.textColor = t.colors.onPrimary;
+    // ── borderRadius（float：仅 token，构造函数已设默认 6）──
+    resolveFloat_("borderRadius", props.borderRadius);
+    // ── hoverBackground / pressedBackground 从 background 推导 ──
+    if (button_.hoverBackground.isTransparent()) button_.hoverBackground = darken(props.background, 0.85f);
+    if (button_.pressedBackground.isTransparent()) button_.pressedBackground = darken(props.background, 0.70f);
+}

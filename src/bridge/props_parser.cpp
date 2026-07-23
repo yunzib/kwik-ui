@@ -12,6 +12,7 @@ import kwik.engine.js_value;
 import kwik.core.types;
 import kwik.core.props;
 import kwik.engine.js_value;
+import kwik.core.theme;            // ThemeData::resolveToken — "@primary" token 解析
 
 // ═══════════════════════════════════════════════════════════════════════════
 // parseEdgeInsets — 多重形态解析（数值/数组/对象）
@@ -150,6 +151,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
             result.hasExplicitY = true;
         }
     }
+
     return result;
 }
 
@@ -396,7 +398,10 @@ DropdownProps parseDropdownProps(PropsExtractor &ex) {
 
 template <>
 Color convertTo<Color>(const JSValueRef &v) {
-    return parseColor(v.toString());
+    if (v.isString()) {
+        return parseColor(v.toString());
+    }
+    return Color::transparent();
 }
 
 // ════════════════════════════════════════════════════════

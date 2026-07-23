@@ -24,34 +24,18 @@ import std;
 export class Image : public View {
 public:
     Image() = default;
-    explicit Image(ViewProps vp, ImageProps ip = {}) : View(std::move(vp)), imageProps_(std::move(ip)) {
-        loadImage();
-    }
+    explicit Image(ViewProps vp, ImageProps ip = {}) : View(std::move(vp)), imageProps_(std::move(ip)) { loadImage(); }
     ~Image() override;
 
-    ElementType type() const override {
-        return ElementType::Image;
-    }
+    ElementType type() const override { return ElementType::Image; }
 
-    const ImageProps &imageProps() const {
-        return imageProps_;
-    }
-    int imageWidth() const {
-        return decodedWidth_;
-    }
-    int imageHeight() const {
-        return decodedHeight_;
-    }
-    bool isLoaded() const {
-        return loaded_;
-    }
-    bool pixelsEmpty() const {
-        return pixels_.empty();
-    }
+    const ImageProps &imageProps() const { return imageProps_; }
+    int imageWidth() const { return decodedWidth_; }
+    int imageHeight() const { return decodedHeight_; }
+    bool isLoaded() const { return loaded_; }
+    bool pixelsEmpty() const { return pixels_.empty(); }
     void uploadTexture();
-    const std::string &error() const {
-        return errorMsg_;
-    }
+    const std::string &error() const { return errorMsg_; }
 
 protected:
     Size onMeasure(Constraints constraints) override;

@@ -48,6 +48,9 @@ import kwik.element.tabs;
 import kwik.element.dialog;
 import kwik.element.tip;
 import kwik.element.g2d;
+import kwik.core.theme;             // ThemeData — 主题数据结构
+import kwik.bridge.theme_bridge;    // unwrapThemeData — JS opaque → C++ ThemeData*
+import kwik.element.theme_provider; // ThemeProvider — 主题注入 View 节点
 
 import std;
 
@@ -95,6 +98,44 @@ static void applyBindings(View *view, const JSValueRef &pv) {
             }
         }
     });
+}
+
+/**
+ * @brief 从 JS props 提取 @ token 写入 View
+ *
+ * 遍历 props 对象所有可枚举字符串属性，若值以 '@' 开头，
+ * 将 {属性名 → 去 @ 后的 token 名} 写入 view->props.themeTokens。
+ *
+ * 动机：TypeCreator 中 parseViewProps(ex) 在组件专有解析函数
+ * (parseTextContent / parseInputProps 等) 之前被求值，导致
+ * 后者收集的 @ token 无法传入 ViewProps。本函数作为统一补救，
+ * 在 TypeCreator 返回后重新扫描 JS props，保证所有 @ token 被捕获。
+ *
+ * @param view     目标 View（themeTokens 将被填充）
+ * @param propsVal JS props 对象（与传递给 TypeCreator 的同一对象）
+ */
+static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
+    if (!view || !propsVal.isObject()) return;
+    JSContext *ctx = propsVal.context();
+    JSPropertyEnum *tab;
+    uint32_t len;
+    JSValue props = propsVal.raw();
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
+    for (uint32_t i = 0; i < len; ++i) {
+        const char *name = JS_AtomToCString(ctx, tab[i].atom);
+        if (name) {
+            JSValue val = JS_GetProperty(ctx, props, tab[i].atom);
+            if (JS_IsString(val)) {
+                const char *str = JS_ToCString(ctx, val);
+                if (str && str[0] == '@') view->props.themeTokens[name] = std::string(str + 1);
+                if (str) JS_FreeCString(ctx, str);
+            }
+            JS_FreeValue(ctx, val);
+            JS_FreeCString(ctx, name);
+        }
+        JS_FreeAtom(ctx, tab[i].atom);
+    }
+    js_free(ctx, tab);
 }
 
 // ============================================================================
@@ -424,6 +465,25 @@ static struct InitBuiltinTypes {
             applyBindings(v.get(), pv);
             return v;
         });
+
+        // ── ThemeProvider — 主题注入节点 ──
+        // JS 侧: 用户在 Root/View 中声明 theme: theme({colors:{primary:"#1976D2"}})
+        // C++ 侧: 解析为 ThemeProvider View, 子树内的组件通过 View::theme() 获取
+        ElementParser::registerType("ThemeProvider", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            // 从 JS props 的 "theme" 字段提取 opaque ThemeData 指针
+            ThemeData data = ThemeData::defaultTheme();
+            if (ex.has("theme")) {
+                JSValue themeVal = ex.raw().getProperty("theme").raw();
+                const ThemeData *ptr = unwrapThemeData(themeVal);
+                if (ptr) data = *ptr;    // 复制堆上的 ThemeData
+            }
+            auto tp = std::make_unique<ThemeProvider>(parseViewProps(ex), std::move(data));
+            tp->propMeta = std::move(meta);
+            applyBindings(tp.get(), pv);
+            return tp;
+        });
     }
 } _init_builtin_types;
 
@@ -492,13 +552,20 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         PropsExtractor ex(propsVal, &meta);
         element = std::make_unique<View>(parseViewProps(ex));
     }
+
+    // ── 提取 @ token ──
+    extractThemeTokens(element.get(), propsVal);
+
     // ── 4. 递归解析子节点 ────────────────────────────────────────────
     auto childrenVal = jsVal.getProperty("children");
     if (childrenVal.isArray()) {
         int len = childrenVal.getArrayLength();
         for (int i = 0; i < len; ++i) {
             auto child = parseNode(childrenVal.getArrayElement(i));
-            if (child) { element->addChild(std::move(child)); }
+            if (child) {
+                element->addChild(std::move(child));
+                element->children.back()->resolveThemeDefaults();
+            }
         }
     }
     // ── 5. 提取事件处理器 ────────────────────────────────────────
@@ -657,6 +724,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     TypedPropMap meta;
     PropsExtractor ex(propsVal, &meta);
     oldView->props = parseViewProps(ex);    // ← ViewProps 字段级覆盖
+
+    extractThemeTokens(oldView.get(), propsVal);
 
     // ── 组件专有属性解析（text_ 已 public，直接赋值，复用 TypeCreator 同源解析函数）──
     switch (oldView->type()) {

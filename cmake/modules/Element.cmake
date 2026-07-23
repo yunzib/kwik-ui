@@ -31,6 +31,8 @@ target_sources(kwik_element
             modules/element/dialog.cppm
             modules/element/tip.cppm
             modules/element/g2d.cppm
+            modules/element/theme_provider.cppm
+            
 
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
@@ -71,6 +73,8 @@ target_sources(kwik_element
         src/element/dialog.cpp
         src/element/tip.cpp
         src/element/g2d.cpp
+        src/element/theme_provider.cpp
+        
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

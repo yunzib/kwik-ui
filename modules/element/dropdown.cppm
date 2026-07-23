@@ -60,6 +60,8 @@ public:
 
     View *hitTest(Point point) override;
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

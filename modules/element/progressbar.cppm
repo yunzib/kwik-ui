@@ -69,6 +69,8 @@ public:
         return (pp_.value - pp_.min) / range;
     }
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

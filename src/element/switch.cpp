@@ -170,3 +170,22 @@ void Switch::setBinding(std::unique_ptr<StateBinding> binding, const std::string
     binding_ = std::move(binding);
     bindKey_ = key;
 }
+
+void Switch::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("checkedColor", sp_.checkedColor))
+        if (sp_.checkedColor.isTransparent())
+            sp_.checkedColor = t.colors.primary;
+    if (!c("uncheckedColor", sp_.uncheckedColor))
+        if (sp_.uncheckedColor.isTransparent())
+            sp_.uncheckedColor = t.colors.surfaceVariant;
+    if (!c("thumbColor", sp_.thumbColor))
+        if (sp_.thumbColor.isTransparent())
+            sp_.thumbColor = t.colors.onSurface;
+}

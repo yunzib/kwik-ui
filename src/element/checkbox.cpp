@@ -202,3 +202,31 @@ bool Checkbox::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+void Checkbox::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("checkedColor", check_.checkedColor))
+        if (check_.checkedColor.isTransparent())
+            check_.checkedColor = t.colors.primary;
+    if (!c("uncheckedColor", check_.uncheckedColor))
+        if (check_.uncheckedColor.isTransparent())
+            check_.uncheckedColor = t.colors.outline;
+    if (!c("checkedFillColor", check_.checkedFillColor))
+        if (check_.checkedFillColor.isTransparent())
+            check_.checkedFillColor = t.colors.primary;
+    if (!c("checkMarkColor", check_.checkMarkColor))
+        if (check_.checkMarkColor.isTransparent())
+            check_.checkMarkColor = t.colors.onPrimary;
+    auto f = [&](const std::string& p, float& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveFloat(it->second)) { v = *t.resolveFloat(it->second); return true; }
+        return false;
+    };
+    f("borderRadius", check_.borderRadius);
+}

@@ -43,6 +43,8 @@ public:
     ElementType type() const override { return ElementType::Spinner; }
     const SpinnerProps &spinnerProps() const { return sp_; }
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

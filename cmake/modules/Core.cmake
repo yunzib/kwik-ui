@@ -21,12 +21,17 @@ target_sources(kwik_core
             modules/core/timer.cppm
             modules/core/path.cppm
             modules/core/color_parser.cppm
+            modules/core/theme.cppm
+           
     PRIVATE
         src/core/log.cpp
         src/core/scheduler.cpp
         src/core/prop_meta.cpp
         src/core/path.cpp
         src/core/color_parser.cpp
+        src/core/theme.cpp
+       
+        
 )
 
 # 4. 添加编译定义（COMPILE_DEFINITIONS）

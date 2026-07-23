@@ -24,24 +24,14 @@ export enum class ButtonState { Idle, Hovered, Pressed };
  */
 export class Button : public View {
 public:
-    TextContent text_;    // 文字内容属性
+    TextContent text_;           // 文字内容属性
     ButtonStateProps button_;    // 按钮交互状态属性
 
     Button() = default;
     explicit Button(ViewProps p, TextContent tc = {}, ButtonStateProps bs = {}) :
         View(std::move(p)), text_(std::move(tc)), button_(std::move(bs)) {
-        auto isDefault = [](const Color &c) { return c.a == 0; };
-        auto darker = [](const Color &c, float f) -> Color {
-            return {(uint8_t)(c.r * f), (uint8_t)(c.g * f), (uint8_t)(c.b * f), c.a};
-        };
-        // 默认背景
-        if (isDefault(props.background)) props.background = Color{25, 118, 210, 255};
-        // 自动推导 hover / press
-        if (isDefault(button_.hoverBackground)) button_.hoverBackground = darker(props.background, 0.85f);
-        if (isDefault(button_.pressedBackground)) button_.pressedBackground = darker(props.background, 0.70f);
-        // 默认文字色
-        if (isDefault(text_.textColor)) text_.textColor = Color::white();
-        // 默认圆角
+        // ── Color 默认移到 resolveThemeDefaults ──
+        // ── float 无法区分"未设置"与"显式 0"，保留构造函数默认 ──
         if (props.borderRadius == 0) props.borderRadius = 6.0f;
     }
     ~Button() override = default;
@@ -50,6 +40,8 @@ public:
 
     const TextContent &textContent() const { return text_; }
     const ButtonStateProps &buttonState() const { return button_; }
+
+    void resolveThemeDefaults() override;
 
 protected:
     Size onMeasure(Constraints constraints) override;

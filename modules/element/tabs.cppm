@@ -42,19 +42,20 @@ public:
      * @param vp 通用视图属性 (id, background, padding, margin 等)
      * @param tp 标签页专有属性 (items, selectedIndex, fontSize 等)
      */
-    explicit Tabs(ViewProps vp, TabsProps tp)
-        : View(std::move(vp)), tp_(std::move(tp)) {}
+    explicit Tabs(ViewProps vp, TabsProps tp) : View(std::move(vp)), tp_(std::move(tp)) {}
 
     // ─── 属性读写 (PropBus 支持) ───────────────────────
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
-    bool setPropertyTyped(const char* name, const TypedProp& value) override;
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ─── 查询 ─────────────────────────────────────────
     ElementType type() const override { return ElementType::Tabs; }
     const TabsProps &tabsProps() const { return tp_; }
     int selectedIndex() const { return tp_.selectedIndex; }
     void setSelectedIndex(int index);
+
+    void resolveThemeDefaults() override;
 
 protected:
     Size onMeasure(Constraints constraints) override;
@@ -70,9 +71,9 @@ private:
 
     /// 每个标签的绘制宽度 (px)，在 onMeasure 中计算
     std::vector<float> tabWidths_;
-    float totalContentWidth_ = 0;   ///< 所有标签总宽度
-    float tabAreaHeight_ = 0;       ///< 标签区域高度 (行高 + 上下内边距)
-    float contentAreaY_ = 0;        ///< 内容区起始 Y 坐标 (onLayout 设置)
+    float totalContentWidth_ = 0;    ///< 所有标签总宽度
+    float tabAreaHeight_ = 0;        ///< 标签区域高度 (行高 + 上下内边距)
+    float contentAreaY_ = 0;         ///< 内容区起始 Y 坐标 (onLayout 设置)
 
     // ── 辅助方法 ──
 

@@ -64,6 +64,8 @@ public:
     bool isChecked() const { return check_.checked; }
     void setChecked(bool val);
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;

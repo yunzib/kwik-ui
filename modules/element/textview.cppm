@@ -26,9 +26,9 @@ import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
-import kwik.render.text.types;      // TextLayoutResult, ShapedGlyph, FontId, FontMetrics, WrapMode
-import kwik.render.text.pipeline;   // TextRenderPipeline
-import kwik.event;                  // DispatchEvent
+import kwik.render.text.types;    // TextLayoutResult, ShapedGlyph, FontId, FontMetrics, WrapMode
+import kwik.render.text.pipeline; // TextRenderPipeline
+import kwik.event;                // DispatchEvent
 import kwik.element.typed_prop;
 import kwik.engine.state_binding;
 import kwik.core.log;
@@ -73,9 +73,9 @@ struct LineInfo {
  * onDraw 中直接使用 layoutResult->glyphs 进行 drawTextCached。
  */
 struct RunShape {
-    TextStyle style;                              ///< 本段样式（决定绘制参数）
-    std::shared_ptr<TextLayoutResult> layoutResult;  ///< pipeline 排版结果
-    float advance = 0;                            ///< 整段 advanceX 总和
+    TextStyle style;                                   ///< 本段样式（决定绘制参数）
+    std::shared_ptr<TextLayoutResult> layoutResult;    ///< pipeline 排版结果
+    float advance = 0;                                 ///< 整段 advanceX 总和
 };
 
 // ============================================================================
@@ -111,7 +111,7 @@ public:
     bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
-     // ── 绑定支持（同 Input/TextArea 模式）──
+    // ── 绑定支持（同 Input/TextArea 模式）──
     void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
         binding_ = std::move(binding);
         bindKey_ = key;
@@ -124,6 +124,7 @@ public:
         rebuild_();
     }
 
+    void resolveThemeDefaults() override;
 
 protected:
     // ==================== View 虚函数覆写 ====================
@@ -131,7 +132,6 @@ protected:
     void onDraw(Graphics &graphics) override;
     bool onEvent(const DispatchEvent &event) override;
     void onLayout() override;
-
 
 private:
     std::unique_ptr<StateBinding> binding_;
@@ -145,7 +145,7 @@ private:
     std::vector<LineInfo> lines_;        ///< 换行结果
     float lastAvailWidth_ = 0;           ///< 最近一次建行的可用宽度
 
-    FontId fontId_ = kInvalidFontId;     ///< TextRenderPipeline 字体 ID，首次 rebuild_ 时初始化
+    FontId fontId_ = kInvalidFontId;    ///< TextRenderPipeline 字体 ID，首次 rebuild_ 时初始化
 
     bool focused_ = false;          ///< 聚焦状态
     size_t cursorPos_ = 0;          ///< 光标在 plainText_ 中的字节偏移
@@ -154,7 +154,7 @@ private:
     uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
 
     // ── 内部方法 ──
-    static float lh_(float fs) { return std::ceil(fs * 1.4f); }  ///< 计算行高
+    static float lh_(float fs) { return std::ceil(fs * 1.4f); }    ///< 计算行高
 
     void locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const;
 

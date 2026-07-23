@@ -83,6 +83,13 @@ export struct ViewProps {
     // ── 动画 / 变换 ──
     float scale = 1.0f;                    // 通用缩放
     std::optional<Transform> transform;    // 位移变换
+
+    /** @brief 主题 token 引用映射（如 {"background":"primary"}）
+     *
+     *  JS 侧传入 "@primary" 时，PropsExtractor 检测到 @ 前缀，
+     *  将 token 名存入此映射，value 留默认（不调用 convertTo）。
+     *  resolveThemeDefaults() 据此从 ThemeData 解析实际值。 */
+    std::unordered_map<std::string, std::string> themeTokens;
 };
 
 /**
@@ -235,7 +242,7 @@ export struct TextAreaProps {
 // ════════════════════════════════════════════════════════
 export struct DropdownProps {
     std::string placeholder = "请选择...";           // 占位符 (未选择时显示)
-    std::string value;                                // 绑定值 (选中项文本, 用于 ref 双向绑定)
+    std::string value;                               // 绑定值 (选中项文本, 用于 ref 双向绑定)
     std::vector<std::string> items;                  // 选项列表
     int selectedIndex = -1;                          // 选中索引 (-1 = 未选中)
     float fontSize = 14.0f;                          // 文字字号
@@ -435,16 +442,16 @@ export struct TextViewProps {
  *   })
  */
 export struct TabsProps {
-    std::vector<std::string> items;              ///< 标签文字列表
-    int selectedIndex = 0;                       ///< 当前选中索引
-    float fontSize = 14.0f;                      ///< 标签字号
-    float indicatorHeight = 2.0f;                ///< 底部指示线高度 (px)
-    float tabSpacing = 0.0f;                     ///< 标签间距 (0 = 等宽平分)
-    Color tabColor{102, 102, 102, 255};          ///< 未选中文字色 (#666)
-    Color activeColor{25, 118, 210, 255};        ///< 选中文字色 / 指示线色 (#1976D2)
-    Color tabBackground{0, 0, 0, 0};             ///< 每个 Tab 的背景色 (默认透明)
-    Color activeTabBackground{0, 0, 0, 0};       ///< 选中 tab 的背景色 (默认透明)
-    Color indicatorColor{25, 118, 210, 255};     ///< 指示线颜色 (默认同 activeColor)
+    std::vector<std::string> items;             ///< 标签文字列表
+    int selectedIndex = 0;                      ///< 当前选中索引
+    float fontSize = 14.0f;                     ///< 标签字号
+    float indicatorHeight = 2.0f;               ///< 底部指示线高度 (px)
+    float tabSpacing = 0.0f;                    ///< 标签间距 (0 = 等宽平分)
+    Color tabColor{102, 102, 102, 255};         ///< 未选中文字色 (#666)
+    Color activeColor{25, 118, 210, 255};       ///< 选中文字色 / 指示线色 (#1976D2)
+    Color tabBackground{0, 0, 0, 0};            ///< 每个 Tab 的背景色 (默认透明)
+    Color activeTabBackground{0, 0, 0, 0};      ///< 选中 tab 的背景色 (默认透明)
+    Color indicatorColor{25, 118, 210, 255};    ///< 指示线颜色 (默认同 activeColor)
 };
 
 // ════════════════════════════════════════════════════════
@@ -457,31 +464,31 @@ export struct TabsProps {
  * 通过 position + offsetX/Y 控制弹出位置。
  */
 export struct DialogProps {
-    bool open = false;                       ///< 是否显示
-    Color maskColor{0, 0, 0, 102};           ///< 遮罩色 rgba(0,0,0,0.4)
-    bool maskClosable = true;                ///< 点遮罩关闭
-    float width = 400.0f;                    ///< 弹框容器宽度 px
-    float height = 0.0f;                     ///< 弹框容器高度 (0=auto)
-    float borderRadius = 8.0f;               ///< 容器圆角 px
-    Color backgroundColor{255, 255, 255, 255}; ///< 容器背景色
-    bool modal = true;                       ///< true=模态阻断; false=浮层穿透
-    std::string position = "center";         ///< center|top|bottom|left|right|topLeft|topRight|bottomLeft|bottomRight
-    float offsetX = 0;                       ///< position 基础 X 偏移
-    float offsetY = 0;                       ///< position 基础 Y 偏移
+    bool open = false;                            ///< 是否显示
+    Color maskColor{0, 0, 0, 102};                ///< 遮罩色 rgba(0,0,0,0.4)
+    bool maskClosable = true;                     ///< 点遮罩关闭
+    float width = 400.0f;                         ///< 弹框容器宽度 px
+    float height = 0.0f;                          ///< 弹框容器高度 (0=auto)
+    float borderRadius = 8.0f;                    ///< 容器圆角 px
+    Color backgroundColor{255, 255, 255, 255};    ///< 容器背景色
+    bool modal = true;                            ///< true=模态阻断; false=浮层穿透
+    std::string position = "center";    ///< center|top|bottom|left|right|topLeft|topRight|bottomLeft|bottomRight
+    float offsetX = 0;                  ///< position 基础 X 偏移
+    float offsetY = 0;                  ///< position 基础 Y 偏移
 };
 
 // ════════════════════════════════════════════════════════
 // Tip 属性 — 工具提示（独立元素，不包裹 target）
 // ════════════════════════════════════════════════════════
 export struct TipProps {
-    std::string target = "";             ///< 目标元素 id（用于定位）
-    std::string text = "";               ///< 提示文字
-    std::string position = "top";        ///< top|bottom|left|right|center
-    float offsetX = 0;                   ///< X 方向偏移
-    float offsetY = 6;                   ///< Y 方向偏移（默认 6px 间隔）
-    float fontSize = 12.0f;              ///< 提示文字字号
-    Color background{60, 60, 67, 230};   ///< 暗色半透明背景
-    Color textColor{255, 255, 255, 255}; ///< 文字颜色（白色）
-    float borderRadius = 4.0f;           ///< tooltip 圆角
-    EdgeInsets padding{4, 8, 4, 8};      ///< 文字内边距
+    std::string target = "";                ///< 目标元素 id（用于定位）
+    std::string text = "";                  ///< 提示文字
+    std::string position = "top";           ///< top|bottom|left|right|center
+    float offsetX = 0;                      ///< X 方向偏移
+    float offsetY = 6;                      ///< Y 方向偏移（默认 6px 间隔）
+    float fontSize = 12.0f;                 ///< 提示文字字号
+    Color background{60, 60, 67, 230};      ///< 暗色半透明背景
+    Color textColor{255, 255, 255, 255};    ///< 文字颜色（白色）
+    float borderRadius = 4.0f;              ///< tooltip 圆角
+    EdgeInsets padding{4, 8, 4, 8};         ///< 文字内边距
 };

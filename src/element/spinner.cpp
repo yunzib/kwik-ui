@@ -90,3 +90,19 @@ void Spinner::onDraw(Graphics &graphics) {
     frameCounter_++;
     markDirtyDeferred();
 }
+
+void Spinner::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("color", sp_.color))
+        if (sp_.color.isTransparent())
+            sp_.color = t.colors.primary;
+    if (!c("trackColor", sp_.trackColor))
+        if (sp_.trackColor.isTransparent())
+            sp_.trackColor = t.colors.surfaceVariant;
+}

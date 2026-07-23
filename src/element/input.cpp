@@ -39,9 +39,7 @@ Input::Input() {
 }
 Input::Input(ViewProps vp, InputProps ip) : View(std::move(vp)), input_(std::move(ip)) {
     text_ = input_.value;
-    if (props.background.r == 0 && props.background.g == 0 && props.background.b == 0) {
-        props.background = Color{255, 255, 255, 255};
-    }
+   
     if (props.borderWidth == 0) props.borderWidth = 1.0f;
     if (props.borderRadius == 0) props.borderRadius = 4.0f;
 }
@@ -459,4 +457,36 @@ bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
         return false;
     }
     return View::setPropertyTyped(name, value);
+}
+
+void Input::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    // ── background ──
+    if (!c("background", props.background))
+        if (props.background.isTransparent())
+            props.background = t.colors.surface;
+    // ── borderColor ──
+    if (!c("borderColor", props.borderColor))
+        if (props.borderColor.isTransparent())
+            props.borderColor = t.colors.outline;
+    // ── focusedBorderColor ──
+    if (!c("focusedBorderColor", input_.focusedBorderColor))
+        if (input_.focusedBorderColor.isTransparent())
+            input_.focusedBorderColor = t.colors.primary;
+    // ── textColor / placeholderColor / cursorColor ──
+    if (!c("textColor", input_.textColor))
+        if (input_.textColor.isTransparent())
+            input_.textColor = t.colors.onSurface;
+    if (!c("placeholderColor", input_.placeholderColor))
+        if (input_.placeholderColor.isTransparent())
+            input_.placeholderColor = t.colors.onSurfaceVariant;
+    if (!c("cursorColor", input_.cursorColor))
+        if (input_.cursorColor.isTransparent())
+            input_.cursorColor = t.colors.primary;
 }

@@ -56,6 +56,8 @@ public:
 
     void draw(Graphics &g) override;
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;

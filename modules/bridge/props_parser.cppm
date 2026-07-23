@@ -181,6 +181,14 @@ public:
         auto val = props_.getProperty(name);
         if (val.isNull() || val.isUndefined()) return false;
         tryRecordBinding(name, cppToPropType<T>());
+        // ── @ 前缀 → 存 theme token，value 留默认 ──
+        if (val.isString()) {
+            std::string s = val.toString();
+            if (!s.empty() && s[0] == '@') {
+                themeTokens_[name] = s.substr(1);    // 去 @ 存名
+                return true;
+            }
+        }
         out = convertTo<T>(val);
         return true;
     }
@@ -228,9 +236,14 @@ public:
      */
     const JSValueRef &raw() const { return props_; }
 
+    /** @brief 获取本次解析中收集的所有 @ token 引用 */
+    const std::unordered_map<std::string, std::string> &themeTokens() const { return themeTokens_; }
+
 private:
     const JSValueRef &props_;
     TypedPropMap *meta_;
+    /** @brief 本次解析遇到的 @ 前缀 token（propName → tokenName） */
+    std::unordered_map<std::string, std::string> themeTokens_;
 
     /**
      * @brief 检查并记录绑定元数据

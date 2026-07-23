@@ -42,41 +42,35 @@ export class Input : public View {
 public:
     Input();
     explicit Input(ViewProps vp, InputProps ip = {});
-   ~Input() override {
+    ~Input() override {
         if (blinkTimerId_ != 0) CoreTimer::clear(blinkTimerId_);
     }
-    ElementType type() const override {
-        return ElementType::Input;
-    }
-    const InputProps &inputProps() const {
-        return input_;
-    }
+    ElementType type() const override { return ElementType::Input; }
+    const InputProps &inputProps() const { return input_; }
     /** 获取当前文本值 */
-    const std::string &value() const {
-        return text_;
-    }
+    const std::string &value() const { return text_; }
     /** 设置文本 (JS onChange 回调通过此方法更新) */
     void setValue(const std::string &val) {
         text_ = val;
         cursorPos_ = val.length();
     }
-    bool isFocused() const {
-        return focused_;
-    }
+    bool isFocused() const { return focused_; }
 
-     bool acceptsFocus() const override { return true; }
+    bool acceptsFocus() const override { return true; }
 
     void focus();
     void blur();
 
     std::string getProperty(const char *name) const override;
     bool setProperty(const char *name, const char *value) override;
-    bool setPropertyTyped(const char* name, const TypedProp& value) override;
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
         binding_ = std::move(binding);
         bindKey_ = key;
     }
+
+    void resolveThemeDefaults() override;
 
 protected:
     Size onMeasure(Constraints constraints) override;
@@ -90,14 +84,14 @@ private:
     size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
-   
-    std::shared_ptr<TextLayoutResult> textResult_;         // 文字排版结果
-    std::shared_ptr<TextLayoutResult> placeholderResult_;  // 占位符排版结果
+
+    std::shared_ptr<TextLayoutResult> textResult_;           // 文字排版结果
+    std::shared_ptr<TextLayoutResult> placeholderResult_;    // 占位符排版结果
 
     std::unique_ptr<StateBinding> binding_;
     std::string bindKey_;
 
-    CoreTimer::Id blinkTimerId_ = 0;    
+    CoreTimer::Id blinkTimerId_ = 0;
     void scheduleBlinkTick();
 
     // ── 文本操作 ──

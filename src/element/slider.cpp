@@ -362,3 +362,25 @@ void Slider::setBinding(std::unique_ptr<StateBinding> binding, const std::string
     binding_ = std::move(binding);
     bindKey_ = key;
 }
+
+void Slider::resolveThemeDefaults() {
+    auto& t = theme();
+    auto& tokens = props.themeTokens;
+    auto c = [&](const std::string& p, Color& v) {
+        auto it = tokens.find(p);
+        if (it != tokens.end() && t.resolveToken(it->second)) { v = *t.resolveToken(it->second); return true; }
+        return false;
+    };
+    if (!c("color", sp_.color))
+        if (sp_.color.isTransparent())
+            sp_.color = t.colors.primary;
+    if (!c("trackColor", sp_.trackColor))
+        if (sp_.trackColor.isTransparent())
+            sp_.trackColor = t.colors.surfaceVariant;
+    if (!c("thumbColor", sp_.thumbColor))
+        if (sp_.thumbColor.isTransparent())
+            sp_.thumbColor = t.colors.onSurface;
+    if (!c("thumbBorderColor", sp_.thumbBorderColor))
+        if (sp_.thumbBorderColor.isTransparent())
+            sp_.thumbBorderColor = t.colors.primary;
+}

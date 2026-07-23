@@ -62,6 +62,8 @@ public:
     float value() const { return sp_.value; }
     void setValue(float val);
 
+    void resolveThemeDefaults() override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
