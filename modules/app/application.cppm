@@ -23,14 +23,13 @@ import kwik.bridge.element_parser;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.bridge.binding_registry;
-import kwik.core.scheduler;     
-import kwik.core.task_queue;          
-import kwik.core.thread_pool;         
+import kwik.core.scheduler;
+import kwik.core.task_queue;
+import kwik.core.thread_pool;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 
 import std;
-
 
 export class Application {
 public:
@@ -39,6 +38,7 @@ public:
      */
     struct RunConfig {
         std::string jsPath;                   // JS 入口文件
+        bool enableHotReload = true;           /**< true=文件系统+热重载，false=嵌入式字节码 */
         std::vector<std::string> fontDirs;    // 字体搜索目录
         int width = 800;                      // 窗口逻辑宽度（仅在 screenRatio == 0 时生效）
         int height = 600;                     // 窗口逻辑高度（仅在 screenRatio == 0 时生效）
@@ -88,37 +88,27 @@ public:
     /**
      * @brief 退出主循环
      */
-    void quit() {
-        running_ = false;
-    }
+    void quit() { running_ = false; }
     /**
      * @brief 标记需要重新解析 JS 并重建 View 树
      */
-    void requestRender() {
-        jsCtx_.requestRender();
-    }
+    void requestRender() { jsCtx_.requestRender(); }
     // ═══════════════ 访问器 ═══════════════
     /**
      * @brief 获取 QuickJS 上下文 (用于 JS 通信)
      * @return QuickJSContext 引用
      */
-    QuickJSContext &jsContext() {
-        return jsCtx_;
-    }
+    QuickJSContext &jsContext() { return jsCtx_; }
     /**
      * @brief 获取关联的窗口
      * @return 平台窗口引用
      */
-    PlatformWindow &window() {
-        return window_;
-    }
+    PlatformWindow &window() { return window_; }
     /**
      * @brief 获取当前 View 树根节点
      * @return View 指针 (在 run() 执行期间有效)
      */
-    View *rootView() {
-        return tree_.get();
-    }
+    View *rootView() { return tree_.get(); }
 
 private:
     PlatformWindow &window_;
@@ -127,21 +117,20 @@ private:
     QuickJSContext jsCtx_;
     std::unique_ptr<View> tree_;
     bool running_ = false;
-    bool cacheSaved_ = false;        // 字形缓冲
-    DirtyTracker dirtyTracker_;         // 脏矩形追踪器 (在 kwik.element.view 中定义)
-    BindingRegistry bindingRegistry_;     // 绑定注册表（增量更新用）
+    bool cacheSaved_ = false;            // 字形缓冲
+    DirtyTracker dirtyTracker_;          // 脏矩形追踪器 (在 kwik.element.view 中定义)
+    BindingRegistry bindingRegistry_;    // 绑定注册表（增量更新用）
 
-    ThreadPool threadPool_{4};            // 4 线程的线程池
-    TaskQueue mainThreadTaskQueue_;       // 主线程任务队列
+    ThreadPool threadPool_{4};         // 4 线程的线程池
+    TaskQueue mainThreadTaskQueue_;    // 主线程任务队列
 
     EventRouter eventRouter_;
 
     /** @brief 结构变化标志，rebuildTree 后设为 true，renderFrame 消费后清空 */
     bool treeStructureChanged_ = true;
-    uint64_t frameId_ = 0;              /**< 单调递增帧序号，写入 FrameSubmit.frameId */
+    uint64_t frameId_ = 0; /**< 单调递增帧序号，写入 FrameSubmit.frameId */
 
     int resizeBurstFrames_ = 0;
-
 
     void handleResize(int width, int height);
 
@@ -179,4 +168,15 @@ private:
      * @param root 根 View 指针
      */
     void preloadImageTextures(View *root);
+
+    // ── 热重载：JS 文件变更轮询状态 ──
+    /// 文件变更缓存（key=文件路径, value=最近修改时间）
+    std::unordered_map<std::string, std::filesystem::file_time_type> fileWatchCache_;
+    /// 上次轮询时间戳
+    std::chrono::steady_clock::time_point lastFileCheck_;
+    /// 轮询 JS 文件变更（仅在 enableHotReload 时生效）
+    void pollFilesForHotReload();
+    /// 检测到文件变更时的重载处理
+    void onHotReloadTriggered(const std::string &path);
+
 };

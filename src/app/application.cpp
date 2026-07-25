@@ -5,6 +5,8 @@ module;
 #include <chrono>
 #include <memory>
 #include <filesystem>
+#include <unordered_map>
+#include "kwik/bytecode_module.h"
 
 module kwik.app;
 
@@ -35,6 +37,23 @@ import kwik.render.text.pipeline;
 import kwik.animation.engine;
 import kwik.bridge.bindings;
 import kwik.core.timer;
+
+/**
+ * ============================================================================
+ * kwik_register_app_js — 字节码模块表注册
+ * 由 kwik_js_reg.cpp 静态初始化时调用，注入字节码指针
+ * ============================================================================
+ */
+namespace {
+/** 全局字节码模块表 */
+const BytecodeModule *s_bytecodeModules = nullptr;
+int s_bytecodeModuleCount = 0;
+}    // namespace
+
+extern "C" void kwik_register_app_js(const BytecodeModule *modules, int count) {
+    s_bytecodeModules = modules;
+    s_bytecodeModuleCount = count;
+}
 
 // ============================================================================
 // 构造 / 析构
@@ -104,10 +123,31 @@ bool Application::init() {
         return false;
     }
 
-    // ③ 加载 JS
-    if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
-        Log::error("JS 加载失败: {}", config_.jsPath);
-        return false;
+    /**
+     * ④ 加载 JS
+     * 运行时根据 enableHotReload 选择加载路径：
+     *   true  = 文件系统 + 热重载（开发）
+     *   false = 嵌入式字节码（生产）
+     */
+    if (config_.enableHotReload) {
+        /** 文件系统模式（开发） */
+        if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
+            Log::error("JS 加载失败: {}", config_.jsPath);
+            return false;
+        }
+        lastFileCheck_ = std::chrono::steady_clock::now();
+    } else {
+        /** 字节码模式（生产） */
+        if (!s_bytecodeModules || s_bytecodeModuleCount == 0) {
+            Log::error("生产模式需要嵌入字节码，请在 CMake 中添加 kwik_js()");
+            return false;
+        }
+        jsCtx_.registerBytecodeModules(s_bytecodeModules, s_bytecodeModuleCount);
+        /** 入口模块始终在 kModules[0] */
+        if (!jsCtx_.evalBytecodeModule(s_bytecodeModules[0].name.data())) {
+            Log::error("JS bytecode 加载失败");
+            return false;
+        }
     }
 
     // ⑦ 注册增量更新：绑定注册表 + IncrementalCallback（在 binding_registry 内部自动完成）
@@ -287,6 +327,9 @@ int Application::run() {
     Log::info("渲染循环已启动");
 
     while (running_) {
+        /** 仅在文件系统模式下轮询文件变更 */
+        if (config_.enableHotReload) { pollFilesForHotReload(); }
+
         window_.PollEvents();
         eventRouter_.poll();
 
@@ -383,4 +426,124 @@ void Application::handleResize(int width, int height) {
     dirtyTracker_.markFull();
 
     resizeBurstFrames_ = 10;    // resize 后连续 10 帧全量重绘（≈0.4s，覆盖 DWM 过渡期）
+}
+
+// ============================================================================
+// 热重载 — Debug 模式 JS 文件轮询
+// ============================================================================
+void Application::pollFilesForHotReload() {
+    // 每 300ms 检查一次
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastFileCheck_ < std::chrono::milliseconds(300)) return;
+    lastFileCheck_ = now;
+
+    for (const auto &path : jsCtx_.loadedModuleFiles()) {
+        std::error_code ec;
+        auto mtime = std::filesystem::last_write_time(path, ec);
+        if (ec) continue;
+
+        auto it = fileWatchCache_.find(path);
+        if (it != fileWatchCache_.end() && it->second != mtime) {
+            it->second = mtime;
+            onHotReloadTriggered(path);
+            return;    // 一次只处理一个变更
+        }
+        fileWatchCache_[path] = mtime;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// onHotReloadTriggered — 检测到 JS 文件变更时的热重载处理
+//
+// 流程：
+//   ① reload() 重建 JS 引擎（销毁旧 context，创建新的）
+//   ② 重新注册 kwikui C 模块（新 context 需要重新注册）
+//   ③ evalFile 重新加载入口文件（自动清空并重建 loadedModuleFiles_）
+//   ④ 刷新文件时间戳缓存
+//   ⑤ rebuildTree 增量 reconcile View 树
+//   ⑥ 强制全屏重绘
+// ══════════════════════════════════════════════════════════════
+void Application::onHotReloadTriggered(const std::string &path) {
+    Log::info("[HMR] 文件变更: {} — 重新加载 UI", path);
+
+    // ── 清理旧 JS 引擎的外部引用 ──
+
+    // ① 停止动画，防止动画回调使用即将销毁的 JS 上下文
+    AnimationEngine::instance().stopAll();
+
+    // ② 销毁当前 View 树
+    //     View 绑定属性（如 onChange）可能持有 JS 函数引用，
+    //     必须在 shutdown 和 reload 之前释放
+    tree_.reset();
+
+    // ③ 关闭 Channel 系统
+    //     Channel 内部持有 JS context 指针和 State onChange 回调，
+    //     必须在 JS_FreeContext 之前 shutdown
+    Channel::shutdown(jsCtx_.getPtr());
+
+    // ④ 关闭绑定注册表（释放 JS 回调引用）
+    //     setRegisteredRegistry(nullptr) 会清理所有绑定的 JS 函数
+
+    // ── 重建 JS 引擎 ──
+    //     销毁旧 context + runtime，创建全新的 QuickJS 引擎，
+    //     绕开 QuickJS 的 JSRuntime 级模块缓存
+    jsCtx_.reload();
+
+    // ── 在新建的 JS 引擎上重新初始化 ──
+
+    // ⑤ 重新初始化 Channel（新 context 需要新的 Channel 实例）
+    Channel::init(
+        jsCtx_.getPtr(), [this](std::function<void()> task) { mainThreadTaskQueue_.post(std::move(task)); },
+        &mainThreadTaskQueue_);
+
+    // ⑥ 重新注册 kwikui C 模块
+    //     reload() 创建了新 context，原 kwikui 模块已丢失
+    if (!register_kwikui_module(jsCtx_)) {
+        Log::error("[HMR] kwikui 模块注册失败");
+        return;
+    }
+
+    // ⑦ 重新加载 JS 入口文件
+    //     evalFile 内部已清空 loadedModuleFiles_ 并加入入口文件
+    if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
+        Log::error("[HMR] JS 重载失败");
+        return;
+    }
+
+    // ⑧ 重新注册绑定注册表
+    setRegisteredRegistry(&bindingRegistry_);
+
+    // ⑨ 诊断：检查 JS 根视图状态
+    // jsCtx_.dumpRootState();
+
+    // ⑨ 解析 View 树（旧树已销毁，用 parse 而非 reconcile）
+    tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
+    if (!tree_) {
+        Log::error("[HMR] UI 解析失败");
+        return;
+    }
+    setTracker(tree_.get(), &dirtyTracker_);
+    jsCtx_.setUserPointer(tree_.get());
+
+    // ⑩ 重建事件路由
+    eventRouter_.setRootTarget(tree_.get());
+    eventRouter_.reset();
+
+    // ⑪ 重新布局
+    int w, h;
+    window_.GetSize(&w, &h);
+    float dpi = window_.GetDpiScale();
+    auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
+    relayoutTree(sz);
+
+    // ⑫ 刷新文件时间戳缓存
+    fileWatchCache_.clear();
+    for (const auto &p : jsCtx_.loadedModuleFiles()) {
+        std::error_code ec;
+        fileWatchCache_[p] = std::filesystem::last_write_time(p, ec);
+    }
+
+    // ⑬ 强制全屏重绘
+    dirtyTracker_.markFull();
+    renderFrame();
 }

@@ -1,5 +1,25 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-25
+
+### 新增
+- 字节码编译管道
+  - `Bytecode.cmake` — `kwik_js(TARGET [ENTRY path])` CMake 函数，自动编译应用 JS 为字节码
+  - `tools/compile_js_bundle.cpp` — JS→bytecode 头文件编译工具，递归编译所有 import 依赖
+  - `include/kwik/bytecode_module.h` — `BytecodeModule` 公共类型，库和生成代码共享
+  - `include/kwik/app_js.h` — `kwik_register_app_js()` 注册 API
+  - 自动生成 `js_bytecode.h`（字节码 C 数组）+ `kwik_js_reg.cpp`（静态初始化注册）
+  - `IS_DEV_BUILD` 宏自动注入：Debug=1（文件系统+热重载），Release=0（嵌入式字节码）
+- `examples/external` 示例工程完整字节码集成
+  - `kwik_js()` 调用 + `#if IS_DEV_BUILD` 双模式切换
+  - Debug 构建：文件系统加载 JS + 热重载
+  - Release 构建：嵌入式字节码，单二进制部署
+- SDK 安装完善
+  - `include/kwik/` 头文件（`app_js.h` / `bytecode_module.h`）安装到 SDK
+  - `qjs-libc` 静态库安装
+  - `Bytecode.cmake` 安装到 `share/cmake/kwik-ui/`，`find_package` 后自动提供 `kwik_js()` 函数
+  - `KwiKUIConfig.cmake.in` 增加 `include/kwik` 包含路径
+
 ## [0.0.0] — 2026-07-23
 
 ### 新增

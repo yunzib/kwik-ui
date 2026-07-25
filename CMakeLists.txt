@@ -68,7 +68,8 @@ if(MINGW AND CMAKE_CXX_STANDARD GREATER_EQUAL 26)
     add_compile_options(-fno-aligned-allocation)
 endif()
 
-
+# ── 构建工具（始终构建）──
+add_subdirectory(tools)
 
 ####################### 三方库配置 ##########################################
 # L72 前关闭 quickjs install：
@@ -146,6 +147,7 @@ include(cmake/modules/Engine.cmake)
 include(cmake/modules/Bridge.cmake)
 include(cmake/modules/Event.cmake)
 include(cmake/modules/App.cmake)
+include(cmake/modules/Bytecode.cmake)
 
 # 构建选项
 option(KWIK_BUILD_TESTS "Build tests" OFF)
@@ -174,6 +176,8 @@ target_link_libraries(kwik INTERFACE
 if(KWIK_BUILD_EXAMPLES)
     add_subdirectory(test)
 endif()
+
+
 # 输出配置摘要
 message(STATUS "========================================")
 message(STATUS "Kwik-UI 模块化构建配置")
@@ -200,8 +204,12 @@ install(DIRECTORY third_party/harfbuzz/src/
 install(DIRECTORY third_party/nanosvg/src/
     DESTINATION include/nanosvg
     FILES_MATCHING PATTERN "*.h")
-
-install(FILES "$<TARGET_FILE:qjs>" DESTINATION lib)
+    
+install(FILES
+    "$<TARGET_FILE:qjs>"
+    "$<TARGET_FILE:qjs-libc>"
+    DESTINATION lib
+)
 # ==================== CMake Config ====================
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
@@ -209,8 +217,15 @@ configure_package_config_file(
     ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
     INSTALL_DESTINATION share/cmake/kwik-ui
 )
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
+install(FILES 
+    ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
+    cmake/modules/Bytecode.cmake         
     DESTINATION share/cmake/kwik-ui
+)
+install(FILES
+    include/kwik/app_js.h
+    include/kwik/bytecode_module.h
+    DESTINATION include/kwik
 )
 
 # ==================== 编译定义 ====================

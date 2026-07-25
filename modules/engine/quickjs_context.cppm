@@ -5,6 +5,7 @@
 module;
 
 #include "quickjs.h"
+#include "kwik/bytecode_module.h"         // 使用公共类型替代私有定义
 
 export module kwik.engine.context;
 import kwik.engine.runtime;
@@ -113,6 +114,20 @@ public:
         while (JS_ExecutePendingJob(rt, &pctx) > 0);
     }
 
+    /// 注册嵌入式 bytecode 模块表
+    void registerBytecodeModules(const BytecodeModule *modules, int count);
+
+    /// 从 bytecode 加载并执行入口模块，成功返回 true
+    bool evalBytecodeModule(const char *module_name);
+
+    const std::vector<std::string> &loadedModuleFiles() const { return loadedModuleFiles_; }
+
+    /// 销毁并重建 JS 引擎（绕过 QuickJS 模块缓存，用于 Debug 热重载）
+    void reload();
+
+    /// 调试：检查根视图状态的诊断信息
+    void dumpRootState();
+
 private:
     // ── 运行时 & 上下文 ──────────────────────────────────────────
     std::shared_ptr<QuickJSRuntime> runtime;    ///< 共享的 JSRuntime 实例
@@ -124,6 +139,11 @@ private:
     JSModuleDef *kwikuiModule_ = nullptr;
     void *userPtr_ = nullptr;          // 用户自定义指针 (由 Application 注入树根)
     JSValue expandedRoot = JS_NULL;    ///< 展开后的对象树 (每次 rebuild 更新)
+
+    /// bytecode 映射: 模块名 → {data, size}
+    std::unordered_map<std::string, std::pair<const uint8_t *, int>> bytecodeMap_;
+    /// 已加载的文件模块列表（Debug 热重载用）
+    std::vector<std::string> loadedModuleFiles_;
 
     /**
      * @brief 模块加载器回调：解析 import 路径，加载多文件

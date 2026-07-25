@@ -38,6 +38,7 @@ target_link_libraries(kwik_engine
 target_link_libraries(kwik_engine
     PRIVATE
         qjs
+        qjs-libc
 )
 
 # 7. 添加编译定义（COMPILE_DEFINITIONS）

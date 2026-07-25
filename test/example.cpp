@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     SetConsoleCP(CP_UTF8);
 #endif
     auto window = std::make_unique<PlatformWindowWin32>();
-    if (!window || !window->Create("KwiK UI Demo", 800, 600)) return -1;
+    if (!window || !window->Create("KwiK UI Demo", 1280, 800)) return -1;
     window->Show();
     Application app(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
 

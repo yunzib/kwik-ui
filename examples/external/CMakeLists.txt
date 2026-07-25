@@ -17,9 +17,17 @@ set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 
 project(kwik-demo LANGUAGES C CXX)
 
+# ── 默认 Debug 构建 ──
+# 命令行覆盖：cmake -B build -DCMAKE_BUILD_TYPE=Release
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING
+        "Debug=filesystem+hotreload, Release=embedded bytecode" FORCE)
+endif()
+
 find_package(kwik-ui REQUIRED)
 
 add_executable(kwik-demo main.cpp)
+kwik_js(kwik-demo ENTRY ../../test/ui/test.js)
 target_link_libraries(kwik-demo PRIVATE kwik-ui::kwik)
 
 target_sources(kwik-demo PRIVATE
@@ -27,3 +35,13 @@ target_sources(kwik-demo PRIVATE
   BASE_DIRS "${kwik-ui_MODULES_DIR}"
   FILES ${kwik-ui_MODULE_FILES}
 )
+
+
+
+
+# 用法
+# build.bat              # Debug（默认）→ IS_DEV_BUILD=1 → 文件系统 + 热重载
+# build.bat Release      # Release 覆盖 → IS_DEV_BUILD=0 → 嵌入式字节码, 发布时使用
+# # 或手动:
+# cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../../build/install -DCMAKE_BUILD_TYPE=Release
+# cmake --build build

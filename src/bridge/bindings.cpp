@@ -99,8 +99,8 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
     JSValue current = JS_GetPropertyStr(ctx, stateObj, stateKey);
 
     const char *resolvedStr = JS_ToCString(ctx, current);
-    Log::info("[ref] RESOLVED: prop='{}' key='{}' value='{}'", propName, stateKey,
-              resolvedStr ? resolvedStr : "(null)");
+    // Log::info("[ref] RESOLVED: prop='{}' key='{}' value='{}'", propName, stateKey, resolvedStr ? resolvedStr :
+    // "(null)");
     JS_FreeCString(ctx, resolvedStr);
 
     // 替换 prop 为当前值（使用显式 dup，不依赖 SetProperty 的 ref 约定）
@@ -133,8 +133,8 @@ static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
     // JS_GPN_STRING_MASK + JS_GPN_ENUM_ONLY = "只列字符串类型的可枚举属性"
     // 不组合 STRING_MASK 时 QuickJS 无法确定要列哪种类型的属性 → 返回 0 条
-    
-    Log::debug("[ref] ALL_ENTER: propsIsObj={} propCount={}", JS_IsObject(props), len);
+
+    // Log::debug("[ref] ALL_ENTER: propsIsObj={} propCount={}", JS_IsObject(props), len);
     for (uint32_t i = 0; i < len; ++i) {
         const char *name = JS_AtomToCString(ctx, tab[i].atom);
         if (name) {
@@ -901,36 +901,31 @@ static JSValue js_isAnimating(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_FALSE;    // TODO: 按 viewId 查询动画状态
 }
 
-// ---------- 公共注册函数实现 ----------
 static JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    if (state_class_id == 0) {
-        JS_NewClassID(JS_GetRuntime(ctx), &state_class_id);
-        static JSClassDef class_def = {
-            .class_name = "State",
-            .finalizer = state_finalizer,
-            .gc_mark = state_gc_mark,
-            .call = nullptr,
-            .exotic = nullptr,
-        };
-        static JSClassExoticMethods exotic = {
-            .get_property = state_get_property,
-            .set_property = state_set_property,
-        };
-        class_def.exotic = &exotic;
-        if (JS_NewClass(JS_GetRuntime(ctx), state_class_id, &class_def) != 0) return JS_UNDEFINED;
+    if (state_class_id == 0) { JS_NewClassID(JS_GetRuntime(ctx), &state_class_id); }
+    // class_def/exotic 保持 static——地址必须稳定，JS_NewClass 存储的是指针
+    static JSClassDef class_def = {
+        .class_name = "State",
+        .finalizer = state_finalizer,
+        .gc_mark = state_gc_mark,
+        .call = nullptr,
+        .exotic = nullptr,
+    };
+    static JSClassExoticMethods exotic = {
+        .get_property = state_get_property,
+        .set_property = state_set_property,
+    };
+    class_def.exotic = &exotic;
+    // 新 runtime 中此 class_id 尚未注册，JS_NewClass 返回 0
+    JS_NewClass(JS_GetRuntime(ctx), state_class_id, &class_def);
 
-        // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
-        JSValue proto = JS_NewObject(ctx);
-        JS_SetPropertyStr(ctx, proto, "update", JS_NewCFunction(ctx, js_state_update, "update", 1));
-
-        JSValue ctor = JS_NewCFunction2(ctx, js_state_constructor, "State", 1, JS_CFUNC_constructor, 0);
-        JS_SetConstructor(ctx, ctor, proto);
-
-        JS_SetClassProto(ctx, state_class_id, proto);    // ref - 1 ，后续不需要free
-
-        return ctor;
-    }
-    return JS_UNDEFINED;
+    // 创建原型 + 构造函数 + 正确绑定 JS_SetConstructor
+    JSValue proto = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, proto, "update", JS_NewCFunction(ctx, js_state_update, "update", 1));
+    JSValue ctor = JS_NewCFunction2(ctx, js_state_constructor, "State", 1, JS_CFUNC_constructor, 0);
+    JS_SetConstructor(ctx, ctor, proto);
+    JS_SetClassProto(ctx, state_class_id, proto);    // ref - 1 ，后续不需要free
+    return ctor;
 }
 
 // ============================================================================
@@ -1358,11 +1353,8 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
  *   传入的 colors/text/shape 字段逐一覆盖基底值,
  *   未传入的保留基底默认, 返回 opaque ThemeData 对象传给 ThemeProvider。
  */
-static JSValue js_theme(JSContext* ctx, JSValueConst this_val,
-                        int argc, JSValueConst* argv) {
-    ThemeData data = (argc >= 1 && JS_IsObject(argv[0]))
-                     ? parseTheme(ctx, argv[0])
-                     : ThemeData::defaultTheme();
+static JSValue js_theme(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    ThemeData data = (argc >= 1 && JS_IsObject(argv[0])) ? parseTheme(ctx, argv[0]) : ThemeData::defaultTheme();
     return wrapThemeData(ctx, data);
 }
 
@@ -1378,8 +1370,7 @@ static JSValue js_theme(JSContext* ctx, JSValueConst this_val,
  *     ),
  *   )
  */
-static JSValue js_theme_provider(JSContext* ctx, JSValueConst this_val,
-                                 int argc, JSValueConst* argv) {
+static JSValue js_theme_provider(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     // 第一个参数是 JS 对象 → props；否则无 props
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
     int childStart = (argc > 0 && JS_IsObject(argv[0])) ? 1 : 0;

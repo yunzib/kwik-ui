@@ -74,26 +74,31 @@ private:
     }
 };
 
-static std::string resolveDemo(int argc, char *argv[]) {
-    if (argc >= 2) {
-        std::string arg = argv[1];
-        if (arg == "test") return "../../test/ui/test.js";
-        return arg;
-    }
-    return "../../test/ui/test.js";
-}
-
 int main(int argc, char *argv[]) {
 #if defined(_WIN32)
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 #endif
     auto window = std::make_unique<PlatformWindowWin32>();
-    if (!window || !window->Create("KwiK UI Demo", 800, 600)) return -1;
+    if (!window || !window->Create("KwiK UI Demo", 1280, 800)) return -1;
     window->Show();
-    Application app(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
 
-    if (argc >= 2 && std::string(argv[1]) == "channel") { ChannelTest::setup(); }
+#if IS_DEV_BUILD
+    Application app(*window, {
+        .jsPath = "../../../test/ui/test.js",
+        .enableHotReload = true,
+        .fontDirs = {"../../../resources/fonts"}
+    });
+#else
+    Application app(*window, {
+        .enableHotReload = false,
+        .fontDirs = {"../../../resources/fonts"}
+    });
+#endif
+
+    if (argc >= 2 && std::string(argv[1]) == "channel") {
+        ChannelTest::setup();
+    }
 
     return app.run();
 }
