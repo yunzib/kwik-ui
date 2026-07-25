@@ -51,9 +51,9 @@ FontMetrics FreeTypeTextFace::getMetrics(float size) {
 // ============================================================================
 // 字形加载与度量
 // ============================================================================
-bool FreeTypeTextFace::loadGlyph(uint32_t gid) {
+bool FreeTypeTextFace::loadGlyph(uint32_t gid, int loadFlags) {
     if (!ftFace_) return false;
-    return FT_Load_Glyph(ftFace_, gid, FT_LOAD_TARGET_LCD) == 0;
+    return FT_Load_Glyph(ftFace_, gid, loadFlags) == 0;
 }
 
 float FreeTypeTextFace::glyphAdvanceX(uint32_t gid) {

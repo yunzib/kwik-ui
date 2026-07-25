@@ -145,7 +145,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
             float fbAscender = static_cast<float>(ftFace->size->metrics.ascender) / 64.0f;
             baselineAdjust = primaryAscender - fbAscender;
         }
-        face->loadGlyph(activeGid);
+        face->loadGlyph(activeGid, FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP);
 
         ShapedGlyph sg;
         sg.fontId = activeFont;

@@ -29,7 +29,7 @@ export {
         virtual FontMetrics getMetrics(float size) = 0;
 
         /** @brief 加载字形轮廓 (FT_Load_Glyph) */
-        virtual bool loadGlyph(uint32_t gid) = 0;
+        virtual bool loadGlyph(uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) = 0;
 
         /** @brief 获取字形水平步进 */
         virtual float glyphAdvanceX(uint32_t gid) = 0;
@@ -68,7 +68,7 @@ export {
         FreeTypeTextFace &operator=(const FreeTypeTextFace &) = delete;
 
         FontMetrics getMetrics(float size) override;
-        bool loadGlyph(uint32_t gid) override;
+        bool loadGlyph(uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) override;
         float glyphAdvanceX(uint32_t gid) override;
         float glyphBearingX(uint32_t gid) override;
         float glyphBearingY(uint32_t gid) override;
