@@ -73,6 +73,7 @@ public:
     std::optional<FrameToken> beginFrame();
     void endFrame();
     bool present();
+    void accumulateDirtyRect(const Rect &dirtyRect);   // 累积脏区 + 首帧回退
 
     // ── 资源访问（仅子渲染器 setup / upload 时用） ──
     VkDevice device() const;
@@ -133,10 +134,13 @@ private:
     VkImageView canvasStencilView_ = VK_NULL_HANDLE;
     VkFramebuffer canvasFramebuffer_ = VK_NULL_HANDLE;
 
-    bool justRecreated_ = false;   ///< swapchain/canvas 刚重建，首个成功帧需全量重绘
-    bool suboptimalPending_ = false;  ///< acquire/present 报告过 SUBOPTIMAL，下帧主动重建
-                                      ///< （部分驱动尺寸不匹配时只报 SUBOPTIMAL 不报 OUT_OF_DATE，
-                                      ///<   若无视会导致画面被驱动拉伸——本次拉伸 bug 的防御位）
+    bool justRecreated_ = false;        ///< swapchain/canvas 刚重建，首个成功帧需全量重绘
+    bool suboptimalPending_ = false;    ///< acquire/present 报告过 SUBOPTIMAL，下帧主动重建
+                                        ///< （部分驱动尺寸不匹配时只报 SUBOPTIMAL 不报 OUT_OF_DATE，
+                                        ///<   若无视会导致画面被驱动拉伸——本次拉伸 bug 的防御位）
+
+    std::vector<Rect> accumulatedDirtyRects_;             // per-SC-image 脏区并集
+    std::vector<VkImageLayout> swapchainImageLayouts_;    // per-SC-image layout 追踪
 
     bool createInstance(void *nativeHandle);
     bool pickPhysicalDevice();

@@ -454,7 +454,7 @@ void VulkanContext::endFrame() {
     preBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     preBarriers[1].srcAccessMask = 0;
     preBarriers[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    preBarriers[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    preBarriers[1].oldLayout = swapchainImageLayouts_[currentImageIndex_];
     preBarriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     preBarriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     preBarriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -464,13 +464,84 @@ void VulkanContext::endFrame() {
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
                          nullptr, 0, nullptr, 2, preBarriers);
 
-    // ── Copy（全屏）──
+    // ────────────────────────────────────────────────
+    // ① 获取当前 SC image 的累积脏区
+    // ────────────────────────────────────────────────
+    Rect &accumulated = accumulatedDirtyRects_[currentImageIndex_];
+
+    // ────────────────────────────────────────────────
+    // ② 首帧判定: SC image layout 为 UNDEFINED 时
+    //    说明此 image 从未被拷贝过,其内容不可用,必须全量拷贝
+    //    对应场景: 程序启动后首次使用该 SC image、
+    //             resize 后新 swapchain 的 image
+    // ────────────────────────────────────────────────
+    bool firstUse = (swapchainImageLayouts_[currentImageIndex_] == VK_IMAGE_LAYOUT_UNDEFINED);
+
+    // ────────────────────────────────────────────────
+    // ③ 全量拷贝条件:
+    //     a) firstUse    — SC image 从未初始化,内容无效
+    //     b) acc 为空    — 累积脏区为空(理论上不会发生,
+    //                      但作为防御)
+    // ────────────────────────────────────────────────
+    bool fullCopy = firstUse || accumulated.isEmpty();
+
+    // ────────────────────────────────────────────────
+    // ④ 回退阈值: 累积脏区面积超过屏幕 65% → 全量
+    //    原理: 多帧脏区并集膨胀到接近全屏时,部分拷贝的
+    //           DMA 开销 ≈ 全量,且全量驱动优化更好
+    // ────────────────────────────────────────────────
+    if (!fullCopy) {
+        double accArea = accumulated.width * accumulated.height;
+        double screenArea = (double)swapchainExtent_.width * swapchainExtent_.height;
+        if (accArea > screenArea * 0.65) { fullCopy = true; }
+    }
+
+    // ────────────────────────────────────────────────
+    // ⑤ 默认: 全量拷贝参数(覆盖整个 Canvas/Swapchain)
+    // ────────────────────────────────────────────────
+    uint32_t sx = 0, sy = 0;
+    uint32_t sw = swapchainExtent_.width;
+    uint32_t sh = swapchainExtent_.height;
+
+    // ────────────────────────────────────────────────
+    // ⑥ 增量拷贝: 从累积脏区提取拷贝子区域
+    //    sx,sy = 脏区左上角(限制在屏幕范围内)
+    //    sw,sh = 脏区宽高(裁剪到不超过屏幕边界)
+    //    → vkCmdCopyImage 只传输这个子区域的像素
+    // ────────────────────────────────────────────────
+    if (!fullCopy) {
+        sx = (uint32_t)std::max(0.0f, accumulated.x);
+        sy = (uint32_t)std::max(0.0f, accumulated.y);
+        sw = std::min((uint32_t)accumulated.width, swapchainExtent_.width - sx);
+        sh = std::min((uint32_t)accumulated.height, swapchainExtent_.height - sy);
+        sw = std::max(1u, sw);    // Vulkan 禁止 0 尺寸 extent
+        sh = std::max(1u, sh);
+    }
+
+    // ────────────────────────────────────────────────
+    // ⑦ 构建 VkImageCopy 结构
+    //    srcOffset/dstOffset 相同 → 逐像素对齐拷贝
+    //    extent = 全屏 或 累积脏区子区域
+    // ────────────────────────────────────────────────
     VkImageCopy copyRegion{};
     copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copyRegion.extent = {swapchainExtent_.width, swapchainExtent_.height, 1};
+    copyRegion.srcOffset = {(int32_t)sx, (int32_t)sy, 0};
+    copyRegion.dstOffset = {(int32_t)sx, (int32_t)sy, 0};
+    copyRegion.extent = {sw, sh, 1};
+
+    // ────────────────────────────────────────────────
+    // ⑧ 执行拷贝
+    // ────────────────────────────────────────────────
     vkCmdCopyImage(cb, canvasImage_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImages_[currentImageIndex_],
                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+    // ────────────────────────────────────────────────
+    // ⑨ 重置当前 SC image 的累积脏区
+    //    此 image 已同步到 Canvas 最新状态,
+    //    下次它再被选中时从零开始累积
+    // ────────────────────────────────────────────────
+    accumulated = {};
 
     // ── 合并 barrier: canvas(TRANSFER_SRC→COLOR) + swapchain(TRANSFER_DST→PRESENT_SRC) ──
     VkImageMemoryBarrier postBarriers[2]{};
@@ -497,7 +568,7 @@ void VulkanContext::endFrame() {
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
                          nullptr, 0, nullptr, 2, postBarriers);
-
+    swapchainImageLayouts_[currentImageIndex_] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     vkEndCommandBuffer(cb);
 }
 
@@ -601,6 +672,10 @@ bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
     uint32_t n;
     vkGetSwapchainImagesKHR(vkDevice_, swapchain_, &n, nullptr);
     swapchainImages_.resize(n);
+
+    accumulatedDirtyRects_.resize(n);
+    swapchainImageLayouts_.resize(n, VK_IMAGE_LAYOUT_UNDEFINED);
+
     vkGetSwapchainImagesKHR(vkDevice_, swapchain_, &n, swapchainImages_.data());
     swapchainImageViews_.resize(n);
     for (uint32_t i = 0; i < n; i++) {
@@ -624,6 +699,9 @@ void VulkanContext::cleanupSwapchain() {
         swapchain_ = VK_NULL_HANDLE;
     }
     swapchainImages_.clear();
+
+    accumulatedDirtyRects_.clear();
+    swapchainImageLayouts_.clear();
 }
 // ================================================================
 // RenderPass — Canvas 颜色（1x, LOAD_OP_LOAD）+ Stencil（1x, CLEAR）
@@ -983,4 +1061,16 @@ VkBuffer VulkanContext::vertexBuffer() const {
 }
 VkBuffer VulkanContext::indexBuffer() const {
     return indexBuffer_;
+}
+
+void VulkanContext::accumulateDirtyRect(const Rect &dirtyRect) {
+    double dw = std::ceil(dirtyRect.width);
+    double dh = std::ceil(dirtyRect.height);
+    Rect r{std::max(0.0f, (float)dirtyRect.x), std::max(0.0f, (float)dirtyRect.y), std::max(1.0f, (float)dw),
+           std::max(1.0f, (float)dh)};
+
+    for (size_t i = 0; i < accumulatedDirtyRects_.size(); ++i) {
+        auto &acc = accumulatedDirtyRects_[i];
+        acc = acc.isEmpty() ? r : acc.unionRect(r);
+    }
 }

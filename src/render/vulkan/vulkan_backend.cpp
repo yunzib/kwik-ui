@@ -94,6 +94,12 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
     clip_.beginFrame(currentToken_->extent, sc);
     triangle_.resetOffset();
+
+    ctx_.accumulateDirtyRect(Rect{
+        (float)sx, (float)sy,
+        (float)sw, (float)sh
+    });
+
     return true;
 }
 
