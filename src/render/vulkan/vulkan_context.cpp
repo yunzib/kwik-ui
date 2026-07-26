@@ -171,6 +171,8 @@ bool VulkanContext::resize(int w, int h) {
     }
     swapchainImageViews_.clear();
     swapchainImages_.clear();
+    accumulatedDirtyRects_.clear();
+    swapchainImageLayouts_.clear();
 
     if (!createSwapchain(oldSwapchain)) {    // ← 签名微调，见下
         Log::error("resize: createSwapchain failed ({}x{})", targetW, targetH, std::source_location::current());
@@ -438,31 +440,34 @@ void VulkanContext::endFrame() {
     VkCommandBuffer cb = commandBuffers_[frameIndex_];
     vkCmdEndRenderPass(cb);
 
-    // ── 合并 barrier: canvas(COLOR→TRANSFER_SRC) + swapchain(UNDEF→TRANSFER_DST) ──
-    VkImageMemoryBarrier preBarriers[2]{};
-    preBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    // ── oldLayout/newLayout 改为 TRANSFER_SRC（render pass 已将 canvas 转换到此）──
-    preBarriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    preBarriers[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    preBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    preBarriers[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    preBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preBarriers[0].image = canvasImage_;
-    preBarriers[0].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
-    preBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    preBarriers[1].srcAccessMask = 0;
-    preBarriers[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    preBarriers[1].oldLayout = swapchainImageLayouts_[currentImageIndex_];
-    preBarriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    preBarriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preBarriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preBarriers[1].image = swapchainImages_[currentImageIndex_];
-    preBarriers[1].subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
+    // ── ① canvas 执行屏障（同 layout，不同 access）──
+    VkImageMemoryBarrier canvasPreBar{};
+    canvasPreBar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    canvasPreBar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    canvasPreBar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    canvasPreBar.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    canvasPreBar.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    canvasPreBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    canvasPreBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    canvasPreBar.image = canvasImage_;
+    canvasPreBar.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
-                         nullptr, 0, nullptr, 2, preBarriers);
+                         nullptr, 0, nullptr, 1, &canvasPreBar);
+
+    // ── ② swapchain 布局转换（满足 UNDEFINED 需要 TOP_OF_PIPE 的规范要求）──
+    VkImageMemoryBarrier swPreBar{};
+    swPreBar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    swPreBar.srcAccessMask = 0;
+    swPreBar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    swPreBar.oldLayout = swapchainImageLayouts_[currentImageIndex_];
+    swPreBar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    swPreBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swPreBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swPreBar.image = swapchainImages_[currentImageIndex_];
+    swPreBar.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(cb,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // ← 规范要求
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &swPreBar);
 
     // ────────────────────────────────────────────────
     // ① 获取当前 SC image 的累积脏区
