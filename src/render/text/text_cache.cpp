@@ -44,11 +44,12 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
 
         auto &entry = it->second;
         g.pageIndex = static_cast<uint32_t>(entry.pageIndex);
-        g.uvLeft = static_cast<float>(entry.atlasX + 1) / atlasSize;
-        g.uvTop = static_cast<float>(entry.atlasY + 1) / atlasSize;
-        g.uvRight = static_cast<float>(entry.atlasX + entry.packedW - 1) / atlasSize;
-        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize;
-        // 还原为逻辑像素：atlas 内容像素 / (超采样倍数 × DPI 比例)
+        float atlasSize_f = static_cast<float>(atlasSize);
+        // 消除 half-texel，UV 直接映射（与 EUI 一致）
+        g.uvLeft = static_cast<float>(entry.atlasX + 1) / atlasSize_f;
+        g.uvTop = static_cast<float>(entry.atlasY + 1) / atlasSize_f;
+        g.uvRight = static_cast<float>(entry.atlasX + entry.packedW - 1) / atlasSize_f;
+        g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize_f;
         g.width = static_cast<float>(entry.packedW - 2) / supersample_ / dpiScale_;
         g.height = static_cast<float>(entry.packedH - 2) / supersample_ / dpiScale_;
     }
@@ -64,8 +65,7 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
-    // 栅格化分辨率 = 逻辑字号 × DPI 比例 × 超采样倍数
-    // supersample_ 在低 DPI 下自动提升以补偿物理像素不足
+    // NEAREST + 1∶1 栅格化，supersample_=1.0 固定
     FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_ * supersample_));
 
     FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);

@@ -53,7 +53,7 @@ std::shared_ptr<TextLayoutResult> TextRenderPipeline::layoutText(
     const TextLayoutConfig &config)
 {
     auto result = std::make_shared<TextLayoutResult>();
-    auto glyphs = shaper_.shapeText(fontId, text.c_str(), fontSize);
+    auto glyphs = shaper_.shapeText(fontId, text.c_str(), fontSize, dpiScale_);
     if (!glyphs.empty()) {
         *result = TextLayout().layout(glyphs, config);
     }

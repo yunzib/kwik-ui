@@ -19,19 +19,14 @@ import kwik.core.path;
 // 构造 / 析构
 // ============================================================================
 
-Graphics::Graphics(BackendType backend, int width, int height)
-    : width_(width), height_(height) {}
+Graphics::Graphics(BackendType backend, int width, int height) : width_(width), height_(height) {}
 
 Graphics::~Graphics() = default;
 
-Graphics::Graphics(Graphics &&other) noexcept
-    : stateStack_(std::move(other.stateStack_)),
-      currentState_(other.currentState_),
-      builder_(std::move(other.builder_)),
-      existingRoot_(other.existingRoot_),
-      rootLayer_(std::move(other.rootLayer_)),
-      recording_(other.recording_),
-      width_(other.width_), height_(other.height_) {
+Graphics::Graphics(Graphics &&other) noexcept :
+    stateStack_(std::move(other.stateStack_)), currentState_(other.currentState_), builder_(std::move(other.builder_)),
+    existingRoot_(other.existingRoot_), rootLayer_(std::move(other.rootLayer_)), recording_(other.recording_),
+    width_(other.width_), height_(other.height_) {
     other.existingRoot_ = nullptr;
     other.recording_ = false;
 }
@@ -103,8 +98,8 @@ void Graphics::restore() {
     if (recording_) {
         int n = currentState_.pushes;
         while (currentState_.pushes-- > 0) builder_.pop();
-        auto dl = builder_.popGroup();            // ← 改为获取返回值
-        if (dl && contentDepth_ > 0) capturedDrawList_ = dl;  // ← 最外层才缓存到 capturedDrawList_
+        auto dl = builder_.popGroup();                          // ← 改为获取返回值
+        if (dl && contentDepth_ > 0) capturedDrawList_ = dl;    // ← 最外层才缓存到 capturedDrawList_
     }
     if (!stateStack_.empty()) {
         currentState_ = stateStack_.back();
@@ -185,8 +180,7 @@ void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &colo
     builder_.drawRoundedRect(transformed, r, applyOpacity(color));
 }
 
-void Graphics::drawRoundedRectStroke(const Rect &rect, float radius,
-                                      const Color &color, float strokeWidth) {
+void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     if (!recording_) return;
     Rect transformed = transformRect(rect);
     float r = radius * currentState_.sx;
@@ -204,8 +198,8 @@ void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) 
 // 文字
 // ============================================================================
 
-void Graphics::drawText(const std::string &fontPath, const std::string &text,
-                         float fontSize, float x, float y, const Color &color) {
+void Graphics::drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
+                        const Color &color) {
     // 已废弃，保持空实现
 }
 
@@ -216,10 +210,10 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
     auto &s = currentState_;
     std::vector<ShapedGlyph> baked(glyphs);
     for (auto &g : baked) {
-        g.x = g.x * s.sx + s.tx;
-        g.y = g.y * s.sy + s.ty;
-        g.width  *= s.sx;
-        g.height *= s.sy;
+        g.x = std::round(g.x * s.sx + s.tx);
+        g.y = std::round(g.y * s.sy + s.ty);
+        g.width = std::round(g.width * s.sx);
+        g.height = std::round(g.height * s.sy);
     }
     builder_.drawTextCached(baked, applyOpacity(color));
 }
@@ -228,8 +222,7 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 // 图像
 // ============================================================================
 
-void Graphics::drawImage(uint32_t textureId, const Rect &rect,
-                          float opacity, float cornerRadius) {
+void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
     if (!recording_) return;
     Rect transformed = transformRect(rect);
     builder_.drawImage(textureId, transformed, opacity, cornerRadius);

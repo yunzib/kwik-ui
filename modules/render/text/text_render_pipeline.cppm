@@ -103,10 +103,11 @@ public:
      * @brief 设置 DPI 缩放比例，透传给内部 TextCache，
      *        DPI 变更后需在 Application 侧同步调用
      */
-    void setDpiScale(float dpi) { cache_.setDpiScale(dpi); }
+    void setDpiScale(float dpi) { dpiScale_ = dpi; cache_.setDpiScale(dpi); }
 
 private:
     FontManager fontManager_;
+    float dpiScale_ = 1.0f;
 
     TextShaper shaper_{fontManager_};
     TextCache cache_{fontManager_};

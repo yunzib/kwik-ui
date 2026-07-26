@@ -1,5 +1,21 @@
 # 更新日志
 
+## [0.0.0] — 2026-07-26
+
+### 变更
+- 文字渲染管线优化 — 提升 1k（96 DPI）屏幕文字清晰度
+  - 图集采样器 `VK_FILTER_LINEAR` → `VK_FILTER_NEAREST`，消除 1∶1 像素映射下的双线性模糊
+  - 混合模式从双源 `SRC1_COLOR` 改为标准 `SRC_ALPHA / ONE_MINUS_SRC_ALPHA`，
+    片元着色器输出 `outColor = vec4(pc.color.rgb, pc.color.a * alpha)`
+  - 移除 `+0.5f / -0.5f` half-texel UV 偏移，UV 直接映射内容像素边界
+  - 移除 `discard` 指令，消除零覆盖像素的过早裁剪
+  - 超采样固定为 1x（`setDpiScale` 中 `supersample_ = 2.0f → 1.0f`），
+    NEAREST 下 1∶1 像素映射无需超采样
+  - 字形位置/尺寸应用 `std::round()` 对齐整数像素网格（`graphics.cpp:drawTextCached`）
+- Gamma 校正 — 修复 1k 屏幕文字边缘偏暗/阴影问题
+  - Rec. 709 亮度系数计算 gamma 补偿量：`textContrast = 1.0 + luma * 1.2`
+  - 片元着色器应用 `pow(alpha, 1.0 / textContrast)` 校正 FreeType 线性覆盖率
+
 ## [0.0.0] — 2026-07-25
 
 ### 新增

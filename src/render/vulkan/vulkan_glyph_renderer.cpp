@@ -123,15 +123,14 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     rs.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    // dual-source blending: src0 * src1 + dst * (1 - src1)
-    // src1 = 子像素覆盖值 (每通道独立), 消除 LCD 彩色边缘
+    // standard src_alpha blending: src * srcAlpha + dst * (1 - srcAlpha)
     VkPipelineColorBlendAttachmentState ba{};
     ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC1_COLOR;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC1_ALPHA;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     ba.alphaBlendOp = VK_BLEND_OP_ADD;
     ba.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -280,8 +279,8 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
         return false;
     }
     VkSamplerCreateInfo si{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-    si.magFilter = VK_FILTER_LINEAR;
-    si.minFilter = VK_FILTER_LINEAR;
+    si.magFilter = VK_FILTER_NEAREST;
+    si.minFilter = VK_FILTER_NEAREST;
     si.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     si.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -341,7 +340,9 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawG
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    pc.textContrast = 1.0f;
+    // Rec. 709 亮度系数计算 gamma 校正量
+    float luma = cmd.color.r * (0.2126f / 255.f) + cmd.color.g * (0.7152f / 255.f) + cmd.color.b * (0.0722f / 255.f);
+    pc.textContrast = 1.0f + luma * 1.2f;
     pc.pageIndex = cmd.pageIndex;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
@@ -470,7 +471,9 @@ void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, cons
     pc.colorA = cmd.color.a / 255.f * globalAlpha;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    pc.textContrast = 1.0f;
+    // Rec. 709 亮度系数计算 gamma 校正量
+    float luma = cmd.color.r * (0.2126f / 255.f) + cmd.color.g * (0.7152f / 255.f) + cmd.color.b * (0.0722f / 255.f);
+    pc.textContrast = 1.0f + luma * 1.2f;
     pc.pageIndex = cmd.pageIndex;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);

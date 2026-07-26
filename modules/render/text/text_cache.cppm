@@ -56,10 +56,9 @@ public:
     void setDpiScale(float dpi) {
         if (dpiScale_ != dpi) {
             dpiScale_ = dpi;
-            // 低 DPI 屏幕用更高超采样比补偿物理像素密度不足:
-            // 2x 是单个 LINEAR 采样的最优超采样比,
-            // 每像素 UV 精确落于 2 个 texel 之间, 50/50 稳定混合
-            supersample_ = 2.0f;
+            // NEAREST 采样下 1∶1 像素映射，无需超采样:
+            // 保留 supersample_ 字段供未来高 DPI 切换 LINEAR 时使用
+            supersample_ = 1.0f;
             atlasGeneration_++;
         }
     }
@@ -127,7 +126,7 @@ private:
     std::vector<UploadJob> uploads_;
     /** @brief 当前 DPI 缩放比例，默认 1.0 */
     float dpiScale_ = 1.0f;
-    /** @brief 当前超采样倍数, 根据 dpiScale_ 动态计算, 默认 2x */
+    /** @brief 当前超采样倍数，NEAREST 下固定 1x */
     float supersample_ = 2.0f;
 
     /** @brief 尝试在指定页上打包 w×h 矩形 */

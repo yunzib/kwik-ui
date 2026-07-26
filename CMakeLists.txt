@@ -28,7 +28,7 @@ set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefi
 #   "Release"     — O3 + LTO + gc-sections (~3-4 MB)
 #   "MinSizeRel"  — Os + LTO + gc-sections (~2-3 MB)
 # ============================================================================
-set(KWIK_BUILD_TYPE "Debug" CACHE STRING "Debug | Release | MinSizeRel")
+set(KWIK_BUILD_TYPE "Release" CACHE STRING "Debug | Release | MinSizeRel")
 set_property(CACHE KWIK_BUILD_TYPE PROPERTY STRINGS Debug Release MinSizeRel)
 set(CMAKE_BUILD_TYPE "${KWIK_BUILD_TYPE}" CACHE STRING "" FORCE)
 # ── Debug flags ──────────────────────────────────────────

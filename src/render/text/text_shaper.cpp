@@ -41,7 +41,8 @@ TextShaper::TextShaper(FontManager &fontManager) : fontManager_(fontManager) {}
 // shapeText — 完整排版字形序列
 // ═══════════════════════════════════════════════════════════════════════════
 
-auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> std::vector<ShapedGlyph> {
+auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, float dpiScale)
+    -> std::vector<ShapedGlyph> {
     std::vector<ShapedGlyph> result;
 
     auto *face = fontManager_.getFace(fontId);
@@ -54,8 +55,9 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
     float primaryAscender = static_cast<float>(primaryFtFace->size->metrics.ascender) / 64.0f;
 
     // ── 设定 HarfBuzz 缩放 + FreeType 像素尺寸 ──
-    hb_font_set_scale(face->harfbuzzFont(), static_cast<int>(fontSize * 64.0f), static_cast<int>(fontSize * 64.0f));
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
+    float pixelSize = std::round(fontSize * dpiScale);
+    hb_font_set_scale(face->harfbuzzFont(), static_cast<int>(pixelSize * 64.0f), static_cast<int>(pixelSize * 64.0f));
+    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)pixelSize);
 
     // ── HarfBuzz 排版 ──
     auto *buf = getHbBuffer();
@@ -140,23 +142,26 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize) -> s
         // 用回退字体时需重新设定像素尺寸
         float baselineAdjust = 0.0f;
         if (activeFont != fontId) {
-            FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize));
+            FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)pixelSize);
             // 回落字体的基线偏移量 = 主字体 ascender - 回落字体 ascender
             float fbAscender = static_cast<float>(ftFace->size->metrics.ascender) / 64.0f;
             baselineAdjust = primaryAscender - fbAscender;
         }
-        face->loadGlyph(activeGid, FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP);
+        face->loadGlyph(activeGid, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
 
+        float scaleToLogical = fontSize / pixelSize;
         ShapedGlyph sg;
         sg.fontId = activeFont;
         sg.glyphIndex = activeGid;
         sg.fontSize = fontSize;
-        sg.x = cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
-        sg.y = cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust;
-        sg.advanceX = xAdv;
-        sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
-        sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
-        sg.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
+        sg.x = (cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f) * scaleToLogical;
+        sg.y = (cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust)
+               * scaleToLogical;
+        sg.advanceX = xAdv * scaleToLogical;
+        sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f * scaleToLogical;
+        sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f * scaleToLogical;
+        sg.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f * scaleToLogical;
+        sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f * scaleToLogical;
         sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
         sg.cluster = glyphInfo[i].cluster;
         result.push_back(sg);

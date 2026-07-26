@@ -45,7 +45,7 @@ list(SORT _kwik_libs)
 list(APPEND _kwik_libs
     "${PACKAGE_PREFIX_DIR}/lib/libqjs.a"
     "${PACKAGE_PREFIX_DIR}/lib/libqjs-libc.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libfreetyped.a"
+    "${PACKAGE_PREFIX_DIR}/lib/libfreetype.a"
     "${PACKAGE_PREFIX_DIR}/lib/libharfbuzz.a"
     "${PACKAGE_PREFIX_DIR}/lib/libnanosvg.a"
     "${PACKAGE_PREFIX_DIR}/lib/libnanosvgrast.a"
