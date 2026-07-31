@@ -89,11 +89,12 @@ void Text::onDraw(Graphics &graphics) {
 // Text::setPropertyTyped — 处理 text_ 属性的增量更新
 // ═══════════════════════════════════════════════════════════════════════════
 bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "text") == 0) {
+   if (std::strcmp(name, "text") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             text_.text = *s;
             layoutResult_.reset();   // ← 排版结果废止，下次 onDraw 时惰性重建
             markDirty();
+            requestLayout();         // ← 文字变化影响尺寸，增量路径下必须 relayout
             return true;
         }
         return false;

@@ -29,7 +29,7 @@ export default () => Root(
             text: "Click Me",
             width: 180,
             height: 50,
-            // background: "#4CAF50",
+            background: "#4CAF50",
             borderRadius: 8,
             color: "#fff",
             onClick: function (event) {

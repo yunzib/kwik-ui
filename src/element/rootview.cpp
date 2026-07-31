@@ -40,14 +40,7 @@ void RootView::removePortal(View *portal) {
 // draw — 先绘制普通 children，再绘制 Portal
 // ═══════════════════════════════════════════════════════
 void RootView::draw(Graphics &g) {
-    onDraw(g);  // 绘制背景
-
-    // 普通 View 树
-    // for (auto &c : children) {
-    //     if (c->props.visible) { c->draw(g); }
-    // }
-
-    // Portal 层（最上层）
+    View::draw(g); 
     for (auto *p : portals_) {
         p->draw(g);
     }

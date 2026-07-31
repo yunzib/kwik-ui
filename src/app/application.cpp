@@ -79,15 +79,6 @@ Application::~Application() {
 }
 
 // ============================================================================
-// setTracker — 递归注入 DirtyTracker 指针
-// ============================================================================
-static void setTracker(View *v, DirtyTracker *t) {
-    if (!v) return;
-    v->setTracker(t);
-    for (auto &c : v->children) setTracker(c.get(), t);
-}
-
-// ============================================================================
 // init — 启动渲染线程、加载字体、解析 JS、首次布局
 // ============================================================================
 bool Application::init() {
@@ -160,8 +151,6 @@ bool Application::init() {
         return false;
     }
 
-    setTracker(tree_.get(), &dirtyTracker_);    // ─ 注入脏矩形追踪器 ─
-
     jsCtx_.setUserPointer(tree_.get());
 
     // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
@@ -195,7 +184,7 @@ bool Application::init() {
         &mainThreadTaskQueue_);
     Scheduler::init(threadPool_, mainThreadTaskQueue_);
 
-    dirtyTracker_.markFull();    // 首帧必须全屏重绘
+    needsRedraw_ = true;    // 首帧必画
     return true;
 }
 // ============================================================================
@@ -212,18 +201,19 @@ void Application::rebuildTree() {
     // bindingRegistry 不再全局 clear —— unbind 已 inline 处理被销毁的单个 View
 
     if (tree_) {
-        setTracker(tree_.get(), &dirtyTracker_);
         int w, h;
         window_.GetSize(&w, &h);
         float dpi = window_.GetDpiScale();
         auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
-        relayoutTree(sz);    // needsRelayout_ 已在 setPropertyTyped 中标记
+        tree_->markAllMeasureDirty();              // reconcile 直接赋值 props/text，必须全量重测
+        relayoutTree(sz);                          // needsRelayout_ 已在 setPropertyTyped 中标记
+        if (tree_) tree_->clearLayoutRequest();    // 防标志残留导致重复 relayout
     }
 
     eventRouter_.setRootTarget(tree_.get());
     eventRouter_.reset();
     jsCtx_.clearRenderFlag();
-    dirtyTracker_.markFull();
+    if (tree_) tree_->markAllDirty();
     jsCtx_.setUserPointer(tree_.get());
     treeStructureChanged_ = true;
 }
@@ -239,38 +229,29 @@ void Application::rebuildTree() {
  * ⑤ 填入 FrameSubmit 并提交到三缓冲队列
  */
 void Application::renderFrame() {
-    Log::info("[renderFrame] called dirtyTracker.needsRedraw={}", dirtyTracker_.needsRedraw());
     float dpi = window_.GetDpiScale();
-    Rect dr = dirtyTracker_.current();    // 只读，不消费
 
-    // Log::debug("renderFrame: dirty=({},{},{}x{}) empty={} structural={}", dr.x, dr.y, dr.width, dr.height,
-    // dr.isEmpty(), treeStructureChanged_);
+    bool structural = treeStructureChanged_;
+    treeStructureChanged_ = false;
 
+    Graphics canvas;
+    canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
+    canvas.setDirtyRectAccum(&dirtyRect_);    // ← 传入脏矩形累加器
+    canvas.beginFrame(structural);
+    canvas.scale(dpi, dpi);
+
+    tree_->draw(canvas);    // ← 无 forceDraw，靠冒泡跳过
+
+    auto rootLayer = canvas.endFrame();
+
+    // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
+    Rect dr = dirtyRect_;
     if (dr.isEmpty()) {
         int w, h;
         window_.GetSize(&w, &h);
         dr = Rect{0, 0, static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
     }
 
-    bool structural = treeStructureChanged_;
-    treeStructureChanged_ = false;
-
-    // ── Graphics API 不变（适配器模式）──
-    Graphics canvas;
-    canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
-    canvas.beginFrame(structural);
-    canvas.scale(dpi, dpi);
-
-    canvas.drawRect(dr, Color::white());
-    canvas.setForceDraw(true);    // ← 开启：整个层树录制期间跳过所有脏区剔除
-    tree_->draw(canvas);
-    canvas.setForceDraw(false);    // ← 关闭
-    dirtyTracker_.consume();
-
-    // endFrame 返回层树根
-    auto rootLayer = canvas.endFrame();
-
-    // 填入帧元数据
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
     frame.rootLayer = std::move(rootLayer);
@@ -279,15 +260,21 @@ void Application::renderFrame() {
     frame.needsResize = false;
 
     renderThread_.commandQueue().submit();
+
+    dirtyRect_ = {};    // 清零，准备下一帧
+    needsRedraw_ = false;
 }
 
 // ============================================================================
 // relayoutTree — measure 循环 + layout (共用)
 // ============================================================================
 void Application::relayoutTree(Size sz) {
-    // 排版不会触发 MSDF 渲染，一次测量即可
+    View::setMeasurePhase(false);    // 内容测量阶段 (content 槽)
     tree_->measure(Constraints::loose(sz));
+    View::setMeasurePhase(true);    // 布局阶段 (layout 槽 + 就地清测量脏)
     tree_->layout(Rect(0, 0, sz.width, sz.height));
+    View::setMeasurePhase(false);
+    if (tree_) tree_->clearMeasureFlagsSelf();    // 根节点自身标记在布局阶段不重测，这里清零
 }
 
 // ============================================================================
@@ -354,6 +341,8 @@ int Application::run() {
             float dpi = window_.GetDpiScale();
             auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
             relayoutTree(sz);
+            tree_->markAllDirty();
+            needsRedraw_ = true;
         }
 
         if (jsCtx_.isRenderNeeded()) {
@@ -362,12 +351,21 @@ int Application::run() {
             rebuildTree();
         }
 
-        if (resizeBurstFrames_ > 0) {
-            resizeBurstFrames_--;
-            dirtyTracker_.markFull();
+        // 动画帧已由上方 hasLayoutAnimation 全量 relayout + markAllDirty，跳过避免重复
+        if (!AnimationEngine::instance().hasLayoutAnimation() && tree_ && tree_->hasLayoutRequest()) {
+            int w, h;
+            window_.GetSize(&w, &h);
+            float dpi = window_.GetDpiScale();
+            relayoutTree(Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi});
+            tree_->clearLayoutRequest();
         }
 
-        if (dirtyTracker_.needsRedraw()) {
+        if (resizeBurstFrames_ > 0) {
+            resizeBurstFrames_--;
+            needsRedraw_ = true;
+        }
+
+        if (needsRedraw_ || (tree_ && tree_->hasDirtySubtree())) {
             renderFrame();
         } else {
             // ─ UI 静止: 短暂休眠避免空转 ─
@@ -402,10 +400,9 @@ void Application::preloadImageTextures(View *view) {
 // handleResize — 窗口大小变化处理
 // ============================================================================
 void Application::handleResize(int width, int height) {
-    // 直连 FrameSubmit，不经过 Graphics/LayerTreeBuilder
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
-    frame.rootLayer = nullptr;    // resize 帧只重建 swapchain，不携带旧树绘制
+    frame.rootLayer = nullptr;
     frame.needsResize = true;
     frame.resizeWidth = width;
     frame.resizeHeight = height;
@@ -416,16 +413,16 @@ void Application::handleResize(int width, int height) {
     treeStructureChanged_ = true;
 
     float dpi = window_.GetDpiScale();
-    // 通知文本渲染管线更新 DPI 比例，
-    // 使字形栅格化分辨率随新屏幕物理密度自适应
     TextRenderPipeline::instance().setDpiScale(dpi);
     auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
     relayoutTree(sz);
+    if (tree_) tree_->markAllDirty();    // ← 全树脏标记
+
     eventRouter_.reset();
     eventRouter_.setDpiScale(dpi);
-    dirtyTracker_.markFull();
 
-    resizeBurstFrames_ = 10;    // resize 后连续 10 帧全量重绘（≈0.4s，覆盖 DWM 过渡期）
+    needsRedraw_ = true;    // ← 替代 dirtyTracker_.markFull()
+    resizeBurstFrames_ = 10;
 }
 
 // ============================================================================
@@ -522,7 +519,7 @@ void Application::onHotReloadTriggered(const std::string &path) {
         Log::error("[HMR] UI 解析失败");
         return;
     }
-    setTracker(tree_.get(), &dirtyTracker_);
+
     jsCtx_.setUserPointer(tree_.get());
 
     // ⑩ 重建事件路由
@@ -544,6 +541,6 @@ void Application::onHotReloadTriggered(const std::string &path) {
     }
 
     // ⑬ 强制全屏重绘
-    dirtyTracker_.markFull();
+    needsRedraw_ = true;
     renderFrame();
 }

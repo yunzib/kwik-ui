@@ -75,8 +75,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Dialog: return "Dialog";
     case ElementType::Tip: return "Tip";
     case ElementType::G2D: return "G2D";
-    default:
-        return "View";
+    default: return "View";
     }
     return "Unknown";
 }
@@ -198,104 +197,6 @@ private:
 };
 
 // ============================================================================
-// DirtyTracker — 脏矩形追踪器 (解耦 View ↔ Application 避免循环依赖)
-// ============================================================================
-/**
- * @brief 脏矩形追踪器
- *
- * 职责:
- *   - 接收 View::markDirty() 上报的脏区域并求并集
- *   - 供 View::draw() 查询当前脏矩形以跳过干净子树
- *   - 供 Application 取走脏矩形(consume) / 标记全量重绘(markFull)
- */
-export class DirtyTracker {
-public:
-    /**
-     * @brief 累加脏矩形到并集
-     * @param r 新脏区域 (逻辑坐标)
-     */
-    void add(Rect r) {
-        if (dirtyRect_.isEmpty())
-            dirtyRect_ = r;
-        else
-            dirtyRect_ = dirtyRect_.unionRect(r);
-        needsRedraw_ = true;
-    }
-
-    /**
-     * @brief 获取当前脏矩形 (只读, 不清空)
-     * （fullRedraw 期间对外呈现"空" = 全屏语义）:
-     */
-    Rect current() const { return fullRedraw_ ? Rect{} : dirtyRect_; }
-
-    /**
-     * @brief 取走脏矩形并重置状态
-     * @return 脏矩形 (空 = 全屏)
-     */
-    Rect consume() {
-        if (fullRedraw_) {
-            fullRedraw_ = false;
-            needsRedraw_ = false;
-            deferred_ = {};
-            dirtyRect_ = {};
-            return {};    // 空 → renderFrame 展开全屏
-        }
-        // 原有 deferred 合并逻辑不变
-        if (!deferred_.isEmpty()) {
-            dirtyRect_ = dirtyRect_.isEmpty() ? deferred_ : dirtyRect_.unionRect(deferred_);
-            deferred_ = {};
-        }
-        Rect r = dirtyRect_;
-        dirtyRect_ = {};
-        needsRedraw_ = false;
-        return r;
-    }
-
-    /**
-     * @brief 是否有待绘制的脏帧
-     */
-    bool needsRedraw() const { return needsRedraw_; }
-
-    /**
-     * @brief 标记下帧全屏重绘 (resize / rebuildTree 时调用)
-     */
-    void markFull() {
-        fullRedraw_ = true;
-        needsRedraw_ = true;
-    }
-
-    /**
-     * @brief 延迟脏标记 (在 onDraw 中调用, 不影响当前帧的 skip 逻辑)
-     * @param r 脏区域
-     *
-     * 与 add() 的区别: 存入独立缓冲区, 不改变 current() 的返回值。
-     * 由 flushDeferred() 在 frame 结束后统一合并到主 dirtyRect_。
-     */
-    void addDeferred(Rect r) {
-        if (deferred_.isEmpty())
-            deferred_ = r;
-        else
-            deferred_ = deferred_.unionRect(r);
-        needsRedraw_ = true;
-    }
-    /**
-     * @brief 合并所有延迟脏标记到主 dirtyRect_ (在 renderFrame 末尾调用)
-     */
-    void flushDeferred() {
-        if (!deferred_.isEmpty()) {
-            dirtyRect_ = dirtyRect_.isEmpty() ? deferred_ : dirtyRect_.unionRect(deferred_);
-            deferred_ = {};
-        }
-    }
-
-private:
-    Rect dirtyRect_ = {};
-    bool needsRedraw_ = true;    // 首帧默认全画
-    Rect deferred_ = {};
-    bool fullRedraw_ = false;    // markFull 后显式标记
-};
-
-// ============================================================================
 // View 控件类
 // ============================================================================
 /**
@@ -356,18 +257,39 @@ public:
 
     // ==================== 布局接口 ====================
     /**
-     * @brief 测量控件尺寸
-     * @param constraints 布局约束
-     * @return 控件期望尺寸
+     * @brief 测量控件（增量入口）
+     *
+     * 内容/子树未变 且 传入约束与上次一致 → 复用缓存尺寸，不再递归下探。
+     * 相位由 View::setMeasurePhase 控制：内容测量阶段写 content 槽，
+     * 布局阶段写 layout 槽——onMeasure 传 constraints.inset、onLayout 传
+     * loose(contentW,contentH)，两者约束可不同，须独立缓存。
      */
-    Size measure(Constraints constraints) { return onMeasure(constraints); }
-    /**
-     * @brief 布局控件
-     * @param bounds 控件在父坐标系中的边界矩形
-     */
+    Size measure(Constraints c) {
+        bool lp = sLayoutPhase;
+        auto &sz = lp ? layoutSize_ : contentSize_;
+        auto &last = lp ? lastLayoutC_ : lastContentC_;
+        if (!needsMeasure_ && !subtreeMeasure_ && c == last) { return sz; }
+        last = c;
+        sz = onMeasure(c);
+        return sz;
+    }
+
+    /** @brief 布局控件（增量：frame 未动 且 子节点无测量变更 → 跳过子树重排） */
     void layout(Rect bounds) {
+        bool moved =
+            frame.x != bounds.x || frame.y != bounds.y || frame.width != bounds.width || frame.height != bounds.height;
         frame = bounds;
-        onLayout();
+        if (moved) { markDirty(); }
+        bool childChanged = false;
+        for (auto &c : children) {
+            if (c->needsMeasure_ || c->subtreeMeasure_) {
+                childChanged = true;
+                break;
+            }
+        }
+        if (moved || childChanged) { onLayout(); }
+        needsMeasure_ = false;    // ← 末段才清，childChanged 判据真实
+        subtreeMeasure_ = false;
     }
     // ==================== 绘制接口 ====================
     /**
@@ -471,26 +393,30 @@ public:
     EventTarget *hitTest(Point point) override;
 
     // ==================== 脏标记接口 ====================
-    /**
-     * @brief 标记本控件为脏 (属性变更时自动调用)
-     */
+    /** @brief 标记本控件为脏 + 向上冒泡 (属性变更／onDraw 内延迟／动画帧统一入口) */
     void markDirty();
 
     /**
-     * @brief 清空脏标记 (绘制完成后调用)
+     * @brief 递归标记整棵子树为脏 (resize / rebuild 后调用)
+     *
+     * 清除所有缓存, 设置 dirty_=subtreeDirty_=true, 确保下一帧全量重录。
      */
-    void clearDirty() { dirty_ = false; }
+    void markAllDirty();
 
-    /**
-     * @brief 是否脏
-     */
+    /** @brief 是否脏 */
     bool isDirty() const { return dirty_; }
 
-    /**
-     * @brief 设置脏矩形追踪器 (由 Application 在 parse 后递归注入)
-     * @param t DirtyTracker 指针
+    /** @brief 标记自身为脏并追加额外脏矩形（用于 onDraw 画到 frame 外的场景）
+     *  @param r 额外的脏矩形，会在 draw() 中与 frame 联集后累加给 GPU */
+    void addDirtyRect(const Rect &r);
+
+    /** @brief 判断子树中是否有脏节点
+     *
+     *  markDirty() 的 propagateDirtyUp 会将祖先的 subtreeDirty_ 设为 true，
+     *  主循环据此判断整棵树是否需要重绘。
+     *  renderFrame 中的 draw() 遍历后自动清零。
      */
-    void setTracker(DirtyTracker *t) { tracker_ = t; }
+    bool hasDirtySubtree() const { return subtreeDirty_; }
 
     JSContext *getJSContext() const { return handlers.ctx; }
 
@@ -523,29 +449,44 @@ public:
      * @brief 请求重新布局（layoutAffecting 属性变更后调用）
      *
      *  由 applyAnimationFrame 内部自动触发，无需手动调用。
-     *  设置 needsRelayout_ 标志，Application 主循环检测后执行 relayoutTree。
+     *  设置 needsRelayout_ 标志并沿父链冒泡 subtreeLayout_，
+     *  Application 主循环检测后执行 relayoutTree。
      */
     void requestLayout();
 
+    /** @brief 设置测量相位（Application::relayoutTree 调用；false=内容测量, true=布局） */
+    static void setMeasurePhase(bool layoutPhase) { sLayoutPhase = layoutPhase; }
+
+    /** @brief 递归标记整棵子树需要重新测量（rebuild 后强制全量测量用） */
+    void markAllMeasureDirty();
+
+    /** @brief 布局完成后清除根节点自身测量标记（仅 Application::relayoutTree 末尾调用） */
+    void clearMeasureFlagsSelf() {
+        needsMeasure_ = false;
+        subtreeMeasure_ = false;
+    }
+
+    /** @brief 子树中是否有待处理的重布局请求（主循环每帧检测用） */
+    bool hasLayoutRequest() const { return needsRelayout_ || subtreeLayout_; }
+
+    /** @brief 清空全子树的重布局请求（relayoutTree 执行后调用） */
+    void clearLayoutRequest() {
+        needsRelayout_ = false;
+        subtreeLayout_ = false;
+        for (auto &c : children) { c->clearLayoutRequest(); }
+    }
+
     /**
-     * @brief 强制绘制：跳过全局脏区剔除（tracker 相交测试）
+     * @brief 强制录制（跳过脏判断，供 ListLayout 等滚动容器调用）
      *
-     * 供 ListLayout 等滚动容器调用——其子项的有效屏幕位置 = frame - scrollOffset，
-     * 与 DirtyTracker 的布局坐标系不一致，剔除必须由容器自行按滚动偏移完成。
+     * 始终走录制模式，由调用方保证子节点已独立判定是否需要重绘。
      */
     void drawForced(Graphics &g) {
         if (!props.visible) return;
-        g.setForceDraw(true);
-        // drawForced 不参与缓存决策——由调用方（ListLayout）保证子节点已独立判定
-        // 这里始终走录制模式
         g.beginContent(nullptr);
         onDraw(g);
-        auto dl = g.endContent();
-        if (dl) cachedDrawList_ = dl;
-        g.setForceDraw(false);
+        g.endContent();    // 画布即缓存：结果已写入层树，不再缓存
     }
-
-    void invalidateDrawCache() { cachedDrawList_.reset(); }    ///< 清空缓存（markDirty时调用可选项）
 
     /**
      * @brief 建立 View → State 的反向绑定
@@ -567,7 +508,7 @@ public:
      * 返回其持有的 ThemeData const 引用。
      * 若树中无 ThemeProvider, 返回 ThemeData::defaultTheme() 兜底。
      */
-    virtual const ThemeData &theme() const;  
+    virtual const ThemeData &theme() const;
 
     /**
      * @brief 解析主题默认值（树构建完成后由 parseNode 调用）
@@ -597,37 +538,23 @@ protected:
      */
     virtual void onDraw(Graphics &graphics);
 
-    /**
-     * @brief 上报自定义脏矩形 (用于绘制区域超出 frame 的控件)
-     * @param r 脏区域 (逻辑坐标)
-     *
-     * 默认 markDirty() 仅上报 frame 范围。
-     * 子类若在 onDraw() 中绘制内容超出 frame (如 Dropdown 的弹出菜单),
-     * 应在状态变更时调用此方法确保完整可视区域被清理重绘。
-     */
-    void addDirtyRect(Rect r) {
-        dirty_ = true;
-        if (tracker_ && !r.isEmpty()) tracker_->add(r);
-    }
-
-    /**
-     * @brief 延迟脏标记 (onDraw 内调用, 不影响当前帧 skip 逻辑)
-     *
-     * 将 frame 加入 deferred 缓冲区, 在 renderFrame 末尾 flushDeferred 合并。
-     * 与 markDirty() 的区别: 不修改 tracker_->current(), 不导致当前帧后续 Widget 被跳过。
-     */
-    void markDirtyDeferred() {
-        dirty_ = true;
-        if (tracker_ && !frame.isEmpty()) tracker_->addDeferred(frame);
-    }
-
 private:
-    View *parent_ = nullptr;             // 父节点 (addChild 自动设置, 裸指针不参与所有权)
-    bool dirty_ = true;                  // 新建后默认脏 (首帧必画)
-    DirtyTracker *tracker_ = nullptr;    // 脏矩形追踪器 (由 Application 注入)
-    bool needsRelayout_ = false;         // 标记需要 re-layout
+    View *parent_ = nullptr;        // 父节点 (addChild 自动设置, 裸指针不参与所有权)
+    bool dirty_ = true;             // 新建后默认脏 (首帧必画)
+    bool subtreeDirty_ = true;      // 子树中有脏节点 (首帧全遍历)
+    bool needsRelayout_ = false;    // 标记需要 re-layout
+    bool subtreeLayout_ = false;    // 子树中有节点请求 re-layout (requestLayout 冒泡)
+    Rect dirtyRectOverride_;        ///< addDirtyRect 累积的额外脏区，draw() 使用后清零
+    Rect lastPaintBounds_;          ///< 上次实际绘制范围（脏区底图覆盖旧范围用，见 draw ③态）
 
-    std::shared_ptr<DrawList> cachedDrawList_;    ///< 上次录制的绘制列表（null=未录制）
+    // ── 增量测量缓存 ──
+    Size contentSize_;               ///< 内容测量阶段缓存尺寸
+    Constraints lastContentC_;       ///< 内容阶段上次约束
+    Size layoutSize_;                ///< 布局阶段缓存尺寸
+    Constraints lastLayoutC_;        ///< 布局阶段上次约束
+    bool needsMeasure_ = true;       ///< 自身内容需重新测量 (新建默认 true → 首帧全量)
+    bool subtreeMeasure_ = false;    ///< 子树中有节点需重新测量 (requestLayout 冒泡)
+    static bool sLayoutPhase;        ///< 当前测量相位 (内容/布局)
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针
@@ -639,4 +566,28 @@ private:
     void fixChildrenParent() {
         for (auto &child : children) { child->parent_ = this; }
     }
+
+    /** @brief 绘制完成后清脏 (仅 draw() 内部调用) */
+    void clearDirty() {
+        dirty_ = false;
+        dirtyRectOverride_ = {};
+    }
+
+    /**
+     * @brief 计算绘制影响区（脏区底图填充 + 脏矩形累积用）
+     *
+     * = frame ∪ transform 平移包围盒 ∪ scale 缩放包围盒。
+     * 按下缩放 0.97<1 时结果仍是 frame，恰好覆盖旧按钮的整个范围。
+     * 不含 shadow 扩展：避免底图填充扩入邻居元素导致误擦除。
+     */
+    Rect paintBounds() const;
+
+    /**
+     * @brief 计算该 View 下面的底图颜色（脏区重绘前填充用）
+     *
+     * 沿父链向上找最近一个不透明（alpha==255）的背景颜色；
+     * 无则不透明祖先时回退画布底色 Color{245,245,245,255}
+     * （与 Vulkan 画布初值 0.96 一致，见 vulkan_context.cpp 首帧 clear）。
+     */
+    Color underlayColor() const;
 };

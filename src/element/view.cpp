@@ -12,6 +12,11 @@ import kwik.core.log;
 import kwik.core.prop_meta;
 
 import std;
+
+
+bool View::sLayoutPhase = false;
+
+
 // ============================================================================
 // ViewEventHandlers 实现
 // ============================================================================
@@ -224,40 +229,91 @@ void View::onLayout() {
         child->layout(Rect{px, py, childSize.width, childSize.height});
     }
 }
+
 // ============================================================================
-// View 绘制实现
+// View::draw — 增量重绘：无脏标记零操作，只有脏内容才进入命令树
+//
+// 三种状态（架构不变量：命令树 = 脏内容 + 必要作用域(clip)）：
+//   ① 自身与子树都干净 → 零操作，整棵子树不遍历（画布即缓存，无需任何处理）
+//   ② 仅子树有脏      → 透传通道：自身绘制全部 no-op（不重放、不重录），
+//                        子节点内容直接挂到上级容器；沿途必要作用域(clip)层保留
+//   ③ 自身脏          → 正常录制：重录自身内容 + 遍历子树重录脏后代
 // ============================================================================
 void View::draw(Graphics &graphics) {
     if (!props.visible) return;
 
-    // 全局脏区跳过（forceDraw 模式下绕过）
-    if (!dirty_ && !graphics.isForceDraw()
-        && !tracker_->current().isEmpty()
-        && !frame.intersects(tracker_->current())) {
-        return;
+    // ── ① 无脏标记 → 零操作 ──
+    if (!dirty_ && !subtreeDirty_) return;
+
+    // 清子树脏标记：在 onDraw 之前清，onDraw 内调 markDirty 会重新设
+    subtreeDirty_ = false;
+
+    if (dirty_) {
+        // ── ③ 自身脏 → 先重建脏区底图，再重录自身 + 子树 ──
+        // 画布是持久表面（LOAD_OP_LOAD）：重录内容前必须用"下面应有的底色"
+        // 把旧像素盖掉，否则新内容叠在旧内容上 → 文字/边框/按钮框叠加重影。
+        // 底图覆盖范围 = 本次 paintBounds ∪ 上次绘制范围（lastPaintBounds_）：
+        // 文字变短/元素移动时，旧内容超出新 frame（尾部/原位残留），必须一并盖掉。
+        Rect bounds = paintBounds();
+        Rect region = lastPaintBounds_.unionRect(bounds);    // lastPaintBounds_ 空时即 bounds
+        graphics.beginContent(nullptr);
+        graphics.drawUnderlay(region, underlayColor());
+        onDraw(graphics);
+        graphics.endContent();
+
+        // 脏矩形覆盖 旧+新 范围，供 blit 增量拷贝（画布干净了，swapchain 也要收到）
+        Rect paint = region.unionRect(dirtyRectOverride_);
+        graphics.accumulateDirtyRect(paint);
+
+        lastPaintBounds_ = bounds;    // 记录本次范围，供下次变短/移动时覆盖旧范围
+    } else {
+        // ── ② 仅子树脏 → 透传通道（自身零内容） ──
+        // onDraw 内的自身绘制经 pushNoop 全部 no-op（画布已缓存，不重放不重录）；
+        // 子节点的 save() 创建真实 Group 直挂当前（上级）容器；
+        // 沿途 clipRoundedRect 等必要作用域层照常生成。
+        // 不 accumulateDirtyRect：自身没重画任何像素，脏区只由脏后代各自累积。
+        graphics.beginContent(nullptr, /*passThrough=*/true);
+        onDraw(graphics);
+        graphics.endContent();
     }
 
-    // 脏 → 录制；干净+有缓存 → 注入
-    if (!dirty_ && cachedDrawList_) {
-        graphics.beginContent(cachedDrawList_);        // 注入模式
-    } else {
-        graphics.beginContent(nullptr);                 // 录制模式
+    clearDirty();    // ─ 绘制完成后清脏 ─
+}
+
+Rect View::paintBounds() const {
+    Rect b = frame;
+
+    // transform 平移扩展
+    if (props.transform.has_value()) {
+        Rect t{frame.x + props.transform->translateX, frame.y + props.transform->translateY, frame.width, frame.height};
+        b = b.unionRect(t);
     }
-    onDraw(graphics);
-    if (!dirty_ && cachedDrawList_) {
-        graphics.endContent();                          // 注入模式不产生新 DrawList
-    } else {
-        cachedDrawList_ = graphics.endContent();        // 录制模式取回结果并缓存
+
+    // scale 缩放扩展（绕 frame 中心）
+    if (props.scale != 1.0f) {
+        float cx = frame.x + frame.width * 0.5f;
+        float cy = frame.y + frame.height * 0.5f;
+        float hw = frame.width * props.scale * 0.5f;
+        float hh = frame.height * props.scale * 0.5f;
+        Rect s{cx - hw, cy - hh, hw * 2.0f, hh * 2.0f};
+        b = b.unionRect(s);
     }
+    return b;
+}
+
+Color View::underlayColor() const {
+    // 沿父链找最近一个不透明背景；半透明背景（a<255）跳过，
+    // 因为其合成结果不是纯色，直接近似为更深层的不透明底色。
+    for (View *p = parent_; p; p = p->parent_) {
+        if (p->props.background.isVisible() && p->props.background.a == 255) { return p->props.background; }
+    }
+    return Color{245, 245, 245, 255};    // 画布初值 0.96 灰
 }
 
 void View::onDraw(Graphics &graphics) {
     graphics.save();
 
-    // ── 应用位移变换（在原始坐标系中平移，不受缩放影响）──
     if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
-
-    // ── 应用通用缩放 ──
     if (props.scale != 1.0f) {
         float cx = frame.x + frame.width * 0.5f;
         float cy = frame.y + frame.height * 0.5f;
@@ -265,10 +321,6 @@ void View::onDraw(Graphics &graphics) {
         graphics.scale(props.scale, props.scale);
         graphics.translate(-cx, -cy);
     }
-
-    // ── 应用位移变换 ──
-    // if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY);
-    // }
 
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;
@@ -281,7 +333,12 @@ void View::onDraw(Graphics &graphics) {
                         frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
 
-    // ── 按 z 升序排列子节点 ──
+    // ── 只遍历脏子树 ──
+    // 收集直接子节点脏区并集：被脏兄弟覆盖的干净兄弟也需重绘，保持 z-order
+    Rect subDirty;
+    for (auto &c : children)
+        if (c->dirty_ && c->props.visible) subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
+
     bool needSort = false;
     for (auto &c : children) {
         if (c->props.z != 0) {
@@ -293,12 +350,18 @@ void View::onDraw(Graphics &graphics) {
         std::vector<View *> sorted;
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
-        for (auto *c : sorted) { c->draw(graphics); }
+        for (auto *c : sorted) {
+            bool isDirty = c->dirty_ || c->subtreeDirty_;
+            bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
+            if (isDirty || overlaps) c->draw(graphics);
+        }
     } else {
-        for (auto &c : children) { c->draw(graphics); }
+        for (auto &c : children) {
+            bool isDirty = c->dirty_ || c->subtreeDirty_;
+            bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
+            if (isDirty || overlaps) c->draw(graphics);
+        }
     }
-
-    clearDirty();    // ─ 绘制完成后标记干净 ─
     graphics.restore();
 }
 
@@ -477,12 +540,49 @@ bool View::setProperty(const char *name, const char *value) {
 }
 
 // ============================================================================
-// markDirty — 标记本控件区域为脏
+// markDirty — 标记本控件区域为脏 + 向上冒泡
 // ============================================================================
 void View::markDirty() {
     dirty_ = true;
-    cachedDrawList_.reset();           // ← 脏了→缓存作废
-    if (tracker_) tracker_->add(frame);
+    View *p = parent_;
+    while (p && !p->subtreeDirty_) {
+        p->subtreeDirty_ = true;
+        p = p->parent_;
+    }
+}
+
+// ============================================================================
+// markAllDirty — 递归标记整棵子树为脏 (resize/rebuild 后调用)
+// ============================================================================
+void View::markAllDirty() {
+    dirty_ = true;
+    subtreeDirty_ = true;
+    for (auto &c : children) c->markAllDirty();
+    // 向上冒泡
+    View *p = parent_;
+    while (p && !p->subtreeDirty_) {
+        p->subtreeDirty_ = true;
+        p = p->parent_;
+    }
+}
+
+// markAllMeasureDirty — 递归标记整棵子树需要重新测量 (rebuild 后强制全量测量)
+void View::markAllMeasureDirty() {
+    needsMeasure_ = true;
+    subtreeMeasure_ = false;
+    for (auto &c : children) c->markAllMeasureDirty();
+}
+
+// ============================================================================
+// addDirtyRect — 标记脏 + 扩充脏矩形（菜单/弹出层等画到 frame 外的控件使用）
+// ============================================================================
+void View::addDirtyRect(const Rect &r) {
+    markDirty();
+    if (dirtyRectOverride_.isEmpty()) {
+        dirtyRectOverride_ = r;
+    } else {
+        dirtyRectOverride_ = dirtyRectOverride_.unionRect(r);
+    }
 }
 
 bool View::setPropertyTyped(const char *name, const TypedProp &value) {
@@ -536,30 +636,20 @@ void View::writeProperty(PropId prop, const TypedProp &value) {
 void View::applyAnimationFrame(PropId prop, const TypedProp &value) {
     const auto &meta = getPropMeta(prop);
     if (!meta.writer) return;
-
-    if (prop == PropId::scale) {
-        float oldScale = props.scale;
-        meta.writer(props, value);
-        dirty_ = true;
-        if (tracker_ && !frame.isEmpty()) {
-            for (float s : {oldScale, props.scale}) {
-                Rect r = {frame.x - frame.width * (s - 1.0f) * 0.5f - 1.0f,
-                          frame.y - frame.height * (s - 1.0f) * 0.5f - 1.0f, frame.width * s + 2.0f,
-                          frame.height * s + 2.0f};
-                tracker_->add(r);
-            }
-        }
-    } else {
-        meta.writer(props, value);
-        dirty_ = true;
-        if (tracker_ && !frame.isEmpty()) tracker_->add(frame);
-    }
-
-    if (meta.layoutAffecting) { needsRelayout_ = true; }
+    meta.writer(props, value);
+    markDirty();    // ← 替换 inline 的三行
+    if (meta.layoutAffecting) { requestLayout(); }
 }
 
 void View::requestLayout() {
+    needsMeasure_ = true;
     needsRelayout_ = true;
+    View *p = parent_;
+    while (p && !(p->subtreeMeasure_ && p->subtreeLayout_)) {
+        p->subtreeMeasure_ = true;
+        p->subtreeLayout_ = true;
+        p = p->parent_;
+    }
 }
 
 const ThemeData &View::theme() const {

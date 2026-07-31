@@ -115,6 +115,13 @@ public:
     void clear(const Color &color);
     void clearRectArea(const Rect &rect);
     void drawRect(const Rect &rect, const Color &color);
+    /**
+     * @brief 绘制脏区底图（忽略注入 no-op，强制录制）
+     *
+     * 供 View::draw ③态调用：用最近不透明祖先的底色填充 paintBounds，
+     * 覆盖持久画布（LOAD_OP_LOAD）上残留的旧像素，防止增量重录时内容叠加/重影。
+     */
+    void drawUnderlay(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
@@ -131,29 +138,37 @@ public:
     void resize(int width, int height);
     void getSize(int *width, int *height) const;
 
-    void setForceDraw(bool v) { forceDraw_ = v; }
-    bool isForceDraw() const { return forceDraw_; }
-
     /**
      * @brief 开启一个 View 的内容录制域
      *
-     * 在 View::draw 中调用。若 cachedDrawList 非空→注入模式（Builder 直接复用）；
-     * 若空→录制模式（Builder 创建 Recorder，endContent 返回录制结果）。
+     * @param cachedDrawList 非空→注入模式（Builder 直接复用旧 DrawList）。
+     *                       注意：透传/重录均已改为画布即缓存，恒传 nullptr，参数仅保留兼容。
+     * @param passThrough    透传模式：不创建 Group、本域内 draw* no-op（View::draw ②态）。
      */
-    void beginContent(std::shared_ptr<DrawList> cachedDrawList) {
+    void beginContent(std::shared_ptr<DrawList> cachedDrawList, bool passThrough = false) {
         injectedDrawList_ = std::move(cachedDrawList);
         contentDepth_++;
+        passThrough_ = passThrough;
     }
 
     /**
      * @brief 关闭 View 的内容录制域
-     * @return 录制产生的 DrawList（注入模式返回 nullptr）
+     * @return 录制产生的 DrawList（注入/透传模式返回 nullptr；结果已直接写入层树，无需缓存）
      */
     std::shared_ptr<DrawList> endContent() {
         contentDepth_--;
+        passThrough_ = false;    // 防御：若 onDraw 未消费透传标志（未调用 save），强制复位
         auto dl = std::move(capturedDrawList_);
         capturedDrawList_.reset();
         return dl;
+    }
+
+    /// @brief 设置脏矩形累加器（每帧由 Application 传入）
+    void setDirtyRectAccum(Rect *r) { dirtyRectAccum_ = r; }
+
+    /// @brief 累加脏矩形（View::draw 中调用）
+    void accumulateDirtyRect(const Rect &r) {
+        if (dirtyRectAccum_) { *dirtyRectAccum_ = dirtyRectAccum_->isEmpty() ? r : dirtyRectAccum_->unionRect(r); }
     }
 
 private:
@@ -189,9 +204,11 @@ private:
     int width_ = 0;
     int height_ = 0;
 
-    bool forceDraw_ = false;
+    /** @brief 脏矩形累加器指针（Application 在 beginFrame 时传入） */
+    Rect *dirtyRectAccum_ = nullptr;
 
     std::shared_ptr<DrawList> injectedDrawList_;    ///< View→Builder 注入通道（非空=复用）
     std::shared_ptr<DrawList> capturedDrawList_;    ///< Builder→View 捕获通道（popGroup 返回）
     int contentDepth_ = 0;                          ///< 嵌套域深度（最外层才捕获）
+    bool passThrough_ = false;                      ///< 透传模式标志（View::draw ②态；save() 一次性消费）
 };

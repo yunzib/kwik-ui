@@ -38,7 +38,7 @@ public:
      */
     struct RunConfig {
         std::string jsPath;                   // JS 入口文件
-        bool enableHotReload = true;           /**< true=文件系统+热重载，false=嵌入式字节码 */
+        bool enableHotReload = true;          /**< true=文件系统+热重载，false=嵌入式字节码 */
         std::vector<std::string> fontDirs;    // 字体搜索目录
         int width = 800;                      // 窗口逻辑宽度（仅在 screenRatio == 0 时生效）
         int height = 600;                     // 窗口逻辑高度（仅在 screenRatio == 0 时生效）
@@ -118,7 +118,6 @@ private:
     std::unique_ptr<View> tree_;
     bool running_ = false;
     bool cacheSaved_ = false;            // 字形缓冲
-    DirtyTracker dirtyTracker_;          // 脏矩形追踪器 (在 kwik.element.view 中定义)
     BindingRegistry bindingRegistry_;    // 绑定注册表（增量更新用）
 
     ThreadPool threadPool_{4};         // 4 线程的线程池
@@ -131,6 +130,10 @@ private:
     uint64_t frameId_ = 0; /**< 单调递增帧序号，写入 FrameSubmit.frameId */
 
     int resizeBurstFrames_ = 0;
+
+    // 新增:
+    Rect dirtyRect_;             // 脏矩形累加器（每帧被 Graphics 写入）
+    bool needsRedraw_ = true;    // 首帧要画
 
     void handleResize(int width, int height);
 
@@ -178,5 +181,4 @@ private:
     void pollFilesForHotReload();
     /// 检测到文件变更时的重载处理
     void onHotReloadTriggered(const std::string &path);
-
 };

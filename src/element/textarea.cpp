@@ -307,7 +307,7 @@ void TextArea::onDraw(Graphics &graphics) {
 
     // ── 光标 ──────────────────────────────────────────────────────
     if (focused_ && !props_.readOnly && textResult_) {
-        if (updateCursorBlink()) markDirtyDeferred();
+        if (updateCursorBlink()) markDirty();
         if (cursorVisible_) {
             size_t pos = cursorBytePos_;
             float cx = inner.x;

@@ -46,6 +46,19 @@ public:
      */
     std::shared_ptr<DrawList> popGroup();
 
+    /**
+     * @brief 透传模式：不创建 Group，仅将 draw* 置为 no-op（对应 Graphics 透传 save）
+     *
+     * 与 pushGroup 的差别仅在于不创建 ContainerLayer、不换 currentContainer_：
+     * 本域内的绘制全部被抑制（自身内容 no-op），子节点的 save() 创建的真实
+     * Group 直接挂到当前（上级）容器。栈帧照常压栈，popGroup 会还原上一级
+     * 容器与注入模式，天然成对。
+     *
+     * 用途：View::draw 的"仅子树脏"透传态——自身内容不重放、不重录，
+     *       命令树 = 脏内容 + 必要作用域(clip)。
+     */
+    void pushNoop();
+
     // ── 新增：供 Graphics 适配器调用的绘制方法 ──
 
     /**
@@ -76,6 +89,14 @@ public:
 
     void clear(const Color &color);
     void drawRect(const Rect &rect, const Color &color, BlendMode mode = BlendMode::SrcOver);
+    /**
+     * @brief 强制录制填充矩形（忽略注入 no-op）
+     *
+     * 用于 View::draw ③态的"脏区底图重建"：脏节点可能位于 pass-through 祖先的
+     * no-op 域内（injectionMode_==true），此时普通 drawRect 会被抑制；
+     * drawRectForced 无视该标志，确保底图填充始终进入命令树，覆盖画布上残留的旧像素。
+     */
+    void drawRectForced(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
@@ -92,6 +113,7 @@ private:
     struct StackFrame {
         ContainerLayer *container;   ///< 当前容器层（子层挂接点）
         DrawListRecorder *recorder;   ///< 当前图片录制器（正在录制的 Picture）
+        bool injectionMode;
     };
 
     /** @brief 根层（ContainerLayer，最外层容器） */

@@ -102,9 +102,9 @@ void LayerTreeBuilder::pushGroup(std::shared_ptr<DrawList> injectedDrawList) {
     // 否则嵌套 save/restore（如 Checkbox 文字区）会覆盖外层的 activeRecorder_，
     // 导致外层已录制的绘制命令全部丢失。
     flushRecorder();
-    
-    // 保存当前容器位置到栈（不含 Recorder——flush++ 后 currentRecorder_ 总是 null）
-    stack_.push_back({currentContainer_, nullptr});
+
+    // 保存当前容器位置到栈
+    stack_.push_back({currentContainer_, nullptr, injectionMode_});
 
     // 创建 Group 并挂到当前容器下
     auto group = std::make_unique<ContainerLayer>();
@@ -125,6 +125,21 @@ void LayerTreeBuilder::pushGroup(std::shared_ptr<DrawList> injectedDrawList) {
     }
 }
 
+void LayerTreeBuilder::pushNoop() {
+    // 与 pushGroup 前置行为一致：先定稿当前 Recorder，保证 z-order 顺序
+    // （例如父节点已录制的背景色必须先封成 DrawListLayer，子内容排其后）。
+    flushRecorder();
+
+    // 压栈保存当前容器与注入模式；与 pushGroup 不同：不创建 Group 节点，
+    // currentContainer_ 保持不变 → 本域内的子内容直接挂到上级容器。
+    stack_.push_back({currentContainer_, nullptr, injectionMode_});
+
+    // 打开 no-op：本域内 draw*（自身背景/边框/阴影/文字等）全部抑制。
+    // 子节点的 save()→pushGroup 会压入新的栈帧并在其内恢复录制（injectionMode_=false），
+    // 弹栈时从帧内还原本 no-op 值，因此可正确嵌套。
+    injectionMode_ = true;
+}
+
 std::shared_ptr<DrawList> LayerTreeBuilder::popGroup() {
     if (stack_.empty()) return nullptr;
 
@@ -141,8 +156,8 @@ std::shared_ptr<DrawList> LayerTreeBuilder::popGroup() {
     auto prev = stack_.back();
     stack_.pop_back();
     currentContainer_ = prev.container;
-    // currentRecorder_ 已在上面或 flush 中置空，stack 里存的也是 nullptr
-    injectionMode_ = false;    // 离开作用域，恢复到父 Group 的模式
+    // （从栈帧还原上一层的真实状态）:
+    injectionMode_ = prev.injectionMode;
 
     return result;    // 录制模式返回 DrawList（供 Graphics 传给 View 缓存），注入模式返回空
 }
@@ -216,8 +231,8 @@ void LayerTreeBuilder::drawTextCached(const std::vector<ShapedGlyph> &glyphs, co
         // 录制模式：逐字形写入当前 Recorder，后续 flush 时统一封成 DrawListLayer
         for (auto &g : glyphs) {
             DrawGlyphCmd cmd{
-                g.fontId, g.glyphIndex, g.x, g.y, g.width, g.height, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color,
-                static_cast<float>(g.pageIndex),
+                g.fontId, g.glyphIndex, g.x,       g.y,        g.width, g.height,
+                g.uvLeft, g.uvTop,      g.uvRight, g.uvBottom, color,   static_cast<float>(g.pageIndex),
             };
             currentRecorder_->drawGlyph(cmd);
         }
@@ -226,8 +241,8 @@ void LayerTreeBuilder::drawTextCached(const std::vector<ShapedGlyph> &glyphs, co
         auto recorder = std::make_shared<DrawListRecorder>();
         for (auto &g : glyphs) {
             DrawGlyphCmd cmd{
-                g.fontId, g.glyphIndex, g.x, g.y, g.width, g.height, g.uvLeft, g.uvTop, g.uvRight, g.uvBottom, color,
-                static_cast<float>(g.pageIndex),
+                g.fontId, g.glyphIndex, g.x,       g.y,        g.width, g.height,
+                g.uvLeft, g.uvTop,      g.uvRight, g.uvBottom, color,   static_cast<float>(g.pageIndex),
             };
             recorder->drawGlyph(cmd);
         }
@@ -258,6 +273,20 @@ void LayerTreeBuilder::drawRect(const Rect &rect, const Color &color, BlendMode 
     } else {
         auto recorder = std::make_shared<DrawListRecorder>();
         recorder->drawRect(rect, color, mode);
+        auto pic = recorder->endRecording();
+        currentContainer_->addChild(std::make_unique<DrawListLayer>(std::move(pic)));
+    }
+    recordCount_++;
+}
+
+void LayerTreeBuilder::drawRectForced(const Rect &rect, const Color &color) {
+    // 与 drawRect 完全一致，唯一差别：不做 injectionMode_ 短路。
+    // 底图填充必须在 pass-through 祖先的 no-op 域内也能录制。
+    if (currentRecorder_) {
+        currentRecorder_->drawRect(rect, color, BlendMode::SrcOver);
+    } else {
+        auto recorder = std::make_shared<DrawListRecorder>();
+        recorder->drawRect(rect, color, BlendMode::SrcOver);
         auto pic = recorder->endRecording();
         currentContainer_->addChild(std::make_unique<DrawListLayer>(std::move(pic)));
     }

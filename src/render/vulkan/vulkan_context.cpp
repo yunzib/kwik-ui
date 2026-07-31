@@ -1073,9 +1073,5 @@ void VulkanContext::accumulateDirtyRect(const Rect &dirtyRect) {
     double dh = std::ceil(dirtyRect.height);
     Rect r{std::max(0.0f, (float)dirtyRect.x), std::max(0.0f, (float)dirtyRect.y), std::max(1.0f, (float)dw),
            std::max(1.0f, (float)dh)};
-
-    for (size_t i = 0; i < accumulatedDirtyRects_.size(); ++i) {
-        auto &acc = accumulatedDirtyRects_[i];
-        acc = acc.isEmpty() ? r : acc.unionRect(r);
-    }
+    for (auto &acc : accumulatedDirtyRects_) { acc = acc.isEmpty() ? r : acc.unionRect(r); }
 }

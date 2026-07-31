@@ -1,5 +1,50 @@
 # 更新日志
 
+## [0.0.0] — 2026-08-01
+
+### 新增
+- 增量布局系统 — 布局从整树 measure+layout 改为按脏路径增量测量/布局
+- View::measure() 双槽测量缓存：内容测量相位（contentSize_/lastContentC_）与布局相位（layoutSize_/lastLayoutC_）独立缓存；内容/子树未变且约束一致 → 复用尺寸短路，不再递归下探
+- View::layout() 增量门控：frame 差异检测 moved → markDirty()；直接子节点存在 needsMeasure_/subtreeMeasure_ 才调用 onLayout() 重排子树
+- requestLayout() 沿父链冒泡 needsMeasure_ + subtreeMeasure_；测量标志在 layout() 末段统一清除
+- Constraints 新增 operator==，支撑测量缓存命中判断
+- rebuildTree / resize 兜底：markAllMeasureDirty() 强制全量重测、markAllDirty() 强制全量重录
+- 主循环每帧检测 hasLayoutRequest() → relayoutTree()（内容相位 + 布局相位两遍）；动画期间 hasLayoutAnimation() 全量 relayout 兜底
+### 变更
+- 绘制管线改为"画布即缓存" — 移除 View 级 DrawList 缓存注入通道与 DirtyTracker 脏矩形追踪器
+- View::draw 三态：① 干净 → 零操作（画布即缓存）；② 仅子树脏 → 透传（自身绘制 no-op，子内容直挂上级容器）；③ 自身脏 → 脏区底图重建（lastPaintBounds_ ∪ 本次 bounds）后重录自身 + 脏子树
+- markDirty() 沿父链冒泡 subtreeDirty_，干净子树整棵跳过
+- drawUnderlay() 以最近不透明祖先底色填充脏区，覆盖持久画布（LOAD_OP_LOAD）上的残留旧像素
+- applyAnimationFrame() 统一增量入口：先 markDirty()，布局属性（layoutAffecting）再 requestLayout()
+- Text::setPropertyTyped("text") 文字变更 → markDirty() + requestLayout()（增量路径下文字尺寸变化必须触发 relayout）
+- Application 层以 dirtyRect_ 累加器替代 DirtyTracker；markDirtyDeferred() 统一改为 markDirty()
+### 修复
+- 多次点击按钮后 lastText 文字重复/叠影
+- 根因：布局阶段在 measure() 内过早清除 needsMeasure_/subtreeMeasure_，父节点 layout() 的 childChanged 读到已清零标志 → onLayout() 被跳过 → 文字子节点 frame 停留旧宽度 → 新文字墨迹溢出陈旧 frame，底图覆盖区（旧∪新 frame）盖不住溢出的旧墨迹 → 逐次点击累积叠影
+- 修复：清除测量标志从 measure() 移至 layout() 末段，childChanged 判据真实，子节点尺寸变化必触发父节点重排 → frame 更新 → 底图覆盖完整范围
+### 移除
+- DirtyTracker 类、View::setTracker、View 级 cachedDrawList_ 跨帧注入通道、markDirtyDeferred()
+
+## [0.0.0] — 2026-07-27
+
+## 变更
+- 着色器代码由 GLSL 切换到 Slang
+- shaders/ 下 glyph / image / rect / triangle 四个 shader 迁移为 Slang（.slang）源码
+- 新增 cmake/modules/Shaders.cmake 统一编译嵌入流程，Render.cmake 精简
+- 删除 compile_shaders.bat / gen_spv_header.ps1 旧编译脚本
+
+## [0.0.0] — 2026-07-26
+
+### 变更
+- GPU 增量渲染 — canvas→swapchain 拷贝从全屏改为脏区增量拷贝
+- accumulatedDirtyRects_ 按 swapchain image 累积脏区，vkCmdCopyImage 只传输脏区子区域
+- 首帧或 resize 后新 swapchain image（layout UNDEFINED）强制全量拷贝；累积脏区面积超过屏幕 65% 回退全量
+- swapchainImageLayouts_ 追踪每个 swapchain image 布局（present→transfer），避免 barrier 用 UNDEFINED 丢内容
+
+### 修复
+- 增量渲染后 resize 导致 VK 布局错误
+- canvas 与 swapchain 屏障拆分：canvas 用同 layout 访问屏障，swapchain 布局转换单独用 TOP_OF_PIPE 满足 UNDEFINED 布局规范要求
+
 ## [0.0.0] — 2026-07-26
 
 ### 变更

@@ -90,15 +90,23 @@ void Graphics::save() {
     stateStack_.push_back(currentState_);
     currentState_.pushes = 0;
     if (!recording_) return;
-    builder_.pushGroup(injectedDrawList_);    // ← 传入注入的 DrawList
-    injectedDrawList_.reset();                // ← 消费后清零（嵌套 save 不继承）
+    if (passThrough_) {
+        // 透传模式：不创建 Group（子内容直挂上级容器），并抑制自身绘制（draw* no-op）。
+        // 标志一次性消费——本次 save 之后的嵌套 save（子节点）均恢复正常录制。
+        passThrough_ = false;
+        builder_.pushNoop();
+    } else {
+        builder_.pushGroup(injectedDrawList_);    // ← 传入注入的 DrawList
+        injectedDrawList_.reset();                // ← 消费后清零（嵌套 save 不继承）
+    }
 }
 
 void Graphics::restore() {
     if (recording_) {
         int n = currentState_.pushes;
         while (currentState_.pushes-- > 0) builder_.pop();
-        auto dl = builder_.popGroup();                          // ← 改为获取返回值
+        auto dl =
+            builder_.popGroup();    // popGroup 对透传 noop 帧同样安全：无 Recorder → 返回 nullptr，仅还原容器/注入模式
         if (dl && contentDepth_ > 0) capturedDrawList_ = dl;    // ← 最外层才缓存到 capturedDrawList_
     }
     if (!stateStack_.empty()) {
@@ -171,6 +179,15 @@ void Graphics::drawRect(const Rect &rect, const Color &color) {
     if (!recording_) return;
     Rect transformed = transformRect(rect);
     builder_.drawRect(transformed, applyOpacity(color));
+}
+
+void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
+    if (!recording_) return;
+    // 坐标照常烘烤当前变换（与后续 onDraw 的录制坐标一致）；
+    // 故意不 applyOpacity：底图必须完全不透明才能盖掉旧像素，
+    // 半透明祖先的合成近似为已知限制。
+    Rect transformed = transformRect(rect);
+    builder_.drawRectForced(transformed, color);
 }
 
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {

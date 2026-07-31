@@ -111,4 +111,9 @@ public:
                 std::clamp(minHeight, other.minHeight, other.maxHeight),
                 std::clamp(maxHeight, other.minHeight, other.maxHeight)};
     }
+
+    constexpr bool operator==(const Constraints &other) const {
+        return minWidth == other.minWidth && maxWidth == other.maxWidth && minHeight == other.minHeight &&
+               maxHeight == other.maxHeight;
+    }
 };

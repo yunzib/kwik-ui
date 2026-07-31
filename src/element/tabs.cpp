@@ -243,7 +243,6 @@ void Tabs::onDraw(Graphics &graphics) {
         }
     }
 
-    clearDirty();
     graphics.restore();
 }
 

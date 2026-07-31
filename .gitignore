@@ -3,3 +3,4 @@ build/
 .opencode/
 .cache/
 CMakeFiles/
+.opencode/package-lock.json

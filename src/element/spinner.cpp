@@ -88,7 +88,7 @@ void Spinner::onDraw(Graphics &graphics) {
     }
 
     frameCounter_++;
-    markDirtyDeferred();
+    markDirty();
 }
 
 void Spinner::resolveThemeDefaults() {
