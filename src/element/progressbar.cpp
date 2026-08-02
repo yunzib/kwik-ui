@@ -18,9 +18,8 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.command;
-import kwik.engine.js_value;
-import kwik.engine.state_binding;
 import kwik.element.typed_prop;
+import kwik.core.binding;
 
 import std;
 

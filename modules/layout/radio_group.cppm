@@ -10,7 +10,7 @@ import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.event;
 
 import std;

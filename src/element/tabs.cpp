@@ -3,14 +3,12 @@ module;
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
-#include "quickjs.h"
 
 module kwik.element.tabs;
 
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
-import kwik.engine.js_value;
 import kwik.core.log;
 
 // ── 布局常量 ──────────────────────────────────────────────
@@ -281,27 +279,15 @@ int Tabs::hitTestTab(float localX, float localY) const {
 }
 
 // ═══════════════════════════════════════════════════════════
-// fireChange — 触发 JS onChange 回调
+// fireChange — 触发 onChange 回调
 //
-// 构造 { value: string, index: number } 事件对象
+// 引擎中立调用; JS 侧收到 { value: string, index: number }
+// (契约由 bridge/event_adapter 保证)
 // ═══════════════════════════════════════════════════════════
 void Tabs::fireChange() {
-    if (!handlers.ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
-
-    JSValue eventObj = JS_NewObject(handlers.ctx);
-    JS_SetPropertyStr(handlers.ctx, eventObj, "value",
-        JS_NewString(handlers.ctx, tp_.items[tp_.selectedIndex].c_str()));
-    JS_SetPropertyStr(handlers.ctx, eventObj, "index",
-        JS_NewInt32(handlers.ctx, tp_.selectedIndex));
-
-    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(handlers.ctx);
-        JS_FreeValue(handlers.ctx, exc);
+    if (handlers.onChange) {
+        handlers.onChange(ChangeArgs{TypedProp{tp_.items[tp_.selectedIndex]}, tp_.selectedIndex});
     }
-    JS_FreeValue(handlers.ctx, ret);
-    JS_FreeValue(handlers.ctx, eventObj);
 }
 
 // ═══════════════════════════════════════════════════════════

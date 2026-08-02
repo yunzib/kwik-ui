@@ -15,7 +15,6 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
 import kwik.element.typed_prop;
-import kwik.engine.js_value;
 
 import std;
 

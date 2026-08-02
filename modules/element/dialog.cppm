@@ -15,7 +15,6 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.event;
 import kwik.element.typed_prop;
-import kwik.engine.js_value;
 
 import std;
 

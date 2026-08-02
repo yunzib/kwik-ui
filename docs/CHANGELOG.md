@@ -2,6 +2,34 @@
 
 ## [0.0.0] — 2026-08-02
 
+### 架构
+- A1 解耦: element/layout 层与 QuickJS 完全解耦（无例外）
+  - StateBinding 抽象接口下移 kwik.core.binding (L0 层),
+    engine 侧仅留 JSStateBinding 实现 (JSStateBinding + createJSBinding 工厂)
+  - ViewEventHandlers 去 JSValue 化, 回调槽位改为引擎中立的 std::function
+    (PointerArgs / ChangeArgs / RowArgs)
+  - 新增 kwik.bridge.event_adapter: JS 事件对象构造 / JS_Call / 异常处理集中一处,
+    组件 fire* 只调 handlers 槽位 (JS 事件契约按 ElementType 分派)
+  - 11 个组件 + RadioGroup 的 fire* 改为引擎中立调用
+  - kwik_element 不再链接 kwik_engine / qjs (element 层零 JS)
+  - 删除死代码 View::getJSContext()
+- P4 Table 解耦: 数据源抽象
+  - 新增 TableDataSource 抽象接口 (modules/element/table_data_source.cppm)
+  - 新增 JsTableDataSource (src/bridge/js_table_data_source.cpp),
+    原 table.cpp 全部 JS 调用收敛于此
+  - onRowClick 回归 ViewEventHandlers 通用 std::function 槽位 (RowArgs),
+    adapter 现场经 rowValueAt 构造 { index, row }
+  - Table::setData/dataSource() 替代 setJSData; drawHeader 删除未用的 JSContext 参数;
+    getProperty("rowCount") 由恒 "0" 桩改为真实行数
+- 命名统一与收尾
+  - 数据源模块改名消除同 basename 冲突:
+    kwik.element.table_data_source (接口) / kwik.bridge.js_table_data_source (实现)
+  - 清理 15 处残留 import kwik.engine.* 与 8 处 quickjs.h include
+  - 补显式 #include <cstdint>/<cstddef>: 全局整型/size_t 原经 quickjs.h 传递,
+    解耦后改为显式引入 (涉及 13 个 element/layout 文件)
+  - progressbar 补 import kwik.core.binding (setBinding 覆写需 StateBinding)
+  - 修正 5 处过时注释 (handlers.ctx / setRowClickHandler / ViewEventHandlers::bind 等)
+
 ### 修复
 - Channel 帧合并 JSValue 泄漏 — merged_ 清空前释放上一帧残留 data（flush 步骤①），
   resolveCall 释放 dataToJS 生成的参数值（QuickJS JS_Call 不接管参数）

@@ -17,7 +17,6 @@ module;
 #include <vector>
 #include <cstdint>
 #include <memory>
-#include "quickjs.h"
 
 export module kwik.element.textview;
 
@@ -30,7 +29,7 @@ import kwik.render.text.types;    // TextLayoutResult, ShapedGlyph, FontId, Font
 import kwik.render.text.pipeline; // TextRenderPipeline
 import kwik.event;                // DispatchEvent
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.core.log;
 
 import std;
@@ -118,6 +117,16 @@ public:
     }
 
     const std::string &value() const { return plainText_; }
+
+    /**
+     * @brief 只读访问文档模型 (runs 列表)
+     * @return content_ 常量引用
+     *
+     * 供 bridge 层 event_adapter 构造 JS onChange 的富文本事件对象;
+     * element 层自身不构造任何 JS 结构。
+     */
+    const std::vector<TextRun> &runs() const { return content_; }
+
     void setValue(const std::string &val) {
         content_.clear();
         content_.push_back({val, {}});

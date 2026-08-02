@@ -27,7 +27,10 @@ compatibility: opencode
 - 模块文件: .cppm (C++ module interface), .cpp (implementation)
 - 命名空间: 不用 namespace，通过 C++20 module 分区隔离
 - 所有权: std::unique_ptr<View> 管理 View 树
-- JSValue 比较: 必须用 js_is_null(v) (来自 kwik.engine.js_value)，不能用 == JS_NULL
+- 引擎解耦: element/layout 层禁止出现 JSValue/JSContext、禁止 import kwik.engine.*（无例外）
+- JS 事件适配: 一律经 kwik.bridge.event_adapter (attachJsHandlers);
+  组件 fire* 只调用 handlers 的 std::function 槽位 (ChangeArgs/PointerArgs)
+- bridge 层内 JSValue 比较: 必须用 js_is_null(v) (来自 kwik.engine.js_value)，不能用 == JS_NULL
 
 ## 主循环每帧顺序 (Application::run)
 1. PollEvents + eventRouter.poll()
@@ -63,12 +66,17 @@ compatibility: opencode
 
 ## 关键文件索引
 属性结构:   modules/core/props.cppm (所有组件的 Props 集中定义)
+绑定接口:   modules/core/binding.cppm (StateBinding 抽象, element 层可见)
 属性解析声明: modules/bridge/props_parser.cppm
 属性解析实现: src/bridge/props_parser.cpp
 类型注册:    src/bridge/element_parser.cpp (InitBuiltinTypes)
-JS 工厂:     src/engine/bindings.cpp + modules/engine/bindings.cppm
+事件适配:    src/bridge/event_adapter.cpp (JS 事件契约中心, onChange 形状分派)
+JS 工厂:     src/bridge/bindings.cpp + modules/bridge/bindings.cppm
 CMake:       cmake/modules/Element.cmake
-示例入口:    examples/example.cpp (resolveDemo)
+测试示例入口:    test/example.cpp (resolveDemo)
+单独示例： examples/external
+数据源接口: modules/element/table_data_source.cppm (TableDataSource 抽象)
+JS 数据源:  src/bridge/js_table_data_source.cpp (JsTableDataSource)
 
 ## 新增组件检查清单
 
@@ -92,8 +100,10 @@ CMake:       cmake/modules/Element.cmake
         `parseViewProps(ex)` 之后加组件的专有属性赋值
    - 仅通过 `getProp/setProp` 读写 → 不需覆写 setPropertyTyped（如 Tabs, Line, Spinner）
 9. 若 children 做功能面板（如 Tabs），onLayout 中仅布局选中 child，onDraw 中用 `graphics.clipRoundedRect()` 防止内容溢出 tab 条。
-10. 若需要 JS 回调（如 onChange），实现 `fireChange()` 方法：
-   - `JS_NewObject` → `JS_SetPropertyStr` 填充 `{value, index}` → `JS_Call` dispatch → `JS_FreeValue`
+10. 若需要 JS 回调（如 onChange），实现 `fireChange()` 方法（引擎中立）：
+   - `if (handlers.onChange) handlers.onChange(ChangeArgs{TypedProp{value_}, index});`
+   - 再在 src/bridge/event_adapter.cpp 的 makeChangeEvent 中按 ElementType
+     补充该组件的 JS 事件对象形状（裸 string / {checked} / {value,index} / {value}）
 
 ## Graphics 绘制方法速查
 状态:     save() / restore() / translate(x,y) / scale(sx,sy) / setOpacity(o)
@@ -151,6 +161,18 @@ CMake:       cmake/modules/Element.cmake
 - 先调 `View::onDraw(graphics)` 绘制背景+边框（或复制其前半段代码）。
 - 再绘制组件特有内容（tab 条、指示线等）。
 - 最后遍历 children 中活跃 child 绘制。
+
+## 事件系统（A1 解耦后）
+
+- 组件 fire*: 仅调用 handlers 的 std::function 槽位, 参数为 ChangeArgs/PointerArgs (引擎中立)
+- attachJsHandlers (bridge/event_adapter): parseNode 步骤⑤ 与 rebindHandlers 统一调用,
+  把 JS 函数包装为 std::function (捕获 ctx + shared_ptr<JSValueRef>, 析构即 JS_FreeValue)
+- JS 事件契约 (makeChangeEvent 按 ElementType 分派):
+  Input/TextArea→裸 string; Checkbox/Switch/RadioButton→{checked};
+  Tabs/Dropdown→{value,index}; Slider→{value}; RadioGroup→{value};
+  TextView→runs 数组 (adapter 现场调 runs() 拉取); Dialog→无参; 指针事件→{x,y}
+- Table: data 经 TableDataSource 注入 (bridge 侧 JsTableDataSource 包装 JS 数组),
+  onRowClick 走通用 onRowClick 槽位, adapter 现场经 rowValueAt 构造 { index, row }
 
 ## 增量组件树 reconcile
 

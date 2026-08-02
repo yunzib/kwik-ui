@@ -3,14 +3,12 @@ module;
 #include <cmath>
 #include <cfloat>
 
-#include "quickjs.h"
 
 module kwik.element.dialog;
 
 import kwik.render.graphics;
 import kwik.core.log;
 import kwik.event;
-import kwik.engine.js_value;
 
 // ── 内部 padding ──
 static constexpr float kPad = 24.0f;
@@ -229,15 +227,8 @@ void Dialog::close() {
 // fireClose — 触发 JS onClose 回调
 // ═══════════════════════════════════════════════════════
 void Dialog::fireClose() {
-    if (!handlers.ctx || js_is_null(handlers.onClose)) { return; }
-    if (!JS_IsFunction(handlers.ctx, handlers.onClose)) { return; }
-
-    JSValue ret = JS_Call(handlers.ctx, handlers.onClose, JS_UNDEFINED, 0, nullptr);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(handlers.ctx);
-        JS_FreeValue(handlers.ctx, exc);
-    }
-    JS_FreeValue(handlers.ctx, ret);
+    // 引擎中立回调: JS 侧无参调用
+    if (handlers.onClose) { handlers.onClose(); }
 }
 
 // ═══════════════════════════════════════════════════════

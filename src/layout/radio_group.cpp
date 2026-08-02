@@ -7,7 +7,6 @@
 // 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
-#include "quickjs.h"
 #include <cstring>
 module kwik.layout.radio_group;
 
@@ -15,7 +14,6 @@ import kwik.element.view;
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
-import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 
@@ -59,19 +57,8 @@ bool RadioGroup::onEvent(const DispatchEvent &event) {
                 binding_->setString(bindKey_, group_.selected);
             }
 
-            // ② 显式 onChange 回调（向下兼容）
-            if (!js_is_null(handlers.onChange) && handlers.ctx) {
-                JSValue eventObj = JS_NewObject(handlers.ctx);
-                JS_SetPropertyStr(handlers.ctx, eventObj, "value",
-                                  JS_NewString(handlers.ctx, group_.selected.c_str()));
-                JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-                if (JS_IsException(ret)) {
-                    JSValue exc = JS_GetException(handlers.ctx);
-                    JS_FreeValue(handlers.ctx, exc);
-                }
-                JS_FreeValue(handlers.ctx, ret);
-                JS_FreeValue(handlers.ctx, eventObj);
-            }
+            // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { value: string }
+            if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{group_.selected}}); }
         }
     }
     return View::onEvent(event);

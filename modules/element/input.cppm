@@ -17,7 +17,7 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.core.constraints;
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.event;
 import kwik.core.timer;
 import kwik.core.log;
@@ -107,6 +107,6 @@ private:
     size_t byteOffsetToGlyphIndex(size_t byteOffset) const;
     /** 更新光标闪烁计时器 */
     bool updateCursorBlink();
-    /** 触发 JS onChange 回调 (使用 handlers.ctx) */
+    /** 触发 onChange 回调 (引擎中立) */
     void fireChange();
 };

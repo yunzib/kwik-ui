@@ -1,12 +1,11 @@
 module;
-#include "quickjs.h"
 #include <cstring>
+#include <cstdint> 
 
 module kwik.element.view;
 import kwik.render.graphics;
 import kwik.core.types;
 import kwik.core.constraints;
-import kwik.engine.js_value;
 import kwik.event;
 import kwik.core.log;
 import kwik.core.prop_meta;
@@ -18,108 +17,21 @@ bool View::sLayoutPhase = false;
 // ============================================================================
 // ViewEventHandlers 实现
 // ============================================================================
-void ViewEventHandlers::bind(JSContext *c, const char *name, JSValue handler) {
-    if (!c || js_is_null(handler)) return;
-    // 记录 ctx 用于析构释放
-    if (!ctx) ctx = c;
-    JSValue *target = nullptr;
-    if (std::strcmp(name, "onClick") == 0)
-        target = &onClick;
-    else if (std::strcmp(name, "onLongPress") == 0)
-        target = &onLongPress;
-    else if (std::strcmp(name, "onHoverEnter") == 0)
-        target = &onHoverEnter;
-    else if (std::strcmp(name, "onHoverLeave") == 0)
-        target = &onHoverLeave;
-    else if (std::strcmp(name, "onChange") == 0)
-        target = &onChange;
-    else if (std::strcmp(name, "onRowClick") == 0) {
-        target = &onRowClick;
-    } else if (std::strcmp(name, "onClose") == 0)
-        target = &onClose;
-    else
-        return;
-    // 如果已有旧回调 (如 State 变更重建树), 先释放旧值
-    if (!js_is_null(*target)) { JS_FreeValue(c, *target); }
-    // Dup 后存储 (增加引用计数, 确保 handler 在 View 存活期间不被 GC)
-    *target = JS_DupValue(c, handler);
+bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
+	// 事件码 → 槽位映射 (与 dispatchEventTypeToCode 约定一致)
+	std::function<bool(const PointerArgs &)> *slot = nullptr;
+	switch (code) {
+	case 0: slot = &onClick; break;         // Tap
+	case 1: slot = &onLongPress; break;     // LongPress
+	case 2: slot = &onHoverEnter; break;    // HoverEnter
+	case 3: slot = &onHoverLeave; break;    // HoverLeave
+	default: return false;
+	}
+	if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
+	// 调用回调; 返回值为 consumed 语义 (JS 适配层调用成功恒返回 true, 异常返回 false)
+	return (*slot)(PointerArgs{localX, localY});
 }
-bool ViewEventHandlers::dispatch(int code, float localX, float localY, JSContext *dispatchCtx) {
-    if (!dispatchCtx) return false;
-    JSValue handler = JS_NULL;
-    switch (code) {
-    case 0: handler = onClick; break;         // Tap
-    case 1: handler = onLongPress; break;     // LongPress
-    case 2: handler = onHoverEnter; break;    // HoverEnter
-    case 3: handler = onHoverLeave; break;    // HoverLeave
-    default: return false;
-    }
-    if (js_is_null(handler) || !JS_IsFunction(dispatchCtx, handler)) return false;
-    // 构造 JS 事件对象 { x, y }
-    JSValue eventObj = JS_NewObject(dispatchCtx);
-    JS_SetPropertyStr(dispatchCtx, eventObj, "x", JS_NewFloat64(dispatchCtx, static_cast<double>(localX)));
-    JS_SetPropertyStr(dispatchCtx, eventObj, "y", JS_NewFloat64(dispatchCtx, static_cast<double>(localY)));
-    // 调用 JS 回调: handler(eventObj)
-    JSValue ret = JS_Call(dispatchCtx, handler, JS_UNDEFINED, 1, &eventObj);
-    JS_FreeValue(dispatchCtx, eventObj);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(dispatchCtx);
-        const char *s = JS_ToCString(dispatchCtx, exc);
-        Log::error("[event callback error] {}", s ? s : "unknown");
-        JS_FreeCString(dispatchCtx, s);
-        JS_FreeValue(dispatchCtx, exc);
-        JS_FreeValue(dispatchCtx, ret);
-        return false;
-    }
-    JS_FreeValue(dispatchCtx, ret);
-    return true;
-}
-void ViewEventHandlers::release() {
-    if (!ctx) return;
-    if (!js_is_null(onClick)) {
-        JS_FreeValue(ctx, onClick);
-        onClick = JS_NULL;
-    }
-    if (!js_is_null(onLongPress)) {
-        JS_FreeValue(ctx, onLongPress);
-        onLongPress = JS_NULL;
-    }
-    if (!js_is_null(onHoverEnter)) {
-        JS_FreeValue(ctx, onHoverEnter);
-        onHoverEnter = JS_NULL;
-    }
-    if (!js_is_null(onHoverLeave)) {
-        JS_FreeValue(ctx, onHoverLeave);
-        onHoverLeave = JS_NULL;
-    }
-    if (!js_is_null(onChange)) {
-        JS_FreeValue(ctx, onChange);
-        onChange = JS_NULL;
-    }
-    if (!js_is_null(onRowClick)) {
-        JS_FreeValue(ctx, onRowClick);
-        onRowClick = JS_NULL;
-    }
-    if (!js_is_null(onClose)) {
-        JS_FreeValue(ctx, onClose);
-        onClose = JS_NULL;
-    }
-    ctx = nullptr;
-}
-void ViewEventHandlers::moveFrom(ViewEventHandlers &other) {
-    onClick = other.onClick;
-    other.onClick = JS_NULL;
-    onLongPress = other.onLongPress;
-    other.onLongPress = JS_NULL;
-    onHoverEnter = other.onHoverEnter;
-    other.onHoverEnter = JS_NULL;
-    onHoverLeave = other.onHoverLeave;
-    other.onHoverLeave = JS_NULL;
-    onChange = other.onChange;
-    other.onChange = JS_NULL;
-    ctx = other.ctx;
-    other.ctx = nullptr;
-}
+
 // ============================================================================
 // View 布局实现
 // ============================================================================
@@ -597,20 +509,19 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 }
 
 bool View::onEvent(const DispatchEvent &event) {
-    // 键盘事件: 使用 keyCode/charCode 而非坐标
-    if (event.type == DispatchEvent::Type::KeyAction) {
-        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.keyCode),
-                                 static_cast<float>(event.modifiers), handlers.ctx);
-    }
-    if (event.type == DispatchEvent::Type::CharInput) {
-        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f,
-                                 handlers.ctx);
-    }
+	// 键盘事件: 使用 keyCode/charCode 而非坐标
+	if (event.type == DispatchEvent::Type::KeyAction) {
+		return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.keyCode),
+		                         static_cast<float>(event.modifiers));
+	}
+	if (event.type == DispatchEvent::Type::CharInput) {
+		return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f);
+	}
 
-    // 指针/手势事件: 使用全局坐标转换
-    Point local = {event.globalX - frame.x, event.globalY - frame.y};
-    int code = dispatchEventTypeToCode(event.type);
-    return handlers.dispatch(code, local.x, local.y, handlers.ctx);
+	// 指针/手势事件: 使用全局坐标转换
+	Point local = {event.globalX - frame.x, event.globalY - frame.y};
+	int code = dispatchEventTypeToCode(event.type);
+	return handlers.dispatch(code, local.x, local.y);
 }
 
 // View::acceptsFocus — 默认返回 false, 子类重写

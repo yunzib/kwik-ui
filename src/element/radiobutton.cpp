@@ -8,7 +8,6 @@
 // ============================================================================
 
 module;
-#include "quickjs.h"
 #include <cmath>
 #include <cstring>
 module kwik.element.radiobutton;
@@ -21,7 +20,6 @@ import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
-import kwik.engine.js_value;
 
 import std;
 
@@ -81,16 +79,9 @@ bool RadioButton::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
         bool was = radio_.checked;
         setChecked(!radio_.checked);
-        if (radio_.checked != was && !js_is_null(handlers.onChange) && handlers.ctx) {
-            JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, radio_.checked));
-            JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-            if (JS_IsException(ret)) {
-                JSValue exc = JS_GetException(handlers.ctx);
-                JS_FreeValue(handlers.ctx, exc);
-            }
-            JS_FreeValue(handlers.ctx, ret);
-            JS_FreeValue(handlers.ctx, eventObj);
+        // 状态确实变化才触发, JS 侧收到 { checked: bool }
+        if (radio_.checked != was && handlers.onChange) {
+            handlers.onChange(ChangeArgs{TypedProp{radio_.checked}});
         }
     }
     return View::onEvent(event);

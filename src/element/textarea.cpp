@@ -8,7 +8,6 @@ module;
 #include <string>
 #include <vector>
 #include <chrono>
-#include "quickjs.h"
 
 module kwik.element.textarea;
 import kwik.element.view;
@@ -18,7 +17,6 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
-import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.core.timer;
@@ -372,21 +370,10 @@ void TextArea::scheduleBlinkTick() {
 // fireChange — 调用 JS onChange 回调
 // ════════════════════════════════════════════════════════
 void TextArea::fireChange() {
-    if (!handlers.ctx) return;
-    if (js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
-    JSValue arg = JS_NewString(handlers.ctx, text_.c_str());
-    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
-    JS_FreeValue(handlers.ctx, arg);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(handlers.ctx);
-        const char *s = JS_ToCString(handlers.ctx, exc);
-        Log::error("[TextArea] onChange error: {}", s ? s : "unknown");
-        JS_FreeCString(handlers.ctx, s);
-        JS_FreeValue(handlers.ctx, exc);
-    }
-    JS_FreeValue(handlers.ctx, ret);
+    // 引擎中立回调: JS 侧收到裸 string (契约由 bridge/event_adapter 保证)
+    if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{text_}}); }
 }
+
 // ════════════════════════════════════════════════════════
 // getProperty / setProperty — 属性总线
 // ════════════════════════════════════════════════════════

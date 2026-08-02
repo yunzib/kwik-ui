@@ -15,7 +15,7 @@ module;
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "quickjs.h"
+
 module kwik.element.textview;
 
 import kwik.element.view;
@@ -28,7 +28,6 @@ import kwik.render.text.pipeline;
 import kwik.event;
 import kwik.element.typed_prop;
 import kwik.core.log;
-import kwik.engine.js_value;
 
 import std;
 using namespace std::chrono;
@@ -904,50 +903,16 @@ bool TextView::updateCursorBlink_() {
 // ============================================================================
 // JS 回调
 // ============================================================================
-/**
- * @brief 触发 JS onChange 回调
- *
- * 使用 handlers.ctx 作为 QuickJS 上下文。
- * 参数数组:
- *   args[0] = [{text, fontWeight, fontStyle, underline, strikethrough, fontSize, textColor}, ...]
- *
- * selection 信息暂不回传（可后续扩展）。
- */
+// ============================================================================
+// fireChange_ — 触发 onChange 回调 (引擎中立)
+//
+// payload (plainText_) 仅作触发信号;
+// JS 侧收到的富文本 runs 数组由 bridge/event_adapter 现场从 runs() 拉取构造:
+//   [{text, fontWeight, fontStyle, underline, strikethrough, fontSize, textColor}, ...]
+// selection 信息暂不回传（可后续扩展）。
+// ============================================================================
 void TextView::fireChange_() {
-    JSContext *ctx = handlers.ctx;
-    if (!ctx) return;
-    if (js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(ctx, handlers.onChange)) return;
-
-    auto arr = JS_NewArray(ctx);
-    for (size_t i = 0; i < content_.size(); ++i) {
-        auto &run = content_[i];
-        auto obj = JS_NewObject(ctx);
-
-        JS_SetPropertyStr(ctx, obj, "text", JS_NewString(ctx, run.text.c_str()));
-
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%.1f", run.style.fontSize);
-        JS_SetPropertyStr(ctx, obj, "fontSize", JS_NewString(ctx, buf));
-
-        JS_SetPropertyStr(ctx, obj, "fontWeight",
-                          JS_NewString(ctx, run.style.fontWeight == FontWeight::Bold ? "bold" : "normal"));
-
-        JS_SetPropertyStr(ctx, obj, "fontStyle",
-                          JS_NewString(ctx, run.style.fontStyle == FontStyle::Italic ? "italic" : "normal"));
-
-        JS_SetPropertyStr(ctx, obj, "underline", JS_NewBool(ctx, run.style.underline ? 1 : 0));
-        JS_SetPropertyStr(ctx, obj, "strikethrough", JS_NewBool(ctx, run.style.strikethrough ? 1 : 0));
-
-        auto cs =
-            std::format("#{:02X}{:02X}{:02X}", run.style.textColor.r, run.style.textColor.g, run.style.textColor.b);
-        JS_SetPropertyStr(ctx, obj, "textColor", JS_NewString(ctx, cs.c_str()));
-
-        JS_SetPropertyUint32(ctx, arr, (uint32_t)i, obj);
-    }
-    JSValue ret = JS_Call(ctx, handlers.onChange, JS_UNDEFINED, 1, &arr);
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, arr);
+    if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{plainText_}}); }
 }
 
 // ============================================================================

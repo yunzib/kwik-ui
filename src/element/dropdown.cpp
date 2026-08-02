@@ -6,7 +6,6 @@
 // 文字: 通过 TextRenderPipeline 排版渲染, 元素持有 shared_ptr
 // ============================================================================
 module;
-#include "quickjs.h"
 #include <cstring>
 #include <string>
 #include <vector>
@@ -20,7 +19,6 @@ import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.render.command;
-import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 
@@ -252,19 +250,10 @@ void Dropdown::onDraw(Graphics &graphics) {
 // fireChange
 // ════════════════════════════════════════════════════════
 void Dropdown::fireChange() {
-    if (!handlers.ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
-    JSValue eventObj = JS_NewObject(handlers.ctx);
-    JS_SetPropertyStr(handlers.ctx, eventObj, "value",
-                      JS_NewString(handlers.ctx, dp_.items[dp_.selectedIndex].c_str()));
-    JS_SetPropertyStr(handlers.ctx, eventObj, "index", JS_NewInt32(handlers.ctx, dp_.selectedIndex));
-    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(handlers.ctx);
-        JS_FreeValue(handlers.ctx, exc);
+    // 引擎中立回调: JS 侧收到 { value: string, index: number }
+    if (handlers.onChange) {
+        handlers.onChange(ChangeArgs{TypedProp{dp_.items[dp_.selectedIndex]}, dp_.selectedIndex});
     }
-    JS_FreeValue(handlers.ctx, ret);
-    JS_FreeValue(handlers.ctx, eventObj);
 }
 
 View *Dropdown::hitTest(Point point) {

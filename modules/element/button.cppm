@@ -2,7 +2,7 @@ module;
 #include <string>
 #include <memory>
 #include <vector>
-#include "quickjs.h"
+
 export module kwik.element.button;
 import kwik.element.view;
 import kwik.core.props;

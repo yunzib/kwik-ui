@@ -2,7 +2,6 @@ module;
 
 #include <string>
 #include <cmath>
-#include "quickjs.h"
 
 export module kwik.element.slider;
 
@@ -13,7 +12,7 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.event;
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 
 import std;
 

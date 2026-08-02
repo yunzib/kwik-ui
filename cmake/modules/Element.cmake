@@ -32,6 +32,7 @@ target_sources(kwik_element
             modules/element/tip.cppm
             modules/element/g2d.cppm
             modules/element/theme_provider.cppm
+            modules/element/table_data_source.cppm
             
 
 
@@ -92,9 +93,7 @@ target_sources(kwik_element
 target_link_libraries(kwik_element
     PRIVATE
         kwik_core
-        kwik_engine
         kwik_render
-        qjs
         nanosvg
         nanosvgrast
 )

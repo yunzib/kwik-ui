@@ -3,7 +3,6 @@ module;
 #include <string>
 #include <memory>
 #include <vector>
-#include "quickjs.h"
 
 export module kwik.element.checkbox;
 
@@ -15,7 +14,7 @@ import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.event;
 import std;
 

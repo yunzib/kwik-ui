@@ -8,7 +8,6 @@
 
 module;
 
-#include "quickjs.h"
 #include <cstring>
 #include <algorithm>
 
@@ -20,8 +19,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.command;
-import kwik.engine.js_value;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.element.typed_prop;
 import kwik.event;
 
@@ -104,7 +102,6 @@ void Switch::onDraw(Graphics &graphics) {
 // onEvent — Tap 切换 checked + 双向绑定 + 触发 onChange
 //
 // 事件通过 DispatchEvent 统一事件系统分发。
-// handlers.ctx 成员变量在 View 构造时赋值，无需额外传参。
 // ============================================================================
 bool Switch::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
@@ -113,18 +110,8 @@ bool Switch::onEvent(const DispatchEvent &event) {
         // ① 双向绑定：自动更新 State
         if (binding_) binding_->setBool(bindKey_, sp_.checked);
 
-        // ② 显式 onChange 回调（向下兼容）
-        if (!js_is_null(handlers.onChange) && handlers.ctx) {
-            JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, sp_.checked));
-            JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-            if (JS_IsException(ret)) {
-                JSValue exc = JS_GetException(handlers.ctx);
-                JS_FreeValue(handlers.ctx, exc);
-            }
-            JS_FreeValue(handlers.ctx, ret);
-            JS_FreeValue(handlers.ctx, eventObj);
-        }
+        // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { checked: bool }
+        if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{sp_.checked}}); }
         return true;
     }
     return View::onEvent(event);

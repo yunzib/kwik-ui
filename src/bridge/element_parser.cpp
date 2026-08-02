@@ -29,6 +29,7 @@ import kwik.element.image;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
+import kwik.bridge.event_adapter;    // attachJsHandlers — JS 事件适配
 import kwik.element.slider;
 import kwik.element.progressbar;
 import kwik.element.switch_button;
@@ -51,6 +52,7 @@ import kwik.element.g2d;
 import kwik.core.theme;             // ThemeData — 主题数据结构
 import kwik.bridge.theme_bridge;    // unwrapThemeData — JS opaque → C++ ThemeData*
 import kwik.element.theme_provider; // ThemeProvider — 主题注入 View 节点
+import kwik.bridge.js_table_data_source;   // createJsTableDataSource — 注入 Table 数据源
 
 import std;
 
@@ -388,12 +390,11 @@ static struct InitBuiltinTypes {
             PropsExtractor ex(pv, &meta);
             auto table = std::make_unique<Table>(parseViewProps(ex), parseTableProps(ex));
 
-            // 保留 data 数组的 JS 引用
+            // 注入数据源 (JS 数组 → JsTableDataSource, 内部 Dup 持有)
             if (pv.hasProperty("data")) {
                 auto dataVal = pv.getProperty("data");
                 if (dataVal.isArray()) {
-                    JSContext *ctx = dataVal.context();
-                    table->setJSData(ctx, JS_DupValue(ctx, dataVal.raw()));
+                    table->setData(createJsTableDataSource(dataVal.context(), dataVal.raw()));
                 }
             }
 
@@ -568,44 +569,19 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
             }
         }
     }
-    // ── 5. 提取事件处理器 ────────────────────────────────────────
-    if (element && propsVal.isObject()) {
-        JSContext *ctx_ = propsVal.context();
-        auto tryBind = [&](const char *propName) {
-            if (propsVal.hasProperty(propName)) {
-                auto handler = propsVal.getProperty(propName);
-                if (JS_IsFunction(ctx_, handler.raw())) { element->handlers.bind(ctx_, propName, handler.raw()); }
-            }
-        };
-        tryBind("onClick");
-        tryBind("onLongPress");
-        tryBind("onHoverEnter");
-        tryBind("onHoverLeave");
-        tryBind("onChange");
-        tryBind("onRowClick");
-        tryBind("onClose");
-    }
+    // ── 5. 提取事件处理器 (JS 回调 → std::function 适配, 见 event_adapter) ──
+    if (element && propsVal.isObject()) { attachJsHandlers(*element, propsVal); }
 
     return element;
 }
 
-/** @brief 重新绑定事件处理器（reconcile 复用旧 View 后调用） */
+/** @brief 重新绑定事件处理器（reconcile 复用旧 View 后调用）
+ *
+ *  覆盖式重绑: 旧 std::function 析构时自动释放其持有的 JSValue,
+ *  * 覆盖式重绑: 旧 std::function 析构自动释放其持有的 JSValue。
+ */
 void ElementParser::rebindHandlers(View *view, const JSValueRef &propsVal) {
-    if (!propsVal.isObject()) return;
-    JSContext *ctx = propsVal.context();
-    auto tryBind = [&](const char *propName) {
-        if (propsVal.hasProperty(propName)) {
-            auto handler = propsVal.getProperty(propName);
-            if (JS_IsFunction(ctx, handler.raw())) view->handlers.bind(ctx, propName, handler.raw());
-        }
-    };
-    tryBind("onClick");
-    tryBind("onLongPress");
-    tryBind("onHoverEnter");
-    tryBind("onHoverLeave");
-    tryBind("onChange");
-    tryBind("onRowClick");
-    tryBind("onClose");
+    if (view && propsVal.isObject()) { attachJsHandlers(*view, propsVal); }
 }
 
 /**

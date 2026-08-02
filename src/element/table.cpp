@@ -8,7 +8,6 @@
 
 module;
 
-#include "quickjs.h"
 #include <cstring>
 #include <algorithm>
 
@@ -23,10 +22,7 @@ import kwik.render.command;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
-import kwik.engine.state_binding;
 import kwik.element.typed_prop;
-import kwik.core.log;
-import kwik.engine.js_value; 
 
 import std;
 
@@ -74,14 +70,8 @@ std::vector<float> Table::calcColumnWidths(float availableW) const {
 // ============================================================================
 // rowCount — 获取 JS data 行数
 // ============================================================================
-int Table::rowCount(JSContext *ctx) const {
-    if (JS_IsUndefined(data_) || JS_IsNull(data_)) return 0;
-    if (!JS_IsArray(data_)) return 0;
-    JSValue lenVal = JS_GetPropertyStr(ctx, data_, "length");
-    int len = 0;
-    if (JS_ToInt32(ctx, &len, lenVal)) len = 0;
-    JS_FreeValue(ctx, lenVal);
-    return len;
+int Table::rowCount() const {
+    return data_ ? data_->rowCount() : 0;
 }
 
 // ============================================================================
@@ -92,13 +82,7 @@ Size Table::onMeasure(Constraints constraints) {
     float h = tp_.showHeader ? tp_.headerHeight : 0;
     h += tp_.borderWidth;
     if (props.height.has_value()) h = *props.height;
-    if (dataCtx_ && !JS_IsUndefined(data_) && !JS_IsNull(data_) && JS_IsArray(data_)) {
-        JSValue lenVal = JS_GetPropertyStr(dataCtx_, data_, "length");
-        int rows = 0;
-        JS_ToInt32(dataCtx_, &rows, lenVal);
-        h += rows * tp_.rowHeight;
-        JS_FreeValue(dataCtx_, lenVal);
-    }
+    if (data_) { h += data_->rowCount() * tp_.rowHeight; }
     h += props.padding.vertical();
     return constraints.constrain({w, h});
 }
@@ -120,10 +104,6 @@ void Table::onLayout() {
 void Table::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
 
-    // 获取 JSContext：从 dataCtx_ 或 handlers.ctx
-    JSContext *ctx = dataCtx_;
-    if (!ctx) ctx = handlers.ctx;
-
     float x0 = frame.x + props.padding.left;
     float y0 = frame.y + props.padding.top;
     float availableW = frame.width - props.padding.horizontal();
@@ -138,27 +118,20 @@ void Table::onDraw(Graphics &graphics) {
 
     // ① 表头行
     if (tp_.showHeader) {
-        drawHeader(graphics, x0, yy, availableW, tp_.headerHeight, colWidths, ctx);
+        drawHeader(graphics, x0, yy, availableW, tp_.headerHeight, colWidths);
         yy += tp_.headerHeight;
     }
 
-    // ② 数据行
-    if (ctx && !JS_IsUndefined(data_) && !JS_IsNull(data_) && JS_IsArray(data_)) {
-        JSValue lenVal = JS_GetPropertyStr(ctx, data_, "length");
-        int len = 0;
-        JS_ToInt32(ctx, &len, lenVal);
-        JS_FreeValue(ctx, lenVal);
-
+    // ② 数据行 (经引擎中立数据源接口读取, JS 取值在 bridge 的 JsTableDataSource)
+    if (data_) {
+        int len = data_->rowCount();
         for (int i = 0; i < len; ++i) {
             if (yy + tp_.rowHeight > y0 + contentH) break;
 
-            JSValue rowObj = JS_GetPropertyUint32(ctx, data_, i);
             bool isStriped = tp_.striped && (i % 2 == 1);
-
-            drawRow(graphics, x0, yy, tp_.rowHeight, colWidths, i, rowObj, isStriped, ctx);
+            drawRow(graphics, x0, yy, tp_.rowHeight, colWidths, i, isStriped);
 
             yy += tp_.rowHeight;
-            JS_FreeValue(ctx, rowObj);
         }
     }
 
@@ -172,8 +145,7 @@ void Table::onDraw(Graphics &graphics) {
 // ============================================================================
 // drawHeader — 绘制表头行（TextRenderPipeline 排版）
 // ============================================================================
-void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const std::vector<float> &colWidths,
-                       JSContext *ctx) {
+void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const std::vector<float> &colWidths) {
     Color bg = tp_.headerColor;
     Color textColor = tp_.headerTextColor;
     float fontSize = tp_.fontSize;
@@ -187,7 +159,7 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
     auto &pipe = TextRenderPipeline::instance();
     if (fontId_ == kInvalidFontId) {
         fontId_ = pipe.activeFont();
-        if (fontId_ == kInvalidFontId) return; // 无可用字体，跳过文字
+        if (fontId_ == kInvalidFontId) return;    // 无可用字体，跳过文字
     }
 
     TextLayoutConfig cfg;
@@ -203,7 +175,10 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
         // 排版列标题
         cfg.maxWidth = cw;
         auto result = pipe.layoutText(col.title, fontId_, fontSize, cfg);
-        if (result->glyphs.empty()) { cx += cw; continue; }
+        if (result->glyphs.empty()) {
+            cx += cw;
+            continue;
+        }
         pipe.ensureGlyphs(*result);
 
         float textW = result->totalWidth;
@@ -240,7 +215,7 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
 // drawRow — 绘制单行数据（TextRenderPipeline 排版）
 // ============================================================================
 void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<float> &colWidths, int rowIndex,
-                    JSValue rowObj, bool isStriped, JSContext *ctx) {
+                    bool isStriped) {
     Color textColor = tp_.rowTextColor;
     float fontSize = tp_.fontSize;
     float borderW = tp_.borderWidth;
@@ -266,46 +241,35 @@ void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<fl
 
         const auto &col = tp_.columns[i];
 
-        // 读取 cell 值并绘制
-        if (ctx && !JS_IsUndefined(rowObj) && !JS_IsNull(rowObj)) {
-            JSValue cellVal = JS_GetPropertyStr(ctx, rowObj, col.key.c_str());
+        // 经数据源接口读取 cell 文本 (JS 取值在 bridge 的 JsTableDataSource 完成)
+        std::string text = data_ ? data_->cellText(rowIndex, col.key) : std::string{};
+        if (!text.empty()) {
+            // 排版单元格文本
+            cfg.maxWidth = cw - 16;
+            auto result = pipe.layoutText(text, fontId_, fontSize, cfg);
+            if (result && !result->glyphs.empty()) {
+                pipe.ensureGlyphs(*result);
 
-            // 统一转字符串（兼容 number/boolean/null 等类型）
-            JSValue strVal = JS_ToString(ctx, cellVal);
-            const char *text = JS_ToCString(ctx, strVal);
-            if (text) {
-                if (text[0] != '\0') {
-                    // 排版单元格文本
-                    cfg.maxWidth = cw - 16;
-                    auto result = pipe.layoutText(text, fontId_, fontSize, cfg);
-                    if (result && !result->glyphs.empty()) {
-                        pipe.ensureGlyphs(*result);
+                float textW = result->totalWidth;
+                float textY = y + (h - result->totalHeight) * 0.5f;
 
-                        float textW = result->totalWidth;
-                        float textY = y + (h - result->totalHeight) * 0.5f;
-
-                        // 水平对齐
-                        float textX;
-                        if (col.align == "center") {
-                            textX = cx + (cw - textW) * 0.5f;
-                        } else if (col.align == "right") {
-                            textX = cx + cw - textW - 8;
-                        } else {
-                            textX = cx + 8;
-                        }
-
-                        // 单元格裁剪 + 文本绘制
-                        g.save();
-                        g.clipRoundedRect(Rect{cx, y, cw, h}, 0);
-                        g.translate(textX, textY);
-                        g.drawTextCached(result->glyphs, textColor);
-                        g.restore();
-                    }
+                // 水平对齐
+                float textX;
+                if (col.align == "center") {
+                    textX = cx + (cw - textW) * 0.5f;
+                } else if (col.align == "right") {
+                    textX = cx + cw - textW - 8;
+                } else {
+                    textX = cx + 8;
                 }
-                JS_FreeCString(ctx, text);
+
+                // 单元格裁剪 + 文本绘制
+                g.save();
+                g.clipRoundedRect(Rect{cx, y, cw, h}, 0);
+                g.translate(textX, textY);
+                g.drawTextCached(result->glyphs, textColor);
+                g.restore();
             }
-            JS_FreeValue(ctx, strVal);
-            JS_FreeValue(ctx, cellVal);
         }
 
         // 列间竖线
@@ -341,18 +305,10 @@ bool Table::onEvent(const DispatchEvent &event) {
 
         // 只处理数据行点击，表头点击不处理
         if (localY >= headerEnd && localX >= x0 && localX < x0 + contentWidth_) {
-            JSContext *ctx = dataCtx_;
-            if (!ctx) ctx = handlers.ctx;
-            if (ctx && !JS_IsUndefined(data_) && !JS_IsNull(data_) && JS_IsArray(data_)) {
-                float rowStart = headerEnd;
-                int rowIndex = static_cast<int>((localY - rowStart) / tp_.rowHeight);
-                int total = rowCount(ctx);
-                if (rowIndex >= 0 && rowIndex < total) {
-                    JSValue rowObj = JS_GetPropertyUint32(ctx, data_, rowIndex);
-                    fireRowClick(rowIndex, rowObj);
-                    JS_FreeValue(ctx, rowObj);
-                }
-            }
+            float rowStart = headerEnd;
+            int rowIndex = static_cast<int>((localY - rowStart) / tp_.rowHeight);
+            int total = rowCount();
+            if (rowIndex >= 0 && rowIndex < total) { fireRowClick(rowIndex); }
             return true;
         }
 
@@ -363,39 +319,19 @@ bool Table::onEvent(const DispatchEvent &event) {
 }
 
 // ============================================================================
-// fireRowClick — 触发 onRowClick 回调（使用 handlers.ctx）
+// （引擎中立槽位）
 // ============================================================================
-void Table::fireRowClick(int index, JSValue rowObj) {
-    JSContext *ctx = handlers.ctx;
-    if (!ctx) return;
-    if (js_is_null(handlers.onRowClick)) return;
-    if (!JS_IsFunction(ctx, handlers.onRowClick)) return;
-
-    JSValue evt = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, evt, "index", JS_NewInt32(ctx, index));
-    JS_SetPropertyStr(ctx, evt, "row", JS_DupValue(ctx, rowObj));
-
-    JSValue ret = JS_Call(ctx, handlers.onRowClick, JS_UNDEFINED, 1, &evt);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(ctx);
-        const char *msg = JS_ToCString(ctx, exc);
-        if (msg) {
-            Log::error("[Table::fireRowClick] %s\n", msg);
-            JS_FreeCString(ctx, msg);
-        }
-        JS_FreeValue(ctx, exc);
-    }
-    JS_FreeValue(ctx, ret);
-    JS_FreeValue(ctx, evt);
+void Table::fireRowClick(int index) {
+    // 引擎中立回调: JS 侧收到 { index, row },
+    // row 由 bridge/event_adapter 现场经数据源 rowValueAt 拉取
+    if (handlers.onRowClick) { handlers.onRowClick(RowArgs{index}); }
 }
-
 // ============================================================================
 // getProperty — getProp("tableId", "...") 支持
 // ============================================================================
 std::string Table::getProperty(const char *name) const {
-    if (std::strcmp(name, "rowCount") == 0) {
-        return "0";
-    }
+    // 由恒返回 "0" 的桩改为真实行数 (数据源为空返回 0)
+    if (std::strcmp(name, "rowCount") == 0) { return std::to_string(rowCount()); }
     return View::getProperty(name);
 }
 

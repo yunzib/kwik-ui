@@ -22,6 +22,7 @@ target_sources(kwik_core
             modules/core/path.cppm
             modules/core/color_parser.cppm
             modules/core/theme.cppm
+            modules/core/binding.cppm
            
     PRIVATE
         src/core/log.cpp

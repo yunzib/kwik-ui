@@ -8,7 +8,6 @@
 // ============================================================================
 
 module;
-#include "quickjs.h"
 #include <cstring>
 module kwik.element.checkbox;
 
@@ -19,8 +18,7 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
-import kwik.engine.js_value;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.core.log;
@@ -102,18 +100,8 @@ bool Checkbox::onEvent(const DispatchEvent &event) {
         // ① 双向绑定：自动更新 State（纯 C++ 接口，无 JS 依赖）
         if (binding_) { binding_->setBool(bindKey_, newVal); }
 
-        // ② 显式 onChange 回调（向下兼容）
-        if (!js_is_null(handlers.onChange) && handlers.ctx) {
-            JSValue eventObj = JS_NewObject(handlers.ctx);
-            JS_SetPropertyStr(handlers.ctx, eventObj, "checked", JS_NewBool(handlers.ctx, check_.checked));
-            JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-            if (JS_IsException(ret)) {
-                JSValue exc = JS_GetException(handlers.ctx);
-                JS_FreeValue(handlers.ctx, exc);
-            }
-            JS_FreeValue(handlers.ctx, ret);
-            JS_FreeValue(handlers.ctx, eventObj);
-        }
+        // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { checked: bool }
+        if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{check_.checked}}); }
     }
     return View::onEvent(event);
 }

@@ -7,7 +7,6 @@
 // ============================================================================
 
 module;
-#include "quickjs.h"
 #include <cstring>
 #include <algorithm>
 #include <cmath>
@@ -20,8 +19,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.command;
-import kwik.engine.js_value;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 import kwik.element.typed_prop;
 import kwik.event;
 
@@ -304,18 +302,9 @@ bool Slider::onEvent(const DispatchEvent &event) {
 // fireChange — 触发 onChange 回调
 // ============================================================================
 void Slider::fireChange() {
-    if (!handlers.ctx || js_is_null(handlers.onChange)) return;
-    if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
-
-    JSValue eventObj = JS_NewObject(handlers.ctx);
-    JS_SetPropertyStr(handlers.ctx, eventObj, "value", JS_NewFloat64(handlers.ctx, sp_.value));
-    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &eventObj);
-    if (JS_IsException(ret)) {
-        JSValue exc = JS_GetException(handlers.ctx);
-        JS_FreeValue(handlers.ctx, exc);
-    }
-    JS_FreeValue(handlers.ctx, ret);
-    JS_FreeValue(handlers.ctx, eventObj);
+    // 引擎中立回调: JS 侧收到 { value: number }
+    // (TypedProp 浮点为 double, sp_.value 是 float 需显式提升)
+    if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{static_cast<double>(sp_.value)}}); }
 }
 
 // ============================================================================

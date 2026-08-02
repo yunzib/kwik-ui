@@ -2,7 +2,7 @@ module;
 #include <string>
 #include <memory>
 #include <vector>
-#include "quickjs.h"
+
 export module kwik.element.dropdown;
 import kwik.element.view;
 import kwik.core.props;
@@ -13,7 +13,7 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
 import kwik.element.typed_prop;
-import kwik.engine.state_binding;
+import kwik.core.binding;
 
 import std;
 

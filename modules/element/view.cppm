@@ -1,18 +1,16 @@
 module;
 #include <memory>
 #include <vector>
-#include "quickjs.h"
 
 export module kwik.element.view;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.core.props;
 import kwik.render.graphics;
-import kwik.engine.js_value;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.render.draw_list;
-import kwik.engine.state_binding; // StateBinding, createJSBinding — State 双向绑定
+import kwik.core.binding;    // StateBinding — State 双向绑定抽象接口
 import kwik.core.theme;
 
 import std;
@@ -118,82 +116,70 @@ export inline ElementType elementTypeFromString(std::string_view s) {
 }
 
 // ============================================================================
-// ViewEventHandlers —— 事件处理器封装
+// 事件参数与处理器 —— 引擎中立的事件封装
 // ============================================================================
 /**
- * @brief View 控件的事件处理器封装
+ * @brief 指针类事件参数 (onClick / onLongPress / onHoverEnter / onHoverLeave)
+ *
+ * x/y 为相对控件原点的局部坐标;
+ * 键盘事件复用同一通道时, x=keyCode/charCode, y=modifiers。
+ */
+export struct PointerArgs {
+	float x = 0.0f;
+	float y = 0.0f;
+};
+
+/**
+ * @brief 值变更事件参数 (onChange)
+ *
+ * value 携带组件主值:
+ *   Input/TextArea=string, Checkbox/Switch/RadioButton=bool,
+ *   Slider=double, Tabs/Dropdown=string(+index), RadioGroup=string,
+ *   TextView=string (plainText_, 仅作触发信号, 真实数据由适配层拉取)。
+ */
+export struct ChangeArgs {
+	TypedProp value;    ///< 组件主值
+	int index = -1;     ///< 选中索引, 仅 Tabs/Dropdown 使用, 其余为 -1
+};
+
+/**
+ * @brief 行点击事件参数 (Table onRowClick)
+ */
+export struct RowArgs {
+	int index = -1;    ///< 被点击的数据行索引
+};
+
+/**
+ * @brief View 控件的事件处理器封装 (引擎中立)
  *
  * 职责:
- *   - 集中存储 4 种 JS 事件回调的 JSValue 引用
- *   - RAII 管理 JSValue 生命周期 (析构时自动释放)
- *   - 提供 bind() 绑定和 dispatch() 分发接口
+ *   - 集中存储各类事件回调 (std::function, 与 JS 引擎解耦)
+ *   - 提供 dispatch() 分发接口
  *
- * 禁止拷贝 (JSValue 引用计数语义不支持浅拷贝),
- * 支持移动 (移动后源对象清空, 避免 double-free)
+ * JS 侧回调的适配 (JSValue 包装 / JS_Call / 异常处理)
+ * 全部由 bridge 层 kwik.bridge.event_adapter 完成,
+ * element 层不出现任何 QuickJS 类型。
+ * 回调生命周期随 std::function 析构自动结束 (旧 JSValue 引用随之释放),
+ * reconcile 重绑时直接覆盖赋值, 与旧"先 Free 再 bind"语义等价。
  */
 export struct ViewEventHandlers {
-    JSValue onClick = JS_NULL;         // 点击回调
-    JSValue onLongPress = JS_NULL;     // 长按回调
-    JSValue onHoverEnter = JS_NULL;    // 鼠标进入回调
-    JSValue onHoverLeave = JS_NULL;    // 鼠标离开回调
-    JSValue onChange = JS_NULL;        // Input 文本变更回调
-    JSValue onRowClick = JS_NULL;      // 表格行点击
-    JSValue onClose = JS_NULL;         // Dialog 关闭回调
-    JSContext *ctx = nullptr;          // QuickJS 上下文 (析构清理用)
-    ViewEventHandlers() = default;
-    /**
-     * @brief 析构: 释放所有持有的 JSValue 引用
-     */
-    ~ViewEventHandlers() { release(); }
-    // 禁止拷贝
-    ViewEventHandlers(const ViewEventHandlers &) = delete;
-    ViewEventHandlers &operator=(const ViewEventHandlers &) = delete;
-    // 支持移动
-    ViewEventHandlers(ViewEventHandlers &&other) noexcept { moveFrom(other); }
-    ViewEventHandlers &operator=(ViewEventHandlers &&other) noexcept {
-        if (this != &other) {
-            release();
-            moveFrom(other);
-        }
-        return *this;
-    }
-    /**
-     * @brief 绑定 JS 事件回调函数
-     * @param c       QuickJS 上下文
-     * @param name    事件属性名 ("onClick" / "onLongPress" / "onHoverEnter" / "onHoverLeave")
-     * @param handler JS 函数引用 (内部通过 JS_DupValue 增加引用计数)
-     *
-     * 若该槽位已有旧值, 先释放旧值再绑定新值
-     */
-    void bind(JSContext *c, const char *name, JSValue handler);
-    /**
-     * @brief 根据事件码分发到对应的 JS 处理器
-     * @param code       事件类型码 (ViewEventCode::Tap 等)
-     * @param localX     相对控件原点的局部 x 坐标
-     * @param localY     相对控件原点的局部 y 坐标
-     * @param dispatchCtx QuickJS 上下文
-     * @return true 表示事件已消费 (阻止冒泡)
-     */
-    bool dispatch(int code, float localX, float localY, JSContext *dispatchCtx);
-    /**
-     * @brief 是否没有任何事件处理器绑定
-     * @return 全部为 JS_NULL 则返回 true
-     */
-    bool empty() const {
-        return js_is_null(onClick) && js_is_null(onLongPress) && js_is_null(onHoverEnter) && js_is_null(onHoverLeave)
-               && js_is_null(onChange) && js_is_null(onRowClick);
-    }
+	std::function<bool(const PointerArgs &)> onClick;        ///< 点击, 返回 true=消费(阻止冒泡)
+	std::function<bool(const PointerArgs &)> onLongPress;    ///< 长按
+	std::function<bool(const PointerArgs &)> onHoverEnter;   ///< 鼠标进入
+	std::function<bool(const PointerArgs &)> onHoverLeave;   ///< 鼠标离开
+	std::function<void(const ChangeArgs &)> onChange;        ///< 值变更 (Input/Checkbox/Slider/...)
+	std::function<void()> onClose;                           ///< Dialog 关闭
+    std::function<void(const RowArgs &)> onRowClick;         ///< Table 行点击
 
-private:
-    /**
-     * @brief 释放所有 JSValue 引用, 置 JS_NULL
-     */
-    void release();
-    /**
-     * @brief 从 other 移动全部字段, 并清空 other
-     * @param other 源对象
-     */
-    void moveFrom(ViewEventHandlers &other);
+
+	/**
+	 * @brief 根据事件码分发到对应的指针事件处理器
+	 * @param code   事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
+	 * @param localX 相对控件原点的局部 x 坐标
+	 * @param localY 相对控件原点的局部 y 坐标
+	 * @return true 表示事件已消费 (阻止冒泡)
+	 */
+	bool dispatch(int code, float localX, float localY);
 };
 
 // ============================================================================
@@ -229,7 +215,7 @@ public:
      */
     explicit View(ViewProps p) : props(std::move(p)) {}
 
-    // 禁止拷贝 (unique_ptr 和 JSValue 不支持共享)
+    //  禁止拷贝 (unique_ptr 与事件回调不支持共享)
     View(const View &) = delete;
     View &operator=(const View &) = delete;
 
@@ -417,8 +403,6 @@ public:
      *  renderFrame 中的 draw() 遍历后自动清零。
      */
     bool hasDirtySubtree() const { return subtreeDirty_; }
-
-    JSContext *getJSContext() const { return handlers.ctx; }
 
     // ── 动画支持 ──
     /**
