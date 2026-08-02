@@ -63,4 +63,11 @@ if(KWIK_BUILD_EXAMPLES)
     add_executable(example ${CMAKE_SOURCE_DIR}/test/example.cpp)
     target_link_libraries(example PRIVATE kwik)
 
+     # vk_smoke — 裸 Vulkan 内存冒烟测试（诊断工具, 不链接 kwik, 仅 Win32）
+    if(WIN32)
+        add_executable(vk_smoke ${CMAKE_CURRENT_SOURCE_DIR}/vk_smoke.cpp)
+        find_package(Vulkan REQUIRED)          # 本地查找, 不依赖 Render.cmake 的启用状态
+        target_link_libraries(vk_smoke PRIVATE Vulkan::Vulkan user32 gdi32)
+    endif()
+
 endif()
