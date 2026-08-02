@@ -543,6 +543,41 @@ void PlatformWindowWin32::GetScreenWorkArea(int *width, int *height) {
     }
 }
 
+bool PlatformWindowWin32::GetClipboardText(std::string &out) {
+    if (!OpenClipboard(hwnd_)) return false;
+    HANDLE h = GetClipboardData(CF_UNICODETEXT);
+    if (!h) {
+        CloseClipboard();
+        return false;
+    }
+    const wchar_t *w = static_cast<const wchar_t *>(GlobalLock(h));
+    if (!w) {
+        CloseClipboard();
+        return false;
+    }
+    int len = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+    if (len > 1) {
+        out.resize(len - 1);
+        WideCharToMultiByte(CP_UTF8, 0, w, -1, out.data(), len, nullptr, nullptr);
+    }
+    GlobalUnlock(h);
+    CloseClipboard();
+    return true;
+}
+
+void PlatformWindowWin32::SetClipboardText(const std::string &text) {
+    if (!OpenClipboard(hwnd_)) return;
+    EmptyClipboard();
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
+    if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, (SIZE_T)wlen * sizeof(wchar_t))) {
+        wchar_t *w = static_cast<wchar_t *>(GlobalLock(h));
+        MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, w, wlen);
+        GlobalUnlock(h);
+        SetClipboardData(CF_UNICODETEXT, h);
+    }
+    CloseClipboard();
+}
+
 void PlatformWindowWin32::SetRawEventCallback(PlatformWindow::RawEventCallback callback) {
     rawCallback_ = std::move(callback);
 }

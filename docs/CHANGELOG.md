@@ -1,5 +1,28 @@
 # 更新日志
 
+## [0.0.0] — 2026-08-02
+
+### 修复
+- Channel 帧合并 JSValue 泄漏 — merged_ 清空前释放上一帧残留 data（flush 步骤①），
+  resolveCall 释放 dataToJS 生成的参数值（QuickJS JS_Call 不接管参数）
+- js_state_update atom 双重释放（use-after-free）— 阶段①不再逐键 JS_FreeAtom，
+  改为在 js_free(tab) 前统一释放全部 atom，消除阶段②复用已释放 atom
+- Image 纹理 descriptor 池耗尽 — vkAllocateDescriptorSets 增加 OUT_OF_POOL_MEMORY
+  检测（重置池后重试），destroyTexture 补 vkFreeDescriptorSets 归还 descSet
+- Input / TextArea onChange 异常污染 — fireChange 检查 JS_Call 返回值 JS_IsException(ret)，
+  取走并释放异常，避免上下文长期挂异常
+- FlexLayout flexGrow 溢出 — totalFixed 改为计入弹性子项自然尺寸，
+  弹性子项不再"自然尺寸 + 剩余份额"双份分配
+- FlexLayout CrossAlign::Stretch 首帧主轴尺寸错误 — 改用 info.mainSz 替代
+  陈旧的 frame.width/height（首帧为 0）
+- FlexLayout CrossAlign::End 缺 crossMargin0 — 与 Start/Center 对齐补底部偏移
+- View 字符串 setProperty("width"/"height") 不触发重排 — 补 requestLayout()
+- ListLayout header/footer 首帧高度为 0 — onMeasure 缓存测量结果，
+  headerHeight/footerHeight 与 onLayout 改用缓存值
+
+### 新增
+- flexShrink 属性 — 容器主轴溢出时按 flexShrink 权重收缩子项（默认 0 不收缩）
+
 ## [0.0.0] — 2026-08-01
 
 ### 新增

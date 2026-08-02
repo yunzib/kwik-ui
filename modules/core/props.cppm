@@ -73,6 +73,7 @@ export struct ViewProps {
     bool hasExplicitX = false, hasExplicitY = false;
     float x = 0, y = 0;
     float flexGrow = 0.0f;
+    float flexShrink = 0.0f;    // 0 = 不收缩（默认与旧行为一致）
     float flexBasis = -1.0f;
     int gridRow = 0, gridColumn = 0;
     int gridRowSpan = 1, gridColumnSpan = 1;

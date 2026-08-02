@@ -115,6 +115,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
         if (ex.get("flex", tmp)) result.flexGrow = tmp;
     }
     ex.get("flexBasis", result.flexBasis);
+    ex.get("flexShrink", result.flexShrink);
     {
         int tmp = 0;
         if (ex.get("gridRow", tmp)) result.gridRow = tmp;

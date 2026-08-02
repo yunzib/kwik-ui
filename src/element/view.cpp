@@ -13,9 +13,7 @@ import kwik.core.prop_meta;
 
 import std;
 
-
 bool View::sLayoutPhase = false;
-
 
 // ============================================================================
 // ViewEventHandlers 实现
@@ -482,11 +480,13 @@ bool View::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "width") == 0) {
         props.width = std::stof(value);
         markDirty();
+        requestLayout();
         return true;
     }
     if (std::strcmp(name, "height") == 0) {
         props.height = std::stof(value);
         markDirty();
+        requestLayout();
         return true;
     }
     if (std::strcmp(name, "background") == 0) {

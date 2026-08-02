@@ -31,9 +31,7 @@ public:
     void UnlockBackBuffer() override;
     void Present() override;
     // GPU渲染
-    void *GetNativeHandle() const override {
-        return hwnd_;
-    }
+    void *GetNativeHandle() const override { return hwnd_; }
     void PollEvents() override;
     void WaitEvents() override;
     // 窗口定制
@@ -44,20 +42,24 @@ public:
 
     void SetRawEventCallback(PlatformWindow::RawEventCallback callback) override;
 
+    // 剪贴板
+    bool GetClipboardText(std::string &out) override;
+    void SetClipboardText(const std::string &text) override;
+
 private:
     // 窗口消息处理
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
-    HWND hwnd_ = nullptr;        // 窗口句柄
-    HDC hdc_ = nullptr;          // 设备上下文
-    HBITMAP bitmap_ = nullptr;   // 位图缓冲区
-    void *bitmapBits_ = nullptr; // 位图像素数据
-    int width_ = 0;              // 窗口宽度
-    int height_ = 0;             // 窗口高度
-    int designWidth_ = 800;   // Create() 传入的原始逻辑宽度（缩放前）
-    int designHeight_ = 600;  // Create() 传入的原始逻辑高度（缩放前）
+    HWND hwnd_ = nullptr;           // 窗口句柄
+    HDC hdc_ = nullptr;             // 设备上下文
+    HBITMAP bitmap_ = nullptr;      // 位图缓冲区
+    void *bitmapBits_ = nullptr;    // 位图像素数据
+    int width_ = 0;                 // 窗口宽度
+    int height_ = 0;                // 窗口高度
+    int designWidth_ = 800;         // Create() 传入的原始逻辑宽度（缩放前）
+    int designHeight_ = 600;        // Create() 传入的原始逻辑高度（缩放前）
     WindowDecoration decoration_ = WindowDecoration::Normal;
     RawEventCallback rawCallback_ = nullptr;
 };
 
-#endif // _WIN32
+#endif    // _WIN32

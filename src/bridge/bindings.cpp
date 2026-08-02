@@ -383,7 +383,6 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
         JSAtom atom = tab[i].atom;
         JSValue val = JS_GetProperty(ctx, props, atom);
         JS_SetProperty(ctx, sd->data, atom, val);
-        JS_FreeAtom(ctx, atom);
     }
 
     // ── 阶段 ②：逐键尝试增量更新 ──
@@ -404,6 +403,8 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
         }
     }
 
+    // 收尾：统一释放 atoms（tab 元素所有权归调用方）
+    for (uint32_t i = 0; i < len; ++i) JS_FreeAtom(ctx, tab[i].atom);
     js_free(ctx, tab);
 
     // ── 阶段 ③：全部增量命中 → 跳过重建；有未命中 → 全量兜底 ──

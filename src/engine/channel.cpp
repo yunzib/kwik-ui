@@ -62,6 +62,11 @@ void Channel::flush(JSContext *ctx) {
         std::lock_guard lock(ch.queueMutex_);
         if (ch.queue_.empty()) goto check_timers;
 
+        // 释放上一帧合并残留的 JSValue（clear 不释放裸 JSValue）
+        for (auto &[topic, merged] : ch.merged_) {
+            if (merged.hasPending) JS_FreeValue(ctx, merged.data);
+        }
+
         ch.merged_.clear();
         for (auto &entry : ch.queue_) {
             if (entry.type == QueueEntry::Send) {
@@ -267,6 +272,7 @@ void Channel::resolveCall(uint64_t callId, JSValueConst result) {
         JS_FreeValue(pc.ctx, exc);
     }
     JS_FreeValue(pc.ctx, ret);
+    JS_FreeValue(pc.ctx, (JSValue)result);
     JS_FreeValue(pc.ctx, pc.resolve);
     JS_FreeValue(pc.ctx, pc.reject);
 }

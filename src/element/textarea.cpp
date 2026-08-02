@@ -119,14 +119,23 @@ void TextArea::moveCursorRight() {
 
 void TextArea::moveCursorUp() {
     // 通过排版结果的 cluster 范围反推当前 cursorBytePos_ 所在 visual line
-    if (!textResult_ || textResult_->lines.empty()) { cursorBytePos_ = 0; return; }
+    if (!textResult_ || textResult_->lines.empty()) {
+        cursorBytePos_ = 0;
+        return;
+    }
     size_t pos = cursorBytePos_;
     int lineIdx = -1;
     for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
         auto &l = textResult_->lines[vi];
-        if (pos >= l.clusterStart && pos < l.clusterEnd) { lineIdx = (int)vi; break; }
+        if (pos >= l.clusterStart && pos < l.clusterEnd) {
+            lineIdx = (int)vi;
+            break;
+        }
     }
-    if (lineIdx <= 0) { cursorBytePos_ = 0; return; }
+    if (lineIdx <= 0) {
+        cursorBytePos_ = 0;
+        return;
+    }
     // 上一行同列位置
     auto &prev = textResult_->lines[lineIdx - 1];
     size_t col = pos - textResult_->lines[lineIdx].clusterStart;
@@ -135,15 +144,22 @@ void TextArea::moveCursorUp() {
 }
 
 void TextArea::moveCursorDown() {
-    if (!textResult_ || textResult_->lines.empty()) { cursorBytePos_ = text_.size(); return; }
+    if (!textResult_ || textResult_->lines.empty()) {
+        cursorBytePos_ = text_.size();
+        return;
+    }
     size_t pos = cursorBytePos_;
     int lineIdx = -1;
     for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
         auto &l = textResult_->lines[vi];
-        if (pos >= l.clusterStart && pos < l.clusterEnd) { lineIdx = (int)vi; break; }
+        if (pos >= l.clusterStart && pos < l.clusterEnd) {
+            lineIdx = (int)vi;
+            break;
+        }
     }
     if (lineIdx < 0 || lineIdx >= (int)textResult_->lines.size() - 1) {
-        cursorBytePos_ = text_.size(); return;
+        cursorBytePos_ = text_.size();
+        return;
     }
     // 下一行同列位置
     auto &cur = textResult_->lines[lineIdx];
@@ -241,7 +257,6 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     }
 }
 
-
 // ============================================================================
 // onDraw ─ 整段一次排版 + 逐行渲染 + 光标
 //
@@ -252,16 +267,12 @@ bool TextArea::onEvent(const DispatchEvent &event) {
 // ============================================================================
 void TextArea::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
-    if (focused_) {
-        graphics.drawRoundedRectStroke(frame, props.borderRadius,
-                                       props_.focusedBorderColor, 2.0f);
-    }
+    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, props_.focusedBorderColor, 2.0f); }
 
     auto &pipe = TextRenderPipeline::instance();
     float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
     FontId fid = pipe.activeFont();
-    Rect inner = frame.inset(props.padding.left, props.padding.top,
-                             props.padding.right, props.padding.bottom);
+    Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
     float maxW = std::max(inner.width, 1.0f);
     float lh = lineHeight();
 
@@ -286,17 +297,15 @@ void TextArea::onDraw(Graphics &graphics) {
             pipe.ensureGlyphs(*placeholderResult_);
             graphics.save();
             graphics.translate(inner.x, inner.y);
-            graphics.drawTextCached(placeholderResult_->glyphs,
-                                     props_.placeholderColor);
+            graphics.drawTextCached(placeholderResult_->glyphs, props_.placeholderColor);
             graphics.restore();
         }
     } else {
         // ── 逐 visual line 渲染 ──────────────────────────────────
         float yCursor = inner.y;
         for (auto &sl : textResult_->lines) {
-            auto seg = std::vector<ShapedGlyph>(
-                textResult_->glyphs.begin() + sl.glyphStart,
-                textResult_->glyphs.begin() + sl.glyphStart + sl.glyphCount);
+            auto seg = std::vector<ShapedGlyph>(textResult_->glyphs.begin() + sl.glyphStart,
+                                                textResult_->glyphs.begin() + sl.glyphStart + sl.glyphCount);
             graphics.save();
             graphics.translate(inner.x, yCursor);
             graphics.drawTextCached(seg, props_.textColor);
@@ -314,18 +323,14 @@ void TextArea::onDraw(Graphics &graphics) {
             for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
                 auto &sl = textResult_->lines[vi];
                 bool isLast = (vi == textResult_->lines.size() - 1);
-                if (pos >= sl.clusterStart
-                    && (pos < sl.clusterEnd || (pos == sl.clusterEnd && isLast)))
-                {
+                if (pos >= sl.clusterStart && (pos < sl.clusterEnd || (pos == sl.clusterEnd && isLast))) {
                     for (uint32_t j = 0; j < sl.glyphCount; ++j) {
                         auto &g = textResult_->glyphs[sl.glyphStart + j];
-                        if (g.cluster < pos)
-                            cx += g.advanceX;
+                        if (g.cluster < pos) cx += g.advanceX;
                     }
                     float curY = inner.y + (float)vi * lh;
                     cx = std::min(cx, inner.x + inner.width);
-                    graphics.drawRect({cx - 0.5f, curY, 1.5f, lh},
-                                      props_.cursorColor);
+                    graphics.drawRect({cx - 0.5f, curY, 1.5f, lh}, props_.cursorColor);
                     break;
                 }
             }
@@ -371,8 +376,16 @@ void TextArea::fireChange() {
     if (js_is_null(handlers.onChange)) return;
     if (!JS_IsFunction(handlers.ctx, handlers.onChange)) return;
     JSValue arg = JS_NewString(handlers.ctx, text_.c_str());
-    JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
+    JSValue ret = JS_Call(handlers.ctx, handlers.onChange, JS_UNDEFINED, 1, &arg);
     JS_FreeValue(handlers.ctx, arg);
+    if (JS_IsException(ret)) {
+        JSValue exc = JS_GetException(handlers.ctx);
+        const char *s = JS_ToCString(handlers.ctx, exc);
+        Log::error("[TextArea] onChange error: {}", s ? s : "unknown");
+        JS_FreeCString(handlers.ctx, s);
+        JS_FreeValue(handlers.ctx, exc);
+    }
+    JS_FreeValue(handlers.ctx, ret);
 }
 // ════════════════════════════════════════════════════════
 // getProperty / setProperty — 属性总线

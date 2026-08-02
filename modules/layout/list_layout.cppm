@@ -55,9 +55,11 @@ protected:
 
 private:
     ContainerProps container_;
+    Size headerMeasured_;
+    Size footerMeasured_;
 
-    float headerHeight() const { return header ? header->frame.height : 0; }
-    float headerWidth() const { return header ? header->frame.width : 0; }
-    float footerHeight() const { return footer ? footer->frame.height : 0; }
-    float footerWidth() const { return footer ? footer->frame.width : 0; }
+    float headerHeight() const { return header ? headerMeasured_.height : 0; }
+    float headerWidth() const { return header ? headerMeasured_.width : 0; }
+    float footerHeight() const { return footer ? footerMeasured_.height : 0; }
+    float footerWidth() const { return footer ? footerMeasured_.width : 0; }
 };

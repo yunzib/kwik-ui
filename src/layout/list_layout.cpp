@@ -30,9 +30,9 @@ Size ListLayout::onMeasure(Constraints constraints) {
     float contentAvailH = selfH - padV;
     if (contentAvailH < 0) contentAvailH = 0;
 
-    // ③ header/footer 测量
-    if (header) header->measure(Constraints::loose(Size{contentAvailW, constraints.maxHeight}));
-    if (footer) footer->measure(Constraints::loose(Size{contentAvailW, constraints.maxHeight}));
+    // ③ header/footer 测量（结果缓存，供 headerHeight/footerHeight 使用）
+    if (header) headerMeasured_ = header->measure(Constraints::loose(Size{contentAvailW, constraints.maxHeight}));
+    if (footer) footerMeasured_ = footer->measure(Constraints::loose(Size{contentAvailW, constraints.maxHeight}));
 
     // ④ 子项测量
     bool vert = (container_.scrollDir == ScrollDirection::Vertical);
@@ -91,8 +91,8 @@ void ListLayout::onLayout() {
 
     // header 固定布局（顶部）
     if (header) {
-        header->layout(Rect{contentX, contentY, availW, header->frame.height});
-        contentY += header->frame.height;
+        header->layout(Rect{contentX, contentY, availW, headerMeasured_.height});
+        contentY += headerMeasured_.height;
     }
 
     // 子项布局（可滚动区域）
@@ -133,8 +133,8 @@ void ListLayout::onLayout() {
 
     // footer 固定布局（底部）
     if (footer) {
-        footer->layout(Rect{contentX, frame.y + frame.height - props.padding.bottom - footer->frame.height, availW,
-                            footer->frame.height});
+        footer->layout(Rect{contentX, frame.y + frame.height - props.padding.bottom - footerMeasured_.height, availW,
+                            footerMeasured_.height});
     }
 
     // 约束滚动偏移不过界

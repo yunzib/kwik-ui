@@ -49,12 +49,11 @@ void ImageRenderer::destroy() {
 // ================================================================
 // create — 管线 + descriptor set layout
 // ================================================================
-bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
-                           VkRenderPass renderPass,
-                           VkBuffer vertexBuffer, VkBuffer indexBuffer) {
-    device_      = device;
+bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
+                           VkBuffer indexBuffer) {
+    device_ = device;
     vertexBuffer_ = vertexBuffer;
-    indexBuffer_  = indexBuffer;
+    indexBuffer_ = indexBuffer;
     VkShaderModule vertMod =
         VulkanContext::createShaderModule(device_, kwik::shader::kImageVert, kwik::shader::kImageVertSize);
     VkShaderModule fragMod =
@@ -83,7 +82,8 @@ bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
     }
     VkPipelineShaderStageCreateInfo stages[] = {
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vertMod, "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragMod, "main"},
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragMod,
+         "main"},
     };
     VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
@@ -187,18 +187,16 @@ bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice,
 // ================================================================
 // createTexture — 上传 RGBA + mipmap 生成
 // ================================================================
-uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
-                                      const uint8_t *rgba, uint32_t width, uint32_t height) {
+uint32_t ImageRenderer::createTexture(const DeviceContext &dc, const uint8_t *rgba, uint32_t width, uint32_t height) {
     if (!rgba || width == 0 || height == 0) return 0;
     VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
     // ── Staging buffer ──
     VkBuffer staging;
     VkDeviceMemory stagingMem;
-    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice,
-                                     imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                                     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     staging, stagingMem)) return 0;
+    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     staging, stagingMem))
+        return 0;
     {
         void *mapped;
         vkMapMemory(dc.device, stagingMem, 0, imageSize, 0, &mapped);
@@ -228,9 +226,9 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
     }
     VkMemoryRequirements mr;
     vkGetImageMemoryRequirements(dc.device, tex.image, &mr);
-    VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
-                            VulkanContext::findMemoryType(dc.physicalDevice, mr.memoryTypeBits,
-                                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
+    VkMemoryAllocateInfo ai{
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
+        VulkanContext::findMemoryType(dc.physicalDevice, mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
     if (vkAllocateMemory(dc.device, &ai, nullptr, &tex.memory) != VK_SUCCESS) {
         vkDestroyImage(dc.device, tex.image, nullptr);
         vkDestroyBuffer(dc.device, staging, nullptr);
@@ -257,9 +255,8 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                         0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
     // Copy staging → image (level 0)
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -276,17 +273,15 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
         preBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         preBarrier.image = tex.image;
         preBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 1, mipLevels - 1, 0, 1};
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                             0, nullptr, 0, nullptr, 1, &preBarrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &preBarrier);
         barrier.subresourceRange.levelCount = 1;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                             0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &barrier);
         int32_t mipW = (int32_t)width, mipH = (int32_t)height;
         for (uint32_t i = 1; i < mipLevels; i++) {
             VkImageBlit blit{};
@@ -294,9 +289,8 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
             blit.srcOffsets[1] = {mipW, mipH, 1};
             blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i, 0, 1};
             blit.dstOffsets[1] = {mipW > 1 ? mipW / 2 : 1, mipH > 1 ? mipH / 2 : 1, 1};
-            vkCmdBlitImage(cmd, tex.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           1, &blit, VK_FILTER_LINEAR);
+            vkCmdBlitImage(cmd, tex.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex.image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
             VkImageMemoryBarrier mb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
             mb.image = tex.image;
             mb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1};
@@ -304,9 +298,8 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
             mb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
             mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             mb.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                                 0, nullptr, 0, nullptr, 1, &mb);
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                                 nullptr, 1, &mb);
             if (mipW > 1) mipW /= 2;
             if (mipH > 1) mipH /= 2;
         }
@@ -317,17 +310,15 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
         tb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         tb.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         tb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                             0, nullptr, 0, nullptr, 1, &tb);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                             0, nullptr, 1, &tb);
     } else {
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                             0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                             0, nullptr, 1, &barrier);
     }
     vkEndCommandBuffer(cmd);
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -373,7 +364,19 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc,
     sa.descriptorPool = imageDescPool_;
     sa.descriptorSetCount = 1;
     sa.pSetLayouts = &imageDescSetLayout_;
-    vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
+    VkResult dsr = vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
+    if (dsr == VK_ERROR_OUT_OF_POOL_MEMORY) {
+        vkResetDescriptorPool(dc.device, imageDescPool_, 0);
+        dsr = vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
+    }
+    if (dsr != VK_SUCCESS) {
+        vkDestroySampler(dc.device, tex.sampler, nullptr);
+        vkDestroyImageView(dc.device, tex.view, nullptr);
+        vkDestroyImage(dc.device, tex.image, nullptr);
+        vkFreeMemory(dc.device, tex.memory, nullptr);
+        return 0;
+    }
+
     VkDescriptorImageInfo di{};
     di.sampler = tex.sampler;
     di.imageView = tex.view;
@@ -396,6 +399,7 @@ void ImageRenderer::destroyTexture(uint32_t id) {
     auto it = textures_.find(id);
     if (it == textures_.end()) return;
     auto &t = it->second;
+    vkFreeDescriptorSets(device_, imageDescPool_, 1, &t.descSet);
     vkDestroySampler(device_, t.sampler, nullptr);
     vkDestroyImageView(device_, t.view, nullptr);
     vkDestroyImage(device_, t.image, nullptr);
@@ -405,23 +409,21 @@ void ImageRenderer::destroyTexture(uint32_t id) {
 // ================================================================
 // drawImage
 // ================================================================
-void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
-                              const DrawImageCmd &cmd, float globalAlpha) {
+void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha) {
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
     auto &t = it->second;
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline_);
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_,
-                            0, 1, &t.descSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
     ImagePushConstants pc{};
-    pc.posX  = cmd.rect.x;
-    pc.posY  = cmd.rect.y;
+    pc.posX = cmd.rect.x;
+    pc.posY = cmd.rect.y;
     pc.sizeX = cmd.rect.width;
     pc.sizeY = cmd.rect.height;
-    pc.uvU0  = 0.0f;
-    pc.uvV0  = 0.0f;
-    pc.uvU1  = 1.0f;
-    pc.uvV1  = 1.0f;
+    pc.uvU0 = 0.0f;
+    pc.uvV0 = 0.0f;
+    pc.uvU1 = 1.0f;
+    pc.uvV1 = 1.0f;
     pc.colorR = 1.0f;
     pc.colorG = 1.0f;
     pc.colorB = 1.0f;
@@ -429,8 +431,7 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
-    vkCmdPushConstants(cb, imagePipelineLayout_,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);
@@ -440,23 +441,22 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent,
 // ================================================================
 // drawImageClipped — stencil 测试版
 // ================================================================
-void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent,
-                                     const DrawImageCmd &cmd, float globalAlpha) {
+void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd,
+                                     float globalAlpha) {
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
     auto &t = it->second;
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_);
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_,
-                            0, 1, &t.descSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
     ImagePushConstants pc{};
-    pc.posX  = cmd.rect.x;
-    pc.posY  = cmd.rect.y;
+    pc.posX = cmd.rect.x;
+    pc.posY = cmd.rect.y;
     pc.sizeX = cmd.rect.width;
     pc.sizeY = cmd.rect.height;
-    pc.uvU0  = 0.0f;
-    pc.uvV0  = 0.0f;
-    pc.uvU1  = 1.0f;
-    pc.uvV1  = 1.0f;
+    pc.uvU0 = 0.0f;
+    pc.uvV0 = 0.0f;
+    pc.uvU1 = 1.0f;
+    pc.uvV1 = 1.0f;
     pc.colorR = 1.0f;
     pc.colorG = 1.0f;
     pc.colorB = 1.0f;
@@ -464,8 +464,7 @@ void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent,
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
-    vkCmdPushConstants(cb, imagePipelineLayout_,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer_, &off);

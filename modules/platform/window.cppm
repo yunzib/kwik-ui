@@ -13,43 +13,43 @@ import kwik.event;
  */
 export struct Event {
     enum class Type {
-        None,         // 无事件
-        MouseMove,    // 鼠标移动
-        MouseDown,    // 鼠标按下
-        MouseUp,      // 鼠标释放
-        MouseWheel,   // 鼠标滚轮
-        KeyDown,      // 键盘按下
-        KeyUp,        // 键盘释放
-        TouchBegin,   // 触摸开始
-        TouchMove,    // 触摸移动
-        TouchEnd,     // 触摸结束
-        TouchCancel,  // 触摸取消
-        WindowResize, // 窗口大小改变
-        WindowClose,  // 窗口关闭
-        WindowPaint,  // 窗口绘制
-        TextInput,    // 字符输入 (含 IME 组合结果)
+        None,            // 无事件
+        MouseMove,       // 鼠标移动
+        MouseDown,       // 鼠标按下
+        MouseUp,         // 鼠标释放
+        MouseWheel,      // 鼠标滚轮
+        KeyDown,         // 键盘按下
+        KeyUp,           // 键盘释放
+        TouchBegin,      // 触摸开始
+        TouchMove,       // 触摸移动
+        TouchEnd,        // 触摸结束
+        TouchCancel,     // 触摸取消
+        WindowResize,    // 窗口大小改变
+        WindowClose,     // 窗口关闭
+        WindowPaint,     // 窗口绘制
+        TextInput,       // 字符输入 (含 IME 组合结果)
     } type = Type::None;
     // 鼠标按钮枚举
     enum class MouseButton { None, Left, Right, Middle } button = MouseButton::None;
-    int x = 0;               // X坐标（客户区）
-    int y = 0;               // Y坐标（客户区）
-    int width = 0;           // 窗口宽度
-    int height = 0;          // 窗口高度
-    uint32_t keyCode = 0;    // 虚拟键码 (VK_*), KeyDown/KeyUp 使用
-    uint32_t modifiers = 0;  // Ctrl(1), Shift(2), Alt(4), Meta(8)
-    uint32_t charCode = 0;   // Unicode 码点, TextInput 使用
-    int touchId = 0;         // 触摸点ID
-    float pressure = 1.0f;   // 触摸压力
-    float wheelDelta = 0.0f; // 滚轮增量
+    int x = 0;                  // X坐标（客户区）
+    int y = 0;                  // Y坐标（客户区）
+    int width = 0;              // 窗口宽度
+    int height = 0;             // 窗口高度
+    uint32_t keyCode = 0;       // 虚拟键码 (VK_*), KeyDown/KeyUp 使用
+    uint32_t modifiers = 0;     // Ctrl(1), Shift(2), Alt(4), Meta(8)
+    uint32_t charCode = 0;      // Unicode 码点, TextInput 使用
+    int touchId = 0;            // 触摸点ID
+    float pressure = 1.0f;      // 触摸压力
+    float wheelDelta = 0.0f;    // 滚轮增量
 };
 
 /**
  * @brief 窗口装饰风格
  */
 export enum class WindowDecoration {
-    Normal,     // 默认带标题栏和边框
-    Borderless, // 无边框
-    Transparent // 透明背景（用于异形窗口）
+    Normal,        // 默认带标题栏和边框
+    Borderless,    // 无边框
+    Transparent    // 透明背景（用于异形窗口）
 };
 
 /**
@@ -62,7 +62,6 @@ public:
     using RawEventCallback = std::function<void(const RawEvent &)>;
     virtual ~PlatformWindow() = default;
     // ==================== 窗口生命周期 ====================
-    
 
     /**
      * @brief 创建窗口
@@ -169,4 +168,15 @@ public:
      * @brief 设置窗口是否可调整大小
      */
     virtual void SetResizable(bool resizable) = 0;
+
+    /**
+     * @brief 读取剪贴板文本（UTF-8）
+     * @return 成功返回 true
+     */
+    virtual bool GetClipboardText(std::string &out) { return false; }
+
+    /**
+     * @brief 写入剪贴板文本（UTF-8）
+     */
+    virtual void SetClipboardText(const std::string &text) {}
 };

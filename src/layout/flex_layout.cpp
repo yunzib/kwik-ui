@@ -53,32 +53,44 @@ void FlexLayout::onLayout() {
         float crossSz;
     };
     std::vector<ChildInfo> infos;
+
     for (auto &child : children) {
         if (!child->props.visible) continue;
         visibleCount++;
         float childFlexBasis = (child->props.flexGrow > 0 && child->props.flexBasis >= 0) ? child->props.flexBasis : 0;
         Size cs = child->measure(Constraints::loose(Size{contentW, contentH}));
         float mainSz = isRow ? cs.width : cs.height;
-        float crossSz = isRow ? cs.height : cs.width; // ← 记录交叉轴
+        float crossSz = isRow ? cs.height : cs.width;    // ← 记录交叉轴
         mainSz = std::max(mainSz, childFlexBasis);
         float marginMain = isRow ? child->props.margin.horizontal() : child->props.margin.vertical();
-        if (child->props.flexGrow > 0) {
-            totalFlex += child->props.flexGrow;
-        } else {
-            totalFixed += mainSz + marginMain;
-        }
+        totalFixed += mainSz + marginMain;    // 弹性子项自然尺寸也计入基准
+        if (child->props.flexGrow > 0) totalFlex += child->props.flexGrow;
         infos.push_back({child.get(), mainSz, crossSz});
     }
+
     float totalGap = (visibleCount > 1) ? container_.gap * (visibleCount - 1) : 0;
     float mainSpace = (isRow ? contentW : contentH);
     float remaining = mainSpace - totalFixed - totalGap;
-    // 分配剩余空间给 flexGrow>0 的子项
-    for (auto &info : infos) {
-        if (info.view->props.flexGrow > 0 && totalFlex > 0 && remaining > 0) {
-            float add = remaining * info.view->props.flexGrow / totalFlex;
-            info.mainSz += add;
+    if (remaining > 0 && totalFlex > 0) {
+        // 剩余空间按 flexGrow 分配
+        for (auto &info : infos) {
+            if (info.view->props.flexGrow > 0) { info.mainSz += remaining * info.view->props.flexGrow / totalFlex; }
+        }
+    } else if (remaining < 0) {
+        // 溢出：按 flexShrink 收缩（自然尺寸比例，缺省按权重均摊）
+        float totalShrink = 0;
+        for (auto &info : infos) totalShrink += info.view->props.flexShrink;
+        if (totalShrink > 0) {
+            float over = -remaining;
+            for (auto &info : infos) {
+                if (info.view->props.flexShrink > 0) {
+                    float sub = over * info.view->props.flexShrink / totalShrink;
+                    info.mainSz = std::max(0.0f, info.mainSz - sub);
+                }
+            }
         }
     }
+
     // 计算对齐偏移
     float usedMain = 0;
     for (auto &info : infos) {
@@ -123,21 +135,25 @@ void FlexLayout::onLayout() {
         case CrossAlign::Center:
             crossPos = (isRow ? contentY : contentX) + ((isRow ? contentH : contentW) - crossSz) * 0.5f + crossMargin0;
             break;
-        case CrossAlign::End: crossPos = (isRow ? contentY + contentH : contentX + contentW) - crossSz; break;
+        case CrossAlign::End:
+            crossPos = (isRow ? contentY + contentH : contentX + contentW) - crossSz + crossMargin0;
+            break;
         case CrossAlign::Stretch: {
             float stretchSz = (isRow ? contentH : contentW) - crossMargin1;
             if (isRow) {
+                info.view->frame.width = info.mainSz;
                 info.view->frame.height = stretchSz;
-                info.view->layout(Rect{mainCursor + (isRow ? info.view->props.margin.left : 0), contentY + crossMargin0,
-                                       info.view->frame.width, stretchSz});
+                info.view->layout(
+                    Rect{mainCursor + info.view->props.margin.left, contentY + crossMargin0, info.mainSz, stretchSz});
             } else {
                 info.view->frame.width = stretchSz;
-                info.view->layout(Rect{contentX + crossMargin0, mainCursor + info.view->props.margin.top, stretchSz,
-                                       info.view->frame.height});
+                info.view->frame.height = info.mainSz;
+                info.view->layout(
+                    Rect{contentX + crossMargin0, mainCursor + info.view->props.margin.top, stretchSz, info.mainSz});
             }
             goto NEXT;
         }
-        default: // Start
+        default:    // Start
             crossPos = (isRow ? contentY : contentX) + crossMargin0;
             break;
         }
@@ -149,6 +165,6 @@ void FlexLayout::onLayout() {
     NEXT:
         mainCursor += info.mainSz + (isRow ? info.view->props.margin.horizontal() : info.view->props.margin.vertical())
                       + betweenGap;
-        betweenGap = container_.gap; // reset after first use
+        betweenGap = container_.gap;    // reset after first use
     }
 }
