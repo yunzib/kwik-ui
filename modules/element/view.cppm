@@ -10,7 +10,7 @@ import kwik.render.graphics;
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.render.draw_list;
-import kwik.core.binding;    // StateBinding — State 双向绑定抽象接口
+import kwik.core.binding; // StateBinding — State 双向绑定抽象接口
 import kwik.core.theme;
 
 import std;
@@ -43,6 +43,7 @@ export enum class ElementType : std::uint8_t {
     Tip,
     G2D,
     ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
+    StackIndex,
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -73,6 +74,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::Dialog: return "Dialog";
     case ElementType::Tip: return "Tip";
     case ElementType::G2D: return "G2D";
+    case ElementType::StackIndex: return "StackIndex";
     default: return "View";
     }
     return "Unknown";
@@ -112,6 +114,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "Dialog") return ElementType::Dialog;
     if (s == "Tip") return ElementType::Tip;
     if (s == "G2D") return ElementType::G2D;
+    if (s == "StackIndex") return ElementType::StackIndex;
     return ElementType::View;    // 未知类型退回 View
 }
 
@@ -125,8 +128,8 @@ export inline ElementType elementTypeFromString(std::string_view s) {
  * 键盘事件复用同一通道时, x=keyCode/charCode, y=modifiers。
  */
 export struct PointerArgs {
-	float x = 0.0f;
-	float y = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
 };
 
 /**
@@ -138,15 +141,15 @@ export struct PointerArgs {
  *   TextView=string (plainText_, 仅作触发信号, 真实数据由适配层拉取)。
  */
 export struct ChangeArgs {
-	TypedProp value;    ///< 组件主值
-	int index = -1;     ///< 选中索引, 仅 Tabs/Dropdown 使用, 其余为 -1
+    TypedProp value;    ///< 组件主值
+    int index = -1;     ///< 选中索引, 仅 Tabs/Dropdown 使用, 其余为 -1
 };
 
 /**
  * @brief 行点击事件参数 (Table onRowClick)
  */
 export struct RowArgs {
-	int index = -1;    ///< 被点击的数据行索引
+    int index = -1;    ///< 被点击的数据行索引
 };
 
 /**
@@ -163,23 +166,22 @@ export struct RowArgs {
  * reconcile 重绑时直接覆盖赋值, 与旧"先 Free 再 bind"语义等价。
  */
 export struct ViewEventHandlers {
-	std::function<bool(const PointerArgs &)> onClick;        ///< 点击, 返回 true=消费(阻止冒泡)
-	std::function<bool(const PointerArgs &)> onLongPress;    ///< 长按
-	std::function<bool(const PointerArgs &)> onHoverEnter;   ///< 鼠标进入
-	std::function<bool(const PointerArgs &)> onHoverLeave;   ///< 鼠标离开
-	std::function<void(const ChangeArgs &)> onChange;        ///< 值变更 (Input/Checkbox/Slider/...)
-	std::function<void()> onClose;                           ///< Dialog 关闭
-    std::function<void(const RowArgs &)> onRowClick;         ///< Table 行点击
+    std::function<bool(const PointerArgs &)> onClick;         ///< 点击, 返回 true=消费(阻止冒泡)
+    std::function<bool(const PointerArgs &)> onLongPress;     ///< 长按
+    std::function<bool(const PointerArgs &)> onHoverEnter;    ///< 鼠标进入
+    std::function<bool(const PointerArgs &)> onHoverLeave;    ///< 鼠标离开
+    std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
+    std::function<void()> onClose;                            ///< Dialog 关闭
+    std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击
 
-
-	/**
-	 * @brief 根据事件码分发到对应的指针事件处理器
-	 * @param code   事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
-	 * @param localX 相对控件原点的局部 x 坐标
-	 * @param localY 相对控件原点的局部 y 坐标
-	 * @return true 表示事件已消费 (阻止冒泡)
-	 */
-	bool dispatch(int code, float localX, float localY);
+    /**
+     * @brief 根据事件码分发到对应的指针事件处理器
+     * @param code   事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
+     * @param localX 相对控件原点的局部 x 坐标
+     * @param localY 相对控件原点的局部 y 坐标
+     * @return true 表示事件已消费 (阻止冒泡)
+     */
+    bool dispatch(int code, float localX, float localY);
 };
 
 // ============================================================================
@@ -261,22 +263,7 @@ public:
     }
 
     /** @brief 布局控件（增量：frame 未动 且 子节点无测量变更 → 跳过子树重排） */
-    void layout(Rect bounds) {
-        bool moved =
-            frame.x != bounds.x || frame.y != bounds.y || frame.width != bounds.width || frame.height != bounds.height;
-        frame = bounds;
-        if (moved) { markDirty(); }
-        bool childChanged = false;
-        for (auto &c : children) {
-            if (c->needsMeasure_ || c->subtreeMeasure_) {
-                childChanged = true;
-                break;
-            }
-        }
-        if (moved || childChanged) { onLayout(); }
-        needsMeasure_ = false;    // ← 末段才清，childChanged 判据真实
-        subtreeMeasure_ = false;
-    }
+    void layout(Rect bounds);
     // ==================== 绘制接口 ====================
     /**
      * @brief 绘制控件
@@ -539,6 +526,11 @@ private:
     bool needsMeasure_ = true;       ///< 自身内容需重新测量 (新建默认 true → 首帧全量)
     bool subtreeMeasure_ = false;    ///< 子树中有节点需重新测量 (requestLayout 冒泡)
     static bool sLayoutPhase;        ///< 当前测量相位 (内容/布局)
+
+    /** @brief 布局位移标记: 子视图位移导致相邻区域重叠, 下一帧父级做整片区域一次性重绘 */
+    bool needsLayoutRepaint_ = false;
+    /** @brief 区域重绘中: 子视图只重画内容、不做各自底图 (避免相邻底图互洗) */
+    inline static bool s_suppressUnderlay = false;
 
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针

@@ -1384,6 +1384,11 @@ static JSValue js_theme_provider(JSContext *ctx, JSValueConst this_val, int argc
     return result;
 }
 
+static JSValue js_stackindex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "StackIndex", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
     // 只导出 View 和 Text 为普通工厂函数
@@ -1422,6 +1427,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("G2D", 1, js_g2d),
         JS_CFUNC_DEF("theme", 1, js_theme),
         JS_CFUNC_DEF("ThemeProvider", 1, js_theme_provider),
+        JS_CFUNC_DEF("StackIndex", 1, js_stackindex),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

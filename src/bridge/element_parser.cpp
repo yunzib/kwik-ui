@@ -29,7 +29,7 @@ import kwik.element.image;
 import kwik.engine.state_binding;
 import kwik.element.typed_prop;
 import kwik.bridge.binding_registry;
-import kwik.bridge.event_adapter;    // attachJsHandlers — JS 事件适配
+import kwik.bridge.event_adapter; // attachJsHandlers — JS 事件适配
 import kwik.element.slider;
 import kwik.element.progressbar;
 import kwik.element.switch_button;
@@ -49,10 +49,11 @@ import kwik.element.tabs;
 import kwik.element.dialog;
 import kwik.element.tip;
 import kwik.element.g2d;
-import kwik.core.theme;             // ThemeData — 主题数据结构
-import kwik.bridge.theme_bridge;    // unwrapThemeData — JS opaque → C++ ThemeData*
-import kwik.element.theme_provider; // ThemeProvider — 主题注入 View 节点
-import kwik.bridge.js_table_data_source;   // createJsTableDataSource — 注入 Table 数据源
+import kwik.core.theme;                  // ThemeData — 主题数据结构
+import kwik.bridge.theme_bridge;         // unwrapThemeData — JS opaque → C++ ThemeData*
+import kwik.element.theme_provider;      // ThemeProvider — 主题注入 View 节点
+import kwik.bridge.js_table_data_source; // createJsTableDataSource — 注入 Table 数据源
+import kwik.element.stack_index;
 
 import std;
 
@@ -393,9 +394,7 @@ static struct InitBuiltinTypes {
             // 注入数据源 (JS 数组 → JsTableDataSource, 内部 Dup 持有)
             if (pv.hasProperty("data")) {
                 auto dataVal = pv.getProperty("data");
-                if (dataVal.isArray()) {
-                    table->setData(createJsTableDataSource(dataVal.context(), dataVal.raw()));
-                }
+                if (dataVal.isArray()) { table->setData(createJsTableDataSource(dataVal.context(), dataVal.raw())); }
             }
 
             table->propMeta = std::move(meta);    // ← 新增（在 data引用保留之后）
@@ -484,6 +483,15 @@ static struct InitBuiltinTypes {
             tp->propMeta = std::move(meta);
             applyBindings(tp.get(), pv);
             return tp;
+        });
+
+        ElementParser::registerType("StackIndex", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto v = std::make_unique<StackIndex>(parseViewProps(ex), parseStackIndexProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
         });
     }
 } _init_builtin_types;

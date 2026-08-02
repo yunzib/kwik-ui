@@ -1,6 +1,6 @@
 module;
 #include <cstring>
-#include <cstdint> 
+#include <cstdint>
 
 module kwik.element.view;
 import kwik.render.graphics;
@@ -18,18 +18,61 @@ bool View::sLayoutPhase = false;
 // ViewEventHandlers 实现
 // ============================================================================
 bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
-	// 事件码 → 槽位映射 (与 dispatchEventTypeToCode 约定一致)
-	std::function<bool(const PointerArgs &)> *slot = nullptr;
-	switch (code) {
-	case 0: slot = &onClick; break;         // Tap
-	case 1: slot = &onLongPress; break;     // LongPress
-	case 2: slot = &onHoverEnter; break;    // HoverEnter
-	case 3: slot = &onHoverLeave; break;    // HoverLeave
-	default: return false;
-	}
-	if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
-	// 调用回调; 返回值为 consumed 语义 (JS 适配层调用成功恒返回 true, 异常返回 false)
-	return (*slot)(PointerArgs{localX, localY});
+    // 事件码 → 槽位映射 (与 dispatchEventTypeToCode 约定一致)
+    std::function<bool(const PointerArgs &)> *slot = nullptr;
+    switch (code) {
+    case 0: slot = &onClick; break;         // Tap
+    case 1: slot = &onLongPress; break;     // LongPress
+    case 2: slot = &onHoverEnter; break;    // HoverEnter
+    case 3: slot = &onHoverLeave; break;    // HoverLeave
+    default: return false;
+    }
+    if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
+    // 调用回调; 返回值为 consumed 语义 (JS 适配层调用成功恒返回 true, 异常返回 false)
+    return (*slot)(PointerArgs{localX, localY});
+}
+
+/** @brief 布局控件（增量：frame 未动 且 子节点无测量变更 → 跳过子树重排） */
+void View::layout(Rect bounds) {
+    bool moved =
+        frame.x != bounds.x || frame.y != bounds.y || frame.width != bounds.width || frame.height != bounds.height;
+    bool sizeChanged = frame.width != bounds.width || frame.height != bounds.height;
+    frame = bounds;
+    if (moved) { markDirty(); }
+    bool childChanged = false;
+    for (auto &c : children) {
+        if (c->needsMeasure_ || c->subtreeMeasure_) {
+            childChanged = true;
+            break;
+        }
+    }
+    if (moved || childChanged) {
+        // 快照子视图旧 frame, onLayout 后比对, 检测"布局位移"
+        // (子视图位置/尺寸变化 → 相邻区域重叠 → 各自底图会互洗,
+        //  须由父级整片重绘; 纯内容变更不位移则不触发)
+        std::vector<Rect> oldChildFrames;
+        oldChildFrames.reserve(children.size());
+        for (auto &c : children) { oldChildFrames.push_back(c->frame); }
+
+        onLayout();
+
+        bool anyChildMoved = false;
+        for (size_t i = 0; i < children.size(); ++i) {
+            // Rect 无 operator!=, 逐字段比较
+            auto &f = children[i]->frame;
+            auto &o = oldChildFrames[i];
+            if (f.x != o.x || f.y != o.y || f.width != o.width || f.height != o.height) {
+                anyChildMoved = true;
+                break;
+            }
+        }
+        if (anyChildMoved || sizeChanged) {
+            needsLayoutRepaint_ = true;    // 下一帧父级整片区域一次性重绘
+            markAllDirty();                // 带内所有视图(含原本干净的)全部重绘, 避免被底图擦后空白
+        }
+    }
+    needsMeasure_ = false;    // ← 末段才清，childChanged 判据真实
+    subtreeMeasure_ = false;
 }
 
 // ============================================================================
@@ -152,6 +195,25 @@ void View::onLayout() {
 void View::draw(Graphics &graphics) {
     if (!props.visible) return;
 
+    // ── 布局位移重绘: 父级整片区域一次底图 + 内容重绘 ──
+    // 相邻视图同时位移/变尺寸时, 各自底图(old∪new)会互相冲洗;
+    // 由父级把整片内容区作为整体: 一次底图 → 所有子视图"只画内容"(s_suppressUnderlay)
+    if (needsLayoutRepaint_) {
+        needsLayoutRepaint_ = false;
+        Rect band = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
+        graphics.beginContent(nullptr);
+        if (!s_suppressUnderlay) { graphics.drawUnderlay(band, underlayColor()); }    // 整片一次底图
+        bool prev = s_suppressUnderlay;
+        s_suppressUnderlay = true;    // 带内子视图只画内容, 不各自底图
+        onDraw(graphics);
+        s_suppressUnderlay = prev;
+        graphics.endContent();
+        graphics.accumulateDirtyRect(band);    // union 语义, 嵌套时重复累加无害
+        lastPaintBounds_ = paintBounds();
+        clearDirty();
+        return;
+    }
+
     // ── ① 无脏标记 → 零操作 ──
     if (!dirty_ && !subtreeDirty_) return;
 
@@ -159,23 +221,25 @@ void View::draw(Graphics &graphics) {
     subtreeDirty_ = false;
 
     if (dirty_) {
-        // ── ③ 自身脏 → 先重建脏区底图，再重录自身 + 子树 ──
-        // 画布是持久表面（LOAD_OP_LOAD）：重录内容前必须用"下面应有的底色"
-        // 把旧像素盖掉，否则新内容叠在旧内容上 → 文字/边框/按钮框叠加重影。
-        // 底图覆盖范围 = 本次 paintBounds ∪ 上次绘制范围（lastPaintBounds_）：
-        // 文字变短/元素移动时，旧内容超出新 frame（尾部/原位残留），必须一并盖掉。
-        Rect bounds = paintBounds();
-        Rect region = lastPaintBounds_.unionRect(bounds);    // lastPaintBounds_ 空时即 bounds
-        graphics.beginContent(nullptr);
-        graphics.drawUnderlay(region, underlayColor());
-        onDraw(graphics);
-        graphics.endContent();
-
-        // 脏矩形覆盖 旧+新 范围，供 blit 增量拷贝（画布干净了，swapchain 也要收到）
-        Rect paint = region.unionRect(dirtyRectOverride_);
-        graphics.accumulateDirtyRect(paint);
-
-        lastPaintBounds_ = bounds;    // 记录本次范围，供下次变短/移动时覆盖旧范围
+        if (s_suppressUnderlay) {
+            // ── ③' 布局位移重绘中: 父级已对整个带做底图, 这里只重画内容, 不再各自底图 ──
+            // (若仍各自底图, 后画的兄弟会用底色盖掉先画的兄弟内容 → 白角/遮挡)
+            graphics.beginContent(nullptr);
+            onDraw(graphics);
+            graphics.endContent();
+            lastPaintBounds_ = paintBounds();
+        } else {
+            // ── ③ 自身脏 → 先重建脏区底图，再重录自身 + 子树 ──
+            Rect bounds = paintBounds();
+            Rect region = lastPaintBounds_.unionRect(bounds);
+            graphics.beginContent(nullptr);
+            graphics.drawUnderlay(region, underlayColor());
+            onDraw(graphics);
+            graphics.endContent();
+            Rect paint = region.unionRect(dirtyRectOverride_);
+            graphics.accumulateDirtyRect(paint);
+            lastPaintBounds_ = bounds;
+        }
     } else {
         // ── ② 仅子树脏 → 透传通道（自身零内容） ──
         // onDraw 内的自身绘制经 pushNoop 全部 no-op（画布已缓存，不重放不重录）；
@@ -509,19 +573,19 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 }
 
 bool View::onEvent(const DispatchEvent &event) {
-	// 键盘事件: 使用 keyCode/charCode 而非坐标
-	if (event.type == DispatchEvent::Type::KeyAction) {
-		return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.keyCode),
-		                         static_cast<float>(event.modifiers));
-	}
-	if (event.type == DispatchEvent::Type::CharInput) {
-		return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f);
-	}
+    // 键盘事件: 使用 keyCode/charCode 而非坐标
+    if (event.type == DispatchEvent::Type::KeyAction) {
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.keyCode),
+                                 static_cast<float>(event.modifiers));
+    }
+    if (event.type == DispatchEvent::Type::CharInput) {
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f);
+    }
 
-	// 指针/手势事件: 使用全局坐标转换
-	Point local = {event.globalX - frame.x, event.globalY - frame.y};
-	int code = dispatchEventTypeToCode(event.type);
-	return handlers.dispatch(code, local.x, local.y);
+    // 指针/手势事件: 使用全局坐标转换
+    Point local = {event.globalX - frame.x, event.globalY - frame.y};
+    int code = dispatchEventTypeToCode(event.type);
+    return handlers.dispatch(code, local.x, local.y);
 }
 
 // View::acceptsFocus — 默认返回 false, 子类重写

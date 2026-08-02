@@ -14,12 +14,17 @@ void ClipManager::beginFrame(const VkExtent2D &, const VkRect2D &initialScissor)
     alphaSaveStack_.clear();
     initialScissor_ = initialScissor;
 }
+
 void ClipManager::pushClipRoundedRect(VkCommandBuffer cmd, const Rect &rect, float /*radius*/) {
     clipStack_.push_back(rect);
-    VkRect2D sc = {{std::max(0, (int32_t)std::round(rect.x)), std::max(0, (int32_t)std::round(rect.y))},
-                   {std::max(0u, (uint32_t)std::round(rect.width)), std::max(0u, (uint32_t)std::round(rect.height))}};
+    // 负尺寸必须先在 float 域 clamp 到 0 再转 uint32;
+    // 原实现先转 uint32 → 负值(-64)变巨大正数(4294967232) → scissor 溢出
+    VkRect2D sc = {
+        {std::max(0, (int32_t)std::round(rect.x)), std::max(0, (int32_t)std::round(rect.y))},
+        {(uint32_t)std::max(0.0f, std::round(rect.width)), (uint32_t)std::max(0.0f, std::round(rect.height))}};
     vkCmdSetScissor(cmd, 0, 1, &sc);
 }
+
 void ClipManager::resetClip(VkCommandBuffer cmd) {
     if (!clipStack_.empty()) clipStack_.pop_back();
     VkRect2D sc;
@@ -28,7 +33,7 @@ void ClipManager::resetClip(VkCommandBuffer cmd) {
     else {
         auto &r = clipStack_.back();
         sc = {{(int32_t)std::max(0.f, std::round(r.x)), (int32_t)std::max(0.f, std::round(r.y))},
-              {std::max(0u, (uint32_t)std::round(r.width)), std::max(0u, (uint32_t)std::round(r.height))}};
+              {(uint32_t)std::max(0.0f, std::round(r.width)), (uint32_t)std::max(0.0f, std::round(r.height))}};
     }
     vkCmdSetScissor(cmd, 0, 1, &sc);
 }
@@ -51,7 +56,7 @@ void ClipManager::restoreState(VkCommandBuffer cmd) {
     else {
         auto &r = clipStack_.back();
         sc = {{(int32_t)std::max(0.f, std::round(r.x)), (int32_t)std::max(0.f, std::round(r.y))},
-              {std::max(0u, (uint32_t)std::round(r.width)), std::max(0u, (uint32_t)std::round(r.height))}};
+              {(uint32_t)std::max(0.0f, std::round(r.width)), (uint32_t)std::max(0.0f, std::round(r.height))}};
     }
     vkCmdSetScissor(cmd, 0, 1, &sc);
 }

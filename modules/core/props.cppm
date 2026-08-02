@@ -493,3 +493,16 @@ export struct TipProps {
     float borderRadius = 4.0f;              ///< tooltip 圆角
     EdgeInsets padding{4, 8, 4, 8};         ///< 文字内边距
 };
+
+// ════════════════════════════════════════════════════════
+// StackIndex 属性 — 按索引切换的面板容器
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 按索引显示单个子面板的容器属性
+ *
+ * children 按索引对应面板, 每次只显示 index 指向的那一个,
+ * 其余面板不参与布局/绘制 (保持空 frame)。
+ */
+export struct StackIndexProps {
+    int index = 0;    ///< 当前显示的子面板索引; 越界时隐藏所有面板
+};

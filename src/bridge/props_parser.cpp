@@ -12,7 +12,7 @@ import kwik.engine.js_value;
 import kwik.core.types;
 import kwik.core.props;
 import kwik.engine.js_value;
-import kwik.core.theme;            // ThemeData::resolveToken — "@primary" token 解析
+import kwik.core.theme; // ThemeData::resolveToken — "@primary" token 解析
 
 // ═══════════════════════════════════════════════════════════════════════════
 // parseEdgeInsets — 多重形态解析（数值/数组/对象）
@@ -399,9 +399,7 @@ DropdownProps parseDropdownProps(PropsExtractor &ex) {
 
 template <>
 Color convertTo<Color>(const JSValueRef &v) {
-    if (v.isString()) {
-        return parseColor(v.toString());
-    }
+    if (v.isString()) { return parseColor(v.toString()); }
     return Color::transparent();
 }
 
@@ -628,15 +626,11 @@ DialogProps parseDialogProps(PropsExtractor &ex) {
     // 颜色（需特殊处理）
     if (ex.has("maskColor")) {
         auto val = ex.raw().getProperty("maskColor");
-        if (!val.isNull() && !val.isUndefined()) {
-            dp.maskColor = convertTo<Color>(val);
-        }
+        if (!val.isNull() && !val.isUndefined()) { dp.maskColor = convertTo<Color>(val); }
     }
     if (ex.has("backgroundColor")) {
         auto val = ex.raw().getProperty("backgroundColor");
-        if (!val.isNull() && !val.isUndefined()) {
-            dp.backgroundColor = convertTo<Color>(val);
-        }
+        if (!val.isNull() && !val.isUndefined()) { dp.backgroundColor = convertTo<Color>(val); }
     }
     return dp;
 }
@@ -646,22 +640,29 @@ DialogProps parseDialogProps(PropsExtractor &ex) {
 // ═══════════════════════════════════════════════════════
 TipProps parseTipProps(PropsExtractor &ex) {
     TipProps tp;
-    ex.get("target",       tp.target);
-    ex.get("text",         tp.text);
-    ex.get("position",     tp.position);
-    ex.get("offsetX",      tp.offsetX);
-    ex.get("offsetY",      tp.offsetY);
-    ex.get("fontSize",     tp.fontSize);
+    ex.get("target", tp.target);
+    ex.get("text", tp.text);
+    ex.get("position", tp.position);
+    ex.get("offsetX", tp.offsetX);
+    ex.get("offsetY", tp.offsetY);
+    ex.get("fontSize", tp.fontSize);
     ex.get("borderRadius", tp.borderRadius);
     if (ex.has("background")) {
         auto val = ex.raw().getProperty("background");
-        if (!val.isNull() && !val.isUndefined())
-            tp.background = convertTo<Color>(val);
+        if (!val.isNull() && !val.isUndefined()) tp.background = convertTo<Color>(val);
     }
     if (ex.has("textColor")) {
         auto val = ex.raw().getProperty("textColor");
-        if (!val.isNull() && !val.isUndefined())
-            tp.textColor = convertTo<Color>(val);
+        if (!val.isNull() && !val.isUndefined()) tp.textColor = convertTo<Color>(val);
     }
     return tp;
+}
+
+// ============================================================================
+// parseStackIndexProps — 解析 StackIndex 专有属性
+// ============================================================================
+StackIndexProps parseStackIndexProps(PropsExtractor &ex) {
+    StackIndexProps sp;
+    ex.get<int>("index", sp.index);
+    return sp;
 }

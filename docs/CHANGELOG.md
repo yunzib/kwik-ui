@@ -47,9 +47,22 @@
 - View 字符串 setProperty("width"/"height") 不触发重排 — 补 requestLayout()
 - ListLayout header/footer 首帧高度为 0 — onMeasure 缓存测量结果，
   headerHeight/footerHeight 与 onLayout 改用缓存值
+- Vulkan scissor 负尺寸溢出 — ClipManager 先 clamp float 再转 uint32,
+  负宽高不再变巨大正数 (原先转 uint32 导致 vkCmdSetScissor 溢出报错)
+- 布局位移后相邻视图底图互洗 (白角/遮挡/内容消失) — 新增"父级区域重绘":
+  - View::layout 检测子视图位移 → needsLayoutRepaint_ + markAllDirty
+  - draw 顶部区域块: 整片区域一次底图 + s_suppressUnderlay 下子视图只画内容
+  - ③态 增加 s_suppressUnderlay 分支 (区域重绘内不再各自底图)
+- StackIndex 越界 index 坍缩为 0 尺寸, 不再撑爆布局
 
 ### 新增
 - flexShrink 属性 — 容器主轴溢出时按 flexShrink 权重收缩子项（默认 0 不收缩）
+- StackIndex 组件 — 按索引切换的面板容器
+  - children 按索引对应面板, 只显示 index 指向的那一个 (参照 Tabs 内容面板模式)
+  - 尺寸跟随选中面板; index 越界/负数 → 隐藏所有面板 (不占布局空间)
+  - onChange 回传 { index }; getProp/setProp 读写 index (无 State 双向绑定)
+  - 注册链路: props/parse/bindings/element_parser/ElementType 枚举/CMake/event_adapter
+  - demo: test/ui/stackindex.js (example.exe stackindex)
 
 ## [0.0.0] — 2026-08-01
 
