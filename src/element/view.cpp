@@ -202,7 +202,9 @@ void View::draw(Graphics &graphics) {
         needsLayoutRepaint_ = false;
         Rect band = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
         graphics.beginContent(nullptr);
-        if (!s_suppressUnderlay) { graphics.drawUnderlay(band, underlayColor()); }    // 整片一次底图
+       // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
+        // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
+        if (!s_suppressUnderlay && !drawnElsewhere_) { graphics.drawUnderlay(band, underlayColor()); }    // 整片一次底图（弹层跳过）
         bool prev = s_suppressUnderlay;
         s_suppressUnderlay = true;    // 带内子视图只画内容, 不各自底图
         onDraw(graphics);
@@ -233,7 +235,9 @@ void View::draw(Graphics &graphics) {
             Rect bounds = paintBounds();
             Rect region = lastPaintBounds_.unionRect(bounds);
             graphics.beginContent(nullptr);
-            graphics.drawUnderlay(region, underlayColor());
+            // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
+            // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
+            if (!drawnElsewhere_) { graphics.drawUnderlay(region, underlayColor()); }
             onDraw(graphics);
             graphics.endContent();
             Rect paint = region.unionRect(dirtyRectOverride_);
@@ -279,6 +283,9 @@ Color View::underlayColor() const {
     // 沿父链找最近一个不透明背景；半透明背景（a<255）跳过，
     // 因为其合成结果不是纯色，直接近似为更深层的不透明底色。
     for (View *p = parent_; p; p = p->parent_) {
+        // 弹层子节点：其背景由所属浮层（drawnElsewhere_ 祖先）自身绘制，
+        // 不填父链底色 → 返回透明，避免在 modal 遮罩上露出 base 灰。
+        if (p->drawnElsewhere_) { return Color::transparent(); }
         if (p->props.background.isVisible() && p->props.background.a == 255) { return p->props.background; }
     }
     return Color{245, 245, 245, 255};    // 画布初值 0.96 灰
@@ -311,7 +318,9 @@ void View::onDraw(Graphics &graphics) {
     // 收集直接子节点脏区并集：被脏兄弟覆盖的干净兄弟也需重绘，保持 z-order
     Rect subDirty;
     for (auto &c : children)
-        if (c->dirty_ && c->props.visible) subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
+        // 借根节点不参与 base 兄弟重叠协调（其绘制/脏由 LayerStack 负责）
+        if (c->dirty_ && c->props.visible && !c->drawnElsewhere_)
+            subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
 
     bool needSort = false;
     for (auto &c : children) {
@@ -325,12 +334,14 @@ void View::onDraw(Graphics &graphics) {
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
         for (auto *c : sorted) {
+            if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
             if (isDirty || overlaps) c->draw(graphics);
         }
     } else {
         for (auto &c : children) {
+            if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
             if (isDirty || overlaps) c->draw(graphics);
@@ -361,12 +372,14 @@ EventTarget *View::hitTest(Point point) {
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z > b->props.z; });
         for (auto *c : sorted) {
+            if (c->drawnElsewhere_) continue;    // 借根：由 LayerStack hitTest
             auto *hit = c->hitTest(point);
             if (hit) return hit;
         }
     } else {
         // 无 z-index → 逆序（后添加的在上层）
         for (auto it = children.rbegin(); it != children.rend(); ++it) {
+            if ((*it)->drawnElsewhere_) continue;    // 借根：由 LayerStack hitTest
             auto *hit = (*it)->hitTest(point);
             if (hit) return hit;
         }

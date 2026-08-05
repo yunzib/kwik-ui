@@ -152,6 +152,8 @@ bool Application::init() {
     }
 
     jsCtx_.setUserPointer(tree_.get());
+    // 多图层管理器：base 指向主树根
+    LayerStack::instance().setBase(tree_.get());
 
     // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
     int w, h;
@@ -175,7 +177,7 @@ bool Application::init() {
     preloadImageTextures(tree_.get());
 
     // ⑥ 事件系统
-    eventRouter_.setRootTarget(tree_.get());
+    eventRouter_.setRootTarget(&LayerStack::instance());    // 事件路由根：LayerStack（hitTest 顶→底 layers 再 base）
     eventRouter_.setDpiScale(window_.GetDpiScale());
 
     // ⑥ 初始化 Channel（必须在线程池和队列就绪后）
@@ -210,7 +212,8 @@ void Application::rebuildTree() {
         if (tree_) tree_->clearLayoutRequest();    // 防标志残留导致重复 relayout
     }
 
-    eventRouter_.setRootTarget(tree_.get());
+    LayerStack::instance().setBase(tree_.get());            // base 跟随 reconcile 后的新树
+    eventRouter_.setRootTarget(&LayerStack::instance());    // 事件路由根：LayerStack
     eventRouter_.reset();
     jsCtx_.clearRenderFlag();
     if (tree_) tree_->markAllDirty();
@@ -240,7 +243,7 @@ void Application::renderFrame() {
     canvas.beginFrame(structural);
     canvas.scale(dpi, dpi);
 
-    tree_->draw(canvas);    // ← 无 forceDraw，靠冒泡跳过
+    LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
 
     auto rootLayer = canvas.endFrame();
 
@@ -468,7 +471,9 @@ void Application::onHotReloadTriggered(const std::string &path) {
     // ① 停止动画，防止动画回调使用即将销毁的 JS 上下文
     AnimationEngine::instance().stopAll();
 
-    // ② 销毁当前 View 树
+    // ② 销毁当前 View 树前，清空图层列表（borrowed 指针防悬空）
+    LayerStack::instance().clear();
+    LayerStack::instance().setBase(nullptr);
     //     View 绑定属性（如 onChange）可能持有 JS 函数引用，
     //     必须在 shutdown 和 reload 之前释放
     tree_.reset();
@@ -522,8 +527,10 @@ void Application::onHotReloadTriggered(const std::string &path) {
 
     jsCtx_.setUserPointer(tree_.get());
 
+    // base 指向新树
+    LayerStack::instance().setBase(tree_.get());
     // ⑩ 重建事件路由
-    eventRouter_.setRootTarget(tree_.get());
+    eventRouter_.setRootTarget(&LayerStack::instance());
     eventRouter_.reset();
 
     // ⑪ 重新布局

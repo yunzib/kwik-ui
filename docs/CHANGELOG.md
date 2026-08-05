@@ -1,5 +1,36 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-05
+### 新增
+- Layer 统一浮层组件（替代 Dialog/Tip）
+- 双模式自动切换：容器模式（width>0 || height>0 || anchor 非空）在 contentBounds
+容器内布局；自由模式全屏层、children x/y 自由定位
+- modal 遮罩 + 阻断、transparent 全穿透、maskClosable 可配置点遮罩关闭
+- 定位：视口 9 锚点 + anchor 锚定（out-top/bottom/left/right/center）
+- active（别名 open）由 JS 控制，支持 setProp / ref 双向绑定 / reconcile 同步
+- LayerStack 多图层架构（全局单例，同 CoreTimer 模式）
+- 绘制顺序：base → 逐层底→顶；事件命中：顶→底再回退 base
+- 跨层脏协调：下层脏区 ∩ 上层 bounds → forceLocalDirty 强制上层重绘
+- RootView 完全不知 LayerStack 存在，rootview ↔ layer 循环依赖根除，后端零改动
+- reconcile 支持 LayerView：applyLayerProps 整体覆盖 LayerProps，active 状态迁移
+内部走 activate/deactivate（element_parser 复用路径）
+
+### 删除
+- Dialog / Tip 组件（类、props、JS 绑定、解析、CMake 注册全部移除）
+
+### 修复
+- 弹框激活时 base 内容不显示：activate 对 base 递归 markAllDirty，
+半透明遮罩可正确"暗化"当前帧 base（三缓冲 + LOAD_OP_LOAD 下）
+- 关闭后遮罩残留：deactivate 对称 base->markAllDirty，②态 passThrough 不再残留遮罩色
+- 点遮罩关闭弹框后 Tap 穿透命中底层按钮：feedRawEvent 事件顺序修正
+（Down 先 pointerTracker.update 缓存 pressTarget 再 gestureRecognizer.process；
+Move/Up/Cancel 保持 process 先 update 后）——首次 Down 无法缓存 pressTarget、
+update 强制清空导致 dispatch 走阶段③ hitTest 的根因修复
+- 非模态 Layer 空区穿透 base：hitTest 仅 modal 拦截，容器空区返回 null
+- Layer 测量固定全屏：onMeasure 无视挂载点父约束，保证挂任意节点结果一致
+- 关闭态递归清脏：clearAllDirtySubtree（含子树）防脏标记卡死
+- 子节点布局数组动态化：childHeights 定长数组 64 → std::vector，消除截断上限
+
 ## [0.0.0] — 2026-08-02
 
 ### 架构

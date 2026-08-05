@@ -28,13 +28,11 @@ target_sources(kwik_element
             modules/element/table.cppm
             modules/element/textview.cppm
             modules/element/tabs.cppm
-            modules/element/dialog.cppm
-            modules/element/tip.cppm
             modules/element/g2d.cppm
             modules/element/theme_provider.cppm
             modules/element/table_data_source.cppm
             modules/element/stack_index.cppm
-
+            modules/element/layer_view.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -71,11 +69,10 @@ target_sources(kwik_element
         src/element/table.cpp
         src/element/textview.cpp
         src/element/tabs.cpp
-        src/element/dialog.cpp
-        src/element/tip.cpp
         src/element/g2d.cpp
         src/element/theme_provider.cpp
         src/element/stack_index.cpp
+        src/element/layer_view.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

@@ -456,45 +456,6 @@ export struct TabsProps {
 };
 
 // ════════════════════════════════════════════════════════
-// Dialog 属性 — 弹框 / 模态浮层
-// ════════════════════════════════════════════════════════
-/**
- * @brief 弹框专有属性
- *
- * 支持模态（遮罩+事件阻断）和非模态（浮层+事件穿透）两种模式。
- * 通过 position + offsetX/Y 控制弹出位置。
- */
-export struct DialogProps {
-    bool open = false;                            ///< 是否显示
-    Color maskColor{0, 0, 0, 102};                ///< 遮罩色 rgba(0,0,0,0.4)
-    bool maskClosable = true;                     ///< 点遮罩关闭
-    float width = 400.0f;                         ///< 弹框容器宽度 px
-    float height = 0.0f;                          ///< 弹框容器高度 (0=auto)
-    float borderRadius = 8.0f;                    ///< 容器圆角 px
-    Color backgroundColor{255, 255, 255, 255};    ///< 容器背景色
-    bool modal = true;                            ///< true=模态阻断; false=浮层穿透
-    std::string position = "center";    ///< center|top|bottom|left|right|topLeft|topRight|bottomLeft|bottomRight
-    float offsetX = 0;                  ///< position 基础 X 偏移
-    float offsetY = 0;                  ///< position 基础 Y 偏移
-};
-
-// ════════════════════════════════════════════════════════
-// Tip 属性 — 工具提示（独立元素，不包裹 target）
-// ════════════════════════════════════════════════════════
-export struct TipProps {
-    std::string target = "";                ///< 目标元素 id（用于定位）
-    std::string text = "";                  ///< 提示文字
-    std::string position = "top";           ///< top|bottom|left|right|center
-    float offsetX = 0;                      ///< X 方向偏移
-    float offsetY = 6;                      ///< Y 方向偏移（默认 6px 间隔）
-    float fontSize = 12.0f;                 ///< 提示文字字号
-    Color background{60, 60, 67, 230};      ///< 暗色半透明背景
-    Color textColor{255, 255, 255, 255};    ///< 文字颜色（白色）
-    float borderRadius = 4.0f;              ///< tooltip 圆角
-    EdgeInsets padding{4, 8, 4, 8};         ///< 文字内边距
-};
-
-// ════════════════════════════════════════════════════════
 // StackIndex 属性 — 按索引切换的面板容器
 // ════════════════════════════════════════════════════════
 /**
@@ -505,4 +466,39 @@ export struct TipProps {
  */
 export struct StackIndexProps {
     int index = 0;    ///< 当前显示的子面板索引; 越界时隐藏所有面板
+};
+
+// ══════════════════════════════════════════════════════════════
+// Layer 属性 — 统一浮层（替代 Dialog/Tip）
+//
+// 双模式自动切换：
+//   自由模式  width=0 && height=0 && anchor.empty()
+//             → frame=rootFrame，children 用 x/y/align 自由定位（无容器）
+//   容器模式  width>0 || height>0 || !anchor.empty()
+//             → 计算 contentBounds（视口 9 锚点 或 anchor 锚定），children 在容器内按 padding 布局
+//
+// mask 行为：
+//   modal=true && !transparent → 全屏遮罩 + 事件阻断 + ESC/maskClosable 关闭
+//   modal=false || transparent → 无遮罩，事件穿透（仅 children 命中）
+//   注意：Layer 测量/摆放恒全屏（frame=base->frame），与挂载点父约束无关。
+// ══════════════════════════════════════════════════════════════
+export struct LayerProps {
+    bool active = false;                    // 激活→注册为图层
+    // ── 遮罩 ──
+    bool modal = false;                     // true=遮罩+阻断; false=穿透
+    Color maskColor{0, 0, 0, 102};          // 遮罩色 rgba(0,0,0,0.4)
+    bool maskClosable = true;               // 点遮罩关闭（modal=true 时生效）
+    bool transparent = false;               // true=无遮罩无容器（纯浮层 tooltip/toast）
+    // ── 定位 ──
+    std::string anchor;                     // 目标 id；空=视口模式，非空=锚定模式
+    std::string position = "center";        // 视口: center/top/bottom/left/right/topLeft/...
+                                            // 锚定: out-top/out-bottom/out-left/out-right/center
+    float offsetX = 0;                      // position 基础 X 偏移
+    float offsetY = 0;                      // position 基础 Y 偏移
+    // ── 内容容器（容器模式用）──
+    float width = 0;                        // 0=自适应（容器模式）
+    float height = 0;                       // 0=自适应
+    Color background{255, 255, 255, 255};   // 容器背景
+    float borderRadius = 8;                 // 圆角 px
+    EdgeInsets padding{24, 24, 24, 24};     // 容器内边距（替代 Dialog 固定 kPad=24）
 };

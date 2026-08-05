@@ -39,11 +39,10 @@ export enum class ElementType : std::uint8_t {
     TextView,
     RootView,
     Tabs,
-    Dialog,
-    Tip,
     G2D,
     ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
     StackIndex,
+    LayerView,        // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -71,10 +70,9 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::TextView: return "TextView";
     case ElementType::RootView: return "RootView";
     case ElementType::Tabs: return "Tabs";
-    case ElementType::Dialog: return "Dialog";
-    case ElementType::Tip: return "Tip";
     case ElementType::G2D: return "G2D";
     case ElementType::StackIndex: return "StackIndex";
+    case ElementType::LayerView: return "LayerView";
     default: return "View";
     }
     return "Unknown";
@@ -111,10 +109,9 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "Table") return ElementType::Table;
     if (s == "TextView") return ElementType::TextView;
     if (s == "Tabs") return ElementType::Tabs;
-    if (s == "Dialog") return ElementType::Dialog;
-    if (s == "Tip") return ElementType::Tip;
     if (s == "G2D") return ElementType::G2D;
     if (s == "StackIndex") return ElementType::StackIndex;
+    if (s == "LayerView") return ElementType::LayerView;
     return ElementType::View;    // 未知类型退回 View
 }
 
@@ -391,6 +388,48 @@ public:
      */
     bool hasDirtySubtree() const { return subtreeDirty_; }
 
+    /** @brief 强制本节点脏（仅设 dirty_+subtreeDirty_，不冒泡、不递归）
+     *
+     *  跨层脏协调专用：LayerStack 检测到下层脏区与本层 bounds 相交时调用，
+     *  强制本层下一帧重绘，以覆盖下层底图填充造成的像素擦除。
+     *  不冒泡是为了避免向 base 根设 subtreeDirty_ 而触发额外空帧
+     *  （本层绘制后 clearDirty 自行清零，不依赖冒泡链）。 */
+    void forceLocalDirty() {
+        dirty_ = true;
+        subtreeDirty_ = true;
+    }
+
+    /** @brief 计算绘制影响区（脏区底图填充 + 脏矩形累积 + 跨层重叠协调用）
+     *
+     * = frame ∪ transform 平移包围盒 ∪ scale 缩放包围盒。
+     * 按下缩放 0.97<1 时结果仍是 frame，恰好覆盖旧按钮的整个范围。
+     * 不含 shadow 扩展：避免底图填充扩入邻居元素导致误擦除。
+     *
+     * M2 起为 public：LayerStack::drawAll 跨层脏协调需读取上层 paintBounds
+     * 判定与下层脏区相交（view.cpp 子节点 overlaps 逻辑的跨层等价物）。 */
+    Rect paintBounds() const;
+
+    /** @brief 一次性彻底清空脏标记（关闭态弹层用，防 subtreeDirty_ 卡死）
+     *
+     *  弹层（Dialog/Tip/Layer）"关闭态"不绘制，但若任由脏标记残留，
+     *  hasDirtySubtree() 恒 true → 主循环永不 idle（旧的 Dialog::draw 重写
+     *  不 clearDirty 即犯此病）。关闭态 draw() 路径调此方法彻底清脏 → 恢复 4ms 休眠。 */
+    void clearAllDirty() {
+        dirty_ = false;
+        subtreeDirty_ = false;
+        dirtyRectOverride_ = {};
+    }
+
+    /** @brief 递归清空自身及整棵子树脏标记（弹层关闭态用）
+     *
+     *  弹层关闭后 drawnElsewhere_ 撤销，子树回归 base 遍历；
+     *  若子节点仍带脏标记，会污染 base 下一次渲染判定。
+     *  关闭态 draw() 调此方法连同子树一起清脏。 */
+    void clearAllDirtySubtree() {
+        clearAllDirty();
+        for (auto &c : children) c->clearAllDirtySubtree();
+    }
+
     // ── 动画支持 ──
     /**
      * @brief 通过属性描述符表读取当前值
@@ -493,6 +532,13 @@ public:
     virtual void resolveThemeDefaults() {}
 
 protected:
+    /** @brief 借根标记：本节点由 LayerStack 借绘，base 树子节点循环跳过
+     *
+     *  true → 父级 onDraw 的子节点遍历、hitTest、subDirty 收集均跳过本节点，
+     *  本节点仅由 LayerStack::drawAll 直接 draw、LayerStack::hitTest 直接 hitTest。
+     *  消除旧 Portal 机制的"树内+portal 双录"与跨边界判定缺位问题。 */
+    bool drawnElsewhere_ = false;
+
     /**
      * @brief 测量回调 (子类重写)
      * @param constraints 布局约束
@@ -548,15 +594,6 @@ private:
         dirty_ = false;
         dirtyRectOverride_ = {};
     }
-
-    /**
-     * @brief 计算绘制影响区（脏区底图填充 + 脏矩形累积用）
-     *
-     * = frame ∪ transform 平移包围盒 ∪ scale 缩放包围盒。
-     * 按下缩放 0.97<1 时结果仍是 frame，恰好覆盖旧按钮的整个范围。
-     * 不含 shadow 扩展：避免底图填充扩入邻居元素导致误擦除。
-     */
-    Rect paintBounds() const;
 
     /**
      * @brief 计算该 View 下面的底图颜色（脏区重绘前填充用）

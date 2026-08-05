@@ -1,5 +1,4 @@
 module;
-#include <algorithm>
 
 module kwik.element.rootview;
 
@@ -8,6 +7,7 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.event;
 
+// RootView 填满可用空间，子 View 占满根 frame（与旧实现一致）
 Size RootView::onMeasure(Constraints constraints) {
     return constraints.constrain({constraints.maxWidth, constraints.maxHeight});
 }
@@ -19,41 +19,7 @@ void RootView::onLayout() {
         child->layout(Rect{frame.x, frame.y, s.width, s.height});
     }
 }
-
-// ═══════════════════════════════════════════════════════
-// Portal 支持
-// ═══════════════════════════════════════════════════════
-void RootView::addPortal(View *portal) {
-    if (!portal) { return; }
-    // 避免重复注册
-    if (std::find(portals_.begin(), portals_.end(), portal) == portals_.end()) {
-        portals_.push_back(portal);
-    }
-}
-
-void RootView::removePortal(View *portal) {
-    auto it = std::remove(portals_.begin(), portals_.end(), portal);
-    portals_.erase(it, portals_.end());
-}
-
-// ═══════════════════════════════════════════════════════
-// draw — 先绘制普通 children，再绘制 Portal
-// ═══════════════════════════════════════════════════════
-void RootView::draw(Graphics &g) {
-    View::draw(g); 
-    for (auto *p : portals_) {
-        p->draw(g);
-    }
-}
-
-// ═══════════════════════════════════════════════════════
-// hitTest — 优先检查 Portal，再回退普通树
-// ═══════════════════════════════════════════════════════
-EventTarget* RootView::hitTest(Point p) {
-    // Portal 优先（逆序 = 最后注册的在上层）
-    for (auto it = portals_.rbegin(); it != portals_.rend(); ++it) {
-        if (auto *hit = (*it)->hitTest(p)) { return hit; }
-    }
-    // 回退普通树
-    return View::hitTest(p);
-}
+// M2：addPortal/removePortal/draw/hitTest 全部删除，继承 View 默认实现
+//   draw    → View::draw（三态脏标记）
+//   hitTest → View::hitTest
+// 弹层经 LayerStack::drawAll / LayerStack::hitTest 直接处理，不再走 RootView。

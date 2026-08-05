@@ -608,55 +608,6 @@ TabsProps parseTabsProps(PropsExtractor &ex) {
     return result;
 }
 
-// ═══════════════════════════════════════════════════════
-// DialogProps 解析
-// ═══════════════════════════════════════════════════════
-DialogProps parseDialogProps(PropsExtractor &ex) {
-    DialogProps dp;
-    ex.get("open", dp.open);
-    ex.get("maskClosable", dp.maskClosable);
-    ex.get("width", dp.width);
-    ex.get("height", dp.height);
-    ex.get("borderRadius", dp.borderRadius);
-    ex.get("modal", dp.modal);
-    ex.get("offsetX", dp.offsetX);
-    ex.get("offsetY", dp.offsetY);
-    ex.get("position", dp.position);
-
-    // 颜色（需特殊处理）
-    if (ex.has("maskColor")) {
-        auto val = ex.raw().getProperty("maskColor");
-        if (!val.isNull() && !val.isUndefined()) { dp.maskColor = convertTo<Color>(val); }
-    }
-    if (ex.has("backgroundColor")) {
-        auto val = ex.raw().getProperty("backgroundColor");
-        if (!val.isNull() && !val.isUndefined()) { dp.backgroundColor = convertTo<Color>(val); }
-    }
-    return dp;
-}
-
-// ═══════════════════════════════════════════════════════
-// TipProps 解析
-// ═══════════════════════════════════════════════════════
-TipProps parseTipProps(PropsExtractor &ex) {
-    TipProps tp;
-    ex.get("target", tp.target);
-    ex.get("text", tp.text);
-    ex.get("position", tp.position);
-    ex.get("offsetX", tp.offsetX);
-    ex.get("offsetY", tp.offsetY);
-    ex.get("fontSize", tp.fontSize);
-    ex.get("borderRadius", tp.borderRadius);
-    if (ex.has("background")) {
-        auto val = ex.raw().getProperty("background");
-        if (!val.isNull() && !val.isUndefined()) tp.background = convertTo<Color>(val);
-    }
-    if (ex.has("textColor")) {
-        auto val = ex.raw().getProperty("textColor");
-        if (!val.isNull() && !val.isUndefined()) tp.textColor = convertTo<Color>(val);
-    }
-    return tp;
-}
 
 // ============================================================================
 // parseStackIndexProps — 解析 StackIndex 专有属性
@@ -665,4 +616,36 @@ StackIndexProps parseStackIndexProps(PropsExtractor &ex) {
     StackIndexProps sp;
     ex.get<int>("index", sp.index);
     return sp;
+}
+
+// ══════════════════════════════════════════════════════════════
+// LayerProps 解析 — 统一浮层
+// ══════════════════════════════════════════════════════════════
+LayerProps parseLayerProps(PropsExtractor &ex) {
+    LayerProps lp;
+    ex.get("active", lp.active);
+    ex.get("modal", lp.modal);
+    ex.get("maskClosable", lp.maskClosable);
+    ex.get("transparent", lp.transparent);
+    ex.get("width", lp.width);
+    ex.get("height", lp.height);
+    ex.get("borderRadius", lp.borderRadius);
+    ex.get("offsetX", lp.offsetX);
+    ex.get("offsetY", lp.offsetY);
+    ex.get("position", lp.position);
+    ex.get("anchor", lp.anchor);
+    // 颜色
+    if (ex.has("maskColor")) {
+        auto val = ex.raw().getProperty("maskColor");
+        if (!val.isNull() && !val.isUndefined()) lp.maskColor = convertTo<Color>(val);
+    }
+    if (ex.has("background")) {
+        auto val = ex.raw().getProperty("background");
+        if (!val.isNull() && !val.isUndefined()) lp.background = convertTo<Color>(val);
+    }
+    // padding（支持数值 / [all] / [h,v] / [l,t,r,b] / 对象，与 ViewProps padding 一致）
+    if (ex.has("padding")) {
+        lp.padding = parseEdgeInsets(ex.raw().getProperty("padding"));
+    } 
+    return lp;
 }

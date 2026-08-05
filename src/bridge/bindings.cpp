@@ -1389,6 +1389,12 @@ static JSValue js_stackindex(JSContext *ctx, JSValueConst this_val, int argc, JS
     return makeElement(ctx, "StackIndex", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+// M2: 通用浮层原语 Layer —— makeElement 走 element_parser 的 "Layer" 注册
+static JSValue js_layer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "Layer", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
     // 只导出 View 和 Text 为普通工厂函数
@@ -1428,6 +1434,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("theme", 1, js_theme),
         JS_CFUNC_DEF("ThemeProvider", 1, js_theme_provider),
         JS_CFUNC_DEF("StackIndex", 1, js_stackindex),
+        JS_CFUNC_DEF("Layer", 1, js_layer),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

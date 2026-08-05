@@ -28,6 +28,7 @@ import kwik.core.task_queue;
 import kwik.core.thread_pool;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
+import kwik.element.layer_view;
 
 import std;
 

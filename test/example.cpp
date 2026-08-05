@@ -104,11 +104,10 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "button") return "../../test/ui/button.js";
         if (arg == "animation") return "../../test/ui/animation.js";
         if (arg == "tabs") return "../../test/ui/tabs.js";
-        if (arg == "dialog") return "../../test/ui/dialog.js";
-        if (arg == "tip") return "../../test/ui/tip.js";
         if (arg == "g2d") return "../../test/ui/g2d.js";
         if (arg == "theme") return "../../test/ui/theme.js";
         if (arg == "stackindex") return "../../test/ui/stackindex.js";
+        if (arg == "layer") return "../../test/ui/layer.js";
         return arg;
     }
     return "../../test/ui/example.js";

@@ -464,11 +464,17 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     case RawEvent::Device::Mouse:
     case RawEvent::Device::Touch:
     case RawEvent::Device::Pen: {
-        // GestureRecognizer 识别手势
-        gestureRecognizer_.process(rootTarget_, pointerTracker_,
-                                    scaled, events);
-        // PointerTracker 追踪状态
-        pointerTracker_.update(scaled);
+        // Down 必须先建 PointerState 条目，GestureRecognizer 才能缓存 pressTarget；
+        // 否则首次按下的 PointerDown/Tap 无 presetTarget，在目标按下后被关闭时
+        // （如 maskClosable 弹框）会穿透命中底层元素。
+        if (scaled.action == RawEvent::Action::Down) {
+            pointerTracker_.update(scaled);
+            gestureRecognizer_.process(rootTarget_, pointerTracker_, scaled, events);
+        } else {
+            // Move/Up/Cancel：先识别手势（需在条目被 update 移除/更新前读取），再更新状态
+            gestureRecognizer_.process(rootTarget_, pointerTracker_, scaled, events);
+            pointerTracker_.update(scaled);
+        }
         break;
     }
     case RawEvent::Device::Keyboard: {

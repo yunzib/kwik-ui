@@ -46,14 +46,13 @@ import kwik.element.checkbox;
 import kwik.element.textarea;
 import kwik.element.dropdown;
 import kwik.element.tabs;
-import kwik.element.dialog;
-import kwik.element.tip;
 import kwik.element.g2d;
 import kwik.core.theme;                  // ThemeData — 主题数据结构
 import kwik.bridge.theme_bridge;         // unwrapThemeData — JS opaque → C++ ThemeData*
 import kwik.element.theme_provider;      // ThemeProvider — 主题注入 View 节点
 import kwik.bridge.js_table_data_source; // createJsTableDataSource — 注入 Table 数据源
 import kwik.element.stack_index;
+import kwik.element.layer_view;
 
 import std;
 
@@ -423,26 +422,6 @@ static struct InitBuiltinTypes {
             return tabs;
         });
 
-        // ── Dialog ──
-        ElementParser::registerType("Dialog", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto v = std::make_unique<Dialog>(parseViewProps(ex), parseDialogProps(ex));
-            v->propMeta = std::move(meta);
-            applyBindings(v.get(), pv);
-            return v;
-        });
-
-        // ── Tip ──
-        ElementParser::registerType("Tip", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto v = std::make_unique<Tip>(parseViewProps(ex), parseTipProps(ex));
-            v->propMeta = std::move(meta);
-            applyBindings(v.get(), pv);
-            return v;
-        });
-
         ElementParser::registerType("G2D", [](const JSValueRef &pv) {
             // 检查是否已有 eager 创建的 C++ G2D
             if (pv.hasProperty("__g2d_ptr")) {
@@ -489,6 +468,16 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<StackIndex>(parseViewProps(ex), parseStackIndexProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
+        });
+
+        // ── Layer — 通用浮层原语（M2）──
+        ElementParser::registerType("Layer", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto v = std::make_unique<LayerView>(parseViewProps(ex), parseLayerProps(ex));
             v->propMeta = std::move(meta);
             applyBindings(v.get(), pv);
             return v;
@@ -718,6 +707,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         static_cast<Button *>(oldView.get())->text_ = parseTextContent(ex);
         static_cast<Button *>(oldView.get())->button_ = parseButtonState(ex);
         break;
+    case ElementType::LayerView: static_cast<LayerView *>(oldView.get())->applyLayerProps(parseLayerProps(ex)); break;
     default: break;
     }
 
