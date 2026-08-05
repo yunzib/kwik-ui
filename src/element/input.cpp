@@ -99,7 +99,17 @@ void Input::onDraw(Graphics &graphics) {
     TextLayoutConfig cfg;
     cfg.maxWidth = inner.width;
 
+    // 密码掩码排版结果（提升到函数级，供光标定位复用；空文本时保持 null）
+    std::shared_ptr<TextLayoutResult> maskedResult;
+
     graphics.save();
+
+    // 聚焦描边：必须在 clip 之前、且在 save 的 injectionMode_=false 作用域内绘制。
+    // 若放在 restore() 之后，会继承父级 ②态透传的 injectionMode_=true → drawRoundedRectStroke no-op → 聚焦边框不变色。
+    if (focused_) {
+        graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f);
+    }
+
     graphics.clipRoundedRect(inner, props.borderRadius);
 
     if (text_.empty()) {
@@ -150,7 +160,7 @@ void Input::onDraw(Graphics &graphics) {
             }
             std::string masked;
             for (size_t i = 0; i < charCount; i++) masked += "\xE2\x97\x8F";
-            auto maskedResult = pipe.layoutText(masked, fid, fs, cfg);
+            maskedResult = pipe.layoutText(masked, fid, fs, cfg);
             pipe.ensureGlyphs(*maskedResult);
             graphics.save();
             graphics.translate(inner.x, textY);
@@ -162,28 +172,35 @@ void Input::onDraw(Graphics &graphics) {
             graphics.drawTextCached(textResult_->glyphs, input_.textColor);
             graphics.restore();
         }
+    }
 
-        // ── 光标 ──
-        if (focused_ && updateCursorBlink()) { markDirty(); }
-        if (focused_ && cursorVisible_ && !input_.readOnly) {
-            size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
-            float cx = inner.x;
-            auto &glyphs = input_.isPassword ? textResult_->glyphs    // 密码模式下用 textResult_
-                                               :
-                                               textResult_->glyphs;
-            for (size_t i = 0; i < glyphIdx && i < glyphs.size(); i++) cx += glyphs[i].advanceX;
-            cx = std::max(cx, inner.x);
-            cx = std::min(cx, inner.x + inner.width - 1.5f);
-            float cursorH = fs * 1.4f;
-            float cy = inner.y + (inner.height - cursorH) * 0.5f;
-            graphics.drawRect({cx, cy, 1.5f, cursorH}, input_.cursorColor);
+    // ── 光标（统一：空文本在左缘；非空按实际绘制字形累加宽度）──
+    if (focused_ && updateCursorBlink()) { markDirty(); }
+    if (focused_ && cursorVisible_ && !input_.readOnly) {
+        float cx = inner.x;
+        if (!text_.empty()) {
+            if (input_.isPassword) {
+                // 密码：按掩码 ● 的实际宽度累加（与绘制一致）
+                if (maskedResult) {
+                    size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
+                    for (size_t i = 0; i < glyphIdx && i < maskedResult->glyphs.size(); i++)
+                        cx += maskedResult->glyphs[i].advanceX;
+                }
+            } else if (textResult_) {
+                size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
+                for (size_t i = 0; i < glyphIdx && i < textResult_->glyphs.size(); i++)
+                    cx += textResult_->glyphs[i].advanceX;
+            }
         }
+        cx = std::max(cx, inner.x);
+        cx = std::min(cx, inner.x + inner.width - 1.5f);
+        float cursorH = fs * 1.4f;
+        float cy = inner.y + (inner.height - cursorH) * 0.5f;
+        graphics.drawRect({cx, cy, 1.5f, cursorH}, input_.cursorColor);
     }
 
     graphics.resetClip();
     graphics.restore();
-
-    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f); }
 }
 
 // ============================================================================

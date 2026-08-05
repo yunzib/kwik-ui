@@ -27,7 +27,7 @@ const Card = (title, children) => View({
     borderWidth: 1,
     borderRadius: 8,
     padding: 16,
-    margin: [0, 0, 16, 0]
+    margin: [0, 0, 16, 0],
 }, [
     Text({ text: title, fontSize: 15, fontWeight: "bold", color: "#0f172a", margin: [0, 0, 12, 0] }),
     ...children
