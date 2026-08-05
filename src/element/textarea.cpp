@@ -172,6 +172,7 @@ void TextArea::moveCursorDown() {
 // ════════════════════════════════════════════════════════
 void TextArea::focus() {
     focused_ = true;
+    cursorBytePos_ = text_.size();    // 点击聚焦时光标置于文本末尾
     cursorVisible_ = true;
     lastBlinkTime_ =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -265,7 +266,6 @@ bool TextArea::onEvent(const DispatchEvent &event) {
 // ============================================================================
 void TextArea::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
-    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, props_.focusedBorderColor, 2.0f); }
 
     auto &pipe = TextRenderPipeline::instance();
     float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
@@ -284,6 +284,12 @@ void TextArea::onDraw(Graphics &graphics) {
     pipe.ensureGlyphs(*textResult_);
 
     graphics.save();
+
+    // 聚焦描边：必须在 clip 之前、且在 save 的 injectionMode_=false 作用域内绘制。
+    // 若放在 View::onDraw 之后（save 之前），会继承父级 ②态透传的 injectionMode_=true → drawRoundedRectStroke no-op →
+    // 聚焦边框不变色。
+    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, props_.focusedBorderColor, 2.0f); }
+
     graphics.clipRoundedRect(inner, props.borderRadius);
 
     // ── 占位符 ────────────────────────────────────────────────────

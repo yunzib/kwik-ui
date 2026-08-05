@@ -378,6 +378,7 @@ void Input::fireChange() {
 // ── focus() ──
 void Input::focus() {
     focused_ = true;
+    cursorPos_ = text_.size();    // 点击聚焦时光标置于文本末尾
     cursorVisible_ = true;
     lastBlinkTime_ =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
