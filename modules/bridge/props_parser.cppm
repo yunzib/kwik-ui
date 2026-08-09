@@ -299,3 +299,4 @@ export TextViewProps parseTextViewProps(PropsExtractor &ex);
 export TabsProps parseTabsProps(PropsExtractor &ex);
 export StackIndexProps parseStackIndexProps(PropsExtractor &ex);
 export LayerProps parseLayerProps(PropsExtractor &ex);
+export ScrollViewProps parseScrollViewProps(PropsExtractor &ex);

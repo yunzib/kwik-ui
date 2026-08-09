@@ -5,6 +5,11 @@
 - G3D 组件：addBox / addSphere / addPlane 支持位置参数 tx/ty/tz（默认 0），物体可分开放置
 - G3D 坐标轴：setShowAxes / showAxes（默认显示，X红 / Y绿 / Z蓝，世界原点三轴）
 - G3D mesh 视口=元素矩形：3D 内容渲染在元素矩形内，不再全屏居中
+- ScrollView 组件：通用滚动视口（CSS overflow:auto 等价物），不干预子节点布局，
+  内容尺寸 = 子节点包围盒并集，裁剪视口 + 比例滚动条
+  - 方向 vertical/horizontal/both，子节点测量约束按方向（vertical 宽有界高无界等）
+  - 滚动条：比例滑块（最小 24px），拖拽 1:1 跟随 + 点轨道跳转
+  - 滚轮经事件阶段② applyScroll 单次应用，不消费 onEvent(Scroll)（避免 List 双应用）
 
 ### 变更
 - Dropdown 菜单 Layer 化：菜单从 inline onDraw 绘制改为独立浮层层节点 MenuView

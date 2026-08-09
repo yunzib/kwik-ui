@@ -649,3 +649,20 @@ LayerProps parseLayerProps(PropsExtractor &ex) {
     } 
     return lp;
 }
+
+ScrollViewProps parseScrollViewProps(PropsExtractor &ex) {
+    ScrollViewProps result;
+    // direction: "vertical"(默认) / "horizontal" / "both"
+    ex.getEnum("direction", result.direction,
+               {
+                   {"vertical", ScrollDirection::Vertical},
+                   {"horizontal", ScrollDirection::Horizontal},
+                   {"both", ScrollDirection::Both},
+               });
+    ex.get("showScrollbar", result.showScrollbar);
+    ex.get("scrollbarThickness", result.scrollbarThickness);
+    ex.get("scrollbarColor", result.scrollbarColor);
+    ex.get("scrollbarTrackColor", result.scrollbarTrackColor);
+    ex.get("scrollStep", result.scrollStep);
+    return result;
+}

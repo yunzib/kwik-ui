@@ -502,3 +502,19 @@ export struct LayerProps {
     float borderRadius = 8;                 // 圆角 px
     EdgeInsets padding{24, 24, 24, 24};     // 容器内边距（替代 Dialog 固定 kPad=24）
 };
+
+/**
+ * @brief 通用滚动视口专有属性
+ *
+ * 不干预子节点布局（子节点以内容原点 + x/y 自由摆放，等价 CSS absolute），
+ * 仅负责裁剪视口 + 滚动偏移 + 滚动条绘制。
+ * direction: "vertical"（默认）/ "horizontal" / "both"
+ */
+export struct ScrollViewProps {
+    ScrollDirection direction = ScrollDirection::Vertical;  // 滚动方向（Vertical/Horizontal/Both）
+    bool showScrollbar = true;                              // 是否显示滚动条
+    float scrollbarThickness = 8.0f;                        // 滚动条粗细 (px)
+    Color scrollbarColor{180, 180, 180, 190};               // 滑块颜色 (半透明灰)
+    Color scrollbarTrackColor{0, 0, 0, 0};                  // 轨道颜色（透明=不画轨道）
+    float scrollStep = 30.0f;   // 滚轮每格滚动像素（对齐 ListLayout kFactor=30 手感）
+};

@@ -1558,6 +1558,12 @@ static JSValue js_layer(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return makeElement(ctx, "Layer", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+static JSValue js_scrollview(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
+    return makeElement(ctx, "ScrollView", props, children);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
     // 只导出 View 和 Text 为普通工厂函数
@@ -1597,6 +1603,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("StackIndex", 1, js_stackindex),
         JS_CFUNC_DEF("Layer", 1, js_layer),
         JS_CFUNC_DEF("G3D", 1, js_g3d),
+        JS_CFUNC_DEF("ScrollView", 2, js_scrollview),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

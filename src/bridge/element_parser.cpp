@@ -53,7 +53,8 @@ import kwik.element.theme_provider;      // ThemeProvider — 主题注入 View 
 import kwik.bridge.js_table_data_source; // createJsTableDataSource — 注入 Table 数据源
 import kwik.element.stack_index;
 import kwik.element.layer_view;
-import kwik.element.g3d; 
+import kwik.element.g3d;
+import kwik.element.scroll_view;
 
 import std;
 
@@ -506,6 +507,16 @@ static struct InitBuiltinTypes {
             applyBindings(v.get(), pv);
             return v;
         });
+
+        // ── ScrollView ──
+        ElementParser::registerType("ScrollView", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto v = std::make_unique<ScrollView>(parseViewProps(ex), parseScrollViewProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
+        });
     }
 } _init_builtin_types;
 
@@ -732,6 +743,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         static_cast<Button *>(oldView.get())->button_ = parseButtonState(ex);
         break;
     case ElementType::LayerView: static_cast<LayerView *>(oldView.get())->applyLayerProps(parseLayerProps(ex)); break;
+    case ElementType::ScrollView:
+        static_cast<ScrollView *>(oldView.get())->applyScrollProps(parseScrollViewProps(ex));
+        break;
     default: break;
     }
 
