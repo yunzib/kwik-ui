@@ -102,3 +102,25 @@ add_custom_command(
     COMMENT "Compiling triangle shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/triangle_shaders.h)
+
+# ── Mesh (3D, G3D 组件) ───────────────────────────────────────
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/mesh_shaders.h
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/mesh.slang
+            -entry vertexMain -stage vertex
+            -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/mesh.vert.spv
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/mesh.slang
+            -entry fragmentMain -stage fragment
+            -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/mesh.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/mesh.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/mesh.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/mesh_shaders.h
+        -DNAME=kMesh
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/mesh.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling mesh shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/mesh_shaders.h)

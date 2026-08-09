@@ -293,6 +293,13 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
     builder_.strokeTriangles(verts, applyOpacity(color));
 }
 
+void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16],
+                        const Color &color, const float lightDir[3], const Rect &viewport) {
+    if (!recording_) return;
+    if (vertices.empty()) return;
+    builder_.drawMesh(vertices, mvp, applyOpacity(color), lightDir, transformRect(viewport));
+}
+
 // ============================================================================
 // 帧控制
 // ============================================================================

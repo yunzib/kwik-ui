@@ -709,7 +709,7 @@ void VulkanContext::cleanupSwapchain() {
     swapchainImageLayouts_.clear();
 }
 // ================================================================
-// RenderPass — Canvas 颜色（1x, LOAD_OP_LOAD）+ Stencil（1x, CLEAR）
+// RenderPass — Canvas 颜色（1x, LOAD_OP_LOAD）+ DepthStencil（1x, CLEAR）
 // ================================================================
 bool VulkanContext::createRenderPass() {
     VkAttachmentDescription colorAtt{};
@@ -725,7 +725,10 @@ bool VulkanContext::createRenderPass() {
     VkAttachmentDescription stencilAtt{};
     stencilAtt.format = VK_FORMAT_D24_UNORM_S8_UINT;
     stencilAtt.samples = VK_SAMPLE_COUNT_1_BIT;
-    stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    // 注：vkCmdBeginRenderPass 的 clearValues（vulkan_context.cpp:410-412）已含 cvs[1].depthStencil = {1.0f,
+    // 0}，depth=1.0 即最大深度（远平面），与管线 LESS_OR_EQUAL 匹配，无需修改。2D 管线 depthTestEnable=VK_FALSE
+    // 不受影响。
+    stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;    //  DONT_CARE → CLEAR (G3D 深度测试需要每帧清深)
     stencilAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     stencilAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

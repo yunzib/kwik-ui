@@ -2,6 +2,7 @@ module;
 
 #include <stdint.h>
 #include <cstddef>
+#include <cstring>
 
 module kwik.render.draw_list;
 
@@ -115,6 +116,7 @@ std::shared_ptr<DrawList> DrawListRecorder::endRecording() {
     auto pic = std::make_shared<DrawList>();
     pic->commands_ = std::move(commands_);
     pic->vertices_ = std::move(vertices_);
+    pic->meshVertices_ = std::move(meshVertices_);   // 3D 网格顶点
     pic->bounds_ = bounds_;
     return pic;
 }
@@ -150,6 +152,10 @@ void DrawList::replay(RenderBackend &backend) const {
                 const Vec2 *verts = vertices_.data() + arg.vertexOffset;
                 FillTrianglesCmd fc{arg.vertexOffset, arg.vertexCount, arg.color};
                 backend.fillTriangles(fc, verts);
+            } else if constexpr (std::is_same_v<T, DrawMeshCmd>) {
+                // 3D 网格回放
+                const Vertex3D *verts = meshVertices_.data() + arg.vertexOffset;
+                backend.drawMesh(arg, verts);
             }
         }, cmd);
     }
@@ -178,4 +184,29 @@ void DrawListRecorder::strokeTriangles(const std::vector<Vec2> &verts, const Col
         Rect r{v.x, v.y, 0, 0};
         bounds_ = bounds_.isEmpty() ? r : bounds_.unionRect(r);
     }
+}
+
+void DrawListRecorder::drawMesh(const std::vector<Vertex3D> &verts, const float mvp[16],
+                                const Color &color, const float lightDir[3], const Rect &viewport) {
+    if (verts.empty()) return;
+    if (verts.size() % 3 != 0) return;
+
+    // ── 顶点写入独立 3D 缓冲 ──
+    size_t vOffset = meshVertices_.size();
+    meshVertices_.resize(vOffset + verts.size());
+    std::copy(verts.begin(), verts.end(), meshVertices_.begin() + vOffset);
+
+    // ── 组装命令 ──
+    DrawMeshCmd cmd;
+    cmd.vertexOffset = vOffset;
+    cmd.vertexCount = static_cast<uint32_t>(verts.size());
+    std::memcpy(cmd.mvp, mvp, sizeof(cmd.mvp));            // 列主序 16 floats
+    cmd.color = color;
+    cmd.lightDir[0] = lightDir[0];
+    cmd.lightDir[1] = lightDir[1];
+    cmd.lightDir[2] = lightDir[2];
+    cmd.viewport = viewport;    
+    recordCommand(commands_, cmd);
+
+    // 3D 网格为世界空间绘制, 不并入 2D 脏区包围盒 (bounds_)
 }

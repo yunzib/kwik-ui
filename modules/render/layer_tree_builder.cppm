@@ -8,7 +8,7 @@ export module kwik.render.layer_tree_builder;
 import kwik.core.types;
 import kwik.render.layer;
 import kwik.render.draw_list;
-import kwik.render.command;  // DrawGlyphCmd, Shadow 等
+import kwik.render.command; // DrawGlyphCmd, Shadow 等
 import kwik.core.path;
 import kwik.render.text.types;
 
@@ -77,6 +77,13 @@ public:
     void strokeTriangles(const std::vector<Vec2> &verts, const Color &color);
 
     /**
+     * @brief 绘制 3D 网格（透传 mvp/lightDir/viewport 到录制器）
+     * @param viewport 元素屏幕矩形（烘烤后经录制器写入 DrawMeshCmd）
+     */
+    void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
+                  const float lightDir[3], const Rect &viewport);
+
+    /**
      * @brief 记录 resize 命令
      */
     void resize(int width, int height);
@@ -85,7 +92,7 @@ public:
     void pushTransform(float tx, float ty, float sx, float sy);
     void pushClipRRect(const Rect &rect, float radius);
     void pushOpacity(float opacity);
-    void pop();  // 弹出最近一次 push（不含 group）
+    void pop();    // 弹出最近一次 push（不含 group）
 
     void clear(const Color &color);
     void drawRect(const Rect &rect, const Color &color, BlendMode mode = BlendMode::SrcOver);
@@ -105,14 +112,14 @@ public:
     void clearRectArea(const Rect &rect);
 
     void beginFrame(std::shared_ptr<Layer> root, bool structural);
-    size_t endFrame();                   // 返回记录数
-    std::shared_ptr<Layer> build();      // 返回层树根（shared_ptr）
+    size_t endFrame();                 // 返回记录数
+    std::shared_ptr<Layer> build();    // 返回层树根（shared_ptr）
 
 private:
     /** @brief 栈帧：记录当前容器层和录制器 */
     struct StackFrame {
-        ContainerLayer *container;   ///< 当前容器层（子层挂接点）
-        DrawListRecorder *recorder;   ///< 当前图片录制器（正在录制的 Picture）
+        ContainerLayer *container;     ///< 当前容器层（子层挂接点）
+        DrawListRecorder *recorder;    ///< 当前图片录制器（正在录制的 Picture）
         bool injectionMode;
     };
 

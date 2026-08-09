@@ -22,6 +22,7 @@ import kwik.core.color_parser;
 import kwik.element.g2d;
 import kwik.bridge.theme_bridge;
 import kwik.core.theme;
+import kwik.element.g3d;
 
 import std;
 
@@ -1340,6 +1341,178 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     return obj;
 }
 
+// ── 辅助宏：提取 G3D* 指针 (同 G2D_FROM_THIS, 键为 __g3d_ptr) ──
+#define G3D_FROM_THIS(ctx, this_val)                                                                                   \
+    [&]() -> G3D * {                                                                                                   \
+        JSValue _p = JS_GetPropertyStr(ctx, this_val, "props");                                                        \
+        JSValue _ptr = JS_GetPropertyStr(ctx, _p, "__g3d_ptr");                                                        \
+        if (!JS_IsUndefined(_ptr)) {                                                                                   \
+            double _v;                                                                                                 \
+            JS_ToFloat64(ctx, &_v, _ptr);                                                                              \
+            JS_FreeValue(ctx, _ptr);                                                                                   \
+            JS_FreeValue(ctx, _p);                                                                                     \
+            return reinterpret_cast<G3D *>(static_cast<uintptr_t>(_v));                                                \
+        }                                                                                                              \
+        JS_FreeValue(ctx, _ptr);                                                                                       \
+        JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                                                \
+        const char *_idStr = JS_ToCString(ctx, _id);                                                                   \
+        auto *_qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));                                         \
+        View *_root = static_cast<View *>(_qctx->getUserPointer());                                                    \
+        auto *_r = dynamic_cast<G3D *>(_root ? _root->findById(_idStr) : nullptr);                                     \
+        if (_r) {                                                                                                      \
+            JS_SetPropertyStr(ctx, _p, "__g3d_ptr",                                                                    \
+                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));               \
+        }                                                                                                              \
+        JS_FreeCString(ctx, _idStr);                                                                                   \
+        JS_FreeValue(ctx, _id);                                                                                        \
+        JS_FreeValue(ctx, _p);                                                                                         \
+        return _r;                                                                                                     \
+    }()
+
+// ── G3D 各方法回调 ──
+static JSValue js_g3d_loadModel(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (s) {
+        g3d->loadModel(s);
+        JS_FreeCString(ctx, s);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g3d_clear(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    g3d->clearModel();
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g3d_setColor(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (s) {
+        g3d->setColor(parseColor(s));
+        JS_FreeCString(ctx, s);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g3d_autoRotate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    g3d->setAutoRotate(JS_ToBool(ctx, argv[0]) != 0);
+    return JS_UNDEFINED;
+}
+
+/**
+ * @brief JS showAxes → G3D::setShowAxes
+ */
+static JSValue js_g3d_showAxes(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    g3d->setShowAxes(JS_ToBool(ctx, argv[0]) != 0);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g3d_rotateTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double yaw = 0, pitch = 0;
+    JS_ToFloat64(ctx, &yaw, argv[0]);
+    JS_ToFloat64(ctx, &pitch, argv[1]);
+    g3d->rotateTo(float(yaw), float(pitch));
+    return JS_UNDEFINED;
+}
+
+/**
+ * @brief JS addBox → G3D::addBox (可选 tx/ty/tz)
+ */
+static JSValue js_g3d_addBox(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double s = 1.0, tx = 0, ty = 0, tz = 0;
+    JS_ToFloat64(ctx, &s, argv[0]);
+    if (argc > 1) JS_ToFloat64(ctx, &tx, argv[1]);
+    if (argc > 2) JS_ToFloat64(ctx, &ty, argv[2]);
+    if (argc > 3) JS_ToFloat64(ctx, &tz, argv[3]);
+    g3d->addBox(float(s), float(tx), float(ty), float(tz));
+    return JS_UNDEFINED;
+}
+
+/**
+ * @brief JS addSphere → G3D::addSphere (可选 tx/ty/tz)
+ */
+static JSValue js_g3d_addSphere(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double r = 1.0, sl = 16, st = 12, tx = 0, ty = 0, tz = 0;
+    JS_ToFloat64(ctx, &r, argv[0]);
+    JS_ToFloat64(ctx, &sl, argv[1]);
+    JS_ToFloat64(ctx, &st, argv[2]);
+    if (argc > 3) JS_ToFloat64(ctx, &tx, argv[3]);
+    if (argc > 4) JS_ToFloat64(ctx, &ty, argv[4]);
+    if (argc > 5) JS_ToFloat64(ctx, &tz, argv[5]);
+    g3d->addSphere(float(r), int(sl), int(st), float(tx), float(ty), float(tz));
+    return JS_UNDEFINED;
+}
+
+/**
+ * @brief JS addPlane → G3D::addPlane (可选 tx/ty/tz)
+ */
+static JSValue js_g3d_addPlane(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double w = 4.0, d = 4.0, tx = 0, ty = 0, tz = 0;
+    JS_ToFloat64(ctx, &w, argv[0]);
+    JS_ToFloat64(ctx, &d, argv[1]);
+    if (argc > 2) JS_ToFloat64(ctx, &tx, argv[2]);
+    if (argc > 3) JS_ToFloat64(ctx, &ty, argv[3]);
+    if (argc > 4) JS_ToFloat64(ctx, &tz, argv[4]);
+    g3d->addPlane(float(w), float(d), float(tx), float(ty), float(tz));
+    return JS_UNDEFINED;
+}
+
+static void bindG3DMethods(JSContext *ctx, JSValue obj) {
+    struct {
+        const char *name;
+        JSCFunction *fn;
+        int argc;
+    } methods[] = {
+        {"loadModel", js_g3d_loadModel, 1},   {"clear", js_g3d_clear, 0},       {"setColor", js_g3d_setColor, 1},
+        {"autoRotate", js_g3d_autoRotate, 1}, {"rotateTo", js_g3d_rotateTo, 2}, {"addBox", js_g3d_addBox, 4},
+        {"autoRotate", js_g3d_autoRotate, 1}, {"showAxes", js_g3d_showAxes, 1}, {"addSphere", js_g3d_addSphere, 6},
+        {"addPlane", js_g3d_addPlane, 5},
+    };
+    for (auto &m : methods) { JS_SetPropertyStr(ctx, obj, m.name, JS_NewCFunction(ctx, m.fn, m.name, m.argc)); }
+}
+
+static JSValue js_g3d(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+
+    if (JS_IsObject(props)) {
+        JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
+        if (JS_IsUndefined(idVal)) {
+            static std::atomic<uint32_t> g3d_id_counter{0};
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "__g3d_%u", g3d_id_counter++);
+            JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
+        }
+        JS_FreeValue(ctx, idVal);
+    }
+
+    JSValue obj = makeElement(ctx, "G3D", props, JS_UNDEFINED);
+    bindG3DMethods(ctx, obj);
+
+    // 立即创建 C++ G3D, 指针存到 props (方法调用直达, 与 G2D 同模式)
+    auto *g3d = new G3D();
+    JS_SetPropertyStr(ctx, props, "__g3d_ptr",
+                      JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g3d))));
+
+    return obj;
+}
+
 /**
  * @brief JS theme(opts) — 创建主题 opaque 对象
  *
@@ -1435,6 +1608,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("ThemeProvider", 1, js_theme_provider),
         JS_CFUNC_DEF("StackIndex", 1, js_stackindex),
         JS_CFUNC_DEF("Layer", 1, js_layer),
+        JS_CFUNC_DEF("G3D", 1, js_g3d),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

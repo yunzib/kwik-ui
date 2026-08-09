@@ -199,6 +199,21 @@ void LayerTreeBuilder::strokeTriangles(const std::vector<Vec2> &verts, const Col
     recordCount_++;
 }
 
+void LayerTreeBuilder::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16],
+                                const Color &color, const float lightDir[3], const Rect &viewport) {
+    if (injectionMode_) return;
+    if (vertices.empty()) return;
+    if (currentRecorder_) {
+        currentRecorder_->drawMesh(vertices, mvp, color, lightDir, viewport);   
+    } else {
+        auto recorder = std::make_shared<DrawListRecorder>();
+        recorder->drawMesh(vertices, mvp, color, lightDir, viewport);           
+        auto pic = recorder->endRecording();
+        currentContainer_->addChild(std::make_unique<DrawListLayer>(std::move(pic)));
+    }
+    recordCount_++;
+}
+
 // ── Resize ──
 void LayerTreeBuilder::resize(int /*width*/, int /*height*/) {
     // Resize 由 FrameSubmit.needsResize 直接处理，不经过层树。

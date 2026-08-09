@@ -1,0 +1,2 @@
+curl.exe -L --max-time 300 -o third_party/fastgltf/deps/simdjson/simdjson.h https://cdn.jsdelivr.net/gh/simdjson/simdjson@v4.6.2/singleheader/simdjson.h
+curl.exe -L --max-time 300 -o third_party/fastgltf/deps/simdjson/simdjson.cpp https://cdn.jsdelivr.net/gh/simdjson/simdjson@v4.6.2/singleheader/simdjson.cpp

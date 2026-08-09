@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.0.1 — 2026-08-09
+### 新增
+- G3D 组件：addBox / addSphere / addPlane 支持位置参数 tx/ty/tz（默认 0），物体可分开放置
+- G3D 坐标轴：setShowAxes / showAxes（默认显示，X红 / Y绿 / Z蓝，世界原点三轴）
+- G3D mesh 视口=元素矩形：3D 内容渲染在元素矩形内，不再全屏居中
+
 ## 0.0.0 — 2026-08-05
 ### 新增
 - Layer 统一浮层组件（替代 Dialog/Tip）

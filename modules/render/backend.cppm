@@ -107,6 +107,13 @@ public:
     virtual void fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) = 0;
 
     /**
+     * @brief 绘制 3D 网格（深度测试）
+     * @param cmd      命令元数据（offset + count + mvp + color + lightDir）
+     * @param vertices Vertex3D 顶点数据指针（位置 + 法线）
+     */
+    virtual void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) = 0;
+
+    /**
      * @brief 创建图像纹理并上传 RGBA 像素到 GPU
      * @param rgba    RGBA8 像素数据 (4 bytes per pixel)
      * @param width   图像宽度 (像素)

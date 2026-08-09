@@ -23,7 +23,7 @@ set(RENDER_PUBLIC_MODULES
     modules/render/text/text_layout.cppm
     modules/render/text/text_cache.cppm
     modules/render/text/text_render_pipeline.cppm
-
+    
     
 )
 set(RENDER_PRIVATE_SOURCES
@@ -39,7 +39,7 @@ set(RENDER_PRIVATE_SOURCES
     src/render/text/text_layout.cpp
     src/render/text/text_cache.cpp
     src/render/text/text_render_pipeline.cpp
-   
+    
 )
 
 set(RENDER_COMPILE_DEFINITIONS
@@ -56,6 +56,7 @@ if(KWIK_RENDER_VULKAN)
         modules/render/vulkan/vulkan_clip_manager.cppm
         modules/render/vulkan/vulkan_backend.cppm
         modules/render/vulkan/vulkan_triangle_renderer.cppm
+        modules/render/vulkan/vulkan_3d_renderer.cppm
     )
     list(APPEND RENDER_PRIVATE_SOURCES
         src/render/vulkan/vulkan_context.cpp
@@ -65,6 +66,7 @@ if(KWIK_RENDER_VULKAN)
         src/render/vulkan/vulkan_clip_manager.cpp
         src/render/vulkan/vulkan_backend.cpp
         src/render/vulkan/vulkan_triangle_renderer.cpp
+        src/render/vulkan/vulkan_3d_renderer.cpp
     )
 
     list(APPEND RENDER_LINK_LIBRARIES Vulkan::Vulkan)

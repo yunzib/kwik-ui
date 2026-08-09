@@ -6,6 +6,7 @@ export module kwik.render.graphics;
 
 import kwik.core.types;
 import kwik.render.command_queue;
+import kwik.render.command;
 import kwik.render.backend;
 import kwik.render.layer;
 import kwik.render.draw_list;
@@ -131,6 +132,17 @@ public:
     void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
     void fillPath(const Path &path, const Color &color);
     void strokePath(const Path &path, const Color &color, float lineWidth);
+
+    /**
+     * @brief 绘制 3D 网格（G3D 组件 onDraw 调用）
+     * @param vertices 对象空间顶点（位置+法线）
+     * @param mvp      模型-视图-投影矩阵（列主序，16 floats）
+     * @param color    基础颜色
+     * @param lightDir 方向光（对象空间，归一化）
+     * @param viewport 元素矩形；内部经 transformRect 烘烤父级变换后透传
+     */
+    void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
+                  const float lightDir[3], const Rect &viewport);
 
     // ── 帧控制（保留，行为不变）──
 

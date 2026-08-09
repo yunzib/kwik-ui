@@ -56,6 +56,15 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
+    // 创建 3D 网格渲染器 (深度测试管线)
+    if (!mesh_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+                      ctx_.indexBuffer())) {
+        Log::error("MeshRenderer init failed");
+        glyph_.destroy();
+        rect_.destroy();
+        ctx_.shutdown();
+        return false;
+    }
     return true;
 }
 void VulkanBackend::shutdown() {
@@ -94,6 +103,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
     clip_.beginFrame(currentToken_->extent, sc);
     triangle_.resetOffset();
+    mesh_.resetOffset();                       // 每帧重置 3D 顶点写入偏移
 
     ctx_.accumulateDirtyRect(Rect{
         (float)sx, (float)sy,
@@ -243,4 +253,10 @@ void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *verti
     drawCalls_++;
     triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, vertices, cmd.vertexCount, cmd.color,
                             clip_.globalAlpha());
+}
+
+void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
+    drawCalls_++;
+    mesh_.drawMesh(currentToken_->commandBuffer, currentToken_->extent, cmd.viewport, vertices,
+                   cmd.vertexCount, cmd.mvp, cmd.color, cmd.lightDir);
 }

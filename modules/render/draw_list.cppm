@@ -6,7 +6,7 @@ module;
 export module kwik.render.draw_list;
 
 import kwik.core.types;
-import kwik.render.command;  // 复用 FillRectCmd、DrawGlyphCmd 等结构体
+import kwik.render.command; // 复用 FillRectCmd、DrawGlyphCmd 等结构体
 import kwik.core.path;
 import kwik.render.backend;
 
@@ -28,6 +28,7 @@ export enum class DrawOp : uint8_t {
     DrawImage,
     FillTriangles,
     StrokeTriangles,
+    DrawMesh,    // 3D 网格
 };
 
 /**
@@ -35,11 +36,8 @@ export enum class DrawOp : uint8_t {
  *
  * 比原 Command variant（19 种）小一半以上。
  */
-export using DrawCommand = std::variant<
-    ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd,
-    DrawShadowCmd, DrawGlyphCmd, DrawImageCmd,
-    FillTrianglesCmd, StrokeTrianglesCmd
->;
+export using DrawCommand = std::variant<ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd, DrawShadowCmd,
+                                        DrawGlyphCmd, DrawImageCmd, FillTrianglesCmd, StrokeTrianglesCmd, DrawMeshCmd>;
 
 /**
  * @brief 图片 — 不可变的绘制命令集合
@@ -65,9 +63,10 @@ public:
 private:
     friend class DrawListRecorder;
 
-    std::vector<DrawCommand> commands_;  ///< 绘制命令数组（比原 Command 少 10 种状态类型）
-    std::vector<Vec2> vertices_;         ///< 三角形顶点数据（FillTrianglesCmd 引用）
-    Rect bounds_ = {};                   ///< 包围盒
+    std::vector<DrawCommand> commands_;     ///< 绘制命令数组（比原 Command 少 10 种状态类型）
+    std::vector<Vec2> vertices_;            ///< 三角形顶点数据（FillTrianglesCmd 引用）
+    std::vector<Vertex3D> meshVertices_;    ///<  3D 网格顶点（DrawMeshCmd 引用）
+    Rect bounds_ = {};                      ///< 包围盒
 };
 
 /**
@@ -104,12 +103,24 @@ public:
     void strokeTriangles(const std::vector<Vec2> &verts, const Color &color);
 
     /**
+     * @brief 绘制 3D 网格
+     * @param vertices 对象空间顶点（位置+法线）
+     * @param mvp      模型-视图-投影矩阵（列主序）
+     * @param color    基础颜色
+     * @param lightDir 方向光（对象空间，归一化）
+     * @param viewport 元素屏幕矩形（录制进 DrawMeshCmd, 作 mesh 视口）
+     */
+    void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
+                  const float lightDir[3], const Rect &viewport);
+
+    /**
      * @brief 结束录制，返回不可变 DrawList
      */
     std::shared_ptr<DrawList> endRecording();
 
 private:
-    std::vector<DrawCommand> commands_;   ///< 录制的命令
-    std::vector<Vec2> vertices_;          ///< 三角形顶点
-    Rect bounds_ = {};                    ///< 累加包围盒
+    std::vector<DrawCommand> commands_;    ///< 录制的命令
+    std::vector<Vec2> vertices_;           ///< 三角形顶点
+    std::vector<Vertex3D> meshVertices_;  ///< 3D 网格顶点
+    Rect bounds_ = {};                     ///< 累加包围盒
 };

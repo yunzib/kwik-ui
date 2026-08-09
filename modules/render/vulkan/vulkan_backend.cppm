@@ -14,6 +14,7 @@ import kwik.render.text.pipeline;
 import kwik.render.text.types;
 import kwik.render.vulkan.triangle_renderer;
 import kwik.core.path;
+import kwik.render.vulkan.mesh_renderer;
 
 import kwik.core.types;
 
@@ -65,6 +66,7 @@ public:
     int getHeight() const override { return height_; }
 
     void fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) override;
+    void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) override;
 
     /**
      * @brief 重置帧内 GPU 状态缓存（结构变化时调用）
@@ -85,6 +87,7 @@ private:
     int width_ = 0;
     int height_ = 0;
     TriangleRenderer triangle_;    ///< 三角形网格渲染器
+    MeshRenderer mesh_;            ///< 3D 网格渲染器 (深度测试)
 
     // 状态栈：变换矩阵、透明度
     struct State {

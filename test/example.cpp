@@ -108,6 +108,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "theme") return "../../test/ui/theme.js";
         if (arg == "stackindex") return "../../test/ui/stackindex.js";
         if (arg == "layer") return "../../test/ui/layer.js";
+        if (arg == "g3d") return "../../test/ui/g3d.js";
         return arg;
     }
     return "../../test/ui/example.js";

@@ -40,6 +40,7 @@ export enum class ElementType : std::uint8_t {
     RootView,
     Tabs,
     G2D,
+    G3D,              //  3D 绘制组件
     ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
     StackIndex,
     LayerView,        // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
@@ -73,6 +74,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::G2D: return "G2D";
     case ElementType::StackIndex: return "StackIndex";
     case ElementType::LayerView: return "LayerView";
+    case ElementType::G3D: return "G3D";
     default: return "View";
     }
     return "Unknown";
@@ -110,6 +112,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "TextView") return ElementType::TextView;
     if (s == "Tabs") return ElementType::Tabs;
     if (s == "G2D") return ElementType::G2D;
+    if (s == "G3D") return ElementType::G3D;
     if (s == "StackIndex") return ElementType::StackIndex;
     if (s == "LayerView") return ElementType::LayerView;
     return ElementType::View;    // 未知类型退回 View
