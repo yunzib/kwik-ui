@@ -1,10 +1,21 @@
 # 更新日志
 
-## 0.0.1 — 2026-08-09
+## 0.0.0 — 2026-08-09
 ### 新增
 - G3D 组件：addBox / addSphere / addPlane 支持位置参数 tx/ty/tz（默认 0），物体可分开放置
 - G3D 坐标轴：setShowAxes / showAxes（默认显示，X红 / Y绿 / Z蓝，世界原点三轴）
 - G3D mesh 视口=元素矩形：3D 内容渲染在元素矩形内，不再全屏居中
+
+### 变更
+- Dropdown 菜单 Layer 化：菜单从 inline onDraw 绘制改为独立浮层层节点 MenuView
+  注册进 LayerStack（src/element/dropdown.cpp 同文件实现，模块接口不暴露）
+  - 移除 z=100 提升 hack，菜单恒绘制在 View 树最上层，不被祖先裁剪
+  - 修复：被覆盖兄弟重绘擦菜单、跨父级溢出、点外部无法关闭、展开推挤布局等问题
+  - 点外部 / 点触发区点击被菜单层吞下并关闭（原生 select 行为）
+
+### 修复
+- Dropdown 菜单滚动过慢且方向反转：滚轮 delta（WHEEL_DELTA/120=1.0）裸加仅 1px/格，
+  改为乘以 -itemHeight（一格滚动一项，对齐 ListLayout kFactor 体感），方向与原生菜单一致
 
 ## 0.0.0 — 2026-08-05
 ### 新增

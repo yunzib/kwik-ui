@@ -558,6 +558,16 @@ protected:
      */
     virtual void onDraw(Graphics &graphics);
 
+    /**
+     * @brief 计算该 View 下面的底图颜色（脏区重绘前填充用）
+     *
+     * 沿父链向上找最近一个不透明（alpha==255）的背景颜色；
+     * 无则不透明祖先时回退画布底色 Color{245,245,245,255}
+     * （与 Vulkan 画布初值 0.96 一致，见 vulkan_context.cpp 首帧 clear）。
+     * 虚化：浮层层节点（MenuView）覆盖为自身底色。
+     */
+    Color underlayColor() const;
+
 private:
     View *parent_ = nullptr;        // 父节点 (addChild 自动设置, 裸指针不参与所有权)
     bool dirty_ = true;             // 新建后默认脏 (首帧必画)
@@ -597,13 +607,4 @@ private:
         dirty_ = false;
         dirtyRectOverride_ = {};
     }
-
-    /**
-     * @brief 计算该 View 下面的底图颜色（脏区重绘前填充用）
-     *
-     * 沿父链向上找最近一个不透明（alpha==255）的背景颜色；
-     * 无则不透明祖先时回退画布底色 Color{245,245,245,255}
-     * （与 Vulkan 画布初值 0.96 一致，见 vulkan_context.cpp 首帧 clear）。
-     */
-    Color underlayColor() const;
 };
