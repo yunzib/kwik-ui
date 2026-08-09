@@ -1017,16 +1017,6 @@ static JSValue js_tabs(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return makeElement(ctx, "Tabs", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
-static JSValue js_dialog(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    return makeElement(ctx, "Dialog", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
-}
-
-static JSValue js_tip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    return makeElement(ctx, "Tip", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
-}
-
 /**
  * @brief 通用 G2D 方法调度回调
  *
@@ -1601,8 +1591,6 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("stop", 2, js_stop),
         JS_CFUNC_DEF("isAnimating", 2, js_isAnimating),
         JS_CFUNC_DEF("Tabs", 1, js_tabs),
-        JS_CFUNC_DEF("Dialog", 1, js_dialog),
-        JS_CFUNC_DEF("Tip", 1, js_tip),
         JS_CFUNC_DEF("G2D", 1, js_g2d),
         JS_CFUNC_DEF("theme", 1, js_theme),
         JS_CFUNC_DEF("ThemeProvider", 1, js_theme_provider),
