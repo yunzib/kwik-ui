@@ -666,3 +666,49 @@ ScrollViewProps parseScrollViewProps(PropsExtractor &ex) {
     ex.get("scrollStep", result.scrollStep);
     return result;
 }
+
+// ════════════════════════════════════════════════════════
+// parseTreeNode — 递归解析单个树节点（JSValue 嵌套对象）
+// ════════════════════════════════════════════════════════
+namespace {
+
+TreeNodeData parseTreeNode(const JSValueRef &v) {
+    TreeNodeData n;
+    n.key = v.getProperty("key").toString();
+    n.title = v.getProperty("title").toString();
+    n.icon = v.getProperty("icon").toString();
+    n.checked = v.getProperty("checked").toBool();
+    n.expanded = v.getProperty("expanded").toBool();
+    auto children = v.getProperty("children");
+    if (children.isArray()) {
+        int len = children.getArrayLength();
+        for (int i = 0; i < len; ++i) n.children.push_back(parseTreeNode(children.getArrayElement(i)));
+    }
+    return n;
+}
+
+}    // namespace
+
+// ════════════════════════════════════════════════════════
+// parseTreeMenuProps
+// ════════════════════════════════════════════════════════
+TreeMenuProps parseTreeMenuProps(PropsExtractor &ex) {
+    TreeMenuProps result;
+    if (ex.has("nodes")) {
+        auto nodesVal = ex.raw().getProperty("nodes");
+        if (nodesVal.isArray()) {
+            int len = nodesVal.getArrayLength();
+            for (int i = 0; i < len; ++i) result.nodes.push_back(parseTreeNode(nodesVal.getArrayElement(i)));
+        }
+    }
+    ex.get("rowHeight", result.rowHeight);
+    ex.get("indent", result.indent);
+    ex.get("showCheckbox", result.showCheckbox);
+    ex.get("showIcon", result.showIcon);
+    ex.get("textColor", result.textColor);
+    ex.get("iconColor", result.iconColor);
+    ex.get("checkboxColor", result.checkboxColor);
+    ex.get("hoverBackground", result.hoverBackground);
+    ex.get("arrowColor", result.arrowColor);
+    return result;
+}

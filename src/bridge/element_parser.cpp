@@ -55,6 +55,7 @@ import kwik.element.stack_index;
 import kwik.element.layer_view;
 import kwik.element.g3d;
 import kwik.element.scroll_view;
+import kwik.element.tree_menu;
 
 import std;
 
@@ -517,6 +518,13 @@ static struct InitBuiltinTypes {
             applyBindings(v.get(), pv);
             return v;
         });
+
+        // ── TreeMenu ──
+        ElementParser::registerType("TreeMenu", [](const JSValueRef &pv) {
+            PropsExtractor ex(pv);
+            auto v = std::make_unique<TreeMenu>(parseViewProps(ex), parseScrollViewProps(ex), parseTreeMenuProps(ex));
+            return v;
+        });
     }
 } _init_builtin_types;
 
@@ -746,6 +754,12 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::ScrollView:
         static_cast<ScrollView *>(oldView.get())->applyScrollProps(parseScrollViewProps(ex));
         break;
+    case ElementType::TreeMenu: {
+        auto *tm = static_cast<TreeMenu *>(oldView.get());
+        tm->applyScrollProps(parseScrollViewProps(ex));
+        tm->applyTreeMenuProps(parseTreeMenuProps(ex));
+        break;
+    }
     default: break;
     }
 

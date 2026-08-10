@@ -35,6 +35,7 @@ target_sources(kwik_element
             modules/element/layer_view.cppm
             modules/element/g3d.cppm
             modules/element/scroll_view.cppm
+            modules/element/tree_menu.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -78,6 +79,7 @@ target_sources(kwik_element
         src/element/g3d_gltf.cpp
         src/element/g3d.cpp
         src/element/scroll_view.cpp
+        src/element/tree_menu.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

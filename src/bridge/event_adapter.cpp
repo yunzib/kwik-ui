@@ -108,6 +108,7 @@ JSValue makeTextViewRunsEvent(JSContext *ctx, TextView &tv) {
  *   Slider                      → { value: number }
  *   RadioGroup                  → { value: string }
  *   TextView                    → runs 数组 (payload 仅作触发, 现场拉取)
+ *   TreeMenu                    → { checked: string[], count: int }
  *   其余                        → 按 variant 实际类型兜底包装 { value: ... }
  */
 JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
@@ -149,6 +150,23 @@ JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
         // JS 事件形状: { index: number } (无文本 value)
         JSValue obj = JS_NewObject(ctx);
         JS_SetPropertyStr(ctx, obj, "index", JS_NewInt32(ctx, a.index));
+        return obj;
+    }
+
+    case ElementType::TreeMenu: {
+        // a.value 为逗号连接的关键字串（TreeMenu::fireChange 拼接），此处切回数组
+        std::string s = std::get<std::string>(a.value);
+        JSValue arr = JS_NewArray(ctx);
+        uint32_t n = 0;
+        std::string cur;
+        for (char ch : s) {
+            if (ch == ',') { JS_SetPropertyUint32(ctx, arr, n++, JS_NewString(ctx, cur.c_str())); cur.clear(); }
+            else cur += ch;
+        }
+        if (!cur.empty()) JS_SetPropertyUint32(ctx, arr, n++, JS_NewString(ctx, cur.c_str()));
+        JSValue obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, obj, "checked", arr);
+        JS_SetPropertyStr(ctx, obj, "count", JS_NewInt32(ctx, a.index));
         return obj;
     }
 

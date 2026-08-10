@@ -45,6 +45,7 @@ export enum class ElementType : std::uint8_t {
     StackIndex,
     LayerView,        // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
     ScrollView,       // M3: 通用滚动视口（双轴 + 滚动条拖拽）
+    TreeMenu,         // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -77,6 +78,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::LayerView: return "LayerView";
     case ElementType::G3D: return "G3D";
     case ElementType::ScrollView: return "ScrollView";
+    case ElementType::TreeMenu: return "TreeMenu";
     default: return "View";
     }
     return "Unknown";
@@ -118,6 +120,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "StackIndex") return ElementType::StackIndex;
     if (s == "LayerView") return ElementType::LayerView;
     if (s == "ScrollView") return ElementType::ScrollView;
+    if (s == "TreeMenu") return ElementType::TreeMenu;
     return ElementType::View;    // 未知类型退回 View
 }
 

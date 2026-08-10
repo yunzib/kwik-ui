@@ -483,24 +483,24 @@ export struct StackIndexProps {
 //   注意：Layer 测量/摆放恒全屏（frame=base->frame），与挂载点父约束无关。
 // ══════════════════════════════════════════════════════════════
 export struct LayerProps {
-    bool active = false;                    // 激活→注册为图层
+    bool active = false;    // 激活→注册为图层
     // ── 遮罩 ──
-    bool modal = false;                     // true=遮罩+阻断; false=穿透
-    Color maskColor{0, 0, 0, 102};          // 遮罩色 rgba(0,0,0,0.4)
-    bool maskClosable = true;               // 点遮罩关闭（modal=true 时生效）
-    bool transparent = false;               // true=无遮罩无容器（纯浮层 tooltip/toast）
+    bool modal = false;               // true=遮罩+阻断; false=穿透
+    Color maskColor{0, 0, 0, 102};    // 遮罩色 rgba(0,0,0,0.4)
+    bool maskClosable = true;         // 点遮罩关闭（modal=true 时生效）
+    bool transparent = false;         // true=无遮罩无容器（纯浮层 tooltip/toast）
     // ── 定位 ──
-    std::string anchor;                     // 目标 id；空=视口模式，非空=锚定模式
-    std::string position = "center";        // 视口: center/top/bottom/left/right/topLeft/...
-                                            // 锚定: out-top/out-bottom/out-left/out-right/center
-    float offsetX = 0;                      // position 基础 X 偏移
-    float offsetY = 0;                      // position 基础 Y 偏移
+    std::string anchor;                 // 目标 id；空=视口模式，非空=锚定模式
+    std::string position = "center";    // 视口: center/top/bottom/left/right/topLeft/...
+                                        // 锚定: out-top/out-bottom/out-left/out-right/center
+    float offsetX = 0;                  // position 基础 X 偏移
+    float offsetY = 0;                  // position 基础 Y 偏移
     // ── 内容容器（容器模式用）──
-    float width = 0;                        // 0=自适应（容器模式）
-    float height = 0;                       // 0=自适应
-    Color background{255, 255, 255, 255};   // 容器背景
-    float borderRadius = 8;                 // 圆角 px
-    EdgeInsets padding{24, 24, 24, 24};     // 容器内边距（替代 Dialog 固定 kPad=24）
+    float width = 0;                         // 0=自适应（容器模式）
+    float height = 0;                        // 0=自适应
+    Color background{255, 255, 255, 255};    // 容器背景
+    float borderRadius = 8;                  // 圆角 px
+    EdgeInsets padding{24, 24, 24, 24};      // 容器内边距（替代 Dialog 固定 kPad=24）
 };
 
 /**
@@ -511,10 +511,43 @@ export struct LayerProps {
  * direction: "vertical"（默认）/ "horizontal" / "both"
  */
 export struct ScrollViewProps {
-    ScrollDirection direction = ScrollDirection::Vertical;  // 滚动方向（Vertical/Horizontal/Both）
-    bool showScrollbar = true;                              // 是否显示滚动条
-    float scrollbarThickness = 8.0f;                        // 滚动条粗细 (px)
-    Color scrollbarColor{180, 180, 180, 190};               // 滑块颜色 (半透明灰)
-    Color scrollbarTrackColor{0, 0, 0, 0};                  // 轨道颜色（透明=不画轨道）
-    float scrollStep = 30.0f;   // 滚轮每格滚动像素（对齐 ListLayout kFactor=30 手感）
+    ScrollDirection direction = ScrollDirection::Vertical;    // 滚动方向（Vertical/Horizontal/Both）
+    bool showScrollbar = true;                                // 是否显示滚动条
+    float scrollbarThickness = 8.0f;                          // 滚动条粗细 (px)
+    Color scrollbarColor{180, 180, 180, 190};                 // 滑块颜色 (半透明灰)
+    Color scrollbarTrackColor{0, 0, 0, 0};                    // 轨道颜色（透明=不画轨道）
+    float scrollStep = 30.0f;                                 // 滚轮每格滚动像素（对齐 ListLayout kFactor=30 手感）
+};
+
+/**
+ * @brief 树节点数据（TreeMenu 数据模型，可嵌套）
+ *
+ * 既是 JS `nodes` 的解析目标，也兼作 TreeMenu 的运行时树（勾选/展开状态原地变更）。
+ */
+export struct TreeNodeData {
+    std::string key;                       // 节点标识（onChange 回传 / setProp("checked") 定位）
+    std::string title;                     // 显示文本（必须）
+    std::string icon;                      // 节点图标字形（Unicode，可选；需内置字体覆盖）
+    bool checked = false;                  // 勾选态（父节点随子节点推导，见级联）
+    bool indeterminate = false;            // 半选态（部分子节点勾选 → 父节点短横线）
+    bool expanded = false;                 // 展开态（非叶节点生效）
+    std::vector<TreeNodeData> children;    // 子节点（叶节点为空）
+};
+
+/**
+ * @brief 树形菜单专有属性
+ *
+ * 滚动能力继承 ScrollViewProps（direction 强制 vertical）。
+ */
+export struct TreeMenuProps {
+    std::vector<TreeNodeData> nodes;              // 根节点列表（嵌套树）
+    float rowHeight = 28.0f;                      // 行高 px
+    float indent = 16.0f;                         // 每级缩进 px
+    bool showCheckbox = true;                     // 是否显示多选勾选框
+    bool showIcon = true;                         // 是否显示节点图标字形
+    Color textColor{31, 41, 55, 255};             // 标签文字色（#1F2937）
+    Color iconColor{107, 114, 128, 255};          // 图标字形色（#6B7280）
+    Color checkboxColor{59, 130, 246, 255};       // 勾选框激活色（#3B82F6）
+    Color hoverBackground{243, 244, 246, 255};    // 行悬停高亮（#F3F4F6）
+    Color arrowColor{107, 114, 128, 255};         // 展开箭头色（#6B7280）
 };

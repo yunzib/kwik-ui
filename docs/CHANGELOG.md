@@ -1,5 +1,14 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-10
+### 新增
+- TreeMenu 组件：展开式树面板，多选父子级联 + 半选态（indeterminate）+ 展开/折叠，
+  滚动复用 ScrollView（继承裁剪视口/滚动条/滚轮）
+  - 数据：nodes 嵌套数组（key/title/icon/checked/expanded/children），JSValue 递归解析
+  - 可见行：DFS 扁平化 → TreeRowView 行控件（缩进 + 箭头 ▶/▼ + 勾选框 ✓/半选 + 图标 + 标签）
+  - 交互：勾选框=级联勾选；行其余区域=展开/折叠；行悬停高亮
+  - 属性：getProp/setProp 支持 checked（逗号集合）；onChange 回传 { checked: string[], count }
+
 ## 0.0.0 — 2026-08-09
 ### 新增
 - G3D 组件：addBox / addSphere / addPlane 支持位置参数 tx/ty/tz（默认 0），物体可分开放置

@@ -300,3 +300,4 @@ export TabsProps parseTabsProps(PropsExtractor &ex);
 export StackIndexProps parseStackIndexProps(PropsExtractor &ex);
 export LayerProps parseLayerProps(PropsExtractor &ex);
 export ScrollViewProps parseScrollViewProps(PropsExtractor &ex);
+export TreeMenuProps parseTreeMenuProps(PropsExtractor &ex);

@@ -110,6 +110,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "layer") return "../../test/ui/layer.js";
         if (arg == "g3d") return "../../test/ui/g3d.js";
         if (arg == "scrollview") return "../../test/ui/scrollview.js";
+        if (arg == "treemenu") return "../../test/ui/treemenu.js";
         return arg;
     }
     return "../../test/ui/example.js";
