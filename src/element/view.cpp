@@ -56,8 +56,11 @@ void View::layout(Rect bounds) {
 
         onLayout();
 
-        bool anyChildMoved = false;
-        for (size_t i = 0; i < children.size(); ++i) {
+        // onLayout 可能增删子节点（如 LazyList 窗口 diff），旧快照按 min 上限对比防越界；
+        // 数量变化一律视为位移 → 触发整区重绘，保证新出窗行首帧可见
+        bool anyChildMoved = (children.size() != oldChildFrames.size());
+        size_t cmpN = std::min(children.size(), oldChildFrames.size());
+        for (size_t i = 0; i < cmpN; ++i) {
             // Rect 无 operator!=, 逐字段比较
             auto &f = children[i]->frame;
             auto &o = oldChildFrames[i];
@@ -202,9 +205,11 @@ void View::draw(Graphics &graphics) {
         needsLayoutRepaint_ = false;
         Rect band = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
         graphics.beginContent(nullptr);
-       // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
+        // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
         // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
-        if (!s_suppressUnderlay && !drawnElsewhere_) { graphics.drawUnderlay(band, underlayColor()); }    // 整片一次底图（弹层跳过）
+        if (!s_suppressUnderlay && !drawnElsewhere_) {
+            graphics.drawUnderlay(band, underlayColor());
+        }    // 整片一次底图（弹层跳过）
         bool prev = s_suppressUnderlay;
         s_suppressUnderlay = true;    // 带内子视图只画内容, 不各自底图
         onDraw(graphics);

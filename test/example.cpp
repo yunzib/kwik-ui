@@ -111,6 +111,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "g3d") return "../../test/ui/g3d.js";
         if (arg == "scrollview") return "../../test/ui/scrollview.js";
         if (arg == "treemenu") return "../../test/ui/treemenu.js";
+        if (arg == "lazylist") return "../../test/ui/lazylist.js";
         return arg;
     }
     return "../../test/ui/example.js";

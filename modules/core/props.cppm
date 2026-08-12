@@ -551,3 +551,21 @@ export struct TreeMenuProps {
     Color hoverBackground{243, 244, 246, 255};    // 行悬停高亮（#F3F4F6）
     Color arrowColor{107, 114, 128, 255};         // 展开箭头色（#6B7280）
 };
+
+/**
+ * @brief LazyList 虚拟化滚动列表专有属性
+ *
+ * 双模式（互斥触发）：
+ *   - 固定模式：纵向传 itemHeight、横向传 itemWidth（>0）→ 所有行等长，
+ *               定位 O(1)，零测量，纯数学前缀和。
+ *   - 可变模式：未传 itemHeight/itemWidth → estimatedItemSize 兜底 +
+ *               实测长度缓存（sizes_）+ 前缀和，滚动按需测量、逐次收敛。
+ */
+export struct LazyListProps {
+    float itemHeight = 0;               // 固定行高（纵向，>0 启用固定模式）
+    float itemWidth = 0;                // 固定行宽（横向，>0 启用固定模式）
+    float estimatedItemSize = 40.0f;    // 可变模式未实测行的估计长度（首帧/未建行用）
+    int overscan = 2;                   // 视口外预构建行数（缓解快速滚动闪烁）
+    float dividerHeight = 0;            // 行分割线厚度（0=不画）
+    Color dividerColor{0, 0, 0, 0};     // 分割线颜色（透明=不画）
+};

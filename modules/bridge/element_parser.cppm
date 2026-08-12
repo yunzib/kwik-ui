@@ -11,6 +11,9 @@ import kwik.element.view;
 import kwik.core.props;
 import kwik.bridge.props_parser;
 import kwik.engine.js_value;
+import kwik.element.lazy_list; // LazyList + LazyListSource
+import kwik.element.lazy_list_source; 
+
 import std;
 // ============================================================================
 // 类型别名
@@ -130,3 +133,15 @@ private:
                                   std::vector<std::unique_ptr<View>> &oldChildren);
     static void rebindHandlers(View *view, const JSValueRef &propsVal);
 };
+
+// ============================================================================
+// LazyList 数据源工厂钩子
+// ============================================================================
+// kwik.bridge.js_lazy_list_source 在静态初始化时经 registerLazyListSourceFactory
+// 注册真正的创建函数；element_parser 仅声明/调用钩子，避免两个 bridge 模块
+// 互相 import 成环（js_lazy_list_source 需要本模块的 parseNode）。
+export using LazyListSourceFactory = std::function<std::unique_ptr<LazyListSource>(JSContext *, JSValue, JSValue)>;
+/// 注册创建器（由 js_lazy_list_source 静态初始化调用）
+export void registerLazyListSourceFactory(LazyListSourceFactory f);
+/// 读取当前创建器（未注册时返回空 std::function）
+export const LazyListSourceFactory &lazyListSourceFactory();

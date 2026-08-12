@@ -23,6 +23,9 @@ import kwik.element.g2d;
 import kwik.bridge.theme_bridge;
 import kwik.core.theme;
 import kwik.element.g3d;
+import kwik.bridge.js_lazy_list_source; // createJsLazyListSource（直接引用→强制该对象文件进链接）
+import kwik.element.lazy_list_source;   // LazyListSource（工厂签名返回类型可见性）
+import kwik.bridge.element_parser;
 
 import std;
 
@@ -1570,9 +1573,21 @@ static JSValue js_treemenu(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return makeElement(ctx, "TreeMenu", props, children);
 }
 
+static JSValue js_lazylist(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    // LazyList 子节点走 items 数据源（itemBuilder），不接受 children 数组
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "LazyList", props, JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
-    // 只导出 View 和 Text 为普通工厂函数
+    
+    // LazyList 数据源工厂显式注册（替代被链接器丢弃的静态注册：
+    // 无人 import kwik.bridge.js_lazy_list_source → 其对象文件不进静态库链接）
+    registerLazyListSourceFactory([](JSContext *c, JSValue items, JSValue builder) {
+        return createJsLazyListSource(c, items, builder);
+    });
+
     static const JSCFunctionListEntry ui_exports[] = {
         JS_CFUNC_DEF("View", 1, js_view),
         JS_CFUNC_DEF("Root", 1, js_root),
@@ -1611,6 +1626,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("G3D", 1, js_g3d),
         JS_CFUNC_DEF("ScrollView", 2, js_scrollview),
         JS_CFUNC_DEF("TreeMenu", 2, js_treemenu),
+        JS_CFUNC_DEF("LazyList", 1, js_lazylist),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

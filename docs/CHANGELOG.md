@@ -1,5 +1,48 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-12
+### 新增
+- LazyList 虚拟化滚动列表组件（大数据集窗口 diff，固定/可变行高双模式）
+  - 数据驱动：`items` + `itemBuilder(item, index)` 回调按需建行，经
+    `ElementParser::parseNode` 建与主树同构的 C++ View（ref/State/事件可用）
+  - 固定模式（itemHeight/itemWidth>0）→ O(1) 定位零测量；可变模式 →
+    estimatedItemSize 兜底 + 实测长度缓存 + 前缀和，滚动收敛
+  - 行节点 LazyListRow 借根（drawnElsewhere_）：base 循环跳过，绘制/命中由
+    LazyList 自身在 clip+translate 内自管，杜绝未裁剪鬼影行
+  - LazyListSource 抽象接口隔离 JS 引擎；工厂由 kwik.bridge.bindings 在
+    register_kwikui_module 显式注册（替代静态初始化——后者因无引用对象文件
+    被链接器丢弃）
+  - header/footer 固定、divider 分割线、overscan 预构建、direction 主轴
+  - reconcile：LazyList case 走 applyLazyListProps + takeHeader/takeFooter
+    重建 + setDataSource；children 替换豁免（虚拟行不可被 JS children 覆盖）
+  - demo：test/ui/lazylist.js（example.exe lazylist）
+
+### 修复
+- LazyList 行内子节点（Text 等）不绘制：drawForced 只保证行自身录制，内部
+  子节点绘制仍走 dirty 判断；item 由 itemBuilder 在布局期创建、错过树级
+  markAllDirty → LazyListRow::onDraw 内对内容子树 markAllDirty 保证恒重绘
+- LazyList 无法滚动：updateWindow 用 children.insert/push_back 直插行节点
+  未走 addChild，parent_ 恒 nullptr → 滚轮事件沿 Text→item→row→nullptr 找不到
+  scrollable 祖先 → 改用 addChild（设置 parent_）追加 + 按 rowIndex 稳定排序
+  恢复升序
+- LazyList 尾循环空洞：头部补行改 addChild 追加后，原起点 windowStart_+size
+  会跳索引，改为 start+size（数学上恒等正确续接点）
+- LazyList 行内容主题/底色错误：parent_ 断裂导致 underlayColor()/theme()
+  上溯失败（同根因修复）
+- View::layout 越界：onLayout 内增删子节点（LazyList 窗口 diff）使快照旧 children
+  数与现数不符，oldChildFrames[i] 越界 → 取 min 上限对比，数量变化视为位移触发
+  整区重绘（数据源恢复前因 children 恒空未触发，潜伏 UB）
+- LazyList 数据源工厂静态注册被链接器丢弃：kwik.bridge.js_lazy_list_source
+  无人 import，其对象文件在静态库函数粒度链接下被丢弃，registerLazyListSourceFactory
+  从不执行 → 改由 bindings.cpp 显式注册 + import 该模块强制链接
+- 模块可见性：js_lazy_list_source.cppm / element_parser.cppm 覆写签名引用的
+  View / LazyListSource 所在模块未直接 import（模块 import 不外传）→ 补显式 import
+- takeHeader/takeFooter 返回 unique_ptr 误用 auto* 绑定 → auto 接住 + get() 传 unbind
+
+### 变更
+- 组件选型：List = 静态堆叠布局；LazyList = 大数据虚拟化；
+  ScrollView = 通用滚动视口（已有，明确分工文档）
+
 ## 0.0.0 — 2026-08-10
 ### 新增
 - TreeMenu 组件：展开式树面板，多选父子级联 + 半选态（indeterminate）+ 展开/折叠，

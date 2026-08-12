@@ -46,6 +46,7 @@ export enum class ElementType : std::uint8_t {
     LayerView,        // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
     ScrollView,       // M3: 通用滚动视口（双轴 + 滚动条拖拽）
     TreeMenu,         // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
+     LazyList,         // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -79,6 +80,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::G3D: return "G3D";
     case ElementType::ScrollView: return "ScrollView";
     case ElementType::TreeMenu: return "TreeMenu";
+    case ElementType::LazyList: return "LazyList";
     default: return "View";
     }
     return "Unknown";
@@ -121,6 +123,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "LayerView") return ElementType::LayerView;
     if (s == "ScrollView") return ElementType::ScrollView;
     if (s == "TreeMenu") return ElementType::TreeMenu;
+    if (s == "LazyList") return ElementType::LazyList;
     return ElementType::View;    // 未知类型退回 View
 }
 

@@ -712,3 +712,17 @@ TreeMenuProps parseTreeMenuProps(PropsExtractor &ex) {
     ex.get("arrowColor", result.arrowColor);
     return result;
 }
+
+LazyListProps parseLazyListProps(PropsExtractor &ex) {
+    LazyListProps result;
+    // 固定模式：itemHeight(纵)/itemWidth(横) > 0 触发
+    ex.get("itemHeight", result.itemHeight);
+    ex.get("itemWidth", result.itemWidth);
+    // 可变模式：estimatedItemSize 兜底
+    ex.get("estimatedItemSize", result.estimatedItemSize);
+    ex.get("overscan", result.overscan);
+    // 分割线
+    ex.get("dividerHeight", result.dividerHeight);
+    ex.get("dividerColor", result.dividerColor);
+    return result;
+}

@@ -12,6 +12,7 @@ target_sources(kwik_bridge
             modules/bridge/theme_bridge.cppm
             modules/bridge/event_adapter.cppm
             modules/bridge/js_table_data_source.cppm
+            modules/bridge/js_lazy_list_source.cppm
     
     PRIVATE
         src/bridge/props_parser.cpp
@@ -22,6 +23,7 @@ target_sources(kwik_bridge
         src/bridge/theme_bridge.cpp
         src/bridge/event_adapter.cpp
         src/bridge/js_table_data_source.cpp
+        src/bridge/js_lazy_list_source.cpp
 )
 target_link_libraries(kwik_bridge
     PRIVATE

@@ -56,6 +56,8 @@ import kwik.element.layer_view;
 import kwik.element.g3d;
 import kwik.element.scroll_view;
 import kwik.element.tree_menu;
+import kwik.element.lazy_list; // LazyList — 虚拟化列表
+import kwik.element.lazy_list_source; 
 
 import std;
 
@@ -525,6 +527,37 @@ static struct InitBuiltinTypes {
             auto v = std::make_unique<TreeMenu>(parseViewProps(ex), parseScrollViewProps(ex), parseTreeMenuProps(ex));
             return v;
         });
+
+        ElementParser::registerType("LazyList", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto list =
+                std::make_unique<LazyList>(parseViewProps(ex), parseScrollViewProps(ex), parseLazyListProps(ex));
+
+            // header / footer（私有成员，解析路径与 List 的 header/footer 同构）
+            if (pv.hasProperty("header") && pv.getProperty("header").isObject()) {
+                auto hdr = pv.getProperty("header");
+                JSValueRef node(hdr.context(), JS_DupValue(hdr.context(), hdr.raw()));
+                list->setHeader(ElementParser::parseNode(node));
+            }
+            if (pv.hasProperty("footer") && pv.getProperty("footer").isObject()) {
+                auto ftr = pv.getProperty("footer");
+                JSValueRef node(ftr.context(), JS_DupValue(ftr.context(), ftr.raw()));
+                list->setFooter(ElementParser::parseNode(node));
+            }
+
+            // 数据源：items 数组 + itemBuilder 函数 → 经钩子创建的 bridge 数据源
+            const auto &fac = lazyListSourceFactory();
+            if (fac && pv.hasProperty("items") && pv.getProperty("items").isArray()) {
+                auto itemsVal = pv.getProperty("items");
+                JSValue bv = pv.hasProperty("itemBuilder") ? pv.getProperty("itemBuilder").raw() : JS_UNDEFINED;
+                list->setDataSource(fac(itemsVal.context(), itemsVal.raw(), bv));
+            }
+
+            list->propMeta = std::move(meta);
+            applyBindings(list.get(), pv);
+            return list;
+        });
     }
 } _init_builtin_types;
 
@@ -760,6 +793,40 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         tm->applyTreeMenuProps(parseTreeMenuProps(ex));
         break;
     }
+    case ElementType::LazyList: {
+        auto *ll = static_cast<LazyList *>(oldView.get());
+        ll->applyScrollProps(parseScrollViewProps(ex));    // direction 等（旧 applyScrollProps 路径）
+        ll->applyLazyListProps(parseLazyListProps(ex));    // 行高/估计/overscan/分割线 → 清窗重建
+
+        // header/footer 重建（reconcile 不递归进私有成员，直接重建最简）
+        // 旧 header/footer 销毁前先解绑根节点（与 reconcile 其余路径的 unbind 语义一致）
+        if (propsVal.hasProperty("header") && propsVal.getProperty("header").isObject()) {
+            if (auto old = ll->takeHeader()) {
+    if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+}
+            auto hdr = propsVal.getProperty("header");
+            JSValueRef node(hdr.context(), JS_DupValue(hdr.context(), hdr.raw()));
+            ll->setHeader(ElementParser::parseNode(node));
+        }
+        if (propsVal.hasProperty("footer") && propsVal.getProperty("footer").isObject()) {
+            if (auto old = ll->takeFooter()) {
+                if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+            }
+            auto ftr = propsVal.getProperty("footer");
+            JSValueRef node(ftr.context(), JS_DupValue(ftr.context(), ftr.raw()));
+            ll->setFooter(ElementParser::parseNode(node));
+        }
+
+        // 数据源重建（items/itemBuilder 变更 → applyLazyListProps 已清窗，
+        // setDataSource 再以新数据源重出窗）
+        const auto &fac = lazyListSourceFactory();
+        if (fac && propsVal.hasProperty("items") && propsVal.getProperty("items").isArray()) {
+            auto itemsVal = propsVal.getProperty("items");
+            JSValue bv = propsVal.hasProperty("itemBuilder") ? propsVal.getProperty("itemBuilder").raw() : JS_UNDEFINED;
+            ll->setDataSource(fac(itemsVal.context(), itemsVal.raw(), bv));
+        }
+        break;
+    }
     default: break;
     }
 
@@ -768,7 +835,10 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
 
     // ── 递归 reconcile children ──
     auto childrenVal = jsVal.getProperty("children");
-    if (childrenVal.isArray()) { reconcileChildren(oldView.get(), childrenVal, oldView->children); }
+    // LazyList 的 children 全是虚拟行（LazyListRow），绝不能被 JS children 替换/冲掉
+    if (childrenVal.isArray() && oldView->type() != ElementType::LazyList) {
+        reconcileChildren(oldView.get(), childrenVal, oldView->children);
+    }
 
     // ── 重新绑定事件处理器 ──
     rebindHandlers(oldView.get(), propsVal);
@@ -818,4 +888,21 @@ void ElementParser::printTree(const View *view, int depth, const std::string &pr
         childPrefix += last ? "└── " : "├── ";
         printTree(view->children[i].get(), depth + 1, childPrefix);
     }
+}
+
+// ════════════════════════════════════════════════════════
+// LazyList 数据源工厂钩子实现（见 element_parser.cppm 声明）
+// ════════════════════════════════════════════════════════
+namespace {
+LazyListSourceFactory &lazyFactory() {
+    static LazyListSourceFactory f;    // 函数局部静态：注册/读取共享，无初始化顺序问题
+    return f;
+}
+}    // namespace
+
+void registerLazyListSourceFactory(LazyListSourceFactory f) {
+    lazyFactory() = std::move(f);
+}
+const LazyListSourceFactory &lazyListSourceFactory() {
+    return lazyFactory();
 }
