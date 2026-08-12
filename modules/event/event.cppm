@@ -214,6 +214,8 @@ public:
      */
     virtual bool acceptsFocus() const { return false; }
 
+    virtual bool isLayerNode() const { return false; }
+
     /**
      * @brief 是否可滚动 (ListLayout 等)
      */
@@ -532,3 +534,22 @@ private:
 //     virtual void setEventCallback(std::function<void(const RawEvent&)>) = 0;
 //     virtual void pollEvents() = 0;
 // };
+
+// ============================================================================
+// 虚拟键盘事件注入钩子（OSK 用）
+// ============================================================================
+// 合成 RawEvent→feedRawEvent 复用物理键盘整条管线：
+//   KeyboardHandler::process（KeyDown→KeyAction / TextInput→CharInput）→
+//   focusManager_.focused() 设 presetTarget → Input/TextArea::onEvent 消费。
+// Application 在 init 注册 eventRouter_.feedRawEvent；Keyboard 经此注入。
+export using RawEventInjector = std::function<void(const RawEvent &)>;
+export void setRawEventInjector(RawEventInjector inj);
+export const RawEventInjector &rawEventInjector();
+// ============================================================================
+// 焦点变化钩子（OSK 失焦自动关闭用）
+// ============================================================================
+// FocusManager 在焦点变化后（聚焦新目标 / 失焦 nullptr）调用；
+// Keyboard 经此感知"焦点是否离开文本输入框"以自动隐藏。
+export using FocusChangeHook = std::function<void(EventTarget *focused)>;
+export void setFocusChangeHook(FocusChangeHook hook);
+export const FocusChangeHook &focusChangeHook();

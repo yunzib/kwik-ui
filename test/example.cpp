@@ -112,6 +112,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "scrollview") return "../../test/ui/scrollview.js";
         if (arg == "treemenu") return "../../test/ui/treemenu.js";
         if (arg == "lazylist") return "../../test/ui/lazylist.js";
+        if (arg == "keyboard") return "../../test/ui/keyboard.js";
         return arg;
     }
     return "../../test/ui/example.js";

@@ -106,9 +106,7 @@ void Input::onDraw(Graphics &graphics) {
 
     // 聚焦描边：必须在 clip 之前、且在 save 的 injectionMode_=false 作用域内绘制。
     // 若放在 restore() 之后，会继承父级 ②态透传的 injectionMode_=true → drawRoundedRectStroke no-op → 聚焦边框不变色。
-    if (focused_) {
-        graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f);
-    }
+    if (focused_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, input_.focusedBorderColor, 2.0f); }
 
     graphics.clipRoundedRect(inner, props.borderRadius);
 
@@ -218,6 +216,8 @@ bool Input::onEvent(const DispatchEvent &event) {
         return true;
     case DispatchEvent::Type::Tap:
         Log::debug("[Input] TAP focused={}", focused_);
+        // 触发 JS onClick（键盘弹窗等 JS 逻辑可由此挂接）
+        if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
         if (!focused_) focus();
         return true;
     case DispatchEvent::Type::CharInput: {

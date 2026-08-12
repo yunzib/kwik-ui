@@ -38,6 +38,7 @@ target_sources(kwik_element
             modules/element/tree_menu.cppm
             modules/element/lazy_list_source.cppm
             modules/element/lazy_list.cppm
+            modules/element/keyboard.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -83,6 +84,7 @@ target_sources(kwik_element
         src/element/scroll_view.cpp
         src/element/tree_menu.cpp
         src/element/lazy_list.cpp
+        src/element/keyboard.cpp
 
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

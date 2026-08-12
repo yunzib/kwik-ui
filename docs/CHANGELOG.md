@@ -1,5 +1,22 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-13
+### 新增
+- Keyboard 虚拟键盘（OSK）组件：嵌入式/触屏软键盘，LayerStack 浮层 dock 底部
+  - 三布局：text（全字母 + shift 粘滞大写 + space/enter）/ number / symbol，`123`/`abc` 互切
+  - 输入与物理键盘同路径：按键合成 RawEvent{device=Keyboard} 经 rawEventInjector →
+    feedRawEvent → KeyboardHandler → focused 控件消费，退格/光标/中文/emoji 语义全对
+  - onKey 旁路回调：JS 经 e={value, charCode, keyCode} 感知每次按键（不干预自动注入）
+  - 失焦自动关闭：FocusChangeHook 广播焦点变化，焦点离开文本输入框 → 键盘自动隐藏
+  - FocusManager 不抢 Layer 焦点：命中浮层节点（isLayerNode）跳过焦点切换，
+    修复点键盘键清空 Input 焦点导致注入无目标的 bug
+  - 绘制/命中自管：hitTest 返 this + onEvent(Tap) 坐标逆算键；shiftSticky_ 内部维护
+  - demo：test/ui/keyboard.js（example.exe keyboard）
+
+### 修复
+- 关闭窗口停顿：树析构时 Keyboard（Layer）deactivate() 访问 LayerStack.base() 悬空指针
+  → ~Application 先 LayerStack::clear() + setBase(nullptr)，与 HMR 关闭路径对齐
+
 ## 0.0.0 — 2026-08-12
 ### 新增
 - LazyList 虚拟化滚动列表组件（大数据集窗口 diff，固定/可变行高双模式）

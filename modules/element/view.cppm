@@ -43,10 +43,11 @@ export enum class ElementType : std::uint8_t {
     G3D,              //  3D 绘制组件
     ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
     StackIndex,
-    LayerView,        // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
-    ScrollView,       // M3: 通用滚动视口（双轴 + 滚动条拖拽）
-    TreeMenu,         // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
-     LazyList,         // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
+    LayerView,     // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
+    ScrollView,    // M3: 通用滚动视口（双轴 + 滚动条拖拽）
+    TreeMenu,      // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
+    LazyList,      // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
+    Keyboard,      // M6: 虚拟键盘（浮层 OSK，合成 RawEvent 注入）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -81,6 +82,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::ScrollView: return "ScrollView";
     case ElementType::TreeMenu: return "TreeMenu";
     case ElementType::LazyList: return "LazyList";
+    case ElementType::Keyboard: return "Keyboard";
     default: return "View";
     }
     return "Unknown";
@@ -124,6 +126,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "ScrollView") return ElementType::ScrollView;
     if (s == "TreeMenu") return ElementType::TreeMenu;
     if (s == "LazyList") return ElementType::LazyList;
+    if (s == "Keyboard") return ElementType::Keyboard;
     return ElementType::View;    // 未知类型退回 View
 }
 
@@ -162,6 +165,19 @@ export struct RowArgs {
 };
 
 /**
+ * @brief 虚拟键盘按键事件参数 (onKey)
+ *
+ * value:   可打印字符的 UTF-8 串（已含 shift 大写）；功能键为 ""
+ * charCode: 可打印键 Unicode 码点；功能键为 0
+ * keyCode:  功能键虚拟键码（Backspace=0x08 / Enter=0x0D / Delete=0x2E 等）；可打印键为 0
+ */
+export struct KeyArgs {
+    std::string value;
+    uint32_t charCode = 0;
+    uint32_t keyCode = 0;
+};
+
+/**
  * @brief View 控件的事件处理器封装 (引擎中立)
  *
  * 职责:
@@ -182,6 +198,7 @@ export struct ViewEventHandlers {
     std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击
+    std::function<void(const KeyArgs &)> onKey;               ///< 虚拟键盘按键（旁路通知，不干预注入）
 
     /**
      * @brief 根据事件码分发到对应的指针事件处理器
@@ -542,6 +559,8 @@ public:
      * 基类空实现——无主题消费需求的组件无需覆写。
      */
     virtual void resolveThemeDefaults() {}
+
+    bool isLayerNode() const override { return drawnElsewhere_; }
 
 protected:
     /** @brief 借根标记：本节点由 LayerStack 借绘，base 树子节点循环跳过

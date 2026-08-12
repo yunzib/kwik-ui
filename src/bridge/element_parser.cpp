@@ -57,7 +57,8 @@ import kwik.element.g3d;
 import kwik.element.scroll_view;
 import kwik.element.tree_menu;
 import kwik.element.lazy_list; // LazyList — 虚拟化列表
-import kwik.element.lazy_list_source; 
+import kwik.element.lazy_list_source;
+import kwik.element.keyboard;
 
 import std;
 
@@ -558,6 +559,16 @@ static struct InitBuiltinTypes {
             applyBindings(list.get(), pv);
             return list;
         });
+
+        // ── Keyboard ──
+        ElementParser::registerType("Keyboard", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto kb = std::make_unique<Keyboard>(parseViewProps(ex), parseKeyboardProps(ex));
+            kb->propMeta = std::move(meta);
+            applyBindings(kb.get(), pv);
+            return kb;
+        });
     }
 } _init_builtin_types;
 
@@ -802,8 +813,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         // 旧 header/footer 销毁前先解绑根节点（与 reconcile 其余路径的 unbind 语义一致）
         if (propsVal.hasProperty("header") && propsVal.getProperty("header").isObject()) {
             if (auto old = ll->takeHeader()) {
-    if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
-}
+                if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+            }
             auto hdr = propsVal.getProperty("header");
             JSValueRef node(hdr.context(), JS_DupValue(hdr.context(), hdr.raw()));
             ll->setHeader(ElementParser::parseNode(node));
@@ -827,6 +838,10 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         }
         break;
     }
+
+    case ElementType::Keyboard:
+        static_cast<Keyboard *>(oldView.get())->applyKeyboardProps(parseKeyboardProps(ex));
+        break;
     default: break;
     }
 

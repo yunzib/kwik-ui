@@ -74,6 +74,9 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
     jsCtx_{} {}
 
 Application::~Application() {
+    // 先清图层（base_ 置空），防树析构时 Layer 节点 deactivate 访问悬空 base
+    LayerStack::instance().clear();
+    LayerStack::instance().setBase(nullptr);
     Channel::shutdown(jsCtx_.getPtr());
     TextureManager::instance().destroyAll();
 }
@@ -179,6 +182,8 @@ bool Application::init() {
     // ⑥ 事件系统
     eventRouter_.setRootTarget(&LayerStack::instance());    // 事件路由根：LayerStack（hitTest 顶→底 layers 再 base）
     eventRouter_.setDpiScale(window_.GetDpiScale());
+    // 虚拟键盘注入：合成 RawEvent 复用物理键盘管线（KeyboardHandler→focused→Input）
+    setRawEventInjector([this](const RawEvent &r) { eventRouter_.feedRawEvent(r); });
 
     // ⑥ 初始化 Channel（必须在线程池和队列就绪后）
     Channel::init(

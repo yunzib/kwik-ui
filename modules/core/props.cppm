@@ -569,3 +569,35 @@ export struct LazyListProps {
     float dividerHeight = 0;            // 行分割线厚度（0=不画）
     Color dividerColor{0, 0, 0, 0};     // 分割线颜色（透明=不画）
 };
+
+/**
+ * @brief 虚拟键盘布局类型
+ */
+export enum class KeyboardLayout : std::uint8_t {
+    Text,       // 全字母 + shift + space + enter + symbol 切换
+    Number,     // 数字 + 小数点 + backspace
+    Symbol      // 标点 + abc 切回 text + space + enter
+};
+
+/**
+ * @brief 虚拟键盘专有属性
+ *
+ * 浮层组件：visible=true → LayerStack 注册为顶层（drawnElsewhere_），
+ * dock 视口底部全宽，面板外点击穿透 base（可切其它输入框焦点）。
+ * 按键经 rawEventInjector 合成 RawEvent→feedRawEvent 复用物理键盘管线，
+ * 行为与物理键盘完全一致（CharInput/KeyAction → focused 控件）。
+ */
+export struct KeyboardProps {
+    bool visible = false;                                    // 显隐（JS 手动 toggle，v1 无 autoShow）
+    KeyboardLayout layout = KeyboardLayout::Text;            // 键面布局
+    float keyHeight = 48.0f;                                 // 单键高度 px
+    Color background{255, 255, 255, 255};                    // 面板背景
+    Color keyBackground{245, 245, 245, 255};                 // 常规键背景
+    Color keyActiveBackground{225, 225, 225, 255};          // shift/功能键高亮背景
+    Color keyTextColor{31, 41, 55, 255};                     // 键面文字色
+    float keyFontSize = 18.0f;                                // 键面文字字号
+    float keyGap = 6.0f;                                      // 键间距 px
+    float keyRadius = 6.0f;                                   // 键圆角 px
+    float panelRadius = 12.0f;                                // 面板顶角圆角 px
+    EdgeInsets panelPadding{6, 6, 6, 6};                     // 面板内边距
+};

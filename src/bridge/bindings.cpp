@@ -1579,14 +1579,19 @@ static JSValue js_lazylist(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return makeElement(ctx, "LazyList", props, JS_UNDEFINED);
 }
 
+static JSValue js_keyboard(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    // Keyboard 无 children（浮层自绘键）
+    return makeElement(ctx, "Keyboard", props, JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
-    
+
     // LazyList 数据源工厂显式注册（替代被链接器丢弃的静态注册：
     // 无人 import kwik.bridge.js_lazy_list_source → 其对象文件不进静态库链接）
-    registerLazyListSourceFactory([](JSContext *c, JSValue items, JSValue builder) {
-        return createJsLazyListSource(c, items, builder);
-    });
+    registerLazyListSourceFactory(
+        [](JSContext *c, JSValue items, JSValue builder) { return createJsLazyListSource(c, items, builder); });
 
     static const JSCFunctionListEntry ui_exports[] = {
         JS_CFUNC_DEF("View", 1, js_view),
@@ -1627,6 +1632,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("ScrollView", 2, js_scrollview),
         JS_CFUNC_DEF("TreeMenu", 2, js_treemenu),
         JS_CFUNC_DEF("LazyList", 1, js_lazylist),
+        JS_CFUNC_DEF("Keyboard", 1, js_keyboard),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

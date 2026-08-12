@@ -608,7 +608,6 @@ TabsProps parseTabsProps(PropsExtractor &ex) {
     return result;
 }
 
-
 // ============================================================================
 // parseStackIndexProps — 解析 StackIndex 专有属性
 // ============================================================================
@@ -644,9 +643,7 @@ LayerProps parseLayerProps(PropsExtractor &ex) {
         if (!val.isNull() && !val.isUndefined()) lp.background = convertTo<Color>(val);
     }
     // padding（支持数值 / [all] / [h,v] / [l,t,r,b] / 对象，与 ViewProps padding 一致）
-    if (ex.has("padding")) {
-        lp.padding = parseEdgeInsets(ex.raw().getProperty("padding"));
-    } 
+    if (ex.has("padding")) { lp.padding = parseEdgeInsets(ex.raw().getProperty("padding")); }
     return lp;
 }
 
@@ -724,5 +721,29 @@ LazyListProps parseLazyListProps(PropsExtractor &ex) {
     // 分割线
     ex.get("dividerHeight", result.dividerHeight);
     ex.get("dividerColor", result.dividerColor);
+    return result;
+}
+
+KeyboardProps parseKeyboardProps(PropsExtractor &ex) {
+    KeyboardProps result;
+    ex.get("visible", result.visible);
+    // layout: "text" / "number" / "symbol"
+    std::string layoutStr;
+    ex.get("layout", layoutStr);
+    if (layoutStr == "number")
+        result.layout = KeyboardLayout::Number;
+    else if (layoutStr == "symbol")
+        result.layout = KeyboardLayout::Symbol;
+    else
+        result.layout = KeyboardLayout::Text;    // 默认 text
+    ex.get("keyHeight", result.keyHeight);
+    ex.get("background", result.background);
+    ex.get("keyBackground", result.keyBackground);
+    ex.get("keyActiveBackground", result.keyActiveBackground);
+    ex.get("keyTextColor", result.keyTextColor);
+    ex.get("keyFontSize", result.keyFontSize);
+    ex.get("keyGap", result.keyGap);
+    ex.get("keyRadius", result.keyRadius);
+    ex.get("panelRadius", result.panelRadius);
     return result;
 }

@@ -160,8 +160,11 @@ JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
         uint32_t n = 0;
         std::string cur;
         for (char ch : s) {
-            if (ch == ',') { JS_SetPropertyUint32(ctx, arr, n++, JS_NewString(ctx, cur.c_str())); cur.clear(); }
-            else cur += ch;
+            if (ch == ',') {
+                JS_SetPropertyUint32(ctx, arr, n++, JS_NewString(ctx, cur.c_str()));
+                cur.clear();
+            } else
+                cur += ch;
         }
         if (!cur.empty()) JS_SetPropertyUint32(ctx, arr, n++, JS_NewString(ctx, cur.c_str()));
         JSValue obj = JS_NewObject(ctx);
@@ -255,6 +258,29 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
                 // rowValueAt 返回 dup 引用, 由 JS_SetPropertyStr 消费
                 JS_SetPropertyStr(ctx, evt, "row", jsData->rowValueAt(a.index));
                 callJs1(ctx, h, evt, "onRowClick");
+            };
+        }
+    }
+
+    // ── onKey (Keyboard): 虚拟键盘按键旁路通知 ──
+    // 只触发回调，不干预同路径自动注入
+    if (view.type() == ElementType::Keyboard) {
+        if (auto h = dupHandler(ctx, props, "onKey")) {
+            view.handlers.onKey = [ctx, h](const KeyArgs &a) {
+                JSValue evt = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, evt, "value", JS_NewString(ctx, a.value.c_str()));
+                JS_SetPropertyStr(ctx, evt, "charCode", JS_NewUint32(ctx, a.charCode));
+                JS_SetPropertyStr(ctx, evt, "keyCode", JS_NewUint32(ctx, a.keyCode));
+                JSValue ret = JS_Call(ctx, h->raw(), JS_UNDEFINED, 1, &evt);
+                JS_FreeValue(ctx, evt);
+                if (JS_IsException(ret)) {
+                    JSValue exc = JS_GetException(ctx);
+                    const char *s = JS_ToCString(ctx, exc);
+                    Log::error("[onKey] event callback error: {}", s ? s : "unknown");
+                    JS_FreeCString(ctx, s);
+                    JS_FreeValue(ctx, exc);
+                }
+                JS_FreeValue(ctx, ret);
             };
         }
     }

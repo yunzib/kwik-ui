@@ -206,6 +206,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         if (focused_) blur();
         return true;
     case DispatchEvent::Type::Tap:
+        if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
         if (!focused_) focus();
         return true;
     case DispatchEvent::Type::CharInput: {
