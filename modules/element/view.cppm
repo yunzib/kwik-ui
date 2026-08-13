@@ -48,6 +48,7 @@ export enum class ElementType : std::uint8_t {
     TreeMenu,      // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
     LazyList,      // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
     Keyboard,      // M6: 虚拟键盘（浮层 OSK，合成 RawEvent 注入）
+    DateTimePicker, // M7: 日期/时间/日期时间选择器
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -83,6 +84,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::TreeMenu: return "TreeMenu";
     case ElementType::LazyList: return "LazyList";
     case ElementType::Keyboard: return "Keyboard";
+    case ElementType::DateTimePicker: return "DateTimePicker";
     default: return "View";
     }
     return "Unknown";
@@ -127,6 +129,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "TreeMenu") return ElementType::TreeMenu;
     if (s == "LazyList") return ElementType::LazyList;
     if (s == "Keyboard") return ElementType::Keyboard;
+    if (s == "DateTimePicker") return ElementType::DateTimePicker;
     return ElementType::View;    // 未知类型退回 View
 }
 

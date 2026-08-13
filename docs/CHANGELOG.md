@@ -2,6 +2,24 @@
 
 ## 0.0.0 — 2026-08-13
 ### 新增
+- DateTimePicker 日期/时间/日期时间选择器组件：单组件 + mode 属性 ("date"/"time"/"datetime")
+  - 三形态：date 月份翻页+6×7 日历网格；time 时分两列滚轮（5 行可见，上下横线夹选中行，
+    选中行字号+4 + 主题蓝）；datetime 日历左 + 时间滚轮右并排
+  - pending 暂存模型：点日期/调滚轮只改 pending，点[确认]才提交并 onChange；
+    [今天]仅跳月份不改 pending；点外部/ESC = cancel 丢弃 pending + 关闭
+  - value ISO 格式：date "YYYY-MM-DD" / time "HH:MM" / datetime "YYYY-MM-DD HH:MM"
+  - 月份翻页 ‹› 跨年自动回绕；今日格蓝色小圆点提示；6×7 网格前导/尾随补非当月日期置灰
+  - ref(state,key) 双向绑定 + getProp/setProp 命令式 API；onChange { value: string }
+  - 架构对齐 Dropdown：CalendarView 浮层经 LayerStack 接管，全屏 hitTest 吞点击
+  - 脏标记关键点：pending 变化必须 CalendarView::markDirty()（this）触发本层重绘
+    （修复点日期不立即高亮、点今天不跳转的根因）
+  - resolveThemeDefaults 默认 borderColor=outline + borderWidth=1（修复非 date 模式无边框）
+  - reconcileNode 补 DateTimePicker case（applyDateTimePickerProps，优于 Dropdown 的 default-fallthrough）
+  - 本地格里高利历（Zeller 公式算 1 号星期几，周一首列），不依赖 <chrono> 日历
+  - demo：test/ui/datepicker.js（example.exe datepicker）
+
+## 0.0.0 — 2026-08-13
+### 新增
 - Keyboard 虚拟键盘（OSK）组件：嵌入式/触屏软键盘，LayerStack 浮层 dock 底部
   - 三布局：text（全字母 + shift 粘滞大写 + space/enter）/ number / symbol，`123`/`abc` 互切
   - 输入与物理键盘同路径：按键合成 RawEvent{device=Keyboard} 经 rawEventInjector →

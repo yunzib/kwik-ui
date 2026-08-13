@@ -59,6 +59,7 @@ import kwik.element.tree_menu;
 import kwik.element.lazy_list; // LazyList — 虚拟化列表
 import kwik.element.lazy_list_source;
 import kwik.element.keyboard;
+import kwik.element.datepicker; 
 
 import std;
 
@@ -569,6 +570,16 @@ static struct InitBuiltinTypes {
             applyBindings(kb.get(), pv);
             return kb;
         });
+
+        // ── DateTimePicker ──
+        ElementParser::registerType("DateTimePicker", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto dp = std::make_unique<DateTimePicker>(parseViewProps(ex), parseDateTimePickerProps(ex));
+            dp->propMeta = std::move(meta);
+            applyBindings(dp.get(), pv);
+            return dp;
+        });
     }
 } _init_builtin_types;
 
@@ -838,9 +849,11 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         }
         break;
     }
-
     case ElementType::Keyboard:
         static_cast<Keyboard *>(oldView.get())->applyKeyboardProps(parseKeyboardProps(ex));
+        break;
+    case ElementType::DateTimePicker:
+        static_cast<DateTimePicker *>(oldView.get())->applyDateTimePickerProps(parseDateTimePickerProps(ex));
         break;
     default: break;
     }

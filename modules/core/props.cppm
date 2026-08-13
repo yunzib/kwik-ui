@@ -601,3 +601,50 @@ export struct KeyboardProps {
     float panelRadius = 12.0f;                                // 面板顶角圆角 px
     EdgeInsets panelPadding{6, 6, 6, 6};                     // 面板内边距
 };
+
+// ════════════════════════════════════════════════════════
+// DateTimePicker 属性 — 日期/时间/日期时间选择器
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 选择器模式
+ *  Date      → 仅日历网格，value 形如 "2026-08-13"
+ *  Time      → 仅时:分滚轮，value 形如 "13:45"
+ *  DateTime  → 日历在上 + 滚轮在下，value 形如 "2026-08-13 13:45"
+ */
+export enum class PickerMode : std::uint8_t { Date, Time, DateTime };
+
+/** @brief 字符串 → PickerMode 解析（props.cppm 内联，供 element/bridge 共用） */
+export inline PickerMode pickerModeFromString(const std::string &s) {
+    if (s == "time") return PickerMode::Time;
+    if (s == "datetime") return PickerMode::DateTime;
+    return PickerMode::Date;    // 默认 / 未知均退化为 Date
+}
+
+export struct DateTimePickerProps {
+    std::string placeholder = "请选择";          // 触发区占位符
+    std::string value;                             // ISO 值，ref 双向绑定（ex.get 触发 tryRecordBinding）
+    std::string mode = "date";                     // "date"/"time"/"datetime"
+    float fontSize = 14.0f;
+    float cellSize = 30.0f;                         // 日历格边长
+    float wheelItemHeight = 28.0f;                  // 滚轮行高
+    float wheelColWidth = 56.0f;                    // 滚轮列宽
+    int   wheelVisibleRows = 5;                     // 滚轮可见行数（奇数，中心行为选中）
+
+    // ── 触发区配色 ──
+    Color textColor{0, 0, 0, 255};
+    Color placeholderColor{153, 153, 153, 255};
+    Color arrowColor{153, 153, 153, 255};
+
+    // ── 浮层面板配色 ──
+    Color panelBackground{255, 255, 255, 255};
+    Color headerColor{0, 0, 0, 255};                // "8月 2026" 标题
+    Color weekdayColor{120, 120, 120, 255};         // 一二三四五六日
+    Color todayColor{25, 118, 210, 255};             // 今日数字描边
+    Color selectedBackground{25, 118, 210, 255};
+    Color selectedTextColor{255, 255, 255, 255};
+    Color hoverBackground{227, 242, 253, 255};
+    Color outOfMonthColor{200, 200, 200, 255};       // 前导/尾随的非当月日期
+    Color navArrowColor{120, 120, 120, 255};         // ‹ › 翻页箭头
+    Color wheelDimColor{180, 180, 180, 255};         // 滚轮上下非中心行
+    Color separatorColor{220, 220, 220, 255};        // 时:分分隔 / 日历与滚轮分隔线
+};

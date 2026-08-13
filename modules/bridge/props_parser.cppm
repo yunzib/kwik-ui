@@ -69,6 +69,7 @@ export CheckboxProps parseCheckboxProps(const JSValueRef &props);
 export TextAreaProps parseTextAreaProps(const JSValueRef &props);
 export DropdownProps parseDropdownProps(const JSValueRef &props);
 export TextViewProps parseTextViewProps(const JSValueRef &props);
+export DateTimePickerProps parseDateTimePickerProps(const JSValueRef &props);
 
 // ============================================================================
 // 类型转换函数族
@@ -303,3 +304,4 @@ export ScrollViewProps parseScrollViewProps(PropsExtractor &ex);
 export TreeMenuProps parseTreeMenuProps(PropsExtractor &ex);
 export LazyListProps parseLazyListProps(PropsExtractor &ex);
 export KeyboardProps parseKeyboardProps(PropsExtractor &ex);
+export DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex);

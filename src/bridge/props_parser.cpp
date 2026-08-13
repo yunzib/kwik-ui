@@ -747,3 +747,33 @@ KeyboardProps parseKeyboardProps(PropsExtractor &ex) {
     ex.get("panelRadius", result.panelRadius);
     return result;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseDateTimePickerProps
+// ═══════════════════════════════════════════════════════════════════════════
+DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
+    DateTimePickerProps result;
+    ex.get("placeholder", result.placeholder);
+    ex.get("value", result.value);          // 触发 tryRecordBinding → 激活 propMeta 绑定标记
+    ex.get("mode", result.mode);
+    ex.get("fontSize", result.fontSize);
+    ex.get("cellSize", result.cellSize);
+    ex.get("wheelItemHeight", result.wheelItemHeight);
+    ex.get("wheelColWidth", result.wheelColWidth);
+    ex.get("wheelVisibleRows", result.wheelVisibleRows);
+    ex.get("textColor", result.textColor);
+    ex.get("placeholderColor", result.placeholderColor);
+    ex.get("arrowColor", result.arrowColor);
+    ex.get("panelBackground", result.panelBackground);
+    ex.get("headerColor", result.headerColor);
+    ex.get("weekdayColor", result.weekdayColor);
+    ex.get("todayColor", result.todayColor);
+    ex.get("selectedBackground", result.selectedBackground);
+    ex.get("selectedTextColor", result.selectedTextColor);
+    ex.get("hoverBackground", result.hoverBackground);
+    ex.get("outOfMonthColor", result.outOfMonthColor);
+    ex.get("navArrowColor", result.navArrowColor);
+    ex.get("wheelDimColor", result.wheelDimColor);
+    ex.get("separatorColor", result.separatorColor);
+    return result;
+}

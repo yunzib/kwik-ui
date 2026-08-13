@@ -1585,6 +1585,11 @@ static JSValue js_keyboard(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return makeElement(ctx, "Keyboard", props, JS_UNDEFINED);
 }
 
+static JSValue js_datepicker(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "DateTimePicker", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
 
@@ -1633,6 +1638,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("TreeMenu", 2, js_treemenu),
         JS_CFUNC_DEF("LazyList", 1, js_lazylist),
         JS_CFUNC_DEF("Keyboard", 1, js_keyboard),
+        JS_CFUNC_DEF("DateTimePicker", 2, js_datepicker),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
