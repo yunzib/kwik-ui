@@ -28,8 +28,9 @@ struct PushConstants {
     float viewportH;       //            (offset 20)
     float opacity;         //            (offset 24)
     float _pad0, _pad1;    // pad        (offset 28)
+    float m00, m01, m02, m10, m11, m12;   // ← 矩阵（36B→60B）
 };
-static_assert(sizeof(PushConstants) == 36, "PushConstants size mismatch with shader");
+static_assert(sizeof(PushConstants) == 60, "PushConstants size mismatch");
 
 /**
  * @brief GPU 顶点布局（与 triangle.slang 对齐）
@@ -217,7 +218,7 @@ bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRe
  */
 void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
                                      const AAVertex *vertices, uint32_t vertexCount,
-                                     const Color &color, float alpha) {
+                                     const Color &color, float alpha, const Transform2D &t) {
     // 顶点校验：至少 1 个三角形，且数量为 3 的倍数
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
@@ -250,6 +251,8 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
     pc.opacity = alpha;
     pc._pad0 = 0.0f;
     pc._pad1 = 0.0f;
+    pc.m00 = t.m00; pc.m01 = t.m01; pc.m02 = t.m02;
+    pc.m10 = t.m10; pc.m11 = t.m11; pc.m12 = t.m12;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
     vkCmdPushConstants(cmd, pipelineLayout_,

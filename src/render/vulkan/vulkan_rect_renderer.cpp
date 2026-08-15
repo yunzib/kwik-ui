@@ -11,22 +11,23 @@ import std;
 // ── PushConstants (96 byte, 必须与 rect.vert/rect.frag 对齐) ──────
 namespace {
 struct PushConstants {
-    float topLeftX, topLeftY;                 // offset 0
-    float sizeX, sizeY;                       // offset 8
-    float fillR, fillG, fillB, fillA;         // offset 16
-    float radius;                             // offset 32
-    float borderWidth;                        // offset 36
-    float _pad0, _pad1;                       // offset 40
-    float borderR, borderG, borderB, borderA; // offset 48
-    float opacity;                            // offset 64
-    uint32_t drawMode;                        // offset 68 (0=fill, 1=stroke, 2=shadow)
-    float shadowOffsetX, shadowOffsetY;       // offset 72
-    float shadowBlur;                         // offset 80
-    float _pad2;                              // offset 84
-    float viewportW, viewportH;               // offset 88
+    float topLeftX, topLeftY;
+    float sizeX, sizeY;
+    float fillR, fillG, fillB, fillA;
+    float radius;
+    float borderWidth;
+    float _pad0, _pad1;
+    float borderR, borderG, borderB, borderA;
+    float opacity;
+    uint32_t drawMode;
+    float shadowOffsetX, shadowOffsetY;
+    float shadowBlur;
+    float _pad2;
+    float viewportW, viewportH;
+    float m00, m01, m02, m10, m11, m12;    // ← 矩阵
 };
-static_assert(sizeof(PushConstants) == 96, "PushConstants must match shader layout");
-}
+static_assert(sizeof(PushConstants) == 120, "PushConstants size mismatch");
+}    // namespace
 
 RectRenderer::~RectRenderer() {
     destroy();
@@ -43,11 +44,10 @@ void RectRenderer::destroy() {
 // ================================================================
 // create — 创建 fill / stroke / shadow / stencil 四条管线
 // ================================================================
-bool RectRenderer::create(VkDevice device, VkRenderPass renderPass,
-                          VkBuffer vertexBuffer, VkBuffer indexBuffer) {
-    device_      = device;
+bool RectRenderer::create(VkDevice device, VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
+    device_ = device;
     vertexBuffer_ = vertexBuffer;
-    indexBuffer_  = indexBuffer;
+    indexBuffer_ = indexBuffer;
     // ── 着色器 ───────────────────────────────────────────
     VkShaderModule vert =
         VulkanContext::createShaderModule(device_, kwik::shader::kRectVert, kwik::shader::kRectVertSize);
@@ -70,10 +70,18 @@ bool RectRenderer::create(VkDevice device, VkRenderPass renderPass,
     VkPipelineViewportStateCreateInfo vp{
         VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, nullptr, 0, 1, nullptr, 1, nullptr};
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                                              nullptr, 0, VK_FALSE, VK_FALSE,
-                                              VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE,
-                                              VK_FRONT_FACE_CLOCKWISE, VK_FALSE,
-                                              0.0f, 0.0f, 0.0f, 1.0f};
+                                              nullptr,
+                                              0,
+                                              VK_FALSE,
+                                              VK_FALSE,
+                                              VK_POLYGON_MODE_FILL,
+                                              VK_CULL_MODE_NONE,
+                                              VK_FRONT_FACE_CLOCKWISE,
+                                              VK_FALSE,
+                                              0.0f,
+                                              0.0f,
+                                              0.0f,
+                                              1.0f};
     VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     // ── 颜色混合 ──────────────────────────────────────────
@@ -193,60 +201,36 @@ void RectRenderer::clear(VkCommandBuffer cmd, VkExtent2D extent, const Color &co
     VkClearRect cr{{{0, 0}, extent}, 0, 1};
     vkCmdClearAttachments(cmd, 1, &att, 1, &cr);
 }
-void RectRenderer::fillRect(VkCommandBuffer cmd, VkExtent2D extent,
-                            const Rect &rect, const Color &color) {
-    fillRoundedRect(cmd, extent, rect, 0, color, 1.0f);
+
+
+void RectRenderer::fillRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, const Color &color,
+                            const Transform2D &t) {
+    fillRoundedRect(cmd, extent, rect, 0, color, 1.0f, t);
 }
-void RectRenderer::fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent,
-                                   const Rect &rect, float radius,
-                                   const Color &color, float globalAlpha) {
+
+void RectRenderer::fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius,
+                                   const Color &color, float globalAlpha, const Transform2D &t) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
     PushConstants pc{};
     pc.topLeftX = rect.x;
     pc.topLeftY = rect.y;
-    pc.sizeX    = rect.width;
-    pc.sizeY    = rect.height;
-    pc.fillR    = color.r / 255.f;
-    pc.fillG    = color.g / 255.f;
-    pc.fillB    = color.b / 255.f;
-    pc.fillA    = color.a / 255.f;
-    pc.radius   = radius;
-    pc.opacity  = globalAlpha;
+    pc.sizeX = rect.width;
+    pc.sizeY = rect.height;
+    pc.fillR = color.r / 255.f;
+    pc.fillG = color.g / 255.f;
+    pc.fillB = color.b / 255.f;
+    pc.fillA = color.a / 255.f;
+    pc.radius = radius;
+    pc.opacity = globalAlpha;
     pc.drawMode = 0;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    vkCmdPushConstants(cmd, pipelineLayout_,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(PushConstants), &pc);
-    VkDeviceSize off = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
-    vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-}
-
-void RectRenderer::drawSegment(VkCommandBuffer cmd, VkExtent2D extent,
-                               float ax, float ay, float bx, float by,
-                               float halfW, const Color &color, float globalAlpha) {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
-    // 胶囊包围盒 = 两端点 ± halfW
-    float x0 = std::min(ax, bx) - halfW;
-    float y0 = std::min(ay, by) - halfW;
-    float w = std::abs(bx - ax) + 2.0f * halfW;
-    float h = std::abs(by - ay) + 2.0f * halfW;
-
-    PushConstants pc{};
-    pc.topLeftX = x0; pc.topLeftY = y0;
-    pc.sizeX = w; pc.sizeY = h;
-    pc.fillR = color.r / 255.f; pc.fillG = color.g / 255.f;
-    pc.fillB = color.b / 255.f; pc.fillA = color.a / 255.f;
-    pc.radius = halfW;                 // 胶囊半径
-    pc.opacity = globalAlpha;
-    pc.drawMode = 3;                   // segment 模式
-    // 复用 borderColor 字段把线段端点（包围盒坐标）传给 shader
-    pc.borderR = ax - x0; pc.borderG = ay - y0;   // a.xy
-    pc.borderB = bx - x0; pc.borderA = by - y0;   // b.xy
-    pc.viewportW = static_cast<float>(extent.width);
-    pc.viewportH = static_cast<float>(extent.height);
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PushConstants), &pc);
     VkDeviceSize off = 0;
@@ -255,38 +239,81 @@ void RectRenderer::drawSegment(VkCommandBuffer cmd, VkExtent2D extent,
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 }
 
+void RectRenderer::drawSegment(VkCommandBuffer cmd, VkExtent2D extent, float ax, float ay, float bx, float by,
+                               float halfW, const Color &color, float globalAlpha, const Transform2D &t) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
+    // 胶囊包围盒 = 两端点 ± halfW
+    float x0 = std::min(ax, bx) - halfW;
+    float y0 = std::min(ay, by) - halfW;
+    float w = std::abs(bx - ax) + 2.0f * halfW;
+    float h = std::abs(by - ay) + 2.0f * halfW;
 
-void RectRenderer::strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent,
-                                     const Rect &rect, float radius,
-                                     const Color &color, float strokeWidth,
-                                     float globalAlpha) {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, strokePipeline_);
     PushConstants pc{};
-    pc.topLeftX    = rect.x;
-    pc.topLeftY    = rect.y;
-    pc.sizeX       = rect.width;
-    pc.sizeY       = rect.height;
-    pc.radius      = radius;
-    pc.borderWidth = strokeWidth;
-    pc.borderR     = color.r / 255.f;
-    pc.borderG     = color.g / 255.f;
-    pc.borderB     = color.b / 255.f;
-    pc.borderA     = color.a / 255.f;
-    pc.opacity     = globalAlpha;
-    pc.drawMode    = 1;
-    pc.viewportW   = static_cast<float>(extent.width);
-    pc.viewportH   = static_cast<float>(extent.height);
-    vkCmdPushConstants(cmd, pipelineLayout_,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    pc.topLeftX = x0;
+    pc.topLeftY = y0;
+    pc.sizeX = w;
+    pc.sizeY = h;
+    pc.fillR = color.r / 255.f;
+    pc.fillG = color.g / 255.f;
+    pc.fillB = color.b / 255.f;
+    pc.fillA = color.a / 255.f;
+    pc.radius = halfW;    // 胶囊半径
+    pc.opacity = globalAlpha;
+    pc.drawMode = 3;    // segment 模式
+    // 复用 borderColor 字段把线段端点（包围盒坐标）传给 shader
+    pc.borderR = ax - x0;
+    pc.borderG = ay - y0;    // a.xy
+    pc.borderB = bx - x0;
+    pc.borderA = by - y0;    // b.xy
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
+    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PushConstants), &pc);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
     vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 }
-void RectRenderer::drawShadow(VkCommandBuffer cmd, VkExtent2D extent,
-                              const Rect &rect, float radius,
-                              const Shadow &shadow, float globalAlpha) {
+
+void RectRenderer::strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius,
+                                     const Color &color, float strokeWidth, float globalAlpha, const Transform2D &t) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, strokePipeline_);
+    PushConstants pc{};
+    pc.topLeftX = rect.x;
+    pc.topLeftY = rect.y;
+    pc.sizeX = rect.width;
+    pc.sizeY = rect.height;
+    pc.radius = radius;
+    pc.borderWidth = strokeWidth;
+    pc.borderR = color.r / 255.f;
+    pc.borderG = color.g / 255.f;
+    pc.borderB = color.b / 255.f;
+    pc.borderA = color.a / 255.f;
+    pc.opacity = globalAlpha;
+    pc.drawMode = 1;
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
+    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PushConstants), &pc);
+    VkDeviceSize off = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
+    vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+}
+void RectRenderer::drawShadow(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius,
+                              const Shadow &shadow, float globalAlpha, const Transform2D &t) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
@@ -298,22 +325,27 @@ void RectRenderer::drawShadow(VkCommandBuffer cmd, VkExtent2D extent,
     const float step = (layers > 1) ? (blur / float(layers - 1)) : 0.0f;
     for (int i = 0; i < layers; i++) {
         PushConstants pc{};
-        pc.topLeftX    = rect.x + shadow.offsetX;
-        pc.topLeftY    = rect.y + shadow.offsetY;
-        pc.sizeX       = rect.width;
-        pc.sizeY       = rect.height;
-        pc.fillR       = shadow.color.r / 255.f;
-        pc.fillG       = shadow.color.g / 255.f;
-        pc.fillB       = shadow.color.b / 255.f;
-        pc.fillA       = shadow.color.a / 255.f;
-        pc.radius      = radius;
-        pc.shadowBlur  = step * float(i);
-        pc.opacity     = globalAlpha * (shadow.color.a / 255.f) * kLayerAlphas[i];
-        pc.drawMode    = 2;
-        pc.viewportW   = static_cast<float>(extent.width);
-        pc.viewportH   = static_cast<float>(extent.height);
-        vkCmdPushConstants(cmd, pipelineLayout_,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+        pc.topLeftX = rect.x + shadow.offsetX;
+        pc.topLeftY = rect.y + shadow.offsetY;
+        pc.sizeX = rect.width;
+        pc.sizeY = rect.height;
+        pc.fillR = shadow.color.r / 255.f;
+        pc.fillG = shadow.color.g / 255.f;
+        pc.fillB = shadow.color.b / 255.f;
+        pc.fillA = shadow.color.a / 255.f;
+        pc.radius = radius;
+        pc.shadowBlur = step * float(i);
+        pc.opacity = globalAlpha * (shadow.color.a / 255.f) * kLayerAlphas[i];
+        pc.drawMode = 2;
+        pc.viewportW = static_cast<float>(extent.width);
+        pc.viewportH = static_cast<float>(extent.height);
+        pc.m00 = t.m00;
+        pc.m01 = t.m01;
+        pc.m02 = t.m02;
+        pc.m10 = t.m10;
+        pc.m11 = t.m11;
+        pc.m12 = t.m12;
+        vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(PushConstants), &pc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
     }
@@ -321,28 +353,33 @@ void RectRenderer::drawShadow(VkCommandBuffer cmd, VkExtent2D extent,
 // ================================================================
 // writeStencilMask — 将圆角矩形 SDF 写入 stencil buffer
 // ================================================================
-void RectRenderer::writeStencilMask(VkCommandBuffer cmd, VkExtent2D extent,
-                                    const Rect &rect, float radius) {
+void RectRenderer::writeStencilMask(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius,
+                                    const Transform2D &t) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, stencilPipeline_);
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
     vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     PushConstants pc{};
-    pc.topLeftX  = rect.x;
-    pc.topLeftY  = rect.y;
-    pc.sizeX     = rect.width;
-    pc.sizeY     = rect.height;
-    pc.fillR     = 1.0f;
-    pc.fillG     = 1.0f;
-    pc.fillB     = 1.0f;
-    pc.fillA     = 1.0f;
-    pc.radius    = radius;
-    pc.opacity   = 1.0f;
-    pc.drawMode  = 0;
+    pc.topLeftX = rect.x;
+    pc.topLeftY = rect.y;
+    pc.sizeX = rect.width;
+    pc.sizeY = rect.height;
+    pc.fillR = 1.0f;
+    pc.fillG = 1.0f;
+    pc.fillB = 1.0f;
+    pc.fillA = 1.0f;
+    pc.radius = radius;
+    pc.opacity = 1.0f;
+    pc.drawMode = 0;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    vkCmdPushConstants(cmd, pipelineLayout_,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
+    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PushConstants), &pc);
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 }

@@ -20,11 +20,13 @@ export struct FillRectCmd {
     Rect rect;
     Color color;
     BlendMode mode = BlendMode::SrcOver;
+    Transform2D t;  
 };
 export struct FillRoundedRectCmd {
     Rect rect;
     float radius;
     Color color;
+    Transform2D t;  
 };
 /** @brief 线段胶囊描边命令（折线每段一个胶囊：线段 + 两端 round cap） */
 export struct DrawSegmentCmd {
@@ -32,11 +34,14 @@ export struct DrawSegmentCmd {
     float bx, by;    // 线段端点 B（物理坐标）
     float halfW;     // 胶囊半径 = strokeWidth / 2（物理像素）
     Color color;
+    Transform2D t;  
 };
 /** @brief 圆角矩形裁剪入栈（坐标已烘焙为物理像素） */
 export struct PushClipCmd {
     Rect rect;
     float radius;
+    Transform2D t;  
+    Rect clipRect;   // 物理 AABB（scissor 用）
 };
 
 /** @brief 裁剪出栈 */
@@ -46,17 +51,20 @@ export struct StrokeRoundedRectCmd {
     float radius;
     Color color;
     float strokeWidth;
+    Transform2D t;  
 };
 export struct DrawShadowCmd {
     Rect rect;
     float radius;
     Shadow shadow;
+    Transform2D t;  
 };
 export struct DrawImageCmd {
     uint32_t textureId;
     Rect rect;
     float opacity;
     float cornerRadius;
+    Transform2D t;  
 };
 export struct DrawGlyphCmd {
     FontId fontId;
@@ -65,17 +73,20 @@ export struct DrawGlyphCmd {
     float uvLeft, uvTop, uvRight, uvBottom;
     Color color;
     float pageIndex = 0;
+    Transform2D t;  
 };
 export struct FillTrianglesCmd {
     size_t vertexOffset;
     uint32_t vertexCount;
     Color color;
     BlendMode mode = BlendMode::SrcOver;
+    Transform2D t;  
 };
 export struct StrokeTrianglesCmd {
     size_t vertexOffset;
     uint32_t vertexCount;
     Color color;
+    Transform2D t;  
 };
 
 /*

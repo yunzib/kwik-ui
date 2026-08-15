@@ -16,32 +16,31 @@ import kwik.core.types;
 
 import std;
 
-// ── 字形绘制 Push Constants (56 字节) ──
+// ── 字形绘制 Push Constants ──
 export struct GlyphPushConstants {
-    float posX, posY;                        // offset  0
-    float sizeX, sizeY;                      // offset  8
-    float uvU0, uvV0;                        // offset 16
-    float uvU1, uvV1;                        // offset 24
-    float colorR, colorG, colorB, colorA;    // offset 32
-    float viewportW, viewportH;              // offset 48
-    float textContrast;                      // offset 56  (reserved, 固定 1.0)
-    float pageIndex;                         // offset 60
-    // 总计 64 字节
+    float posX, posY; float sizeX, sizeY;
+    float uvU0, uvV0; float uvU1, uvV1;
+    float colorR, colorG, colorB, colorA;
+    float viewportW, viewportH;
+    float textContrast; float pageIndex;
+    float m00, m01, m02;    // ← 矩阵（offset 64）
+    float m10, m11, m12;    //    offset 76
+    // 总计 88 字节
 };
-static_assert(sizeof(GlyphPushConstants) == 64, "GlyphPushConstants size must match glyph shader layout");
+static_assert(sizeof(GlyphPushConstants) == 88, "GlyphPushConstants size mismatch");
 
-// ── 图片绘制 Push Constants (60 字节，保留 cornerRadius) ──
+// ── 图片绘制 Push Constants ──
 export struct ImagePushConstants {
-    float posX, posY;                        // offset  0
-    float sizeX, sizeY;                      // offset  8
-    float uvU0, uvV0;                        // offset 16
-    float uvU1, uvV1;                        // offset 24
-    float colorR, colorG, colorB, colorA;    // offset 32
-    float viewportW, viewportH;              // offset 48
-    float cornerRadius;                      // offset 56
-    // 总计 60 字节
+    float posX, posY; float sizeX, sizeY;
+    float uvU0, uvV0; float uvU1, uvV1;
+    float colorR, colorG, colorB, colorA;
+    float viewportW, viewportH;
+    float cornerRadius;
+    float m00, m01, m02;    // ← 矩阵
+    float m10, m11, m12;
+    // 总计 84 字节
 };
-static_assert(sizeof(ImagePushConstants) == 60, "ImagePushConstants size must match image shader layout");
+static_assert(sizeof(ImagePushConstants) == 84, "ImagePushConstants size mismatch");
 
 // ── FrameToken: 每帧由 beginFrame 产出，子渲染器通过此对象获取 Vulkan 句柄 ──
 export struct FrameToken {

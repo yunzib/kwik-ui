@@ -1,5 +1,14 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-16
+### 新增：
+- GPU transform 统一变换：transform: "tx,ty,rot,scale"（位移/旋转/缩放，均绕中心，替换独立 scale 属性）
+- Transform2D 矩阵下沉：rect/triangle/glyph/image 顶点 shader 加矩阵，push constant 扩展
+- rotate 可动画（PropId::rotate）
+### 修复：
+- Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施
+- clip scissor 用逻辑坐标导致底部/右侧内容被裁（改物理 AABB）
+
 ## 0.0.0 — 2026-08-15
 ### 新增
 - Chart 图表组件：饼图/柱状图/折线图三合一（type 切换）

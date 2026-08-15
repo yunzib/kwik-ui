@@ -409,12 +409,13 @@ void ImageRenderer::destroyTexture(uint32_t id) {
 // ================================================================
 // drawImage
 // ================================================================
-void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha) {
+void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
+                              const Transform2D &t) {
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
-    auto &t = it->second;
+    auto &tex = it->second;
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline_);
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &tex.descSet, 0, nullptr);
     ImagePushConstants pc{};
     pc.posX = cmd.rect.x;
     pc.posY = cmd.rect.y;
@@ -431,6 +432,12 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawI
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
     vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;
@@ -441,13 +448,13 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawI
 // ================================================================
 // drawImageClipped — stencil 测试版
 // ================================================================
-void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd,
-                                     float globalAlpha) {
+void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
+                                     const Transform2D &t) {
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
-    auto &t = it->second;
+    auto &tex = it->second;
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imageClipPipeline_);
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &t.descSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipelineLayout_, 0, 1, &tex.descSet, 0, nullptr);
     ImagePushConstants pc{};
     pc.posX = cmd.rect.x;
     pc.posY = cmd.rect.y;
@@ -464,6 +471,12 @@ void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, cons
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.cornerRadius = cmd.cornerRadius;
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
     vkCmdPushConstants(cb, imagePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(ImagePushConstants), &pc);
     VkDeviceSize off = 0;

@@ -82,7 +82,6 @@ export struct ViewProps {
     int z = 0;    // 层叠优先级 (默认 0, 值越高越优先命中)
 
     // ── 动画 / 变换 ──
-    float scale = 1.0f;                    // 通用缩放
     std::optional<Transform> transform;    // 位移变换
 
     /** @brief 主题 token 引用映射（如 {"background":"primary"}）

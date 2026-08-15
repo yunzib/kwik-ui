@@ -191,13 +191,21 @@ export struct EasingConfig {
     float p2x = 0.25f, p2y = 1.0f;
 };
 
+/** @brief 2D 仿射变换（行主序 2×3：x'=m00*x+m01*y+m02） */
+export struct Transform2D {
+    float m00 = 1, m01 = 0, m02 = 0;
+    float m10 = 0, m11 = 1, m12 = 0;
+};
+
 /**
- * @brief 2D 变换 — 位移
+ * @brief 元素变换（统一 translate/rotate/scale，均绕中心）
+ * rotate 单位：度；scale：绕中心缩放。
  */
 export struct Transform {
     float translateX = 0;
     float translateY = 0;
-
+    float rotate = 0;
+    float scale = 1;
     constexpr bool operator==(const Transform&) const = default;
 };
 
@@ -256,6 +264,7 @@ export enum class PropId : uint8_t {
     transform,        // Transform（暂仅 flip）
     translateX,       // double → float（Transform.translateX）
     translateY,       // double → float（Transform.translateY）
+    rotate,           // double → float（Transform.rotate，单位：度）
     // ── 尺寸 — 变化后触发 re-layout ──
     width,            // double → std::optional<float>
     height,           // double → std::optional<float>

@@ -19,8 +19,10 @@ public:
     void destroy();
 
     void uploadPendingGlyphs(const DeviceContext &dc);
-    void drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
-    void drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha);
+    void drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha,
+                   const Transform2D &t);
+    void drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha,
+                          const Transform2D &t);
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;

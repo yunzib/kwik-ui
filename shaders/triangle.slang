@@ -14,6 +14,8 @@ struct TrianglePushConstants {
     float  uOpacity;
     float  _pad0;
     float  _pad1;
+    float m00, m01, m02;    // ← 矩阵
+    float m10, m11, m12;
 };
 
 [[vk::push_constant]] ConstantBuffer<TrianglePushConstants> pc;
@@ -31,9 +33,12 @@ struct VertOutput {
 [shader("vertex")]
 VertOutput vertexMain(float2 aPos : ATTR0, float2 aBary : ATTR1, float3 aH : ATTR2, float aMask : ATTR3) {
     VertOutput o;
-    float px = (aPos.x / pc.uViewport.x) * 2.0 - 1.0;
-    float py = (aPos.y / pc.uViewport.y) * 2.0 - 1.0;
+    float2 world = float2(pc.m00 * aPos.x + pc.m01 * aPos.y + pc.m02,
+                          pc.m10 * aPos.x + pc.m11 * aPos.y + pc.m12);
+    float px = (world.x / pc.uViewport.x) * 2.0 - 1.0;
+    float py = (world.y / pc.uViewport.y) * 2.0 - 1.0;
     o.position = float4(px, py, 0.0, 1.0);
+    // bary/h/edgeMask/vColor 输出不变
     o.bary = aBary;
     o.h = aH;
     o.edgeMask = aMask;

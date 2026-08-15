@@ -115,6 +115,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "keyboard") return "../../test/ui/keyboard.js";
         if (arg == "datepicker") return "../../test/ui/datepicker.js";
         if (arg == "chart") return "../../test/ui/chart.js";
+        if (arg == "rotate") return "../../test/ui/rotate.js";
         return arg;
     }
     return "../../test/ui/example.js";

@@ -67,7 +67,7 @@ public:
      */
     void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
                    const AAVertex *vertices, uint32_t vertexCount,
-                   const Color &color, float alpha);
+                   const Color &color, float alpha, const Transform2D &t);
 
     /** @brief 获取 pipeline layout（供外部使用） */
     VkPipelineLayout layout() const { return pipelineLayout_; }

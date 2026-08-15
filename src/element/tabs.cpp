@@ -145,15 +145,18 @@ void Tabs::onDraw(Graphics &graphics) {
 
     // ── 通用变换 ──
     if (props.transform.has_value()) {
-        graphics.translate(props.transform->translateX, props.transform->translateY);
+        auto &t = *props.transform;
+        graphics.translate(t.translateX, t.translateY);
+        if (t.rotate != 0.0f || t.scale != 1.0f) {
+            float cx = frame.x + frame.width * 0.5f;
+            float cy = frame.y + frame.height * 0.5f;
+            graphics.translate(cx, cy);
+            graphics.rotate(t.rotate);
+            graphics.scale(t.scale, t.scale);
+            graphics.translate(-cx, -cy);
+        }
     }
-    if (props.scale != 1.0f) {
-        float cx = frame.x + frame.width * 0.5f;
-        float cy = frame.y + frame.height * 0.5f;
-        graphics.translate(cx, cy);
-        graphics.scale(props.scale, props.scale);
-        graphics.translate(-cx, -cy);
-    }
+    
     if (props.opacity < 1.0f) {
         graphics.setOpacity(props.opacity);
     }

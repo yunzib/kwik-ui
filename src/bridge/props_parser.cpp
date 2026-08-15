@@ -106,7 +106,41 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     if (ex.has("margin")) result.margin = parseEdgeInsets(ex.raw().getProperty("margin"));
     ex.get("visible", result.visible);
     ex.get("opacity", result.opacity);
-    ex.get("scale", result.scale);
+
+    {
+        // scale 已并入 Transform：独立 scale 属性合并进 transform.scale（默认 1.0）
+        float s = 1.0f;
+        if (ex.get("scale", s) && s != 1.0f) {
+            if (!result.transform) result.transform = Transform{};
+            result.transform->scale = s;
+        }
+    }
+
+    if (ex.has("transform")) {
+        // transform 序列化为 "tx,ty,rot,scale"（逗号分隔，向后兼容 "tx,ty"）
+        std::string s = ex.raw().getProperty("transform").toString();
+        Transform t;
+        size_t c1 = s.find(',');
+        if (c1 == std::string::npos) {
+            t.translateX = std::stof(s);
+        } else {
+            t.translateX = std::stof(s.substr(0, c1));
+            size_t c2 = s.find(',', c1 + 1);
+            if (c2 == std::string::npos) {
+                t.translateY = std::stof(s.substr(c1 + 1));
+            } else {
+                t.translateY = std::stof(s.substr(c1 + 1, c2 - c1 - 1));
+                size_t c3 = s.find(',', c2 + 1);
+                if (c3 == std::string::npos) {
+                    t.rotate = std::stof(s.substr(c2 + 1));
+                } else {
+                    t.rotate = std::stof(s.substr(c2 + 1, c3 - c2 - 1));
+                    t.scale  = std::stof(s.substr(c3 + 1));
+                }
+            }
+        }
+        result.transform = t;
+    }
 
     if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
     ex.get("flexGrow", result.flexGrow);

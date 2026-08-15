@@ -59,7 +59,7 @@ void Graphics::beginFrame(bool /*structural*/) {
 
 std::shared_ptr<CommandBuffer> Graphics::endFrame() {
     recording_ = false;
-    return cb_;               // 提交给 FrameSubmit.commandBuffer
+    return cb_;    // 提交给 FrameSubmit.commandBuffer
 }
 
 // ════════════════════════════════════════════
@@ -71,10 +71,10 @@ void Graphics::save() {
     currentState_.pushes = 0;
     if (!recording_) return;
     if (passThrough_) {
-        passThrough_ = false;        // 一次性消费透传标志
-        currentState_.noop = true;   // 本域自身绘制抑制（子节点 save 会覆盖为 false）
+        passThrough_ = false;         // 一次性消费透传标志
+        currentState_.noop = true;    // 本域自身绘制抑制（子节点 save 会覆盖为 false）
     } else {
-        currentState_.noop = false;  // 正常域，恢复录制
+        currentState_.noop = false;    // 正常域，恢复录制
     }
 }
 
@@ -90,18 +90,37 @@ void Graphics::restore() {
 }
 
 // ════════════════════════════════════════════
-// 变换（坐标烘焙）
+// 变换（矩阵合成）
 // ════════════════════════════════════════════
 
 void Graphics::translate(float dx, float dy) {
-    currentState_.tx += dx * currentState_.sx;
-    currentState_.ty += dy * currentState_.sy;
+    // M = M * T(dx,dy)
+    currentState_.m.m02 += currentState_.m.m00 * dx + currentState_.m.m01 * dy;
+    currentState_.m.m12 += currentState_.m.m10 * dx + currentState_.m.m11 * dy;
     if (!recording_) return;
 }
 
 void Graphics::scale(float sx, float sy) {
-    currentState_.sx *= sx;
-    currentState_.sy *= sy;
+    // M = M * S(sx, sy)：平移分量 m02/m12 保持不变
+    currentState_.m.m00 *= sx;
+    currentState_.m.m01 *= sy;
+    currentState_.m.m10 *= sx;
+    currentState_.m.m11 *= sy;
+    if (!recording_) return;
+}
+
+void Graphics::rotate(float angleDeg) {
+    // M = M * R(angle)（绕当前原点；绕中心由 View 组合 translate(cx,cy)..translate(-cx,-cy)）
+    float a = angleDeg * (std::acos(-1.0f) / 180.0f);
+    float c = std::cos(a), s = std::sin(a);
+    float n00 = currentState_.m.m00 * c - currentState_.m.m01 * s;
+    float n01 = currentState_.m.m00 * s + currentState_.m.m01 * c;
+    float n10 = currentState_.m.m10 * c - currentState_.m.m11 * s;
+    float n11 = currentState_.m.m10 * s + currentState_.m.m11 * c;
+    currentState_.m.m00 = n00;
+    currentState_.m.m01 = n01;
+    currentState_.m.m10 = n10;
+    currentState_.m.m11 = n11;
     if (!recording_) return;
 }
 
@@ -113,10 +132,10 @@ void Graphics::setOpacity(float opacity) {
 // ════════════════════════════════════════════
 // 裁剪（状态命令）
 // ════════════════════════════════════════════
-
 void Graphics::clipRoundedRect(const Rect &rect, float radius) {
     if (!recording_) return;
-    cb_->append(PushClipCmd{transformRect(rect), radius * currentState_.sx});
+    // rect(逻辑) + 矩阵(给 stencil 掩码) + transformRect(rect)(物理 AABB, 给 scissor)
+    cb_->append(PushClipCmd{rect, radius, currentState_.m, transformRect(rect)});
     currentState_.pushes++;
 }
 
@@ -151,45 +170,43 @@ void Graphics::clear(const Color &color) {
 
 void Graphics::clearRectArea(const Rect &rect) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRectCmd{transformRect(rect), Color::transparent(), BlendMode::SrcCopy});
+    // 清除区域须用物理坐标（transformRect AABB）+ 单位矩阵
+    cb_->append(FillRectCmd{transformRect(rect), Color::transparent(), BlendMode::SrcCopy, Transform2D{}});
 }
 
 // ════════════════════════════════════════════
-// 绘制
+// 绘制（逻辑坐标 + 矩阵）
 // ════════════════════════════════════════════
 
 void Graphics::drawRect(const Rect &rect, const Color &color) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRectCmd{transformRect(rect), applyOpacity(color), BlendMode::SrcOver});
-}
-
-void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
-    if (!recording_) return;    // 无视 noop：底图必须在透传域也录制
-    cb_->append(FillRectCmd{transformRect(rect), color, BlendMode::SrcOver});
+    cb_->append(FillRectCmd{rect, applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRoundedRectCmd{transformRect(rect), radius * currentState_.sx, applyOpacity(color)});
+    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(color), currentState_.m});
 }
 
 void Graphics::drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color) {
     if (!recording_ || currentState_.noop) return;
-    float sx = currentState_.sx, sy = currentState_.sy;
-    float tx = currentState_.tx, ty = currentState_.ty;
-    cb_->append(DrawSegmentCmd{ax * sx + tx, ay * sy + ty, bx * sx + tx, by * sy + ty,
-                               halfW * sx, applyOpacity(color)});
+    cb_->append(DrawSegmentCmd{ax, ay, bx, by, halfW, applyOpacity(color), currentState_.m});
 }
 
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(StrokeRoundedRectCmd{transformRect(rect), radius * currentState_.sx,
-                                     applyOpacity(color), strokeWidth * currentState_.sx});
+    cb_->append(StrokeRoundedRectCmd{rect, radius, applyOpacity(color), strokeWidth, currentState_.m});
 }
 
 void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(DrawShadowCmd{transformRect(rect), radius * currentState_.sx, shadow});
+    cb_->append(DrawShadowCmd{rect, radius, shadow, currentState_.m});
+}
+
+void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
+    if (!recording_) return;    // 无视 noop：底图必须在透传域也录制
+    // 底图覆盖残留像素：物理坐标（transformRect AABB）+ 单位矩阵
+    cb_->append(FillRectCmd{transformRect(rect), color, BlendMode::SrcOver, Transform2D{}});
 }
 
 // ════════════════════════════════════════════
@@ -202,14 +219,20 @@ void Graphics::drawText(const std::string &, const std::string &, float, float, 
 
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
     if (glyphs.empty() || !recording_ || currentState_.noop) return;
-    // 坐标烘焙（与 drawRect 一致，保证字形位置正确）
-    auto &s = currentState_;
     for (auto &g : glyphs) {
-        DrawGlyphCmd cmd{g.fontId, g.glyphIndex,
-                         std::round(g.x * s.sx + s.tx), std::round(g.y * s.sy + s.ty),
-                         std::round(g.width * s.sx), std::round(g.height * s.sy),
-                         g.uvLeft, g.uvTop, g.uvRight, g.uvBottom,
-                         applyOpacity(color), static_cast<float>(g.pageIndex)};
+        DrawGlyphCmd cmd{g.fontId,
+                         g.glyphIndex,
+                         g.x,
+                         g.y,
+                         g.width,
+                         g.height,    // 逻辑坐标，不再烘焙
+                         g.uvLeft,
+                         g.uvTop,
+                         g.uvRight,
+                         g.uvBottom,
+                         applyOpacity(color),
+                         static_cast<float>(g.pageIndex),
+                         currentState_.m};    // 矩阵
         cb_->append(cmd);
     }
 }
@@ -220,7 +243,7 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 
 void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(DrawImageCmd{textureId, transformRect(rect), opacity, cornerRadius});
+    cb_->append(DrawImageCmd{textureId, rect, opacity, cornerRadius, currentState_.m});
 }
 
 // ════════════════════════════════════════════
@@ -232,11 +255,11 @@ void Graphics::fillPath(const Path &path, const Color &color) {
     auto triangles = triangulateFill(path);
     if (triangles.empty()) return;
 
-    uint32_t vertCount = static_cast<uint32_t>(triangles.size() * 3);
-    float sx = currentState_.sx, sy = currentState_.sy;
-    float tx = currentState_.tx, ty = currentState_.ty;
+    // 矩阵缩放因子：AA 的 dist=λ·h 需物理像素，h 乘缩放（旋转保距不影响）
+    const auto &m = currentState_.m;
+    float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
 
-    std::vector<AAVertex> verts(vertCount);
+    std::vector<AAVertex> verts(triangles.size() * 3);
     uint32_t i = 0;
     for (auto &t : triangles) {
         float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
@@ -246,17 +269,17 @@ void Graphics::fillPath(const Path &path, const Color &color) {
         float l0 = std::hypot(t.p2.x - t.p1.x, t.p2.y - t.p1.y);
         float l1 = std::hypot(t.p0.x - t.p2.x, t.p0.y - t.p2.y);
         float l2 = std::hypot(t.p1.x - t.p0.x, t.p1.y - t.p0.y);
-        if (l0 > 1e-6f) h0 = sx * twiceArea / l0;
-        if (l1 > 1e-6f) h1 = sx * twiceArea / l1;
-        if (l2 > 1e-6f) h2 = sx * twiceArea / l2;
-        float m = static_cast<float>(t.edgeMask);
-        verts[i++] = {{t.p0.x * sx + tx, t.p0.y * sy + ty}, m, h0, h1, h2};
-        verts[i++] = {{t.p1.x * sx + tx, t.p1.y * sy + ty}, m, h0, h1, h2};
-        verts[i++] = {{t.p2.x * sx + tx, t.p2.y * sy + ty}, m, h0, h1, h2};
+        if (l0 > 1e-6f) h0 = sc * twiceArea / l0;
+        if (l1 > 1e-6f) h1 = sc * twiceArea / l1;
+        if (l2 > 1e-6f) h2 = sc * twiceArea / l2;
+        float mask = static_cast<float>(t.edgeMask);
+        verts[i++] = {{t.p0.x, t.p0.y}, mask, h0, h1, h2};    // 逻辑坐标，不烘焙
+        verts[i++] = {{t.p1.x, t.p1.y}, mask, h0, h1, h2};
+        verts[i++] = {{t.p2.x, t.p2.y}, mask, h0, h1, h2};
     }
-
     size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(FillTrianglesCmd{off, vertCount, applyOpacity(color)});
+    cb_->append(
+        FillTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
 void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
@@ -264,11 +287,11 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
     auto triangles = triangulateStroke(path, lineWidth);
     if (triangles.empty()) return;
 
-    uint32_t vertCount = static_cast<uint32_t>(triangles.size() * 3);
-    float sx = currentState_.sx, sy = currentState_.sy;
-    float tx = currentState_.tx, ty = currentState_.ty;
+    // ★ 修正：原残留旧代码（用 currentState_.sx/sy/tx/ty + 无矩阵）→ 改为与 fillPath 一致的矩阵版
+    const auto &m = currentState_.m;
+    float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
 
-    std::vector<AAVertex> verts(vertCount);
+    std::vector<AAVertex> verts(triangles.size() * 3);
     uint32_t i = 0;
     for (auto &t : triangles) {
         float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
@@ -278,29 +301,30 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
         float l0 = std::hypot(t.p2.x - t.p1.x, t.p2.y - t.p1.y);
         float l1 = std::hypot(t.p0.x - t.p2.x, t.p0.y - t.p2.y);
         float l2 = std::hypot(t.p1.x - t.p0.x, t.p1.y - t.p0.y);
-        if (l0 > 1e-6f) h0 = sx * twiceArea / l0;
-        if (l1 > 1e-6f) h1 = sx * twiceArea / l1;
-        if (l2 > 1e-6f) h2 = sx * twiceArea / l2;
-        float m = static_cast<float>(t.edgeMask);
-        verts[i++] = {{t.p0.x * sx + tx, t.p0.y * sy + ty}, m, h0, h1, h2};
-        verts[i++] = {{t.p1.x * sx + tx, t.p1.y * sy + ty}, m, h0, h1, h2};
-        verts[i++] = {{t.p2.x * sx + tx, t.p2.y * sy + ty}, m, h0, h1, h2};
+        if (l0 > 1e-6f) h0 = sc * twiceArea / l0;
+        if (l1 > 1e-6f) h1 = sc * twiceArea / l1;
+        if (l2 > 1e-6f) h2 = sc * twiceArea / l2;
+        float mask = static_cast<float>(t.edgeMask);
+        verts[i++] = {{t.p0.x, t.p0.y}, mask, h0, h1, h2};
+        verts[i++] = {{t.p1.x, t.p1.y}, mask, h0, h1, h2};
+        verts[i++] = {{t.p2.x, t.p2.y}, mask, h0, h1, h2};
     }
-
     size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(StrokeTrianglesCmd{off, vertCount, applyOpacity(color)});
+    cb_->append(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
 }
 
-void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16],
-                        const Color &color, const float lightDir[3], const Rect &viewport) {
+void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
+                        const float lightDir[3], const Rect &viewport) {
     if (!recording_ || currentState_.noop) return;
     if (vertices.empty()) return;
     size_t off = cb_->appendMeshVertices(vertices.data(), vertices.size());
     DrawMeshCmd cmd{off, static_cast<uint32_t>(vertices.size())};
     std::memcpy(cmd.mvp, mvp, sizeof(cmd.mvp));
     cmd.color = applyOpacity(color);
-    cmd.lightDir[0] = lightDir[0]; cmd.lightDir[1] = lightDir[1]; cmd.lightDir[2] = lightDir[2];
-    cmd.viewport = transformRect(viewport);
+    cmd.lightDir[0] = lightDir[0];
+    cmd.lightDir[1] = lightDir[1];
+    cmd.lightDir[2] = lightDir[2];
+    cmd.viewport = transformRect(viewport);    // mesh 走对象空间 MVP + 视口，阶段 2 不做 2D rotate
     cb_->append(cmd);
 }
 
@@ -322,11 +346,19 @@ void Graphics::getSize(int *width, int *height) const {
 }
 
 Rect Graphics::transformRect(const Rect &rect) const {
-    float x = std::round(rect.x * currentState_.sx + currentState_.tx);
-    float y = std::round(rect.y * currentState_.sy + currentState_.ty);
-    float w = std::round(rect.width * currentState_.sx);
-    float h = std::round(rect.height * currentState_.sy);
-    return {x, y, w, h};
+    // 变换矩形 4 角，取 AABB（供 clip 物理坐标 / dirtyRect / underlay / clearRectArea 使用）
+    const auto &m = currentState_.m;
+    float x0 = m.m00 * rect.x + m.m01 * rect.y + m.m02;
+    float y0 = m.m10 * rect.x + m.m11 * rect.y + m.m12;
+    float x1 = m.m00 * (rect.x + rect.width) + m.m01 * rect.y + m.m02;
+    float y1 = m.m10 * (rect.x + rect.width) + m.m11 * rect.y + m.m12;
+    float x2 = m.m00 * rect.x + m.m01 * (rect.y + rect.height) + m.m02;
+    float y2 = m.m10 * rect.x + m.m11 * (rect.y + rect.height) + m.m12;
+    float x3 = m.m00 * (rect.x + rect.width) + m.m01 * (rect.y + rect.height) + m.m02;
+    float y3 = m.m10 * (rect.x + rect.width) + m.m11 * (rect.y + rect.height) + m.m12;
+    float minx = std::min({x0, x1, x2, x3}), maxx = std::max({x0, x1, x2, x3});
+    float miny = std::min({y0, y1, y2, y3}), maxy = std::max({y0, y1, y2, y3});
+    return {std::round(minx), std::round(miny), std::round(maxx - minx), std::round(maxy - miny)};
 }
 
 Color Graphics::applyOpacity(const Color &color) const {

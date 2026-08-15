@@ -25,10 +25,11 @@ static const PropMeta kPropMetas[] = {
     [static_cast<int>(PropId::scale)] = {
         PropId::scale, false, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
-            return static_cast<double>(p.scale);
+            return static_cast<double>(p.transform ? p.transform->scale : 1.0f);
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
-            p.scale = static_cast<float>(std::get<double>(v));
+            if (!p.transform) p.transform = Transform{};
+            p.transform->scale = static_cast<float>(std::get<double>(v));
         },
     },
     [static_cast<int>(PropId::visible)] = {
@@ -117,6 +118,16 @@ static const PropMeta kPropMetas[] = {
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
             if (!p.transform) p.transform = Transform{};
             p.transform->translateY = static_cast<float>(std::get<double>(v));
+        },
+    },
+    [static_cast<int>(PropId::rotate)] = {
+        PropId::rotate, false, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.transform ? p.transform->rotate : 0.0f);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            if (!p.transform) p.transform = Transform{};
+            p.transform->rotate = static_cast<float>(std::get<double>(v));
         },
     },
 
@@ -273,6 +284,7 @@ static constexpr struct {
     {"transform",    PropId::transform},
     {"translateX",   PropId::translateX},
     {"translateY",   PropId::translateY},
+    {"rotate",       PropId::rotate},
     {"width",        PropId::width},
     {"height",       PropId::height},
     {"padding",      PropId::padding},
@@ -295,6 +307,7 @@ static constexpr struct {
     {"h",            PropId::height},
     {"tx",           PropId::translateX},
     {"ty",           PropId::translateY},
+    
 };
 
 PropId propIdFromName(std::string_view name) {

@@ -21,6 +21,8 @@ struct RectPushConstants {
     float shadowBlur;
     float _pad2;        // std430 alignment padding
     float2 viewportSize;
+    float m00, m01, m02;    // ← 矩阵（行主序 2×3）
+    float m10, m11, m12;
 };
 
 [[vk::push_constant]] ConstantBuffer<RectPushConstants> pc;
@@ -45,8 +47,11 @@ struct VertOutput {
 [shader("vertex")]
 VertOutput vertexMain(float2 inPosition : ATTR0) {
     VertOutput o;
-    float2 screenPos = pc.topLeft + inPosition * pc.size;
-    float2 ndc = (screenPos + 0.5) / pc.viewportSize * 2.0 - 1.0;
+    float2 local = pc.topLeft + inPosition * pc.size;
+    // 矩阵变换：world = M * local
+    float2 world = float2(pc.m00 * local.x + pc.m01 * local.y + pc.m02,
+                          pc.m10 * local.x + pc.m11 * local.y + pc.m12);
+    float2 ndc = (world + 0.5) / pc.viewportSize * 2.0 - 1.0;
     o.position = float4(ndc, 0.0, 1.0);
     o.fragPos          = inPosition;
     o.fragFillColor    = pc.fillColor;

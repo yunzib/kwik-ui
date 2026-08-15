@@ -265,21 +265,19 @@ void View::draw(Graphics &graphics) {
 
 Rect View::paintBounds() const {
     Rect b = frame;
-
-    // transform 平移扩展
     if (props.transform.has_value()) {
-        Rect t{frame.x + props.transform->translateX, frame.y + props.transform->translateY, frame.width, frame.height};
-        b = b.unionRect(t);
-    }
-
-    // scale 缩放扩展（绕 frame 中心）
-    if (props.scale != 1.0f) {
+        auto &t = *props.transform;
         float cx = frame.x + frame.width * 0.5f;
         float cy = frame.y + frame.height * 0.5f;
-        float hw = frame.width * props.scale * 0.5f;
-        float hh = frame.height * props.scale * 0.5f;
-        Rect s{cx - hw, cy - hh, hw * 2.0f, hh * 2.0f};
-        b = b.unionRect(s);
+        float a = t.rotate * (std::acos(-1.0f) / 180.0f);
+        float c = std::cos(a), s = std::sin(a);
+        float hw = frame.width * 0.5f * t.scale;
+        float hh = frame.height * 0.5f * t.scale;
+        // 旋转后 AABB 半宽高
+        float rw = std::abs(hw * c) + std::abs(hh * s);
+        float rh = std::abs(hw * s) + std::abs(hh * c);
+        Rect rot{cx + t.translateX - rw, cy + t.translateY - rh, rw * 2.0f, rh * 2.0f};
+        b = b.unionRect(rot);
     }
     return b;
 }
@@ -299,13 +297,18 @@ Color View::underlayColor() const {
 void View::onDraw(Graphics &graphics) {
     graphics.save();
 
-    if (props.transform.has_value()) { graphics.translate(props.transform->translateX, props.transform->translateY); }
-    if (props.scale != 1.0f) {
-        float cx = frame.x + frame.width * 0.5f;
-        float cy = frame.y + frame.height * 0.5f;
-        graphics.translate(cx, cy);
-        graphics.scale(props.scale, props.scale);
-        graphics.translate(-cx, -cy);
+    if (props.transform.has_value()) {
+        auto &t = *props.transform;
+        graphics.translate(t.translateX, t.translateY);
+        if (t.rotate != 0.0f || t.scale != 1.0f) {
+            // 绕中心旋转 + 缩放
+            float cx = frame.x + frame.width * 0.5f;
+            float cy = frame.y + frame.height * 0.5f;
+            graphics.translate(cx, cy);
+            graphics.rotate(t.rotate);
+            graphics.scale(t.scale, t.scale);
+            graphics.translate(-cx, -cy);
+        }
     }
 
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
@@ -470,6 +473,7 @@ std::string View::getProperty(const char *name) const {
     // 不识别 → 空字符串
     return "";
 }
+
 bool View::setProperty(const char *name, const char *value) {
     if (std::strcmp(name, "width") == 0) {
         props.width = std::stof(value);
@@ -508,25 +512,33 @@ bool View::setProperty(const char *name, const char *value) {
         markDirty();
         return true;
     }
-    if (std::strcmp(name, "scale") == 0) {
-        props.scale = std::stof(value);
+    if (std::strcmp(name, "visible") == 0) {
+        props.visible = (std::string(value) == "true");
         markDirty();
         return true;
     }
     if (std::strcmp(name, "transform") == 0) {
-        // transform 序列化为 "tx,ty" 字符串
-        auto comma = std::string(value).find(',');
-        if (comma != std::string::npos) {
+        // transform 序列化为 "tx,ty,rot,scale"（向后兼容 "tx,ty"）
+        std::string s(value);
+        auto comma1 = s.find(',');
+        if (comma1 != std::string::npos) {
             Transform t;
-            t.translateX = std::stof(std::string(value, 0, comma));
-            t.translateY = std::stof(std::string(value, comma + 1));
+            t.translateX = std::stof(s.substr(0, comma1));
+            auto comma2 = s.find(',', comma1 + 1);
+            if (comma2 != std::string::npos) {
+                t.translateY = std::stof(s.substr(comma1 + 1, comma2 - comma1 - 1));
+                auto comma3 = s.find(',', comma2 + 1);
+                if (comma3 != std::string::npos) {
+                    t.rotate = std::stof(s.substr(comma2 + 1, comma3 - comma2 - 1));
+                    t.scale  = std::stof(s.substr(comma3 + 1));
+                } else {
+                    t.rotate = std::stof(s.substr(comma2 + 1));
+                }
+            } else {
+                t.translateY = std::stof(s.substr(comma1 + 1));
+            }
             props.transform = t;
         }
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "visible") == 0) {
-        props.visible = (std::string(value) == "true");
         markDirty();
         return true;
     }

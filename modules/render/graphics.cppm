@@ -106,16 +106,17 @@ public:
         if (dirtyRectAccum_) { *dirtyRectAccum_ = dirtyRectAccum_->isEmpty() ? r : dirtyRectAccum_->unionRect(r); }
     }
 
+    void rotate(float angle);
+
 private:
     std::shared_ptr<CommandBuffer> cb_;    // 当前命令流
 
     // ── CPU 状态栈（坐标/颜色烘焙仍需要）──
     struct State {
-        float tx = 0.0f, ty = 0.0f;
-        float sx = 1.0f, sy = 1.0f;
+        Transform2D m;        // 逻辑→物理 变换矩阵（含 dpi + translate/rotate/scale）
         float opacity = 1.0f;
-        int pushes = 0;          // 本 save 域内未弹出的 clip 数
-        bool noop = false;       // 本域是否 noop（passThrough 透传抑制）
+        int pushes = 0;       // 本 save 域未弹出的 clip 数
+        bool noop = false;
     };
     std::vector<State> stateStack_;
     State currentState_;

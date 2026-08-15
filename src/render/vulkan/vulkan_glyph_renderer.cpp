@@ -321,7 +321,8 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
 // ================================================================
 // drawGlyph
 // ================================================================
-void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha) {
+void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha,
+                              const Transform2D &t) {
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipeline_);
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,
                             nullptr);
@@ -344,6 +345,12 @@ void GlyphRenderer::drawGlyph(VkCommandBuffer cb, VkExtent2D extent, const DrawG
     float luma = cmd.color.r * (0.2126f / 255.f) + cmd.color.g * (0.7152f / 255.f) + cmd.color.b * (0.0722f / 255.f);
     pc.textContrast = 1.0f + luma * 1.2f;
     pc.pageIndex = cmd.pageIndex;
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;
@@ -451,8 +458,8 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
 // ================================================================
 // drawGlyphClipped — stencil 测试版
 // ================================================================
-void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd,
-                                     float globalAlpha) {
+void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawGlyphCmd &cmd, float globalAlpha,
+                                     const Transform2D &t) {
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphClipPipeline_);
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphPipelineLayout_, 0, 1, &glyphDescSet_, 0,
                             nullptr);
@@ -475,6 +482,12 @@ void GlyphRenderer::drawGlyphClipped(VkCommandBuffer cb, VkExtent2D extent, cons
     float luma = cmd.color.r * (0.2126f / 255.f) + cmd.color.g * (0.7152f / 255.f) + cmd.color.b * (0.0722f / 255.f);
     pc.textContrast = 1.0f + luma * 1.2f;
     pc.pageIndex = cmd.pageIndex;
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
     vkCmdPushConstants(cb, glyphPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(GlyphPushConstants), &pc);
     VkDeviceSize off = 0;

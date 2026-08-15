@@ -16,9 +16,10 @@ public:
 
     uint32_t createTexture(const DeviceContext &dc, const uint8_t *rgba, uint32_t w, uint32_t h);
     void destroyTexture(uint32_t id);
-    void drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha);
-    void drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha);
-
+    void drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
+                   const Transform2D &t);
+    void drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
+                          const Transform2D &t);
 private:
     VkDevice device_ = VK_NULL_HANDLE;
     VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
