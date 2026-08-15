@@ -9,7 +9,6 @@ import kwik.core.props;
 import kwik.render.graphics;
 import kwik.element.typed_prop;
 import kwik.event;
-import kwik.render.draw_list;
 import kwik.core.binding; // StateBinding — State 双向绑定抽象接口
 import kwik.core.theme;
 
@@ -528,7 +527,7 @@ public:
      */
     void drawForced(Graphics &g) {
         if (!props.visible) return;
-        g.beginContent(nullptr);
+        g.beginContent();
         onDraw(g);
         g.endContent();    // 画布即缓存：结果已写入层树，不再缓存
     }

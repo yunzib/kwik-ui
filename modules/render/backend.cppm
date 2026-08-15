@@ -134,18 +134,6 @@ public:
     virtual void destroyImageTexture(uint32_t id) = 0;
 
 
-    // ═══════════════════════════════════════════════
-    // 新增：层树遍历接口
-    // ═══════════════════════════════════════════════
-
-    /**
-     * @brief 推入变换矩阵
-     *
-     * 将当前变换矩阵与 (tx,ty) 平移和 (sx,sy) 缩放复合。
-     * 变换通过 push constant 或 uniform 在 GPU 端应用。
-     */
-    virtual void pushTransform(float tx, float ty, float sx, float sy) = 0;
-
     /**
      * @brief 推入圆角矩形裁剪
      *
@@ -153,20 +141,7 @@ public:
      */
     virtual void pushClipRoundedRect(const Rect &rect, float radius) = 0;
 
-    /**
-     * @brief 设置全局透明度
-     *
-     * 后续绘制命令的颜色 alpha 乘以此值。
-     * 与 pushTransform/pushClipRoundedRect 一样受 popState 管理。
-     */
-    virtual void setGlobalAlpha(float alpha) = 0;
-
-    /**
-     * @brief 弹出最近一次 push 的状态
-     *
-     * 恢复上一个变换矩阵、裁剪区域和透明度。
-     * 后端内部维护状态栈。
-     */
+    /** @brief 弹出最近一次 clip（PopClipCmd 回放时调用） */
     virtual void popState() = 0;
 
 

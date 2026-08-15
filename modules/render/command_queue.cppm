@@ -8,7 +8,7 @@ module;
 export module kwik.render.command_queue;
 
 import kwik.core.types;
-import kwik.render.layer;
+import kwik.render.command_buffer;
 
 import std;
 
@@ -19,7 +19,7 @@ import std;
  */
 export struct FrameSubmit {
     uint64_t frameId = 0;             /**< 单调递增帧序号 */
-    std::shared_ptr<Layer> rootLayer; /**< 层树根（共享所有权，渲染线程只读） */
+    std::shared_ptr<CommandBuffer> commandBuffer;
     Rect dirtyRect = {};              /**< 脏区（物理像素坐标） */
     bool structuralChange = false;    /**< true=结构变化，渲染线程需重置 GPU 状态 */
     bool needsResize = false;
@@ -49,7 +49,7 @@ public:
      * 返回 writeIdx 槽位的 layer root shared_ptr。
      * 主线程通过 LayerTreeBuilder::beginFrame(root, structural) 复用此层树。
      */
-    std::shared_ptr<Layer> currentRootLayer();
+    std::shared_ptr<CommandBuffer> currentCommandBuffer();
 
     /**
      * @brief 获取当前可写入的帧元数据槽位
@@ -104,9 +104,9 @@ private:
     /**
      * @brief 等待当前写槽可安全写入（背压前移的核心）
      *
-     * 背景：原设计背压在 submit() 内，但 currentFrame()/currentRootLayer()
+     * 背景：原设计背压在 submit() 内，但 currentFrame()/currentCommandBuffer()
      * 在 submit() 之前就返回槽位引用并开始写入——当主线程领先 3 帧时，
-     * 写入的正是渲染线程尚未释放的在途帧（resize 标志被抹掉、层树被
+     * 写入的正是渲染线程尚未释放的在途帧（resize 标志被抹掉、命令流被
      * use-after-free → 拉伸/闪退）。因此必须在【取槽】时先等待槽位释放。
      *
      * @return true=槽位可写；false=队列正在停止（调用方直接放弃本帧）

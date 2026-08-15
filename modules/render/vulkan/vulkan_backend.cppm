@@ -59,8 +59,6 @@ public:
     // 裁剪
     void pushClipRoundedRect(const Rect &rect, float radius) override;
 
-    void setGlobalAlpha(float alpha) override;
-    void pushTransform(float tx, float ty, float sx, float sy) override;
     void popState() override;
     BackendType getType() const override { return BackendType::Vulkan; }
     int getWidth() const override { return width_; }

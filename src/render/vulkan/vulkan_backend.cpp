@@ -206,25 +206,7 @@ void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad) {
     pushKinds_.push_back(PushKind::Clip);
 }
 
-void VulkanBackend::setGlobalAlpha(float a) {
-    stateStack_.push_back(currentState_);
-    currentState_.alpha = a;
-    clip_.setGlobalAlpha(a);
-    pushKinds_.push_back(PushKind::Alpha);
-}
 
-void VulkanBackend::pushTransform(float tx, float ty, float sx, float sy) {
-    // 保存当前状态
-    stateStack_.push_back(currentState_);
-    // 复合变换
-    currentState_.tx += tx * currentState_.sx;
-    currentState_.ty += ty * currentState_.sy;
-    currentState_.sx *= sx;
-    currentState_.sy *= sy;
-    // 更新 push constant（Vulkan 命令缓冲区写入）
-    // 实际需要在 shader 中定义 transform uniform 并在此更新
-    pushKinds_.push_back(PushKind::Transform);
-}
 
 void VulkanBackend::popState() {
     if (pushKinds_.empty()) return;
@@ -238,19 +220,6 @@ void VulkanBackend::popState() {
             // 否则 EQUAL(ref=1) 持续生效，掩码矩形之外的所有后续绘制被剔除。
             // 与重构前 resetClip() 的行为完全对齐。
             if (clip_.level() == 0) { rect_.disableStencilTest(currentToken_->commandBuffer); }
-        }
-        break;
-    case PushKind::Alpha:
-        if (!stateStack_.empty()) {
-            currentState_ = stateStack_.back();
-            stateStack_.pop_back();
-        }
-        clip_.setGlobalAlpha(currentState_.alpha);    // ← 同步还原 ClipManager 里的 alpha
-        break;
-    case PushKind::Transform:
-        if (!stateStack_.empty()) {
-            currentState_ = stateStack_.back();
-            stateStack_.pop_back();
         }
         break;
     }

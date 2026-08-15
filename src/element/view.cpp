@@ -204,7 +204,7 @@ void View::draw(Graphics &graphics) {
     if (needsLayoutRepaint_) {
         needsLayoutRepaint_ = false;
         Rect band = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
-        graphics.beginContent(nullptr);
+        graphics.beginContent();
         // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
         // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
         if (!s_suppressUnderlay && !drawnElsewhere_) {
@@ -231,7 +231,7 @@ void View::draw(Graphics &graphics) {
         if (s_suppressUnderlay) {
             // ── ③' 布局位移重绘中: 父级已对整个带做底图, 这里只重画内容, 不再各自底图 ──
             // (若仍各自底图, 后画的兄弟会用底色盖掉先画的兄弟内容 → 白角/遮挡)
-            graphics.beginContent(nullptr);
+            graphics.beginContent();
             onDraw(graphics);
             graphics.endContent();
             lastPaintBounds_ = paintBounds();
@@ -239,7 +239,7 @@ void View::draw(Graphics &graphics) {
             // ── ③ 自身脏 → 先重建脏区底图，再重录自身 + 子树 ──
             Rect bounds = paintBounds();
             Rect region = lastPaintBounds_.unionRect(bounds);
-            graphics.beginContent(nullptr);
+            graphics.beginContent();
             // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
             // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
             if (!drawnElsewhere_) { graphics.drawUnderlay(region, underlayColor()); }
@@ -255,7 +255,7 @@ void View::draw(Graphics &graphics) {
         // 子节点的 save() 创建真实 Group 直挂当前（上级）容器；
         // 沿途 clipRoundedRect 等必要作用域层照常生成。
         // 不 accumulateDirtyRect：自身没重画任何像素，脏区只由脏后代各自累积。
-        graphics.beginContent(nullptr, /*passThrough=*/true);
+        graphics.beginContent(true);
         onDraw(graphics);
         graphics.endContent();
     }

@@ -243,14 +243,14 @@ void Application::renderFrame() {
     treeStructureChanged_ = false;
 
     Graphics canvas;
-    canvas.setExistingRoot(renderThread_.commandQueue().currentRootLayer());
+    canvas.setCommandBuffer(renderThread_.commandQueue().currentCommandBuffer());
     canvas.setDirtyRectAccum(&dirtyRect_);    // ← 传入脏矩形累加器
     canvas.beginFrame(structural);
     canvas.scale(dpi, dpi);
 
     LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
 
-    auto rootLayer = canvas.endFrame();
+   auto commandBuffer = canvas.endFrame();
 
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
@@ -262,7 +262,7 @@ void Application::renderFrame() {
 
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
-    frame.rootLayer = std::move(rootLayer);
+    frame.commandBuffer = std::move(commandBuffer);
     frame.dirtyRect = {dr.x * dpi, dr.y * dpi, dr.width * dpi, dr.height * dpi};
     frame.structuralChange = structural;
     frame.needsResize = false;
@@ -410,7 +410,7 @@ void Application::preloadImageTextures(View *view) {
 void Application::handleResize(int width, int height) {
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
-    frame.rootLayer = nullptr;
+    frame.commandBuffer = nullptr;
     frame.needsResize = true;
     frame.resizeWidth = width;
     frame.resizeHeight = height;

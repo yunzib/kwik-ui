@@ -17,6 +17,20 @@
 - 图例色块与文字未对齐/重叠：drawLabel 居中制下 cy 对齐色块中心 + cx 左对齐留 6px
 - 图表图形在增量动画帧不显示：数据绘制位于基类 save/restore 之后，处于
   passThrough(noop) 域被 injectionMode_ 抑制；外包 save/restore 恢复录制
+- triangle 管线解析覆盖率 AA：以 barycentric × 边高 h 得到精确有符号距离，
+  再用 smoothstep(-0.5, 0.5, dist) 计算正确覆盖率（边上=0.5），修复饼图扇区/描边
+  边缘锯齿与 fwidth 量化阶梯、内缩 0.5px 偏移
+
+### 架构
+- 渲染管线去层树扁平化：删除 LayerTreeBuilder / Layer / SceneBuilder / DrawList 四层，
+  新增 CommandBuffer 扁平命令流（Graphics 唯一录制器，直接构造 DrawCommand 并 append；
+  渲染线程 replay 解析执行），消除"每图元 8 处机械转发"的冗余
+- 三缓冲复用对象从 Layer 树换成 CommandBuffer：currentCommandBuffer 惰性分配 +
+  reset 复用命令流/顶点流内存；handleResize 置空后下次自动重分配（修复 resize 后
+  点击闪退）
+- clip 由 PushClip/PopClip 状态命令承载；transform/opacity 仍由 Graphics CPU 烘焙
+- 命令流新增 DrawSegmentCmd（折线 SDF 胶囊），删除 pushTransform/setGlobalAlpha
+  （transform/opacity 已烘焙无调用方）
 
 ## 0.0.0 — 2026-08-13
 ### 新增

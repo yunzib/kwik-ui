@@ -150,9 +150,7 @@ private:
 
     /**
      * @brief 执行一帧的层树遍历
-     * @param frame 帧元数据（含 rootLayer 层树根）
-     *
-     * 使用 SceneBuilder DFS 遍历层树，逐层 push/pop 后端状态。
+     * 含 commandBuffer 命令流 / 回放 CommandBuffer 命令流到 backend。
      */
     bool processCommands(const FrameSubmit &frame);
 

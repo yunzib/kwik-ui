@@ -11,10 +11,7 @@ set(RENDER_PUBLIC_MODULES
     modules/render/command.cppm
     modules/render/render_thread.cppm
     modules/render/command_queue.cppm
-    modules/render/layer.cppm               
-    modules/render/draw_list.cppm         
-    modules/render/layer_tree_builder.cppm  
-    modules/render/scene_builder.cppm       
+    modules/render/command_buffer.cppm
     modules/render/texture_manager.cppm
     modules/render/text/text_types.cppm
     modules/render/text/text_face.cppm
@@ -30,9 +27,7 @@ set(RENDER_PRIVATE_SOURCES
     src/render/graphics.cpp
     src/render/render_thread.cpp
     src/render/command_queue.cpp
-    src/render/layer.cpp                    
-    src/render/draw_list.cpp              
-    src/render/layer_tree_builder.cpp       
+    src/render/command_buffer.cpp
     src/render/text/text_face_ft.cpp
     src/render/text/text_shaper.cpp
     src/render/text/text_font_manager.cpp
@@ -74,13 +69,6 @@ if(KWIK_RENDER_VULKAN)
     
     # 查找Vulkan
     find_package(Vulkan REQUIRED)
-endif()
-
-# 条件添加软件后端
-if(KWIK_RENDER_SOFTWARE)
-    list(APPEND RENDER_PUBLIC_MODULES modules/render/software_backend.cppm)
-    list(APPEND RENDER_PRIVATE_SOURCES src/render/software_backend.cpp)
-    list(APPEND RENDER_COMPILE_DEFINITIONS KWIK_RENDER_SOFTWARE)
 endif()
 
 # 1. 创建库目标

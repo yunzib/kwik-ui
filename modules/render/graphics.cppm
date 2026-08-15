@@ -8,27 +8,23 @@ import kwik.core.types;
 import kwik.render.command_queue;
 import kwik.render.command;
 import kwik.render.backend;
-import kwik.render.layer;
-import kwik.render.draw_list;
-import kwik.render.layer_tree_builder;
+import kwik.render.command_buffer;
 import kwik.render.text.types;
 import kwik.core.path;
 
 import std;
 
 /**
- * @brief 图形渲染核心类（适配器模式）
+ * @brief 图形渲染核心类（唯一录制器）
  *
- * 公有 API 完全不变，所有 21 个 View 子类的 onDraw(Graphics&) 无需修改。
+ * 公有 API 不变（View 子类 onDraw(Graphics&) 无需修改）。
  *
- * 内部变更：
- *  - 录制目标从 CommandArena 改为 LayerTreeBuilder
- *  - Graphics 每帧产生一个层树根（shared_ptr<Layer>），供 FrameSubmit 传递给渲染线程
- *  - save/restore/translate/scale/clip → 映射为 Layer Tree 的 push/pop
- *  - draw* → 录制到当前层的 PictureRecorder（坐标仍烘烤，保持 API 兼容）
+ * 架构：Graphics 直接构造 DrawCommand 并 append 到 CommandBuffer；
+ * 渲染线程 replay 解析执行。无层树 / 录制器中间层。
  *
- * 优势：无需修改任何子类，即获得 Layer Tree 的层级结构、Picture 复用、
- *       内存减少、裁剪层原生 GPU 支持。
+ *  - save/restore/translate/scale/setOpacity → 仅维护 CPU 状态（坐标/颜色烘焙）
+ *  - clipRoundedRect/resetClip              → append PushClip/PopClip 状态命令
+ *  - draw*                                  → 烘焙 + append 对应 DrawCommand
  */
 export class Graphics {
 public:
@@ -42,73 +38,34 @@ public:
     Graphics(Graphics &&) noexcept;
     Graphics &operator=(Graphics &&) noexcept;
 
-    // ── 设置层树（复用上一帧层树根）──
-
-    /**
-     * @brief 设置已有层树根（供非 structural 帧复用）
-     * @param root 该 slot 上一帧的层树根（nullptr 表示全新构建）
-     *
-     * 需在 beginFrame() 之前调用。
-     * 由 Application 传入 CommandQueue::currentRootLayer()。
-     */
-    void setExistingRoot(std::shared_ptr<Layer> root);
-
     // ── 帧管理 ──
 
-    /**
-     * @brief 开始录制一帧
-     * @param structural true=结构变化，重建整套层树
-     */
-    void beginFrame(bool structural);
+    /** @brief 设置当前命令流（Application 传入 CommandQueue::currentCommandBuffer() 复用对象） */
+    void setCommandBuffer(std::shared_ptr<CommandBuffer> cb);
 
-    /**
-     * @brief 结束录制
-     * @return 本帧构建的层树根（shared_ptr）
-     *
-     * Application 用返回值填充 FrameSubmit.rootLayer。
-     */
-    std::shared_ptr<Layer> endFrame();
+    /** @brief 开始录制一帧（清空命令流；structural 参数保留兼容，可忽略） */
+    void beginFrame(bool structural = false);
+
+    /** @brief 结束录制，返回命令流（Application 填 FrameSubmit.commandBuffer） */
+    std::shared_ptr<CommandBuffer> endFrame();
 
     // ── 状态管理 ──
 
     void save();
     void restore();
 
-    // ── 变换 ──
+    // ── 变换（坐标烘焙）──
 
-    /**
-     * @brief 平移变换
-     *
-     * 坐标继续烘烤到后续 draw call 的参数中（保持 API 兼容）。
-     * 同时创建一个 TransformLayer 节点，供后续 GPU 原生变换迁移。
-     */
     void translate(float dx, float dy);
-
-    /**
-     * @brief 缩放变换
-     */
     void scale(float sx, float sy);
-
-    /**
-     * @brief 设置全局透明度
-     *
-     * 颜色继续烘烤（保持 API 兼容）。
-     * 同时创建一个 OpacityLayer 节点。
-     */
     void setOpacity(float opacity);
 
-    // ── 裁剪 ──
+    // ── 裁剪（状态命令）──
 
-    /**
-     * @brief 圆角矩形裁剪（入栈）
-     *
-     * 内部创建 ClipRRectLayer，不再写入命令流。
-     */
+    /** @brief 圆角矩形裁剪入栈（append PushClip） */
     void clipRoundedRect(const Rect &rect, float radius);
 
-    /**
-     * @brief 裁剪出栈
-     */
+    /** @brief 裁剪出栈（append PopClip） */
     void resetClip();
 
     // ── 绘制命令 ──
@@ -116,15 +73,10 @@ public:
     void clear(const Color &color);
     void clearRectArea(const Rect &rect);
     void drawRect(const Rect &rect, const Color &color);
-    /**
-     * @brief 绘制脏区底图（忽略注入 no-op，强制录制）
-     *
-     * 供 View::draw ③态调用：用最近不透明祖先的底色填充 paintBounds，
-     * 覆盖持久画布（LOAD_OP_LOAD）上残留的旧像素，防止增量重录时内容叠加/重影。
-     */
+    /** @brief 绘制脏区底图（无视 noop，供 View::draw ③态覆盖残留像素） */
     void drawUnderlay(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
-    /** @brief 线段胶囊描边（端点逻辑坐标，内部烘焙变换） */
+    /** @brief 线段胶囊描边（端点逻辑坐标，内部烘焙） */
     void drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
@@ -134,95 +86,47 @@ public:
     void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
     void fillPath(const Path &path, const Color &color);
     void strokePath(const Path &path, const Color &color, float lineWidth);
-
-    /**
-     * @brief 绘制 3D 网格（G3D 组件 onDraw 调用）
-     * @param vertices 对象空间顶点（位置+法线）
-     * @param mvp      模型-视图-投影矩阵（列主序，16 floats）
-     * @param color    基础颜色
-     * @param lightDir 方向光（对象空间，归一化）
-     * @param viewport 元素矩形；内部经 transformRect 烘烤父级变换后透传
-     */
     void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
                   const float lightDir[3], const Rect &viewport);
 
-    // ── 帧控制（保留，行为不变）──
+    // ── 帧控制 ──
 
     void present();
     void resize(int width, int height);
     void getSize(int *width, int *height) const;
 
-    /**
-     * @brief 开启一个 View 的内容录制域
-     *
-     * @param cachedDrawList 非空→注入模式（Builder 直接复用旧 DrawList）。
-     *                       注意：透传/重录均已改为画布即缓存，恒传 nullptr，参数仅保留兼容。
-     * @param passThrough    透传模式：不创建 Group、本域内 draw* no-op（View::draw ②态）。
-     */
-    void beginContent(std::shared_ptr<DrawList> cachedDrawList, bool passThrough = false) {
-        injectedDrawList_ = std::move(cachedDrawList);
-        contentDepth_++;
-        passThrough_ = passThrough;
-    }
+    /** @brief 开启 View 内容录制域（passThrough=true → 透传 noop） */
+    void beginContent(bool passThrough = false);
 
-    /**
-     * @brief 关闭 View 的内容录制域
-     * @return 录制产生的 DrawList（注入/透传模式返回 nullptr；结果已直接写入层树，无需缓存）
-     */
-    std::shared_ptr<DrawList> endContent() {
-        contentDepth_--;
-        passThrough_ = false;    // 防御：若 onDraw 未消费透传标志（未调用 save），强制复位
-        auto dl = std::move(capturedDrawList_);
-        capturedDrawList_.reset();
-        return dl;
-    }
+    /** @brief 关闭 View 内容录制域 */
+    void endContent();
 
-    /// @brief 设置脏矩形累加器（每帧由 Application 传入）
     void setDirtyRectAccum(Rect *r) { dirtyRectAccum_ = r; }
-
-    /// @brief 累加脏矩形（View::draw 中调用）
     void accumulateDirtyRect(const Rect &r) {
         if (dirtyRectAccum_) { *dirtyRectAccum_ = dirtyRectAccum_->isEmpty() ? r : dirtyRectAccum_->unionRect(r); }
     }
 
 private:
-    // ── 保留原状态栈（坐标烘烤仍需要）──
+    std::shared_ptr<CommandBuffer> cb_;    // 当前命令流
+
+    // ── CPU 状态栈（坐标/颜色烘焙仍需要）──
     struct State {
         float tx = 0.0f, ty = 0.0f;
         float sx = 1.0f, sy = 1.0f;
         float opacity = 1.0f;
-        int pushes = 0;    // 本 save 作用域内未弹出的 builder push 数（clip 等）
+        int pushes = 0;          // 本 save 域内未弹出的 clip 数
+        bool noop = false;       // 本域是否 noop（passThrough 透传抑制）
     };
     std::vector<State> stateStack_;
     State currentState_;
 
-    // ── 内部工具 ──
     Rect transformRect(const Rect &rect) const;
     Color applyOpacity(const Color &color) const;
 
-    // ── Layer Tree 构建（新增）──
-
-    /** @brief 层树构建器（所有录制操作委托至此） */
-    LayerTreeBuilder builder_;
-
-    /** @brief 上一帧的层树根（非 structural 帧复用） */
-    std::shared_ptr<Layer> existingRoot_;
-
-    /** @brief 本帧构建完成的层树根 */
-    std::shared_ptr<Layer> rootLayer_;
-
-    /** @brief 当前是否处于录制状态 */
     bool recording_ = false;
-
-    /** @brief 尺寸 */
     int width_ = 0;
     int height_ = 0;
-
-    /** @brief 脏矩形累加器指针（Application 在 beginFrame 时传入） */
     Rect *dirtyRectAccum_ = nullptr;
-
-    std::shared_ptr<DrawList> injectedDrawList_;    ///< View→Builder 注入通道（非空=复用）
-    std::shared_ptr<DrawList> capturedDrawList_;    ///< Builder→View 捕获通道（popGroup 返回）
-    int contentDepth_ = 0;                          ///< 嵌套域深度（最外层才捕获）
-    bool passThrough_ = false;                      ///< 透传模式标志（View::draw ②态；save() 一次性消费）
+    int contentDepth_ = 0;        // beginContent/endContent 嵌套深度
+    bool passThrough_ = false;    // 透传标志（save 一次性消费）
 };

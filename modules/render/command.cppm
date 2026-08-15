@@ -13,22 +13,45 @@ import std;
 
 export enum class BlendMode { SrcOver, SrcCopy };
 
-export struct ClearCmd { Color color; };
+export struct ClearCmd {
+    Color color;
+};
 export struct FillRectCmd {
     Rect rect;
     Color color;
     BlendMode mode = BlendMode::SrcOver;
 };
-export struct FillRoundedRectCmd { Rect rect; float radius; Color color; };
-/** @brief 线段胶囊描边命令（折线每段一个胶囊：线段 + 两端 round cap） */
-export struct DrawSegmentCmd {
-    float ax, ay;   // 线段端点 A（物理坐标）
-    float bx, by;   // 线段端点 B（物理坐标）
-    float halfW;    // 胶囊半径 = strokeWidth / 2（物理像素）
+export struct FillRoundedRectCmd {
+    Rect rect;
+    float radius;
     Color color;
 };
-export struct StrokeRoundedRectCmd { Rect rect; float radius; Color color; float strokeWidth; };
-export struct DrawShadowCmd { Rect rect; float radius; Shadow shadow; };
+/** @brief 线段胶囊描边命令（折线每段一个胶囊：线段 + 两端 round cap） */
+export struct DrawSegmentCmd {
+    float ax, ay;    // 线段端点 A（物理坐标）
+    float bx, by;    // 线段端点 B（物理坐标）
+    float halfW;     // 胶囊半径 = strokeWidth / 2（物理像素）
+    Color color;
+};
+/** @brief 圆角矩形裁剪入栈（坐标已烘焙为物理像素） */
+export struct PushClipCmd {
+    Rect rect;
+    float radius;
+};
+
+/** @brief 裁剪出栈 */
+export struct PopClipCmd {};
+export struct StrokeRoundedRectCmd {
+    Rect rect;
+    float radius;
+    Color color;
+    float strokeWidth;
+};
+export struct DrawShadowCmd {
+    Rect rect;
+    float radius;
+    Shadow shadow;
+};
 export struct DrawImageCmd {
     uint32_t textureId;
     Rect rect;
@@ -55,15 +78,14 @@ export struct StrokeTrianglesCmd {
     Color color;
 };
 
-
 /*
- * ── 状态命令全部移除 ──
- * SaveStateCmd, RestoreStateCmd, ResetClipCmd  → 由 Layer 树承载
- * TranslateCmd, ScaleCmd, SetOpacityCmd        → 由 Layer 树承载
- * BeginFrameCmd, EndFrameCmd, PresentCmd       → 由 RenderThread 直接管理
+ * ── 状态命令 ──
+ * PushClipCmd / PopClipCmd 由 Graphics 直接 append 到 CommandBuffer，
+ * 渲染线程 replay 时 dispatch 到 backend 的 pushClipRoundedRect / popState。
+ * transform / opacity 已由 Graphics 烘焙（坐标/颜色），不产生命令。
  */
 
- // ── 3D 网格 (G3D 组件) ──
+// ── 3D 网格 (G3D 组件) ──
 
 /**
  * @brief 3D 顶点 — 位置 + 法线 (均对象空间)
@@ -72,8 +94,8 @@ export struct StrokeTrianglesCmd {
  * 避免污染 2D 三角形路径的顶点格式。
  */
 export struct Vertex3D {
-    float x = 0.0f, y = 0.0f, z = 0.0f;      // 位置 (对象空间)
-    float nx = 0.0f, ny = 0.0f, nz = 0.0f;   // 法线 (对象空间)
+    float x = 0.0f, y = 0.0f, z = 0.0f;       // 位置 (对象空间)
+    float nx = 0.0f, ny = 0.0f, nz = 0.0f;    // 法线 (对象空间)
 };
 
 /**
@@ -84,11 +106,10 @@ export struct Vertex3D {
  * lightDir 为对象空间方向光 (归一化), 由 G3D 组件 CPU 端预计算。
  */
 export struct DrawMeshCmd {
-    size_t vertexOffset;                     // meshVertices_ 起始顶点索引
-    uint32_t vertexCount;                    // 顶点数 (三角形列表, 3 的倍数)
-    float mvp[16];                           // 模型-视图-投影矩阵 (列主序)
-    Color color;                             // 基础颜色
-    float lightDir[3];                       // 方向光方向 (对象空间, 归一化)
-    Rect viewport;                           // 元素屏幕矩形 (mesh 视口, 定位+裁剪)
+    size_t vertexOffset;     // meshVertices_ 起始顶点索引
+    uint32_t vertexCount;    // 顶点数 (三角形列表, 3 的倍数)
+    float mvp[16];           // 模型-视图-投影矩阵 (列主序)
+    Color color;             // 基础颜色
+    float lightDir[3];       // 方向光方向 (对象空间, 归一化)
+    Rect viewport;           // 元素屏幕矩形 (mesh 视口, 定位+裁剪)
 };
-

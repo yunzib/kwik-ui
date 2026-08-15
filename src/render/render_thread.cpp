@@ -22,7 +22,7 @@ import kwik.render.command_queue;
 import kwik.render.vulkan_backend;
 import kwik.core.log;
 import kwik.core.path; // Vec2 — 三角形网格顶点
-import kwik.render.scene_builder;
+import kwik.render.command_buffer;
 
 import std;
 
@@ -221,10 +221,7 @@ void RenderThread::cleanup() {
 }
 
 /**
- * @brief 层树遍历执行
- *
- * 使用 SceneBuilder DFS 遍历，遇 PictureLayer 则回放 Picture。
- * Layer 树中的变换/裁剪/透明度由 SceneBuilder 映射为后端 push/pop。
+ * @brief 回放命令流 + 顺序解析 CommandBuffer 命令，dispatch 到 backend（含 PushClip/PopClip 状态命令）
  */
 bool RenderThread::processCommands(const FrameSubmit &frame) {
     if (!backend_) return true;                       // 无后端：消费丢弃，不重试
@@ -232,14 +229,13 @@ bool RenderThread::processCommands(const FrameSubmit &frame) {
     // ── resize（在 beginFrame 之前，需重建 swapchain）──
     if (frame.needsResize) { backend_->resize(frame.resizeWidth, frame.resizeHeight); }
 
-    if (!frame.rootLayer) return true;                // resize-only 帧：正常消费
+    if (!frame.commandBuffer) return true;                // resize-only 帧：正常消费
 
     if (frame.structuralChange) { resetRendererCache(); }
 
     if (!backend_->beginFrame(frame.dirtyRect)) return false;   // acquire失败/自愈跳帧 → 保槽重试
 
-    SceneBuilder sb(*backend_);
-    frame.rootLayer->visit(sb);
+    frame.commandBuffer->replay(*backend_);
 
     backend_->endFrame();
     return backend_->present();                       // present失败 → 保槽重试

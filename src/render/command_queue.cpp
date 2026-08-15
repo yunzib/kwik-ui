@@ -4,20 +4,25 @@ module;
 #include <condition_variable>
 
 module kwik.render.command_queue;
+import kwik.render.command_buffer;
 
 import std;
 
-CommandQueue::CommandQueue() = default;
+CommandQueue::CommandQueue() {
+    // 三个槽位各分配一个 CommandBuffer，currentCommandBuffer 复用（reset 清空）
+    for (auto &f : frames_) f.commandBuffer = std::make_shared<CommandBuffer>();
+}
 
 CommandQueue::~CommandQueue() {
     wake();
 }
 
 // ── 主线程接口 ──
-
-std::shared_ptr<Layer> CommandQueue::currentRootLayer() {
-    waitWritable();    // 先确保该槽已被 GPU 释放，再读取其中的层树（复用）
-    return frames_[writeIdx_.load(std::memory_order_relaxed) % kMaxInFlight].rootLayer;
+std::shared_ptr<CommandBuffer> CommandQueue::currentCommandBuffer() {
+    waitWritable();    // 等 GPU 执行完，保证复用安全
+    auto &cb = frames_[writeIdx_.load(std::memory_order_relaxed) % kMaxInFlight].commandBuffer;
+    if (!cb) cb = std::make_shared<CommandBuffer>();   // 惰性分配：首次或 handleResize 置空后重新分配
+    return cb;
 }
 
 FrameSubmit &CommandQueue::currentFrame() {
