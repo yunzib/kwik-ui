@@ -197,6 +197,17 @@ void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &colo
     builder_.drawRoundedRect(transformed, r, applyOpacity(color));
 }
 
+void Graphics::drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color) {
+    if (!recording_) return;
+    // 烘焙端点与半径到物理坐标（UI 等比缩放 sx==sy==dpi）
+    float sx = currentState_.sx, sy = currentState_.sy;
+    float tx = currentState_.tx, ty = currentState_.ty;
+    float pax = ax * sx + tx, pay = ay * sy + ty;
+    float pbx = bx * sx + tx, pby = by * sy + ty;
+    float pHalfW = halfW * sx;
+    builder_.drawSegment(pax, pay, pbx, pby, pHalfW, applyOpacity(color));
+}
+
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
     if (!recording_) return;
     Rect transformed = transformRect(rect);
@@ -261,13 +272,26 @@ void Graphics::fillPath(const Path &path, const Color &color) {
     float sx = currentState_.sx, sy = currentState_.sy;
     float tx = currentState_.tx, ty = currentState_.ty;
 
-    // 将变换后的顶点写入 builder（builder 内部管理顶点存储）
-    std::vector<Vec2> verts(vertCount);
+    // 展开顶点：三个顶点存相同的 edgeMask 与三条边的高 h（×dpi 转物理像素）
+    std::vector<AAVertex> verts(vertCount);
     uint32_t i = 0;
     for (auto &t : triangles) {
-        verts[i++] = {t.p0.x * sx + tx, t.p0.y * sy + ty};
-        verts[i++] = {t.p1.x * sx + tx, t.p1.y * sy + ty};
-        verts[i++] = {t.p2.x * sx + tx, t.p2.y * sy + ty};
+        // 三角形面积×2 与三条对边的高 h_i = 顶点 i 到对边的垂直距离
+        float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
+        float e2x = t.p2.x - t.p0.x, e2y = t.p2.y - t.p0.y;
+        float twiceArea = std::abs(e1x * e2y - e1y * e2x);
+        float h0 = 0.0f, h1 = 0.0f, h2 = 0.0f;
+        float l0 = std::hypot(t.p2.x - t.p1.x, t.p2.y - t.p1.y);   // 对边0=(p1,p2)
+        float l1 = std::hypot(t.p0.x - t.p2.x, t.p0.y - t.p2.y);   // 对边1=(p2,p0)
+        float l2 = std::hypot(t.p1.x - t.p0.x, t.p1.y - t.p0.y);   // 对边2=(p0,p1)
+        if (l0 > 1e-6f) h0 = sx * twiceArea / l0;
+        if (l1 > 1e-6f) h1 = sx * twiceArea / l1;
+        if (l2 > 1e-6f) h2 = sx * twiceArea / l2;
+
+        float m = static_cast<float>(t.edgeMask);
+        verts[i++] = {{t.p0.x * sx + tx, t.p0.y * sy + ty}, m, h0, h1, h2};
+        verts[i++] = {{t.p1.x * sx + tx, t.p1.y * sy + ty}, m, h0, h1, h2};
+        verts[i++] = {{t.p2.x * sx + tx, t.p2.y * sy + ty}, m, h0, h1, h2};
     }
 
     builder_.fillTriangles(verts, applyOpacity(color));
@@ -282,12 +306,24 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
     float sx = currentState_.sx, sy = currentState_.sy;
     float tx = currentState_.tx, ty = currentState_.ty;
 
-    std::vector<Vec2> verts(vertCount);
+    std::vector<AAVertex> verts(vertCount);
     uint32_t i = 0;
     for (auto &t : triangles) {
-        verts[i++] = {t.p0.x * sx + tx, t.p0.y * sy + ty};
-        verts[i++] = {t.p1.x * sx + tx, t.p1.y * sy + ty};
-        verts[i++] = {t.p2.x * sx + tx, t.p2.y * sy + ty};
+        float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
+        float e2x = t.p2.x - t.p0.x, e2y = t.p2.y - t.p0.y;
+        float twiceArea = std::abs(e1x * e2y - e1y * e2x);
+        float h0 = 0.0f, h1 = 0.0f, h2 = 0.0f;
+        float l0 = std::hypot(t.p2.x - t.p1.x, t.p2.y - t.p1.y);
+        float l1 = std::hypot(t.p0.x - t.p2.x, t.p0.y - t.p2.y);
+        float l2 = std::hypot(t.p1.x - t.p0.x, t.p1.y - t.p0.y);
+        if (l0 > 1e-6f) h0 = sx * twiceArea / l0;
+        if (l1 > 1e-6f) h1 = sx * twiceArea / l1;
+        if (l2 > 1e-6f) h2 = sx * twiceArea / l2;
+
+        float m = static_cast<float>(t.edgeMask);
+        verts[i++] = {{t.p0.x * sx + tx, t.p0.y * sy + ty}, m, h0, h1, h2};
+        verts[i++] = {{t.p1.x * sx + tx, t.p1.y * sy + ty}, m, h0, h1, h2};
+        verts[i++] = {{t.p2.x * sx + tx, t.p2.y * sy + ty}, m, h0, h1, h2};
     }
 
     builder_.strokeTriangles(verts, applyOpacity(color));

@@ -68,6 +68,13 @@ float sdRoundedRect(float2 p, float2 halfSize, float r) {
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
+// 点到线段的精确欧几里得距离（与 EUI-NEO polygon.frag 同款）
+float sdSegment(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
+    return length(p - (a + ab * t));
+}
+
 // ── 片段着色器 ──────────────────────────────────────────────
 [shader("fragment")]
 float4 fragmentMain(VertOutput input) : SV_Target0 {
@@ -79,6 +86,15 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
     // 1 pixel NDC → 自适应抗锯齿
     float rawAA = length(fwidth(pos));
     float aa    = clamp(rawAA, 0.10, 0.6);
+
+    if (input.fragDrawMode == 3u) {
+        // ── 胶囊（线段 + round cap）：fragBorderColor 复用为端点 a/b ──
+        float2 a = input.fragBorderColor.xy;
+        float2 b = input.fragBorderColor.zw;
+        float sdfSeg = sdSegment(pos, a, b) - input.fragRadius;
+        float alpha = (1.0 - smoothstep(-aa, aa, sdfSeg)) * input.fragOpacity;
+        return float4(input.fragFillColor.rgb, input.fragFillColor.a * alpha);
+    }
 
     if (input.fragDrawMode == 2u) {
         // ── 阴影 ──────────────────────────────────────────────

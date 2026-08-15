@@ -14,6 +14,9 @@ public:
     void fillRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, const Color &color);
     void fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius, const Color &color,
                          float globalAlpha);
+    /** @brief 线段胶囊描边 */
+    void drawSegment(VkCommandBuffer cmd, VkExtent2D extent, float ax, float ay, float bx, float by, float halfW,
+                     const Color &color, float globalAlpha);
     void strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius, const Color &color,
                            float strokeWidth, float globalAlpha);
     void drawShadow(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius, const Shadow &shadow,
@@ -21,9 +24,7 @@ public:
     void writeStencilMask(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius);
     void disableStencilTest(VkCommandBuffer cmd);
 
-    VkPipelineLayout layout() const {
-        return pipelineLayout_;
-    }
+    VkPipelineLayout layout() const { return pipelineLayout_; }
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;

@@ -20,6 +20,13 @@ export struct FillRectCmd {
     BlendMode mode = BlendMode::SrcOver;
 };
 export struct FillRoundedRectCmd { Rect rect; float radius; Color color; };
+/** @brief 线段胶囊描边命令（折线每段一个胶囊：线段 + 两端 round cap） */
+export struct DrawSegmentCmd {
+    float ax, ay;   // 线段端点 A（物理坐标）
+    float bx, by;   // 线段端点 B（物理坐标）
+    float halfW;    // 胶囊半径 = strokeWidth / 2（物理像素）
+    Color color;
+};
 export struct StrokeRoundedRectCmd { Rect rect; float radius; Color color; float strokeWidth; };
 export struct DrawShadowCmd { Rect rect; float radius; Shadow shadow; };
 export struct DrawImageCmd {

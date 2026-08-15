@@ -777,3 +777,51 @@ DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
     ex.get("separatorColor", result.separatorColor);
     return result;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseChartProps
+// ═══════════════════════════════════════════════════════════════════════════
+ChartProps parseChartProps(PropsExtractor &ex) {
+    ChartProps result;
+    ex.get("type", result.type);
+    ex.get("duration", result.duration);
+    ex.get("strokeWidth", result.strokeWidth);
+    ex.get("showGrid", result.showGrid);
+    ex.get("showLabels", result.showLabels);
+    ex.get("showLegend", result.showLegend);
+    ex.get("gridColor", result.gridColor);
+    ex.get("labelColor", result.labelColor);
+    ex.get("legendColor", result.legendColor);
+    ex.get("emptyColor", result.emptyColor);
+
+    // ── categories — 字符串数组 ──
+    if (ex.has("categories")) {
+        auto arr = ex.raw().getProperty("categories");
+        if (arr.isArray()) {
+            for (int i = 0; i < arr.getArrayLength(); ++i)
+                result.categories.push_back(arr.getArrayElement(i).toString());
+        }
+    }
+
+    // ── series — 嵌套对象数组 [{label, data, color}] ──
+    if (ex.has("series")) {
+        auto arr = ex.raw().getProperty("series");
+        if (arr.isArray()) {
+            for (int i = 0; i < arr.getArrayLength(); ++i) {
+                auto s = arr.getArrayElement(i);
+                ChartSeries cs;
+                auto lv = s.getProperty("label");
+                if (!lv.isNull() && !lv.isUndefined()) cs.label = lv.toString();
+                auto cv = s.getProperty("color");
+                if (!cv.isNull() && !cv.isUndefined()) cs.color = convertTo<Color>(cv);
+                auto dv = s.getProperty("data");
+                if (dv.isArray()) {
+                    for (int j = 0; j < dv.getArrayLength(); ++j)
+                        cs.data.push_back(dv.getArrayElement(j).toFloat());
+                }
+                result.series.push_back(std::move(cs));
+            }
+        }
+    }
+    return result;
+}

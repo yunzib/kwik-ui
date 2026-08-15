@@ -46,6 +46,7 @@ public:
      */
     void fillRect(const Rect &rect, const Color &color, BlendMode mode) override;
     void fillRoundedRect(const Rect &rect, float radius, const Color &color) override;
+     void drawSegment(const DrawSegmentCmd &cmd) override;
     void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth) override;
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow) override;
     // 文字
@@ -65,7 +66,7 @@ public:
     int getWidth() const override { return width_; }
     int getHeight() const override { return height_; }
 
-    void fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) override;
+    void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) override;
     void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) override;
 
     /**

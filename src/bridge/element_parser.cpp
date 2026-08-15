@@ -59,7 +59,8 @@ import kwik.element.tree_menu;
 import kwik.element.lazy_list; // LazyList — 虚拟化列表
 import kwik.element.lazy_list_source;
 import kwik.element.keyboard;
-import kwik.element.datepicker; 
+import kwik.element.datepicker;
+import kwik.element.chart;
 
 import std;
 
@@ -580,6 +581,16 @@ static struct InitBuiltinTypes {
             applyBindings(dp.get(), pv);
             return dp;
         });
+
+        // ── Chart ──
+        ElementParser::registerType("Chart", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto v = std::make_unique<Chart>(parseViewProps(ex), parseChartProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);
+            return v;
+        });
     }
 } _init_builtin_types;
 
@@ -855,6 +866,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::DateTimePicker:
         static_cast<DateTimePicker *>(oldView.get())->applyDateTimePickerProps(parseDateTimePickerProps(ex));
         break;
+    case ElementType::Chart: static_cast<Chart *>(oldView.get())->applyChartProps(parseChartProps(ex)); break;
+
     default: break;
     }
 

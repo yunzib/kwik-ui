@@ -356,6 +356,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     // ── ② 获取 swapchain 图像 ──
     VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
                                        VK_NULL_HANDLE, &currentImageIndex_);
+    Log::info("[Ctx] acquire result={} image={}", static_cast<int>(r), currentImageIndex_);
 
     // ── swapchain out-of-date → 重建后跳过当前帧 ──
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -522,6 +523,9 @@ void VulkanContext::endFrame() {
         sw = std::max(1u, sw);    // Vulkan 禁止 0 尺寸 extent
         sh = std::max(1u, sh);
     }
+
+    Log::info("[Ctx] copy firstUse={} fullCopy={} acc=({:.0f},{:.0f},{:.0f},{:.0f}) region=({},{},{},{})", firstUse,
+              fullCopy, accumulated.x, accumulated.y, accumulated.width, accumulated.height, sx, sy, sw, sh);
 
     // ────────────────────────────────────────────────
     // ⑦ 构建 VkImageCopy 结构

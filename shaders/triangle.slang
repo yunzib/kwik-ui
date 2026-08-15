@@ -1,7 +1,9 @@
 /**
- * @brief 纯色三角形网格着色器
+ * @brief 纯色三角形网格着色器（解析覆盖率抗锯齿）
  *
- * 输入 float2 屏幕空间位置，由 push constants 视口尺寸转换到 NDC。
+ * 输入屏幕空间位置 + 重心坐标 + 三条边高 + edgeMask。
+ * 距离 = λ_i × h_i（解析精确），覆盖率 = smoothstep(-0.5, 0.5, dist)（边上=0.5）。
+ * 只对轮廓边(edgeMask bit=1)做 AA，内部共享边覆盖率恒为 1。
  * Push constants 36 bytes: color(16) + viewport(8) + opacity(4) + pad(8)
  */
 
@@ -19,22 +21,38 @@ struct TrianglePushConstants {
 // ── Vertex → Fragment 传参 ─────────────────────────────────
 struct VertOutput {
     float4 position : SV_Position;
-    [[vk::location(0)]] float4 vColor;
+    [[vk::location(0)]] float2 bary;
+    [[vk::location(1)]] float3 h;
+    [[vk::location(2)]] float edgeMask;
+    [[vk::location(3)]] float4 vColor;
 };
 
 // ── 顶点着色器 ──────────────────────────────────────────────
 [shader("vertex")]
-VertOutput vertexMain(float2 aPos : ATTR0) {
+VertOutput vertexMain(float2 aPos : ATTR0, float2 aBary : ATTR1, float3 aH : ATTR2, float aMask : ATTR3) {
     VertOutput o;
     float px = (aPos.x / pc.uViewport.x) * 2.0 - 1.0;
     float py = (aPos.y / pc.uViewport.y) * 2.0 - 1.0;
     o.position = float4(px, py, 0.0, 1.0);
+    o.bary = aBary;
+    o.h = aH;
+    o.edgeMask = aMask;
     o.vColor = float4(pc.uColor.rgb, pc.uColor.a * pc.uOpacity);
     return o;
 }
 
-// ── 片段着色器 ──────────────────────────────────────────────
+// ── 片段着色器：解析覆盖率抗锯齿 ────────────────────────────
 [shader("fragment")]
 float4 fragmentMain(VertOutput input) : SV_Target0 {
-    return input.vColor;
+    float3 bary = float3(input.bary, 1.0 - input.bary.x - input.bary.y);
+    // 解析精确距离：λ_i × h_i（像素单位，正=内侧，负=外侧）
+    float3 dist = bary * input.h;
+    // 正确覆盖率：边上 dist=0 → 0.5；±0.5px 过渡
+    float3 cov = smoothstep(float3(-0.5, -0.5, -0.5), float3(0.5, 0.5, 0.5), dist);
+    // edgeMask bit0=(p0,p1)↔λ2，bit1=(p1,p2)↔λ0，bit2=(p2,p0)↔λ1；内部边恒 1
+    uint m = uint(input.edgeMask);
+    float3 flag = float3(float((m >> 1) & 1u), float((m >> 2) & 1u), float((m >> 0) & 1u));
+    cov = lerp(float3(1.0, 1.0, 1.0), cov, flag);
+    float alpha = min(min(cov.x, cov.y), cov.z);
+    return float4(input.vColor.rgb, input.vColor.a * alpha);
 }

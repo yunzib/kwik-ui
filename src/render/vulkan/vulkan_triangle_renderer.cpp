@@ -30,6 +30,17 @@ struct PushConstants {
     float _pad0, _pad1;    // pad        (offset 28)
 };
 static_assert(sizeof(PushConstants) == 36, "PushConstants size mismatch with shader");
+
+/**
+ * @brief GPU 顶点布局（与 triangle.slang 对齐）
+ * 位置 float2 + 重心坐标 float2 (w=1-u-v) + 对边标志 float3
+ */
+struct GpuVertex {
+    float x, y;          // 位置
+    float bu, bv;        // 重心坐标 (w = 1 - bu - bv)
+    float h0, h1, h2;    // 三条边的高（flat，三个顶点相同）
+    float em;            // 三角形 edgeMask（flat，三个顶点相同）
+};
 }    // anonymous namespace
 
 TriangleRenderer::~TriangleRenderer() {
@@ -72,14 +83,19 @@ bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRe
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, frag, "main"},
     };
 
-    // ── 顶点输入: float2 ──
-    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    // ── 顶点输入: 位置 float2 + 重心坐标 float2 + 三条边高 float3 + edgeMask float ──
+    VkVertexInputBindingDescription vtxBind{0, sizeof(GpuVertex), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkVertexInputAttributeDescription vtxAttrs[4] = {
+        {0, 0, VK_FORMAT_R32G32_SFLOAT, 0},                     // 位置
+        {1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float)},     // 重心坐标 (u,v)
+        {2, 0, VK_FORMAT_R32G32B32_SFLOAT, 4 * sizeof(float)},  // 三条边的高 h0/h1/h2
+        {3, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},        // edgeMask
+    };
     VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
     vtxIn.vertexBindingDescriptionCount = 1;
     vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 1;
-    vtxIn.pVertexAttributeDescriptions = &vtxAttr;
+    vtxIn.vertexAttributeDescriptionCount = 4;
+    vtxIn.pVertexAttributeDescriptions = vtxAttrs;
 
     // ── 图元: 三角形列表 ──
     VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
@@ -200,18 +216,28 @@ bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRe
  * @param vertexCount 顶点总数（= 三角形数 × 3，必须 ≥ 3 且为 3 的倍数）
  */
 void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
-                                     const Vec2 *vertices, uint32_t vertexCount,
+                                     const AAVertex *vertices, uint32_t vertexCount,
                                      const Color &color, float alpha) {
     // 顶点校验：至少 1 个三角形，且数量为 3 的倍数
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
-    VkDeviceSize dataSize = vertexCount * sizeof(Vec2);
+    VkDeviceSize dataSize = vertexCount * sizeof(GpuVertex);
     // 检测 staging buffer 剩余空间是否足够
     if (writeOffset_ + dataSize > bufferCapacity_) return;
 
-    // ── 写入顶点数据到当前偏移位置 ──
-    // 从 Arena 连续内存直接 memcpy 到 GPU staging buffer，零中间拷贝
-    memcpy(static_cast<char *>(mappedData_) + writeOffset_, vertices, dataSize);
+     // ── 逐顶点展开：位置 + 重心坐标 + 三条边高 + edgeMask ──
+    GpuVertex *dst = reinterpret_cast<GpuVertex *>(static_cast<char *>(mappedData_) + writeOffset_);
+    for (uint32_t i = 0; i < vertexCount; ++i) {
+        dst[i].x = vertices[i].pos.x;
+        dst[i].y = vertices[i].pos.y;
+        uint32_t k = i % 3;
+        dst[i].bu = (k == 0) ? 1.0f : 0.0f;
+        dst[i].bv = (k == 1) ? 1.0f : 0.0f;
+        dst[i].h0 = vertices[i].h0;
+        dst[i].h1 = vertices[i].h1;
+        dst[i].h2 = vertices[i].h2;
+        dst[i].em = vertices[i].edgeMask;    // 三个顶点相同，插值不变
+    }
 
     // ── Push constants：颜色 + 视口 + 透明度 ──
     PushConstants pc;

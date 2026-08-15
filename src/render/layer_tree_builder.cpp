@@ -171,7 +171,7 @@ void LayerTreeBuilder::flushRecorder() {
 }
 
 // ── 三角形网格绘制（顶点已变换）──
-void LayerTreeBuilder::fillTriangles(const std::vector<Vec2> &verts, const Color &color) {
+void LayerTreeBuilder::fillTriangles(const std::vector<AAVertex> &verts, const Color &color) {
     if (injectionMode_) return;    // ← 注入模式下 no-op
     if (verts.empty()) return;
     if (currentRecorder_) {
@@ -185,7 +185,7 @@ void LayerTreeBuilder::fillTriangles(const std::vector<Vec2> &verts, const Color
     recordCount_++;
 }
 
-void LayerTreeBuilder::strokeTriangles(const std::vector<Vec2> &verts, const Color &color) {
+void LayerTreeBuilder::strokeTriangles(const std::vector<AAVertex> &verts, const Color &color) {
     if (injectionMode_) return;    // ← 注入模式下 no-op
     if (verts.empty()) return;
     if (currentRecorder_) {
@@ -315,6 +315,19 @@ void LayerTreeBuilder::drawRoundedRect(const Rect &rect, float radius, const Col
     } else {
         auto recorder = std::make_shared<DrawListRecorder>();
         recorder->drawRoundedRect(rect, radius, color);
+        auto pic = recorder->endRecording();
+        currentContainer_->addChild(std::make_unique<DrawListLayer>(std::move(pic)));
+    }
+    recordCount_++;
+}
+
+void LayerTreeBuilder::drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color) {
+    if (injectionMode_) return;    // no-op 域内抑制（与 drawRoundedRect 一致）
+    if (currentRecorder_) {
+        currentRecorder_->drawSegment(ax, ay, bx, by, halfW, color);
+    } else {
+        auto recorder = std::make_shared<DrawListRecorder>();
+        recorder->drawSegment(ax, ay, bx, by, halfW, color);
         auto pic = recorder->endRecording();
         currentContainer_->addChild(std::make_unique<DrawListLayer>(std::move(pic)));
     }

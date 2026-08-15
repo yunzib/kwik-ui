@@ -49,6 +49,7 @@ export enum class ElementType : std::uint8_t {
     LazyList,      // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
     Keyboard,      // M6: 虚拟键盘（浮层 OSK，合成 RawEvent 注入）
     DateTimePicker, // M7: 日期/时间/日期时间选择器
+    Chart,          // M8: 图表（饼图 / 折线图）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -85,6 +86,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::LazyList: return "LazyList";
     case ElementType::Keyboard: return "Keyboard";
     case ElementType::DateTimePicker: return "DateTimePicker";
+    case ElementType::Chart: return "Chart";
     default: return "View";
     }
     return "Unknown";
@@ -130,6 +132,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "LazyList") return ElementType::LazyList;
     if (s == "Keyboard") return ElementType::Keyboard;
     if (s == "DateTimePicker") return ElementType::DateTimePicker;
+    if (s == "Chart") return ElementType::Chart;
     return ElementType::View;    // 未知类型退回 View
 }
 

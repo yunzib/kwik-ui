@@ -223,6 +223,39 @@ void RectRenderer::fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent,
     vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 }
+
+void RectRenderer::drawSegment(VkCommandBuffer cmd, VkExtent2D extent,
+                               float ax, float ay, float bx, float by,
+                               float halfW, const Color &color, float globalAlpha) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
+    // 胶囊包围盒 = 两端点 ± halfW
+    float x0 = std::min(ax, bx) - halfW;
+    float y0 = std::min(ay, by) - halfW;
+    float w = std::abs(bx - ax) + 2.0f * halfW;
+    float h = std::abs(by - ay) + 2.0f * halfW;
+
+    PushConstants pc{};
+    pc.topLeftX = x0; pc.topLeftY = y0;
+    pc.sizeX = w; pc.sizeY = h;
+    pc.fillR = color.r / 255.f; pc.fillG = color.g / 255.f;
+    pc.fillB = color.b / 255.f; pc.fillA = color.a / 255.f;
+    pc.radius = halfW;                 // 胶囊半径
+    pc.opacity = globalAlpha;
+    pc.drawMode = 3;                   // segment 模式
+    // 复用 borderColor 字段把线段端点（包围盒坐标）传给 shader
+    pc.borderR = ax - x0; pc.borderG = ay - y0;   // a.xy
+    pc.borderB = bx - x0; pc.borderA = by - y0;   // b.xy
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PushConstants), &pc);
+    VkDeviceSize off = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
+    vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+}
+
+
 void RectRenderer::strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent,
                                      const Rect &rect, float radius,
                                      const Color &color, float strokeWidth,

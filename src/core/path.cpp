@@ -6,6 +6,7 @@ module;
 
 #include <cmath>
 #include <numbers>
+#include <stdint.h>
 
 module kwik.core.path;
 
@@ -107,17 +108,17 @@ std::vector<Triangle> triangulateFill(const Path &path) {
         if (!contour.closed || contour.points.size() < 3) continue;
         auto &pts = contour.points;
         // 计算形心作为扇形公共顶点
-        // 避免从边界点出发导致相邻三角形大小不均、共享边断裂
         Vec2 c{0, 0};
         for (auto &p : pts) { c.x += p.x; c.y += p.y; }
         c.x /= static_cast<float>(pts.size());
         c.y /= static_cast<float>(pts.size());
         // 从形心到每对相邻顶点生成三角扇
+        // 三角形 {c, p_i, p_{i+1}}：边(p_i,p_{i+1})是轮廓边(bit1)，形心边是内部边
+        constexpr uint8_t kOutline = 0b010;    // bit1 = 边(p1,p2) = 轮廓边
         for (size_t i = 0; i + 1 < pts.size(); ++i) {
-            result.push_back({c, pts[i], pts[i + 1]});
+            result.push_back({c, pts[i], pts[i + 1], kOutline});
         }
-        // 闭合最后一段：末顶点 → 首顶点
-        result.push_back({c, pts.back(), pts.front()});
+        result.push_back({c, pts.back(), pts.front(), kOutline});
     }
     return result;
 }
@@ -130,8 +131,13 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
     float halfW = lineWidth * 0.5f;
     for (auto &contour : path.contours()) {
         auto &pts = contour.points;
-        if (pts.size() < 2) continue;
-        for (size_t i = 0; i + 1 < pts.size(); ++i) {
+        size_t n = pts.size();
+        if (n < 2) continue;
+
+        // ── 每段主体条带（2 个三角形）──
+        // 三角形1 {a-n, a+n, b-n}：轮廓边=(b-n,a-n)即 bit2；短边/对角线为内部边
+        // 三角形2 {a+n, b+n, b-n}：轮廓边=(a+n,b+n)即 bit0；短边/对角线为内部边
+        for (size_t i = 0; i + 1 < n; ++i) {
             const Vec2 &a = pts[i];
             const Vec2 &b = pts[i + 1];
             float dx = b.x - a.x, dy = b.y - a.y;
@@ -139,10 +145,42 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
             if (len < 1e-6f) continue;
             float nx = -dy / len * halfW;
             float ny = dx / len * halfW;
-            result.push_back({{a.x - nx, a.y - ny}, {a.x + nx, a.y + ny}, {b.x - nx, b.y - ny}});
-            result.push_back({{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}});
+            result.push_back({{a.x - nx, a.y - ny}, {a.x + nx, a.y + ny}, {b.x - nx, b.y - ny}, 0b100});
+            result.push_back({{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}, 0b001});
         }
-        if (contour.closed && pts.size() >= 2) {
+
+        // ── 内部拐点 miter join（只填充凸侧缺口，消除"一节节"）──
+        for (size_t j = 1; j + 1 < n; ++j) {
+            const Vec2 &a = pts[j - 1];
+            const Vec2 &b = pts[j];
+            const Vec2 &c = pts[j + 1];
+            float d1x = b.x - a.x, d1y = b.y - a.y;
+            float d2x = c.x - b.x, d2y = c.y - b.y;
+            float l1 = std::sqrt(d1x * d1x + d1y * d1y);
+            float l2 = std::sqrt(d2x * d2x + d2y * d2y);
+            if (l1 < 1e-6f || l2 < 1e-6f) continue;
+            d1x /= l1; d1y /= l1;
+            d2x /= l2; d2y /= l2;
+            float n1x = -d1y, n1y = d1x;    // 左法线
+            float n2x = -d2y, n2y = d2x;
+            float denom = 1.0f + (n1x * n2x + n1y * n2y);
+            // 凸侧（外侧）miter 点 = b - (n1+n2) * halfW/denom；锐角折返退化 bevel
+            float px, py;
+            if (denom > 1e-3f) {
+                float k = halfW / denom;
+                px = b.x - (n1x + n2x) * k;
+                py = b.y - (n1y + n2y) * k;
+            } else {
+                px = b.x; py = b.y;
+            }
+            // 凸侧三角形 {前段凸侧端点, miter, 后段凸侧端点}
+            // 边(p0,p1)与(p1,p2)是外侧轮廓(bit0/bit1=1)，边(p2,p0)是内侧(bit2=0)
+            result.push_back({{b.x - n1x * halfW, b.y - n1y * halfW}, {px, py},
+                              {b.x - n2x * halfW, b.y - n2y * halfW}, 0b011});
+        }
+
+        // ── 闭合轮廓末段（标记长边为轮廓边）──
+        if (contour.closed && n >= 2) {
             const Vec2 &first = pts.front();
             const Vec2 &last = pts.back();
             float dx = first.x - last.x, dy = first.y - last.y;
@@ -151,9 +189,9 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
                 float nx = -dy / len * halfW;
                 float ny = dx / len * halfW;
                 result.push_back(
-                    {{last.x - nx, last.y - ny}, {last.x + nx, last.y + ny}, {first.x - nx, first.y - ny}});
+                    {{last.x - nx, last.y - ny}, {last.x + nx, last.y + ny}, {first.x - nx, first.y - ny}, 0b100});
                 result.push_back(
-                    {{last.x + nx, last.y + ny}, {first.x + nx, first.y + ny}, {first.x - nx, first.y - ny}});
+                    {{last.x + nx, last.y + ny}, {first.x + nx, first.y + ny}, {first.x - nx, first.y - ny}, 0b001});
             }
         }
     }

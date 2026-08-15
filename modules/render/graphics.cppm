@@ -124,6 +124,8 @@ public:
      */
     void drawUnderlay(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
+    /** @brief 线段胶囊描边（端点逻辑坐标，内部烘焙变换） */
+    void drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
     void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,

@@ -66,7 +66,7 @@ public:
      * 适合单帧 ≤64KB 三角形数据，Canvas Phase 1 使用。
      */
     void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
-                   const Vec2 *vertices, uint32_t vertexCount,
+                   const AAVertex *vertices, uint32_t vertexCount,
                    const Color &color, float alpha);
 
     /** @brief 获取 pipeline layout（供外部使用） */
@@ -84,5 +84,5 @@ private:
     void *mappedData_ = nullptr;                         ///< 映射指针
     size_t bufferCapacity_ = 0;                          ///< 缓冲容量
     size_t writeOffset_ = 0;                             ///< 当前帧内顶点写入偏移（每帧从 0 开始，逐命令累加）
-    static constexpr size_t kDefaultCapacity = 65536;    ///< 默认 64KB
+    static constexpr size_t kDefaultCapacity = 131072;   ///< 默认 128KB（AA 顶点 7 float）
 };

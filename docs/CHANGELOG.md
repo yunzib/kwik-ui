@@ -1,5 +1,23 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-15
+### 新增
+- Chart 图表组件：饼图/柱状图/折线图三合一（type 切换）
+  - series 数据系列（label/data/color/visible），duration 入场动画（smoothstep 缓动）
+  - 饼图：扇区占比展开 + 百分比标签 + 扇区细缝；柱状图：分组柱高生长 + 柱顶数值；
+    折线图：多系列折线 + 数据点 + x 轴分类
+  - showGrid 水平网格线 + y 轴数值刻度；showLabels 数据/分类标签；showLegend 顶部图例
+  - demo：test/ui/chart.js（example.exe chart）
+
+### 修复
+- 折线描边锯齿/错位/一节节：弃三角剖分 strokePath，改用 SDF 胶囊（点到线段距离
+  + fwidth 抗锯齿 + round cap 构成 round join，对齐 EUI-NEO polygon 做法）
+- 饼图扇形圆心空白：Path::moveTo 不 push 顶点 + arc 检测无 open contour 自行 moveTo，
+  导致 closePath 只围出弓形；drawPie 显式 lineTo 弧起点纳入圆心
+- 图例色块与文字未对齐/重叠：drawLabel 居中制下 cy 对齐色块中心 + cx 左对齐留 6px
+- 图表图形在增量动画帧不显示：数据绘制位于基类 save/restore 之后，处于
+  passThrough(noop) 域被 injectionMode_ 抑制；外包 save/restore 恢复录制
+
 ## 0.0.0 — 2026-08-13
 ### 新增
 - DateTimePicker 日期/时间/日期时间选择器组件：单组件 + mode 属性 ("date"/"time"/"datetime")

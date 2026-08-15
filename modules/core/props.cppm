@@ -648,3 +648,41 @@ export struct DateTimePickerProps {
     Color wheelDimColor{180, 180, 180, 255};         // 滚轮上下非中心行
     Color separatorColor{220, 220, 220, 255};        // 时:分分隔 / 日历与滚轮分隔线
 };
+
+// ════════════════════════════════════════════════════════════
+// Chart 属性 — 饼图 / 折线图
+// ════════════════════════════════════════════════════════════
+/**
+ * @brief 数据系列
+ *
+ * 饼图 (pie):   取第一个可见 series 的 data 作为扇区值列表，
+ *               每个扇区角度 = 值 / 总和 * 360°。
+ * 折线图 (line): 每个 series 绘制一条折线，data[i] 为第 i 个点 y 值。
+ */
+export struct ChartSeries {
+    std::string label;                 // 系列名（图例 / 标签）
+    std::vector<float> data;           // 数据点（饼图=扇区值, 折线=各点 y）
+    Color color{0, 0, 0, 0};           // 系列颜色（transparent=自动分配调色板色）
+    bool visible = true;
+};
+
+/**
+ * @brief 图表专有属性
+ *
+ * 过渡动画: 数据首次渲染或 series 更新时, 按 duration 时长
+ * 从 0 缓动展开到目标值（smoothstep 插值）。
+ */
+export struct ChartProps {
+    std::string type = "pie";          // "pie" | "line"
+    std::vector<ChartSeries> series;   // 数据系列
+    float duration = 600.0f;           // 过渡动画时长（毫秒）
+    float strokeWidth = 2.0f;          // 折线线宽 (像素)
+    bool showGrid = true;              // 折线图: 水平网格线
+    bool showLabels = true;            // 数据标签（饼图=百分比, 折线=x 轴分类名）
+    bool showLegend = true;            // 图例（顶部横向排列）
+    std::vector<std::string> categories;  // 折线图 x 轴分类标签
+    Color gridColor{230, 230, 230, 255};  // 网格线色
+    Color labelColor{120, 120, 120, 255}; // 数据标签色
+    Color legendColor{80, 80, 80, 255};   // 图例文字色
+    Color emptyColor{235, 235, 235, 255}; // 饼图扇区分隔细缝色
+};

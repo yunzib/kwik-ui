@@ -305,3 +305,4 @@ export TreeMenuProps parseTreeMenuProps(PropsExtractor &ex);
 export LazyListProps parseLazyListProps(PropsExtractor &ex);
 export KeyboardProps parseKeyboardProps(PropsExtractor &ex);
 export DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex);
+export ChartProps parseChartProps(PropsExtractor &ex);

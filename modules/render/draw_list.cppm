@@ -37,7 +37,7 @@ export enum class DrawOp : uint8_t {
  * 比原 Command variant（19 种）小一半以上。
  */
 export using DrawCommand = std::variant<ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd, DrawShadowCmd,
-                                        DrawGlyphCmd, DrawImageCmd, FillTrianglesCmd, StrokeTrianglesCmd, DrawMeshCmd>;
+                                        DrawGlyphCmd, DrawImageCmd, FillTrianglesCmd, StrokeTrianglesCmd, DrawMeshCmd, DrawSegmentCmd>;
 
 /**
  * @brief 图片 — 不可变的绘制命令集合
@@ -64,7 +64,7 @@ private:
     friend class DrawListRecorder;
 
     std::vector<DrawCommand> commands_;     ///< 绘制命令数组（比原 Command 少 10 种状态类型）
-    std::vector<Vec2> vertices_;            ///< 三角形顶点数据（FillTrianglesCmd 引用）
+    std::vector<AAVertex> vertices_;        ///< 三角形顶点数据（FillTrianglesCmd 引用）
     std::vector<Vertex3D> meshVertices_;    ///<  3D 网格顶点（DrawMeshCmd 引用）
     Rect bounds_ = {};                      ///< 包围盒
 };
@@ -83,6 +83,8 @@ public:
     void clear(const Color &color);
     void drawRect(const Rect &rect, const Color &color, BlendMode mode = BlendMode::SrcOver);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
+    /** @brief 线段胶囊描边（折线） */
+    void drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
     void drawGlyph(const DrawGlyphCmd &glyph);
@@ -99,8 +101,8 @@ public:
      */
     void strokePath(const Path &path, const Color &color, float lineWidth);
 
-    void fillTriangles(const std::vector<Vec2> &verts, const Color &color);
-    void strokeTriangles(const std::vector<Vec2> &verts, const Color &color);
+    void fillTriangles(const std::vector<AAVertex> &verts, const Color &color);
+    void strokeTriangles(const std::vector<AAVertex> &verts, const Color &color);
 
     /**
      * @brief 绘制 3D 网格
@@ -120,7 +122,7 @@ public:
 
 private:
     std::vector<DrawCommand> commands_;    ///< 录制的命令
-    std::vector<Vec2> vertices_;           ///< 三角形顶点
+    std::vector<AAVertex> vertices_;       ///< 三角形顶点
     std::vector<Vertex3D> meshVertices_;  ///< 3D 网格顶点
     Rect bounds_ = {};                     ///< 累加包围盒
 };

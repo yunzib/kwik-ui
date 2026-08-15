@@ -83,6 +83,9 @@ public:
      */
     virtual void fillRoundedRect(const Rect &rect, float radius, const Color &color) = 0;
 
+    /** @brief 线段胶囊描边 */
+    virtual void drawSegment(const DrawSegmentCmd &cmd) = 0;
+
     /**
      * @brief 描边圆角矩形
      */
@@ -104,7 +107,7 @@ public:
      * @param cmd 命令元数据（offset + count + color）
      * @param vertices 顶点数据指针
      */
-    virtual void fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) = 0;
+    virtual void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) = 0;
 
     /**
      * @brief 绘制 3D 网格（深度测试）

@@ -114,8 +114,8 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
 }
 
 void VulkanBackend::endFrame() {
-    // Log::info("endFrame: drawCalls={}", drawCalls_);    // ← 新增
-    drawCalls_ = 0;                                     // ← 新增
+    // Log::info("endFrame: drawCalls={}", drawCalls_);    
+    drawCalls_ = 0;                                    
     glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();
 }
@@ -156,6 +156,13 @@ void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c) {
     drawCalls_++;
     rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, clip_.globalAlpha());
 }
+
+void VulkanBackend::drawSegment(const DrawSegmentCmd &cmd) {
+    drawCalls_++;
+    rect_.drawSegment(currentToken_->commandBuffer, currentToken_->extent, cmd.ax, cmd.ay, cmd.bx, cmd.by,
+                      cmd.halfW, cmd.color, clip_.globalAlpha());
+}
+
 void VulkanBackend::strokeRoundedRect(const Rect &r, float rad, const Color &c, float sw) {
     drawCalls_++;
     rect_.strokeRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, sw, clip_.globalAlpha());
@@ -249,7 +256,7 @@ void VulkanBackend::popState() {
     }
 }
 
-void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const Vec2 *vertices) {
+void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) {
     drawCalls_++;
     triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, vertices, cmd.vertexCount, cmd.color,
                             clip_.globalAlpha());

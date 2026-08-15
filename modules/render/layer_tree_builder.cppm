@@ -69,12 +69,12 @@ public:
     /**
      * @brief 填充三角形网格（坐标已烘烤，顶点已变换）
      */
-    void fillTriangles(const std::vector<Vec2> &verts, const Color &color);
+    void fillTriangles(const std::vector<AAVertex> &verts, const Color &color);
 
     /**
      * @brief 描边三角形网格
      */
-    void strokeTriangles(const std::vector<Vec2> &verts, const Color &color);
+    void strokeTriangles(const std::vector<AAVertex> &verts, const Color &color);
 
     /**
      * @brief 绘制 3D 网格（透传 mvp/lightDir/viewport 到录制器）
@@ -105,6 +105,8 @@ public:
      */
     void drawRectForced(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
+    /** @brief 线段胶囊描边（坐标已烘焙） */
+    void drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow);
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
