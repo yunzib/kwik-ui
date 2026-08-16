@@ -162,6 +162,43 @@ export struct Shadow {
         offsetX(ox), offsetY(oy), blurRadius(blur), color(col) {}
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 背景渐变（2 色）
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * @brief 渐变类型
+ *
+ *  None    — 非渐变（普通填充）
+ *  Linear  — 线性渐变（color0 → color1，沿 angleDeg 方向）
+ *  Radial  — 径向渐变（中心 → 对角线顶点，cover 覆盖）
+ */
+export enum class GradientType : uint8_t {
+    None,
+    Linear,
+    Radial,
+};
+
+/**
+ * @brief 2 色渐变参数
+ *
+ * 解析阶段只填 type / angleDeg / 两色；
+ * x0/y0/x1/y1 由 Graphics 换算为相对矩形左上（本地逻辑坐标）的值：
+ *   linear : (x0,y0)=起点, (x1,y1)=终点
+ *   radial : (x0,y0)=中心, x1=半径（y1 恒 0）
+ *
+ * 渐变参数处于矩形本地坐标系，随变换矩阵一起作用于顶点，
+ * 因此 rotate/scale/clip 等变换对渐变与纯色填充一致（CSS 语义）。
+ */
+export struct Gradient {
+    GradientType type     = GradientType::None;
+    float        angleDeg = 180.0f;   ///< 仅 linear：渐变方向角（0°=向上, 90°=向右, 180°=向下）
+    float        x0 = 0, y0 = 0;      ///< linear: 起点 / radial: 中心（相对 rect 左上）
+    float        x1 = 0, y1 = 0;      ///< linear: 终点 / radial: (半径, 0)
+    Color        color0;              ///< 起点 / 中心色
+    Color        color1;              ///< 终点 / 边缘色
+};
+
 export {
     /**
      * @brief 字体标识符 (不透明句柄)

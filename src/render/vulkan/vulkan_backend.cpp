@@ -22,7 +22,10 @@ VulkanBackend::~VulkanBackend() {
 // initialize — 初始化 Context + 子渲染器
 // ================================================================
 bool VulkanBackend::initialize(void *native) {
+    auto t0 = std::chrono::steady_clock::now();
     if (!ctx_.initialize(native)) return false;
+    Log::info("[startup] vk_context_init = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
 
     deviceCtx_ = DeviceContext{
         .device = ctx_.device(),
@@ -30,6 +33,7 @@ bool VulkanBackend::initialize(void *native) {
         .commandPool = ctx_.commandPool(),
         .queue = ctx_.graphicsQueue(),
     };
+    auto t1 = std::chrono::steady_clock::now();
 
     if (!rect_.create(ctx_.device(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         ctx_.shutdown();
@@ -64,6 +68,8 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
+    Log::info("[startup] pipeline_create = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count());
     return true;
 }
 
@@ -150,9 +156,11 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, cons
     rect_.fillRect(currentToken_->commandBuffer, currentToken_->extent, r, c, t);
 }
 
-void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c, const Transform2D &t) {
+void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c, const Gradient &gradient,
+                                    const Transform2D &t) {
     drawCalls_++;
-    rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, clip_.globalAlpha(), t);
+    rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, gradient,
+                          clip_.globalAlpha(), t);
 }
 
 void VulkanBackend::drawSegment(const DrawSegmentCmd &cmd) {

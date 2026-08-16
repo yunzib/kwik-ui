@@ -76,6 +76,8 @@ public:
     /** @brief 绘制脏区底图（无视 noop，供 View::draw ③态覆盖残留像素） */
     void drawUnderlay(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
+    /** @brief 背景渐变圆角矩形（linear/radial），渐变坐标换算为相对 rect 左上 */
+    void drawRoundedRectGradient(const Rect &rect, float radius, const Gradient &gradient);
     /** @brief 线段胶囊描边（端点逻辑坐标，内部烘焙） */
     void drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color);
     void drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth);

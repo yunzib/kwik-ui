@@ -185,7 +185,34 @@ void Graphics::drawRect(const Rect &rect, const Color &color) {
 
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {
     if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(color), currentState_.m});
+    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(color), Gradient{}, currentState_.m});
+}
+
+void Graphics::drawRoundedRectGradient(const Rect &rect, float radius, const Gradient &gradient) {
+    if (!recording_ || currentState_.noop) return;
+    // 把渐变方向/角度换算为相对 rect 左上的具体坐标（本地逻辑坐标）：
+    Gradient g = gradient;
+    if (g.type == GradientType::Linear) {
+        // CSS 角度语义：0°=向上, 90°=向右, 180°=向下；色带从 color0(起点) → color1(终点)
+        constexpr float kPi = 3.14159265358979f;
+        const float    rad = g.angleDeg * (kPi / 180.0f);
+        const float    dx  = std::sin(rad), dy = -std::cos(rad);
+        // L 取 max(w,h)，保证渐变线两端落在矩形对角线之外，任意角度均完全覆盖
+        const float L = std::max(rect.width, rect.height);
+        g.x0 = rect.width * 0.5f - dx * L;   // 起点（相对 rect 左上）
+        g.y0 = rect.height * 0.5f - dy * L;
+        g.x1 = rect.width * 0.5f + dx * L;   // 终点
+        g.y1 = rect.height * 0.5f + dy * L;
+    } else if (g.type == GradientType::Radial) {
+        // 中心辐射，半径 = 对角线一半（cover）
+        g.x0 = rect.width * 0.5f;
+        g.y0 = rect.height * 0.5f;
+        g.x1 = std::hypot(rect.width, rect.height) * 0.5f;
+        g.y1 = 0.0f;
+    }
+    // 两色都烘焙当前 opacity（cmd.color 字段承载 color0，shader 里 fillColor=color0）
+    g.color1 = applyOpacity(g.color1);
+    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(g.color0), g, currentState_.m});
 }
 
 void Graphics::drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color) {

@@ -20,13 +20,14 @@ struct PushConstants {
     float borderR, borderG, borderB, borderA;
     float opacity;
     uint32_t drawMode;
-    float shadowOffsetX, shadowOffsetY;
+    float shadowOffsetX, shadowOffsetY;   // 渐变复用：linear=起点 / radial=中心（相对 rect 左上）
     float shadowBlur;
     float _pad2;
     float viewportW, viewportH;
-    float m00, m01, m02, m10, m11, m12;    // ← 矩阵
+    float m00, m01, m02, m10, m11, m12;   // ← 2D 变换矩阵
+    float gradientVecX, gradientVecY;     // ← 渐变：linear=终点-起点向量 / radial=(半径,0)
 };
-static_assert(sizeof(PushConstants) == 120, "PushConstants size mismatch");
+static_assert(sizeof(PushConstants) == 128, "PushConstants size mismatch");   // 128 = Vulkan maxPushConstantsSize 保证下限
 }    // namespace
 
 RectRenderer::~RectRenderer() {
@@ -205,32 +206,44 @@ void RectRenderer::clear(VkCommandBuffer cmd, VkExtent2D extent, const Color &co
 
 void RectRenderer::fillRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, const Color &color,
                             const Transform2D &t) {
-    fillRoundedRect(cmd, extent, rect, 0, color, 1.0f, t);
+    fillRoundedRect(cmd, extent, rect, 0, color, Gradient{}, 1.0f, t);
 }
 
 void RectRenderer::fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const Rect &rect, float radius,
-                                   const Color &color, float globalAlpha, const Transform2D &t) {
+                                   const Color &color, const Gradient &gradient, float globalAlpha,
+                                   const Transform2D &t) {
+    // 渐变模式映射：None=0(fill) / Linear=4 / Radial=5，与 rect.slang fragment 分支对应
+    uint32_t mode = 0;
+    if (gradient.type == GradientType::Linear) mode = 4;
+    else if (gradient.type == GradientType::Radial) mode = 5;
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
     PushConstants pc{};
     pc.topLeftX = rect.x;
     pc.topLeftY = rect.y;
-    pc.sizeX = rect.width;
-    pc.sizeY = rect.height;
-    pc.fillR = color.r / 255.f;
+    pc.sizeX    = rect.width;
+    pc.sizeY    = rect.height;
+    pc.fillR = color.r / 255.f;              // color0（Graphics 已烘焙透明度）
     pc.fillG = color.g / 255.f;
     pc.fillB = color.b / 255.f;
     pc.fillA = color.a / 255.f;
     pc.radius = radius;
     pc.opacity = globalAlpha;
-    pc.drawMode = 0;
+    pc.drawMode = mode;
+    // 渐变参数（相对 rect 左上，由 Graphics 换算好）
+    pc.shadowOffsetX = gradient.x0;
+    pc.shadowOffsetY = gradient.y0;
+    pc.gradientVecX  = gradient.x1;
+    pc.gradientVecY  = gradient.y1;
+    // 第二色复用 borderColor 通道
+    pc.borderR = gradient.color1.r / 255.f;
+    pc.borderG = gradient.color1.g / 255.f;
+    pc.borderB = gradient.color1.b / 255.f;
+    pc.borderA = gradient.color1.a / 255.f;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
-    pc.m00 = t.m00;
-    pc.m01 = t.m01;
-    pc.m02 = t.m02;
-    pc.m10 = t.m10;
-    pc.m11 = t.m11;
-    pc.m12 = t.m12;
+    pc.m00 = t.m00; pc.m01 = t.m01; pc.m02 = t.m02;
+    pc.m10 = t.m10; pc.m11 = t.m11; pc.m12 = t.m12;
     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PushConstants), &pc);
     VkDeviceSize off = 0;

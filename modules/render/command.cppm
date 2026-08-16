@@ -26,6 +26,7 @@ export struct FillRoundedRectCmd {
     Rect rect;
     float radius;
     Color color;
+    Gradient gradient;   // 渐变（type==None → 普通填充，此时仅 color 生效）
     Transform2D t;  
 };
 /** @brief 线段胶囊描边命令（折线每段一个胶囊：线段 + 两端 round cap） */

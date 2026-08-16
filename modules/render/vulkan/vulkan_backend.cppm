@@ -38,7 +38,8 @@ public:
 
     void clear(const Color &color) override;
     void fillRect(const Rect &rect, const Color &color, BlendMode mode, const Transform2D &t) override;
-    void fillRoundedRect(const Rect &rect, float radius, const Color &color, const Transform2D &t) override;
+    void fillRoundedRect(const Rect &rect, float radius, const Color &color, const Gradient &gradient,
+                         const Transform2D &t) override;
     void drawSegment(const DrawSegmentCmd &cmd) override;
     void strokeRoundedRect(const Rect &rect, float radius, const Color &color, float strokeWidth,
                            const Transform2D &t) override;

@@ -90,16 +90,20 @@ bool Application::init() {
         Log::error("渲染线程启动失败");
         return false;
     }
+    auto tWait = std::chrono::steady_clock::now();
     if (!renderThread_.waitForRunning(5000)) {
         Log::error("渲染线程启动超时");
         return false;
     }
+    Log::info("[startup] wait_render_ready = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tWait).count());
 
     TextureManager::instance().setBackend(renderThread_.backend());
 
     // ② 注册字体目录 + 加载字体
     auto &pipe = TextRenderPipeline::instance();
     for (auto &dir : config_.fontDirs) pipe.addFontDir(dir);
+    auto tFont = std::chrono::steady_clock::now();
     FontId mainFont = pipe.loadFont("NotoSansSC-Regular.otf");
     // Segoe UI (Win10+ 默认UI字体)
     // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/segoeui.ttf");
@@ -109,6 +113,8 @@ bool Application::init() {
     // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/consola.ttf");
     // // 黑体
     // FontId mainFont = pipe.loadFont("C:/Windows/Fonts/simhei.ttf");
+    Log::info("[startup] font_load = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tFont).count());
     if (mainFont == kInvalidFontId) { Log::error("字体加载失败: NotoSansSC-Regular.otf"); }
 
     // ③ 注册 kwikui C 模块（在 evalFile 之前，确保 JS import 'kwikui' 能找到）
@@ -237,6 +243,7 @@ void Application::rebuildTree() {
  * ⑤ 填入 FrameSubmit 并提交到三缓冲队列
  */
 void Application::renderFrame() {
+    auto t0 = std::chrono::steady_clock::now();
     float dpi = window_.GetDpiScale();
 
     bool structural = treeStructureChanged_;
@@ -250,7 +257,7 @@ void Application::renderFrame() {
 
     LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
 
-   auto commandBuffer = canvas.endFrame();
+    auto commandBuffer = canvas.endFrame();
 
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
@@ -268,6 +275,11 @@ void Application::renderFrame() {
     frame.needsResize = false;
 
     renderThread_.commandQueue().submit();
+
+    if (frameId_ == 1) {
+        Log::info("[startup] first_frame_cpu = {} ms",
+                  std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
+    }
 
     dirtyRect_ = {};    // 清零，准备下一帧
     needsRedraw_ = false;

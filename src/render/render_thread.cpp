@@ -233,12 +233,19 @@ bool RenderThread::processCommands(const FrameSubmit &frame) {
 
     if (frame.structuralChange) { resetRendererCache(); }
 
+    auto t0 = std::chrono::steady_clock::now();
+
     if (!backend_->beginFrame(frame.dirtyRect)) return false;   // acquire失败/自愈跳帧 → 保槽重试
 
     frame.commandBuffer->replay(*backend_);
 
     backend_->endFrame();
-    return backend_->present();                       // present失败 → 保槽重试
+    bool ok = backend_->present();                       // present失败 → 保槽重试
+    if (ok && frame.frameId == 1) {
+        Log::info("[startup] first_frame_gpu = {} ms",
+                  std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
+    }
+    return ok;
 }
 
 /**

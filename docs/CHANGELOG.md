@@ -5,6 +5,10 @@
 - GPU transform 统一变换：transform: "tx,ty,rot,scale"（位移/旋转/缩放，均绕中心，替换独立 scale 属性）
 - Transform2D 矩阵下沉：rect/triangle/glyph/image 顶点 shader 加矩阵，push constant 扩展
 - rotate 可动画（PropId::rotate）
+- 背景渐变（linear/radial）：gradient 属性 "linear <角度> <色0> <色1>" / "radial <色0> <色1>"，
+  rect.slang SDF 加 drawMode 4/5 渐变分支（push constant 120→128，复用 shadowOffset + gradientVec），
+  仅基础 View 生效（Button 等自绘背景组件暂不适用）
+
 ### 修复：
 - Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施
 - clip scissor 用逻辑坐标导致底部/右侧内容被裁（改物理 AABB）

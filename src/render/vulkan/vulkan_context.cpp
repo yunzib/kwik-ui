@@ -82,41 +82,80 @@ void VulkanContext::shutdown() {
 // initialize — 核心初始化（Instance → Device → Swapchain → ...）
 // ================================================================
 bool VulkanContext::initialize(void *nativeHandle) {
+    auto t0 = std::chrono::steady_clock::now();
     if (!createInstance(nativeHandle)) return false;
+    Log::info("[startup] ctx.createInstance = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
+
+    auto t1 = std::chrono::steady_clock::now();
     if (!pickPhysicalDevice()) return false;
+    Log::info("[startup] ctx.pickPhysicalDevice = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count());
+
+    auto t2 = std::chrono::steady_clock::now();
     if (!createLogicalDevice()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createLogicalDevice = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t2).count());
     vkGetDeviceQueue(vkDevice_, queueFamilyIndex_, 0, &vkQueue_);
+
+    auto t3 = std::chrono::steady_clock::now();
     if (!createSwapchain()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createSwapchain = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t3).count());
+
+    auto t4 = std::chrono::steady_clock::now();
     if (!createRenderPass()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createRenderPass = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t4).count());
+
+    auto t5 = std::chrono::steady_clock::now();
     if (!createCommandBuffers()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createCommandBuffers = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t5).count());
+
+    auto t6 = std::chrono::steady_clock::now();
     if (!createCanvasImage()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createCanvasImage = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t6).count());
+
+    auto t7 = std::chrono::steady_clock::now();
     if (!createCanvasFramebuffer()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createCanvasFramebuffer = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t7).count());
+
+    auto t8 = std::chrono::steady_clock::now();
     if (!createVertexBuffer()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createVertexBuffer = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t8).count());
+
+    auto t9 = std::chrono::steady_clock::now();
     if (!createSyncObjects()) {
         shutdown();
         return false;
     }
+    Log::info("[startup] ctx.createSyncObjects = {} ms",
+              std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t9).count());
     return true;
 }
 // ================================================================

@@ -13,16 +13,17 @@ struct RectPushConstants {
     float radius;
     float borderWidth;
     float _pad0;
-    float _pad1;        // std430 alignment padding
+    float _pad1;
     float4 borderColor;
     float opacity;
-    uint  drawMode;     // 0=fill, 1=stroke, 2=shadow
-    float2 shadowOffset;
+    uint  drawMode;        // 0=fill 1=stroke 2=shadow 3=segment 4=linear渐变 5=radial渐变
+    float2 shadowOffset;   // 渐变复用：linear=起点 / radial=中心（相对 rect 左上）
     float shadowBlur;
-    float _pad2;        // std430 alignment padding
+    float _pad2;
     float2 viewportSize;
-    float m00, m01, m02;    // ← 矩阵（行主序 2×3）
+    float m00, m01, m02;
     float m10, m11, m12;
+    float2 gradientVec;    // ← 渐变：linear=终点-起点向量 / radial=(半径,0)
 };
 
 [[vk::push_constant]] ConstantBuffer<RectPushConstants> pc;
@@ -41,6 +42,7 @@ struct VertOutput {
     [[vk::location(8)]] float2 fragShadowOffset;
     [[vk::location(9)]] float  fragShadowBlur;
     [[vk::location(10)]] float2 fragViewportSize;
+    [[vk::location(11)]] float2 fragGradientVec;
 };
 
 // ── 顶点着色器 ──────────────────────────────────────────────
@@ -62,6 +64,7 @@ VertOutput vertexMain(float2 inPosition : ATTR0) {
     o.fragOpacity      = pc.opacity;
     o.fragDrawMode     = pc.drawMode;
     o.fragShadowOffset = pc.shadowOffset;
+    o.fragGradientVec = pc.gradientVec;
     o.fragShadowBlur   = pc.shadowBlur;
     o.fragViewportSize = pc.viewportSize;
     return o;
@@ -99,6 +102,24 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
         float sdfSeg = sdSegment(pos, a, b) - input.fragRadius;
         float alpha = (1.0 - smoothstep(-aa, aa, sdfSeg)) * input.fragOpacity;
         return float4(input.fragFillColor.rgb, input.fragFillColor.a * alpha);
+    }
+
+    if (input.fragDrawMode == 4u) {
+        // ── 线性渐变：pos 在 gradientVec 上的投影比例 t → color0↔color1 插值 ──
+        float2 d = input.fragGradientVec;
+        float t = clamp(dot(pos - input.fragShadowOffset, d) / max(dot(d, d), 1e-6), 0.0, 1.0);
+        float4 col = lerp(input.fragFillColor, input.fragBorderColor, t);
+        float alpha = (1.0 - smoothstep(-aa, aa, sdf)) * input.fragOpacity;
+        return float4(col.rgb, col.a * alpha);
+    }
+    if (input.fragDrawMode == 5u) {
+        // ── 径向渐变：中心距离 / 半径 → t → 插值 ──
+        float2 c = input.fragShadowOffset;
+        float r = max(input.fragGradientVec.x, 1e-4);
+        float t = clamp(length(pos - c) / r, 0.0, 1.0);
+        float4 col = lerp(input.fragFillColor, input.fragBorderColor, t);
+        float alpha = (1.0 - smoothstep(-aa, aa, sdf)) * input.fragOpacity;
+        return float4(col.rgb, col.a * alpha);
     }
 
     if (input.fragDrawMode == 2u) {

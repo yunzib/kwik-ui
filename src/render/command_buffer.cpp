@@ -36,41 +36,45 @@ size_t CommandBuffer::appendMeshVertices(const Vertex3D *v, size_t n) {
 // ════════════════════════════════════════════
 void CommandBuffer::replay(RenderBackend &backend) const {
     for (const auto &cmd : commands_) {
-        std::visit([&backend, this](auto &&arg) {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, ClearCmd>) {
-                backend.clear(arg.color);
-            } else if constexpr (std::is_same_v<T, FillRectCmd>) {
-                backend.fillRect(arg.rect, arg.color, arg.mode, arg.t);                       // ← 透传矩阵
-            } else if constexpr (std::is_same_v<T, FillRoundedRectCmd>) {
-                backend.fillRoundedRect(arg.rect, arg.radius, arg.color, arg.t);              // ← 透传矩阵
-            } else if constexpr (std::is_same_v<T, StrokeRoundedRectCmd>) {
-                backend.strokeRoundedRect(arg.rect, arg.radius, arg.color, arg.strokeWidth, arg.t);   // ← 透传矩阵
-            } else if constexpr (std::is_same_v<T, DrawShadowCmd>) {
-                backend.drawShadow(arg.rect, arg.radius, arg.shadow, arg.t);                   // ← 透传矩阵
-            } else if constexpr (std::is_same_v<T, DrawGlyphCmd>) {
-                backend.drawGlyph(arg);                                                         // cmd 内含 t
-            } else if constexpr (std::is_same_v<T, DrawImageCmd>) {
-                backend.drawImage(arg);                                                         // cmd 内含 t
-            } else if constexpr (std::is_same_v<T, FillTrianglesCmd>) {
-                const AAVertex *verts = vertices_.data() + arg.vertexOffset;
-                backend.fillTriangles(arg, verts);                                             // cmd 内含 t
-            } else if constexpr (std::is_same_v<T, StrokeTrianglesCmd>) {
-                const AAVertex *verts = vertices_.data() + arg.vertexOffset;
-                // Stroke 复用 fill 渲染路径：补全 mode 与矩阵（FillTrianglesCmd 为 5 字段）
-                FillTrianglesCmd fc{arg.vertexOffset, arg.vertexCount, arg.color, BlendMode::SrcOver, arg.t};
-                backend.fillTriangles(fc, verts);
-            } else if constexpr (std::is_same_v<T, DrawMeshCmd>) {
-                const Vertex3D *verts = meshVertices_.data() + arg.vertexOffset;
-                backend.drawMesh(arg, verts);                                                  // 对象空间 MVP，无 2D 矩阵
-            } else if constexpr (std::is_same_v<T, DrawSegmentCmd>) {
-                backend.drawSegment(arg);                                                      // cmd 内含 t
-            } else if constexpr (std::is_same_v<T, PushClipCmd>) {
-                backend.pushClipRoundedRect(arg.rect, arg.radius, arg.t, arg.clipRect);   // 加 arg.clipRect
-            } else if constexpr (std::is_same_v<T, PopClipCmd>) {
-                backend.popState();
-            }
-        }, cmd);
+        std::visit(
+            [&backend, this](auto &&arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, ClearCmd>) {
+                    backend.clear(arg.color);
+                } else if constexpr (std::is_same_v<T, FillRectCmd>) {
+                    backend.fillRect(arg.rect, arg.color, arg.mode, arg.t);    // ← 透传矩阵
+                } else if constexpr (std::is_same_v<T, FillRoundedRectCmd>) {
+                    backend.fillRoundedRect(arg.rect, arg.radius, arg.color, arg.gradient, arg.t);    // ← 透传矩阵+渐变
+                } else if constexpr (std::is_same_v<T, FillRoundedRectCmd>) {
+                    backend.fillRoundedRect(arg.rect, arg.radius, arg.color, arg.gradient, arg.t);    // ← 透传矩阵+渐变
+                } else if constexpr (std::is_same_v<T, StrokeRoundedRectCmd>) {
+                    backend.strokeRoundedRect(arg.rect, arg.radius, arg.color, arg.strokeWidth, arg.t);    // ← 透传矩阵
+                } else if constexpr (std::is_same_v<T, DrawShadowCmd>) {
+                    backend.drawShadow(arg.rect, arg.radius, arg.shadow, arg.t);    // ← 透传矩阵
+                } else if constexpr (std::is_same_v<T, DrawGlyphCmd>) {
+                    backend.drawGlyph(arg);    // cmd 内含 t
+                } else if constexpr (std::is_same_v<T, DrawImageCmd>) {
+                    backend.drawImage(arg);    // cmd 内含 t
+                } else if constexpr (std::is_same_v<T, FillTrianglesCmd>) {
+                    const AAVertex *verts = vertices_.data() + arg.vertexOffset;
+                    backend.fillTriangles(arg, verts);    // cmd 内含 t
+                } else if constexpr (std::is_same_v<T, StrokeTrianglesCmd>) {
+                    const AAVertex *verts = vertices_.data() + arg.vertexOffset;
+                    // Stroke 复用 fill 渲染路径：补全 mode 与矩阵（FillTrianglesCmd 为 5 字段）
+                    FillTrianglesCmd fc{arg.vertexOffset, arg.vertexCount, arg.color, BlendMode::SrcOver, arg.t};
+                    backend.fillTriangles(fc, verts);
+                } else if constexpr (std::is_same_v<T, DrawMeshCmd>) {
+                    const Vertex3D *verts = meshVertices_.data() + arg.vertexOffset;
+                    backend.drawMesh(arg, verts);    // 对象空间 MVP，无 2D 矩阵
+                } else if constexpr (std::is_same_v<T, DrawSegmentCmd>) {
+                    backend.drawSegment(arg);    // cmd 内含 t
+                } else if constexpr (std::is_same_v<T, PushClipCmd>) {
+                    backend.pushClipRoundedRect(arg.rect, arg.radius, arg.t, arg.clipRect);    // 加 arg.clipRect
+                } else if constexpr (std::is_same_v<T, PopClipCmd>) {
+                    backend.popState();
+                }
+            },
+            cmd);
     }
 }
 

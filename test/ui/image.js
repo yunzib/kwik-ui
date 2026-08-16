@@ -1,7 +1,7 @@
 import { View, Image, Text, Flex } from 'kwikui';
 // ---------- PNG 图标 (stb_image 解码) ----------
 const AnalyticsImg = Image({
-    src: "../../examples/image/Web Analytics.png",
+    src: "../../test/image/Web Analytics.png",
     width: 400,
     height: 300,
     fit: "contain",
@@ -9,7 +9,7 @@ const AnalyticsImg = Image({
     background: "#ffffff"
 });
 const AppImg = Image({
-    src: "../../examples/image/Web Application.png",
+    src: "../../test/image/Web Application.png",
     width: 400,
     height: 300,
     fit: "contain",
@@ -18,25 +18,25 @@ const AppImg = Image({
 });
 // ---------- SVG 图标 (nanosvg 解码) ----------
 const HomeSvg = Image({
-    src: "../../examples/image/home.svg",
+    src: "../../test/image/home.svg",
     width: 48,
     height: 48,
     fit: "contain"
 });
 const MenuSvg = Image({
-    src: "../../examples/image/菜单.svg",
+    src: "../../test/image/menu.svg",
     width: 48,
     height: 48,
     fit: "contain"
 });
 const AdminSvg = Image({
-    src: "../../examples/image/系统管理.svg",
+    src: "../../test/image/system.svg",
     width: 48,
     height: 48,
     fit: "contain"
 });
 const QuerySvg = Image({
-    src: "../../examples/image/查询统计.svg",
+    src: "../../test/image/search.svg",
     width: 48,
     height: 48,
     fit: "contain"
@@ -106,7 +106,7 @@ export default View({
     }, [
         View({}, [
             Image({
-                src: "../../examples/image/test1.png",
+                src: "../../test/image/test1.png",
                 width: 400,
                 height: 300,
                 // fit: "cover",
@@ -117,7 +117,7 @@ export default View({
         ]),
         View({}, [
             Image({
-                src: "../../examples/image/test2.png",
+                src: "../../test/image/test2.png",
                 width: 400,
                 height: 200,
                 fit: "contain",
@@ -128,7 +128,7 @@ export default View({
         ]),
         View({background: "FFFFFF"}, [
             Image({
-                src: "../../examples/image/test3.png",
+                src: "../../test/image/test3.png",
                 width: 400,
                 height: 300,
                 fit: "fill",

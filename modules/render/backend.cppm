@@ -6,7 +6,7 @@ export module kwik.render.backend;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.platform.window;
-import kwik.core.path;   // Vec2 定义在此模块中
+import kwik.core.path; // Vec2 定义在此模块中
 
 import std;
 
@@ -60,7 +60,8 @@ public:
     virtual void fillRect(const Rect &rect, const Color &color, BlendMode mode, const Transform2D &t) = 0;
 
     /** @brief 填充圆角矩形（逻辑坐标 + 矩阵） */
-    virtual void fillRoundedRect(const Rect &rect, float radius, const Color &color, const Transform2D &t) = 0;
+    virtual void fillRoundedRect(const Rect &rect, float radius, const Color &color, const Gradient &gradient,
+                                 const Transform2D &t) = 0;
 
     /** @brief 线段胶囊描边（cmd 内含矩阵） */
     virtual void drawSegment(const DrawSegmentCmd &cmd) = 0;

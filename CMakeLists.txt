@@ -160,7 +160,7 @@ include(cmake/modules/TernMath.cmake)
 option(KWIK_BUILD_TESTS "Build tests" OFF)
 option(KWIK_BUILD_EXAMPLES "Build examples" ON)
 
-option(KWIK_ENABLE_VALIDATION "Enable Vulkan validation layer" ON)
+option(KWIK_ENABLE_VALIDATION "Enable Vulkan validation layer" OFF)
 if(KWIK_ENABLE_VALIDATION)
     target_compile_definitions(kwik_render PRIVATE KWIK_ENABLE_VALIDATION)
 endif()

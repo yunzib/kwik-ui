@@ -314,7 +314,12 @@ void View::onDraw(Graphics &graphics) {
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;
     if (props.shadow.has_value()) { graphics.drawShadow(drawRect, props.borderRadius, *props.shadow); }
-    if (props.background.isVisible()) { graphics.drawRoundedRect(drawRect, props.borderRadius, props.background); }
+    if (props.gradient && props.gradient->type != GradientType::None) {
+        // 渐变背景优先于纯色 background；border 由下一条 stroke 叠加
+        graphics.drawRoundedRectGradient(drawRect, props.borderRadius, *props.gradient);
+    } else if (props.background.isVisible()) {
+        graphics.drawRoundedRect(drawRect, props.borderRadius, props.background);
+    }
     if (props.borderWidth > 0 && props.borderStyle != BorderStyle::None) {
         graphics.drawRoundedRectStroke(drawRect, props.borderRadius, props.borderColor, props.borderWidth);
     }

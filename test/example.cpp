@@ -116,6 +116,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "datepicker") return "../../test/ui/datepicker.js";
         if (arg == "chart") return "../../test/ui/chart.js";
         if (arg == "rotate") return "../../test/ui/rotate.js";
+        if (arg == "gradient") return "../../test/ui/gradient.js";
         return arg;
     }
     return "../../test/ui/example.js";

@@ -73,6 +73,33 @@ Shadow parseShadow(const std::string &str) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// parseGradient — 渐变字符串解析
+//   "linear 90 #ff6b6b #ffd93d"   → Linear，角度 + 两色
+//   "radial #ff6b6b #ffd93d"      → Radial，两色
+// ═══════════════════════════════════════════════════════════════════════════
+Gradient parseGradient(const std::string &str) {
+    Gradient g;
+    if (str.empty()) return g;
+    std::istringstream iss(str);
+    std::vector<std::string> parts;
+    std::string token;
+    while (iss >> token) parts.push_back(token);
+    if (parts.empty()) return g;
+
+    if (parts[0] == "linear" && parts.size() >= 4) {
+        g.type = GradientType::Linear;
+        try { g.angleDeg = std::stof(parts[1]); } catch (...) { g.angleDeg = 180.0f; }
+        g.color0 = parseColor(parts[2]);   // 复用 kwik.core.color_parser
+        g.color1 = parseColor(parts[3]);
+    } else if (parts[0] == "radial" && parts.size() >= 3) {
+        g.type = GradientType::Radial;
+        g.color0 = parseColor(parts[1]);
+        g.color1 = parseColor(parts[2]);
+    }
+    return g;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // parseBorderStyle
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -143,6 +170,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     }
 
     if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());
+    if (ex.has("gradient")) result.gradient = parseGradient(ex.raw().getProperty("gradient").toString());
     ex.get("flexGrow", result.flexGrow);
     {
         float tmp = 0;

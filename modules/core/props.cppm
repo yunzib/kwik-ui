@@ -59,6 +59,7 @@ export struct ViewProps {
     std::optional<float> height;
     // ── 显示 ──
     Color background = Color::transparent();    // 默认透明，避免不透明黑色
+    std::optional<Gradient> gradient;   // 背景渐变（存在时优先于 background 填充，border 照常叠加）
     float borderRadius = 0;
     float borderWidth = 0;
     Color borderColor{0, 0, 0, 0};
