@@ -26,7 +26,6 @@ export class Text : public View {
 public:
     TextContent text_; /**< 文本内容（字符串、字号、颜色、字体） */
 
-
     Text() = default;
 
     /**
@@ -44,6 +43,10 @@ public:
     const TextContent &textContent() const { return text_; }
 
 protected:
+    std::string displayedText_;    ///< 实际排版文本（maxLines 截断后含省略号，缓存匹配基准）
+    /** @brief 排版文本（缓存命中跳过 + maxLines 截断/省略号） */
+    void ensureLayout(float maxW);
+
     /** @brief 测量文本尺寸（只排版，不触发 MSDF） */
     Size onMeasure(Constraints constraints) override;
 

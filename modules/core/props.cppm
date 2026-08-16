@@ -19,6 +19,7 @@ export enum class BorderStyle {
 export enum class FontWeight { Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black };
 export enum class FontStyle { Normal, Italic, Oblique };
 export enum class TextAlign { Left, Center, Right, Justify, Start, End };
+export enum class TextVerticalAlign { Top, Center, Bottom };
 
 // ==================== 布局对齐枚举 ====================
 export enum class FlexDirection { Row, Column };
@@ -110,6 +111,11 @@ export struct TextContent {
     FontStyle fontStyle = FontStyle::Normal;
     Color textColor{0, 0, 0, 255};
     TextAlign textAlign = TextAlign::Left;
+    bool wordWrap = false;                  ///< 自动换行（false=单行横向溢出）
+    int maxLines = 0;                       ///< 最大行数（0=不限）
+    bool ellipsis = true;                   ///< 超 maxLines 时行尾补省略号
+    float lineHeight = 0;                   ///< 固定行高 px（0=自动 = fontSize*1.4）
+    TextVerticalAlign verticalAlign = TextVerticalAlign::Top;  ///< 容器内垂直对齐
 };
 
 /**

@@ -18,6 +18,24 @@
 - 百分比尺寸：width/height 支持 "50%" 字符串（基准 = 父容器 content，约束有界才解析，
   父自适应回退内容自适应，CSS 同款；仅 View/Flex 自身，Grid/List/ScrollView 容器
   不受限，其子项在有界 cell/视口下自动生效）
+- 文本排版：Text 自动换行与流式排版 —— wordWrap（字符级断行 + \n 硬换行）、
+  maxLines（最大行数，超出截断）+ ellipsis（行尾补 "…" U+2026，layout 层 truncated 标记、
+  element 层按 clusterEnd 截断重排）、lineHeight（固定行高，0=自动 fontSize*1.4）、
+  verticalAlign（top/center/bottom，padding 内内容区对齐）、textAlign:"justify"
+  （两端对齐：空格词间拉伸 / 纯 CJK 字间均分，末行与硬断行不拉伸）。
+  demo：test/ui/text_flow.js（example.exe textflow）
+- Text 支持通用 ViewProps：background/borderRadius/border/padding 渲染 + width/height
+  含百分比（"100%" 满宽时 center/right 对齐可见）
+- Text 背景/边框不渲染：Text::onDraw 覆写后未调用 View::onDraw，background/圆角/渐变
+  从不绘制（带背景的 Text demo 全空白）→ 先调 View::onDraw 再绘制文字
+- Text 增量 textColor/fontSize 失效：prop_meta writer 为空占位，Text::setPropertyTyped
+  原只处理 "text" → 补 textColor/fontSize 分支（含 layoutResult_.reset + requestLayout）
+- 文本排版缓存误命中：matchesKey 缺 align/fontWeight/fontStyle/lineSpacing/lineHeight/
+  maxLines，改对齐/字重不重排版 → TextLayoutResult 缓存标识区补齐字段 + layout 入口填充
+- Text 百分比宽/高度不生效：onMeasure 仅认 props.width（px），"100%" 走 widthPct 被忽略
+  → 改用 View::resolveEffectiveSize 统一换算，textAlign center/right 才有对齐空间；
+  顺带修复多行 glyph.y 行局部坐标扁平绘制会行重叠的隐患（Text 复用 TextArea 逐行
+  translate 渲染模式）
 
 ### 修复：
 - Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施

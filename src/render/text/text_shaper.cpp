@@ -164,6 +164,11 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f * scaleToLogical;
         sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;
         sg.cluster = glyphInfo[i].cluster;
+        // Justify 词间拉伸需要标记空格字形（U+0020 半角 / U+3000 全角）
+        {
+            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+            sg.isSpace = (cp == 0x20 || cp == 0x3000);
+        }
         result.push_back(sg);
         cursorX += xAdv;
     }

@@ -284,6 +284,15 @@ TextContent parseTextContent(PropsExtractor &ex) {
                    {"right", TextAlign::Right},
                    {"justify", TextAlign::Justify},
                });
+               ex.get("wordWrap", result.wordWrap);
+    ex.get("maxLines", result.maxLines);
+    ex.get("ellipsis", result.ellipsis);
+    ex.get("lineHeight", result.lineHeight);
+    ex.getEnum("verticalAlign", result.verticalAlign,
+               {
+                   {"center", TextVerticalAlign::Center},
+                   {"bottom", TextVerticalAlign::Bottom},
+               });
     return result;
 }
 

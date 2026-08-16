@@ -12,6 +12,14 @@ import std;
 // ============================================================================
 TextLayoutResult TextLayout::layout(const std::vector<ShapedGlyph> &glyphs, const TextLayoutConfig &cfg) {
     TextLayoutResult result;
+    // 缓存标识与 cfg 同步（matchesKey 依赖，缺失则缓存恒 miss → 每帧重排）
+    result.align = cfg.align;
+    result.lineSpacing = cfg.lineSpacing;
+    result.lineHeight = cfg.lineHeight;
+    result.maxLines = cfg.maxLines;
+    result.fontWeight = cfg.fontWeight;
+    result.fontStyle = cfg.fontStyle;
+
     switch (cfg.wrap) {
     case WrapMode::NoWrap:
     default: layoutNoWrap(glyphs, cfg, result); break;
@@ -79,7 +87,6 @@ void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const Text
 //   2. 超过 maxWidth 或遇到 \n 时断行
 //   3. 每行独立烘焙 baseline 并归一化 x 坐标
 // ═══════════════════════════════════════════════════════════════════════════
-
 void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                                  const TextLayoutConfig& cfg,
                                  TextLayoutResult& result) {
@@ -128,7 +135,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
 
         // ── 写入行 ──────────────────────────────────────────────────
         if (lineEnd > lineStart) {
-            /* 对齐偏移（仅非左对齐时有效） */
+            /* 对齐偏移（Justify 在行写入时逐字拉宽） */
             float alignOff = 0;
             if (cfg.align == LayoutTextAlign::Center)
                 alignOff = (cfg.maxWidth - cursorX) * 0.5f;
@@ -139,19 +146,42 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
             /* baseline 烘焙 + x 归一化到行起点 */
             float baseline = -minY;
             float lineBaseX = glyphs[lineStart].x;
+            bool isTextEnd = (lineEnd >= glyphs.size());
+            // 两端对齐：非文本末行 / 非硬断行才拉伸
+            //   有空格 → 词间拉伸；无空格（纯 CJK）→ 字间均分（CSS justify 同款）
+            bool doJustify = (cfg.align == LayoutTextAlign::Justify)
+                             && !isTextEnd && !isHardBreak && cursorX < cfg.maxWidth;
+            float justifyGap = 0; int spaceCount = 0;
+            if (doJustify) {
+                for (uint32_t j = lineStart; j < lineEnd; ++j)
+                    if (glyphs[j].isSpace) ++spaceCount;
+                if (spaceCount > 0)
+                    justifyGap = (cfg.maxWidth - cursorX) / (float)spaceCount;
+                else if (lineEnd > lineStart + 1)
+                    justifyGap = (cfg.maxWidth - cursorX) / (float)(lineEnd - lineStart - 1);
+            }
+            float penExtra = 0;    // 已累计的 justify 附加位移
             for (uint32_t j = lineStart; j < lineEnd; ++j) {
                 ShapedGlyph sg = glyphs[j];
-                sg.x = sg.x - lineBaseX + alignOff;
+                sg.x = sg.x - lineBaseX + alignOff + penExtra;
                 sg.y += baseline;
                 result.glyphs.push_back(std::move(sg));
+                if (doJustify) {
+                    if (spaceCount > 0) { if (glyphs[j].isSpace) penExtra += justifyGap; }
+                    else if (j + 1 < lineEnd) penExtra += justifyGap;
+                }
             }
 
             float lh = maxBottom - minY;
+            // 统一行高：cfg.lineHeight > 0 用固定值；否则自动 = fontSize*1.4
+            // （与 TextArea::lineHeight() 一致，逐行渲染的 y 步进与 totalHeight 对齐）
+            float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : glyphs[lineStart].fontSize * 1.4f;
+            rowH = std::max(rowH, lh);
             result.lines.push_back({
                 .glyphStart  = startIdx + lineStart,
                 .glyphCount  = lineEnd - lineStart,
                 .width       = cursorX,
-                .height      = lh,
+                .height      = rowH,
                 .baseline    = baseline,
                 .clusterStart = glyphs[lineStart].cluster,
                 .clusterEnd   = (lineEnd < glyphs.size())
@@ -160,7 +190,14 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                 .isHardBreak = isHardBreak,
             });
             totalW = std::max(totalW, cursorX);
-            totalH += lh;
+            totalH += rowH;
+        }
+
+        // maxLines 截断：达到上限即停止收集后续行，标记 truncated
+        // （element 层据 lines.back().clusterEnd 截断文本并补省略号重排）
+        if (cfg.maxLines > 0 && (int)result.lines.size() >= cfg.maxLines) {
+            result.truncated = true;
+            break;
         }
 
         /* 跳过 \n glyph */
