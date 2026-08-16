@@ -1,6 +1,7 @@
 module;
 #include <cstring>
 #include <cstdint>
+#include <cmath>
 
 module kwik.element.view;
 import kwik.render.graphics;
@@ -78,12 +79,33 @@ void View::layout(Rect bounds) {
     subtreeMeasure_ = false;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// View::resolveEffectiveSize — 显式 px / 百分比 尺寸换算
+//
+// 优先级：显式 px > 百分比 > 约束上限。
+// 百分比基准 = 父容器 content 尺寸（约束 maxWidth/maxHeight）：
+//   有界才解析（CSS 同款：父为自适应时百分比无基准 → 回退自适应，不报错）。
+// 注意：返回未含 padding，调用点自行叠加（与 onMeasure 现有语义一致）。
+// ═══════════════════════════════════════════════════════════════════════════
+Size View::resolveEffectiveSize(const ViewProps &p, const Constraints &c) {
+    float w = p.width.value_or(c.maxWidth);      // 显式 px 优先，否则约束上限
+    float h = p.height.value_or(c.maxHeight);
+    // 防御：NaN（历史数据/异常解析）回退约束上限，避免污染布局链
+    if (!std::isfinite(w)) w = c.maxWidth;
+    if (!std::isfinite(h)) h = c.maxHeight;
+    if (p.widthPct.has_value() && c.maxWidth < Constraints::INF)
+        w = c.maxWidth * *p.widthPct;            // "50%" → maxWidth * 0.5
+    if (p.heightPct.has_value() && c.maxHeight < Constraints::INF)
+        h = c.maxHeight * *p.heightPct;
+    return {w, h};
+}
+
 // ============================================================================
 // View 布局实现
 // ============================================================================
 Size View::onMeasure(Constraints constraints) {
-    float w = props.width.value_or(constraints.maxWidth);
-    float h = props.height.value_or(constraints.maxHeight);
+    // 显式 px / 百分比统一换算（百分比基准 = 父 content，约束有界才解析）
+    auto [w, h] = View::resolveEffectiveSize(props, constraints);
     w += props.padding.horizontal();
     h += props.padding.vertical();
     Size contentSize = {w, h};

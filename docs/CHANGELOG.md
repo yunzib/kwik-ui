@@ -12,6 +12,12 @@
   对可补间视觉属性自动补间（double/Color/EdgeInsets），布局属性与 flip 型直接跳变，
   打断续插平滑；仅 ref 绑定触发（setProp/初始解析不触发），需 view 非空 id
 - rotate/translateY 独立属性（原仅 transform 字符串），支持 ref 绑定与自动补间
+- flexWrap：Flex 多行换行（"wrap"/"nowrap"，默认 nowrap）。子项主轴累计超过容器
+  剩余空间自动换行，行间间距 = gap；每行独立 flexGrow/justifyContent/alignItems
+  （stretch 换行时基准 = 行区，单行 = 整个 content，兼容旧行为）。demo：test/ui/flex_wrap.js
+- 百分比尺寸：width/height 支持 "50%" 字符串（基准 = 父容器 content，约束有界才解析，
+  父自适应回退内容自适应，CSS 同款；仅 View/Flex 自身，Grid/List/ScrollView 容器
+  不受限，其子项在有界 cell/视口下自动生效）
 
 ### 修复：
 - Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施
@@ -19,6 +25,10 @@
 - 父组件刷新（动画/直写）时子节点文字消失：父自身重绘 drawUnderlay 擦底图后相交的干净
   子节点未跟随重绘（View::draw 入口按子节点自身脏标记早退）→ subDirty 并入父重绘区域，
   overlaps 子节点 markAllDirty 后重绘
+- width/height 传百分比字符串时布局内容不显示：PropsExtractor::get 对 "50%" 返回
+  true 且 toFloat()=NaN，NaN 写入 ViewProps.width 沿布局链传播（wrap 判定恒 false、
+  子项尺寸全 NaN）→ parseViewProps 先 isString 拦截百分比（存 widthPct/heightPct）
+  再数字解析，resolveEffectiveSize 增 isfinite 防御
 
 ## 0.0.0 — 2026-08-15
 ### 新增

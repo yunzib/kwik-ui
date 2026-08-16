@@ -21,6 +21,12 @@ public:
         return ElementType::GridLayout;
     }
 
+    /**
+     * @brief 增量更新容器属性（reconcile 路径）
+     * @param cp 重新解析的容器属性（direction/gap/flexWrap/justifyContent/...）
+     */
+    void applyContainerProps(const ContainerProps &cp) { container_ = cp; }
+
 private:
     ContainerProps container_;
 };

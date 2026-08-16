@@ -119,12 +119,36 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     ViewProps result;
     ex.get("id", result.id);
     {
-        float tmp = 0;
-        if (ex.get("width", tmp)) result.width = tmp;
+        // width 支持百分比："50%" → widthPct(0.5)；纯数字 → width(px)
+        // 必须先 isString 拦截百分比：ex.get 对 "50%" 返回 true 且 toFloat()=NaN
+        // → NaN 写进 result.width 污染布局链（此前"先 get 后 else"写法是 bug）
+        if (ex.has("width")) {
+            auto v = ex.raw().getProperty("width");
+            if (v.isString()) {
+                std::string s = v.toString();
+                if (s.size() > 1 && s.back() == '%')
+                    result.widthPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;    // "50%" → 0.5
+                else
+                    result.width = std::stof(s);    // 非百分比字符串按 px 数字解析
+            } else if (v.isNumber()) {
+                result.width = v.toFloat();
+            }
+        }
     }
     {
-        float tmp = 0;
-        if (ex.get("height", tmp)) result.height = tmp;
+        // height 百分比同上（isString 拦截，避免 NaN 污染）
+        if (ex.has("height")) {
+            auto v = ex.raw().getProperty("height");
+            if (v.isString()) {
+                std::string s = v.toString();
+                if (s.size() > 1 && s.back() == '%')
+                    result.heightPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;   // "50%" → 0.5
+                else
+                    result.height = std::stof(s);
+            } else if (v.isNumber()) {
+                result.height = v.toFloat();
+            }
+        }
     }
     ex.get("background", result.background);
     ex.get("borderRadius", result.borderRadius);
@@ -288,6 +312,10 @@ ContainerProps parseContainerProps(PropsExtractor &ex) {
     if (ex.has("direction"))
         result.flexDirection =
             (ex.raw().getProperty("direction").toString() == "column") ? FlexDirection::Column : FlexDirection::Row;
+    ex.getEnum("flexWrap", result.flexWrap,
+               {
+                   {"wrap", FlexWrap::Wrap},
+               });
     ex.getEnum("justifyContent", result.mainAxisAlignment,
                {
                    {"center", LayoutAlign::Center},

@@ -253,6 +253,14 @@ public:
     View &operator=(const View &) = delete;
 
     /**
+     * @brief 解析显式 px / 百分比尺寸
+     * @param p ViewProps
+     * @param c 父传入约束（百分比基准 = maxWidth/maxHeight，有界才解析）
+     * @return 有效尺寸（未含 padding，与各 onMeasure 现有语义一致）
+     */
+    static Size resolveEffectiveSize(const ViewProps &p, const Constraints &c);
+
+    /**
      * @brief 移动构造
      *
      * 移动所有成员后, 调用 fixChildrenParent() 将子节点的 parent_ 从 &other

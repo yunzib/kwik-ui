@@ -867,6 +867,17 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         static_cast<DateTimePicker *>(oldView.get())->applyDateTimePickerProps(parseDateTimePickerProps(ex));
         break;
     case ElementType::Chart: static_cast<Chart *>(oldView.get())->applyChartProps(parseChartProps(ex)); break;
+    case ElementType::FlexLayout:
+        // 前置缺陷修复：容器属性（direction/gap/flexWrap/justifyContent/...）
+        // 之前从不更新（只刷 ViewProps），flexWrap 改了不生效
+        static_cast<FlexLayout *>(oldView.get())->applyContainerProps(parseContainerProps(ex));
+        break;
+    case ElementType::GridLayout:
+        static_cast<GridLayout *>(oldView.get())->applyContainerProps(parseContainerProps(ex));
+        break;
+    case ElementType::ListLayout:
+        static_cast<ListLayout *>(oldView.get())->applyContainerProps(parseContainerProps(ex));
+        break;
 
     default: break;
     }

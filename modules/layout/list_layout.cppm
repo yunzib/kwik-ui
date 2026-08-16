@@ -47,6 +47,12 @@ public:
     // ─── 滚轮/触摸滚动入口（供 EventRouter 调用） ─────
     void applyScroll(float dx, float dy) override;
 
+    /**
+     * @brief 增量更新容器属性（reconcile 路径）
+     * @param cp 重新解析的容器属性（direction/gap/flexWrap/justifyContent/...）
+     */
+    void applyContainerProps(const ContainerProps &cp) { container_ = cp; }
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;

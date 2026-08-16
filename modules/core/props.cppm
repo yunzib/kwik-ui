@@ -22,6 +22,7 @@ export enum class TextAlign { Left, Center, Right, Justify, Start, End };
 
 // ==================== 布局对齐枚举 ====================
 export enum class FlexDirection { Row, Column };
+export enum class FlexWrap { NoWrap, Wrap };    // JS: "nowrap" | "wrap"（v1 不做 wrapReverse）
 export enum class LayoutAlign { Start, Center, End, SpaceBetween, SpaceAround, SpaceEvenly };
 export enum class CrossAlign { Start, Center, End, Stretch };
 export enum class ScrollDirection { Vertical, Horizontal, Both };
@@ -57,6 +58,10 @@ export struct ViewProps {
     // ── 尺寸 ──
     std::optional<float> width;
     std::optional<float> height;
+    // 百分比尺寸（"50%" → 0.5；0-1 比例）。不动 width/height 本体 → 现有消费点零回归。
+    // 基准 = 父容器 content 尺寸，父自适应（约束无界）时不解析、回退内容自适应。
+    std::optional<float> widthPct;
+    std::optional<float> heightPct;
     // ── 显示 ──
     Color background = Color::transparent();    // 默认透明，避免不透明黑色
     std::optional<Gradient> gradient;   // 背景渐变（存在时优先于 background 填充，border 照常叠加）
@@ -125,6 +130,7 @@ export struct ButtonStateProps {
  */
 export struct ContainerProps {
     FlexDirection flexDirection = FlexDirection::Row;
+    FlexWrap flexWrap = FlexWrap::NoWrap;    // 超宽是否换行（多行模式）
     LayoutAlign mainAxisAlignment = LayoutAlign::Start;
     CrossAlign crossAxisAlignment = CrossAlign::Start;
     float gap = 0.0f;
