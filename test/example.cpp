@@ -117,6 +117,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "chart") return "../../test/ui/chart.js";
         if (arg == "rotate") return "../../test/ui/rotate.js";
         if (arg == "gradient") return "../../test/ui/gradient.js";
+        if (arg == "transition") return "../../test/ui/transition.js";
         return arg;
     }
     return "../../test/ui/example.js";

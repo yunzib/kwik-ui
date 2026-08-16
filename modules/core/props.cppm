@@ -68,6 +68,7 @@ export struct ViewProps {
     EdgeInsets margin;
     bool visible = true;
     float opacity = 1.0f;
+    float transitionDuration = 0.0f;   ///< 隐式过渡时长（秒，0=关闭）：ref 数据绑定更新时自动补间
     std::optional<Shadow> shadow;
     // ── 子项定位 (父布局通过 child->props.xxx 访问) ──
     Align align = Align::Default;

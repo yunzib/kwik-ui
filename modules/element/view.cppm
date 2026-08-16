@@ -353,6 +353,9 @@ public:
      */
     virtual bool setPropertyTyped(const char *name, const TypedProp &value);
 
+    /** @brief 读取属性当前值（隐式 transition 取 from 用；动画进行中读到的是插值中间值） */
+    TypedProp readPropValue(PropId prop) const { return readProperty(prop); }
+
     /**
      * @brief 添加子控件 (转移所有权)
      * @param child 子控件, 所有权转移至本控件

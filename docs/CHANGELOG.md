@@ -8,10 +8,17 @@
 - 背景渐变（linear/radial）：gradient 属性 "linear <角度> <色0> <色1>" / "radial <色0> <色1>"，
   rect.slang SDF 加 drawMode 4/5 渐变分支（push constant 120→128，复用 shadowOffset + gradientVec），
   仅基础 View 生效（Button 等自绘背景组件暂不适用）
+- 隐式 transition：transitionDuration 属性（秒，默认 0=关闭）；ref(state,key) 增量更新
+  对可补间视觉属性自动补间（double/Color/EdgeInsets），布局属性与 flip 型直接跳变，
+  打断续插平滑；仅 ref 绑定触发（setProp/初始解析不触发），需 view 非空 id
+- rotate/translateY 独立属性（原仅 transform 字符串），支持 ref 绑定与自动补间
 
 ### 修复：
 - Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施
 - clip scissor 用逻辑坐标导致底部/右侧内容被裁（改物理 AABB）
+- 父组件刷新（动画/直写）时子节点文字消失：父自身重绘 drawUnderlay 擦底图后相交的干净
+  子节点未跟随重绘（View::draw 入口按子节点自身脏标记早退）→ subDirty 并入父重绘区域，
+  overlaps 子节点 markAllDirty 后重绘
 
 ## 0.0.0 — 2026-08-15
 ### 新增

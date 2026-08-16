@@ -10,6 +10,8 @@ import kwik.element.typed_prop;
 import kwik.core.color_parser;
 import kwik.engine.vm_callbacks;
 import kwik.core.log;
+import kwik.animation.engine;   // AnimationEngine / AnimationDesc
+import kwik.core.prop_meta;     // propIdFromName / getPropMeta
 
 import std;
 
@@ -106,6 +108,46 @@ void BindingRegistry::unbind(View *view) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// tryStartTransition — 隐式 transition（State 增量更新的自动补间）
+//
+// 全部条件满足才启动过渡（否则返回 false，走原直写路径）：
+//   1. view 声明了 transitionDuration > 0
+//   2. 属性为已知 PropId 且非布局属性（width/height/padding/margin 直接跳变，v1 排除）
+//   3. 新值为可补间类型（double / Color / EdgeInsets；bool/int64/Transform 视为 flip）
+//   4. view 有非空 id（动画引擎按 viewId 定位 target）
+//
+// from = readPropValue(prop)：动画进行中读到的是插值中间值，过渡被打断时
+// 从当前插值位置平滑续到新目标。启动后值由动画逐帧 applyAnimationFrame
+// 写入（含 markDirty），因此这里不再直写、也不重复 markDirty。
+// ═══════════════════════════════════════════════════════════════════════════
+static bool tryStartTransition(View *view, const std::string &name, const TypedProp &to) {
+    if (view->props.transitionDuration <= 0.0f) return false;
+
+    PropId prop = propIdFromName(name);
+    if (prop == PropId::COUNT) return false;
+
+    const PropMeta &meta = getPropMeta(prop);
+    if (meta.layoutAffecting) return false;                       // 布局属性直接跳变
+    if (!std::holds_alternative<double>(to) &&
+        !std::holds_alternative<Color>(to) &&
+        !std::holds_alternative<EdgeInsets>(to)) return false;    // flip 型直接写
+    if (view->props.id.empty()) return false;                     // 引擎按 id 定位
+
+    View *root = view;
+    while (root->parent()) root = root->parent();                 // 根节点（target_ 解析用）
+
+    AnimationDesc desc;
+    desc.viewId   = view->props.id;
+    desc.prop     = prop;
+    desc.from     = view->readPropValue(prop);   // 当前值（动画中即中间值，打断续插平滑）
+    desc.to       = to;
+    desc.duration = view->props.transitionDuration;
+    desc.easing   = {};                          // 默认 Ease（平滑减速）
+    AnimationEngine::instance().start(desc.viewId, desc, root);
+    return true;
+}
+
 bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *ctx, JSValueConst newValue) {
     BindingKey bk{statePtr, key};
     auto range = bindings_.equal_range(bk);
@@ -126,10 +168,15 @@ bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *
         TypedProp typed = jsValueToTypedProp(ctx, val, entry->typeHint);
 
         // 类型安全写入，不触发 binding_ 写回（避免循环）
-        view->setPropertyTyped(propName.c_str(), typed);
-        view->markDirty();
+        // 隐式 transition：条件满足则启动自动补间，值由动画逐帧 applyAnimationFrame
+        // 写入（含 markDirty），故过渡时跳过直写与重复 markDirty
+        if (!tryStartTransition(view, propName, typed)) {
+            view->setPropertyTyped(propName.c_str(), typed);
+            view->markDirty();
+        }
     }
 
     JS_FreeValue(ctx, val);
     return true;
 }
+

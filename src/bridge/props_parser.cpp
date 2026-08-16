@@ -88,8 +88,10 @@ Gradient parseGradient(const std::string &str) {
 
     if (parts[0] == "linear" && parts.size() >= 4) {
         g.type = GradientType::Linear;
-        try { g.angleDeg = std::stof(parts[1]); } catch (...) { g.angleDeg = 180.0f; }
-        g.color0 = parseColor(parts[2]);   // 复用 kwik.core.color_parser
+        try {
+            g.angleDeg = std::stof(parts[1]);
+        } catch (...) { g.angleDeg = 180.0f; }
+        g.color0 = parseColor(parts[2]);    // 复用 kwik.core.color_parser
         g.color1 = parseColor(parts[3]);
     } else if (parts[0] == "radial" && parts.size() >= 3) {
         g.type = GradientType::Radial;
@@ -133,6 +135,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
     if (ex.has("margin")) result.margin = parseEdgeInsets(ex.raw().getProperty("margin"));
     ex.get("visible", result.visible);
     ex.get("opacity", result.opacity);
+    ex.get("transitionDuration", result.transitionDuration);
 
     {
         // scale 已并入 Transform：独立 scale 属性合并进 transform.scale（默认 1.0）
@@ -140,6 +143,18 @@ ViewProps parseViewProps(PropsExtractor &ex) {
         if (ex.get("scale", s) && s != 1.0f) {
             if (!result.transform) result.transform = Transform{};
             result.transform->scale = s;
+        }
+    }
+
+    {
+        float tmp = 0;
+        if (ex.get("rotate", tmp) && std::isfinite(tmp)) {
+            if (!result.transform) result.transform = Transform{};
+            result.transform->rotate = tmp;
+        }
+        if (ex.get("translateY", tmp) && std::isfinite(tmp)) {
+            if (!result.transform) result.transform = Transform{};
+            result.transform->translateY = tmp;
         }
     }
 
@@ -162,7 +177,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
                     t.rotate = std::stof(s.substr(c2 + 1));
                 } else {
                     t.rotate = std::stof(s.substr(c2 + 1, c3 - c2 - 1));
-                    t.scale  = std::stof(s.substr(c3 + 1));
+                    t.scale = std::stof(s.substr(c3 + 1));
                 }
             }
         }
@@ -816,7 +831,7 @@ KeyboardProps parseKeyboardProps(PropsExtractor &ex) {
 DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
     DateTimePickerProps result;
     ex.get("placeholder", result.placeholder);
-    ex.get("value", result.value);          // 触发 tryRecordBinding → 激活 propMeta 绑定标记
+    ex.get("value", result.value);    // 触发 tryRecordBinding → 激活 propMeta 绑定标记
     ex.get("mode", result.mode);
     ex.get("fontSize", result.fontSize);
     ex.get("cellSize", result.cellSize);
@@ -878,8 +893,7 @@ ChartProps parseChartProps(PropsExtractor &ex) {
                 if (!cv.isNull() && !cv.isUndefined()) cs.color = convertTo<Color>(cv);
                 auto dv = s.getProperty("data");
                 if (dv.isArray()) {
-                    for (int j = 0; j < dv.getArrayLength(); ++j)
-                        cs.data.push_back(dv.getArrayElement(j).toFloat());
+                    for (int j = 0; j < dv.getArrayLength(); ++j) cs.data.push_back(dv.getArrayElement(j).toFloat());
                 }
                 result.series.push_back(std::move(cs));
             }

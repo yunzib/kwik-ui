@@ -330,6 +330,11 @@ void View::onDraw(Graphics &graphics) {
     // ── 只遍历脏子树 ──
     // 收集直接子节点脏区并集：被脏兄弟覆盖的干净兄弟也需重绘，保持 z-order
     Rect subDirty;
+    if (dirty_) {
+        // 父自身重绘会 drawUnderlay 擦掉 lastPaintBounds_∪paintBounds() 区域，
+        // 该区域内的干净子节点必须跟随重绘，否则被底图擦除（文字消失）
+        subDirty = lastPaintBounds_.unionRect(paintBounds());
+    }
     for (auto &c : children)
         // 借根节点不参与 base 兄弟重叠协调（其绘制/脏由 LayerStack 负责）
         if (c->dirty_ && c->props.visible && !c->drawnElsewhere_)
@@ -350,14 +355,20 @@ void View::onDraw(Graphics &graphics) {
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
-            if (isDirty || overlaps) c->draw(graphics);
+            if (isDirty || overlaps) {
+                if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
+                c->draw(graphics);
+            }
         }
     } else {
         for (auto &c : children) {
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
-            if (isDirty || overlaps) c->draw(graphics);
+            if (isDirty || overlaps) {
+                if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
+                c->draw(graphics);
+            }
         }
     }
     graphics.restore();
