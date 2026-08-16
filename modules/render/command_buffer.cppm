@@ -14,8 +14,8 @@ import std;
 /** @brief 绘制命令变体（原 DrawCommand + 状态命令） */
 export using DrawCommand = std::variant<ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd,
                                        DrawShadowCmd, DrawGlyphCmd, DrawImageCmd, FillTrianglesCmd,
-                                       StrokeTrianglesCmd, DrawMeshCmd, DrawSegmentCmd,
-                                       PushClipCmd, PopClipCmd>;
+                                       StrokeTrianglesCmd, StrokeArcCmd, DrawMeshCmd, DrawSegmentCmd,
+                                       PushClipCmd, PopClipCmd, FillRingCmd>;
 
 /**
  * @brief 扁平命令流（替代原 DrawList + 层树）

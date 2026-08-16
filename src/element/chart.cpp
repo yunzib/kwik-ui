@@ -1,9 +1,12 @@
 // ============================================================================
-// chart.cpp — Chart 图表组件实现（饼图 / 折线图）
+// chart.cpp — Chart 图表组件实现（饼图 / 折线图 / 柱状图 / 仪表盘）
 //
 // 动画: CoreTimer 绘制外驱动 — 首帧 onDraw 记录 animStart_, smoothstep 缓动,
 //       progress<1 时经 CoreTimer 周期 markDirty()(绘制外, 存活 clearDirty),
 //       到达 1 后 clear 定时器停止自刷新。
+// 仪表盘: 轨道/阈值分段/指示弧统一走 SDF 圆环（Graphics::fillRing）——
+//       每段仅 6 顶点 1 个 quad，圆度/端帽/AA 全在 fragment 逐像素计算，
+//       规避折线描边在近共线圆环上的 miter join 退化接缝（花色/缺口）。
 // ============================================================================
 
 module;
@@ -115,6 +118,8 @@ void Chart::onDraw(Graphics &graphics) {
         drawLine(graphics);
     else if (cp_.type == "bar")
         drawBar(graphics);
+    else if (cp_.type == "gauge")
+        drawGauge(graphics);
     else
         drawPie(graphics);
 
@@ -272,11 +277,13 @@ void Chart::drawLine(Graphics &g) {
             float v = vmin + (s.data[i] - vmin) * animProgress_;
             float y = bottom - (v - vmin) / (vmax - vmin) * (bottom - top);
             if (i == 0) {
-                px = x; py = y;
+                px = x;
+                py = y;
                 continue;
             }
             g.drawSegment(px, py, x, y, halfW, c);
-            px = x; py = y;
+            px = x;
+            py = y;
         }
 
         // 数据点小圆
@@ -398,6 +405,173 @@ void Chart::drawBar(Graphics &g) {
 }
 
 // ============================================================================
+// drawGauge — 仪表盘（270° 弧形，SDF 圆环管线）
+//   ① 背景轨道（emptyColor 浅灰全扫角，平头端帽）
+//   ② 阈值分段（gauge.segments 按值域 [min,max] 着色，平头，段间软边衔接）
+//   ③ 指示弧（当前值，从 min 扫入，平头端帽，动画 animProgress_ 驱动；
+//      pointer=true 时跳过 → 由⑤指针承担；值=min 时不绘制 → 归零无残留）
+//   ④ 刻度（ticks 个主刻度短线 + 值标签，labelEvery 控制标签密度）
+//   ⑤ 指针（pointer:true 时替换③：triangle/torpedo/counterweight/blade + hub，角度复用③动画）
+//
+// SDF 圆环说明: fillRing 仅传圆心/中径/半带宽/起止角，后端生成 6 顶点 quad；
+//   圆度与 AA 由 fragment `abs(|p-c|-midR)-halfW` + fwidth 逐像素求值，
+//   平头=角度软边收口，圆头=端点圆盘 SDF——无折线细分，无 miter 接缝。
+// ============================================================================
+void Chart::drawGauge(Graphics &g) {
+    // ── 绘制区域（frame 内扣除 padding）──
+    float l = frame.x + props.padding.left;
+    float t = frame.y + props.padding.top;
+    float w = frame.width - props.padding.horizontal();
+    float h = frame.height - props.padding.vertical();
+    if (w < 1.0f || h < 1.0f) return;
+    float cx = l + w * 0.5f;
+    float cy = t + h * 0.5f;
+
+    const auto &gp = cp_.gauge;
+    float minV = gp.min, maxV = gp.max;
+    if (maxV <= minV) maxV = minV + 1.0f;    // 防御：值域非法回退
+    float value = cp_.value;                 // gauge 当前值（type=="gauge" 时 value 属性为唯一来源，支持 ref 绑定）
+    if (value < minV) value = minV;
+    if (value > maxV) value = maxV;
+
+    // ── 几何：半径（预留刻度/标签余量）；带宽按比例可调（trackRatio/innerRatio）──
+    float r = std::min(w, h) * 0.5f - 18.0f;
+    if (r < 10.0f) r = 10.0f;
+    float rOut = r * 0.95f;                   // 外缘固定（刻度在 rOut+6..14，不受带宽影响）
+    float trackW = r * gp.trackRatio;         // 外环轨道带宽（默认 0.23r）
+    float rIn = rOut - trackW;                // 外环内缘
+    float bandMidR = rOut - trackW * 0.5f;    // 轨道中径（外环同心）
+    float bandHalfW = trackW * 0.5f;          // 轨道半带宽
+
+    float PI = std::acos(-1.0f);    // 角度换算常量（drawPie 中 PI 是其局部变量，此处不可见）
+    // 值 → 角度（度 → 弧度）
+    auto angleOf = [&](float v) { return (gp.start + gp.sweep * (v - minV) / (maxV - minV)) * (PI / 180.0f); };
+    float aStart = angleOf(minV);
+    float aEnd = angleOf(maxV);
+
+    // ── ① 背景轨道（全扫角浅灰，平头端帽保持原 stroke 外观）──
+    //    color0==color1 → 纯色；roundCap=false → 两端径向平切 + 1px 软边 AA
+    g.fillRing(cx, cy, bandMidR, bandHalfW, aStart, aEnd, cp_.emptyColor, cp_.emptyColor, false);
+
+    // ── ② 阈值分段（各段 [prev,cur] 按值域着色，平头；段间共享角，1px 软边自然衔接无接缝）──
+    float prev = minV;
+    for (const auto &seg : gp.segments) {
+        float cur = seg.value;
+        if (cur < prev) cur = prev;
+        if (cur > maxV) cur = maxV;
+        if (cur > prev && seg.color.isVisible())
+            g.fillRing(cx, cy, bandMidR, bandHalfW, angleOf(prev), angleOf(cur), seg.color, seg.color, false);
+        prev = cur;
+    }
+
+    // ── ③ 指示弧（深蓝进度条：SDF 圆环 + 平头端帽，与外环轨道同圆心、同端帽 → 对齐不超出）──
+    //    pointer=true 时跳过：指针模式由⑤ drawNeedle 承担，避免弧+针双指示
+    float valueAngle = aStart + (angleOf(value) - aStart) * animProgress_;
+    if (!gp.pointer && valueAngle - aStart > 1e-4f) {   // 值=min / 动画起始：span≈0 不绘制，归零无残留
+        float indMid = bandMidR;           // 与外环同心
+        float indW = r * gp.innerRatio;    // 内环带宽（默认 0.18r，居中于轨道带内）
+        g.fillRing(cx, cy, indMid, indW * 0.5f, aStart, valueAngle, Color{21, 60, 102, 255}, Color{21, 60, 102, 255},
+                   false);
+    }
+
+    // ── ④ 刻度（ticks 个主刻度短线 + 值标签；labelEvery 控制标签密度）──
+    if (gp.ticks > 1) {
+        for (int i = 0; i <= gp.ticks; ++i) {
+            float a = aStart + (aEnd - aStart) * i / gp.ticks;
+            float x1 = cx + std::cos(a) * (rOut + 6.0f);
+            float y1 = cy + std::sin(a) * (rOut + 6.0f);
+            float x2 = cx + std::cos(a) * (rOut + 14.0f);
+            float y2 = cy + std::sin(a) * (rOut + 14.0f);
+            Path tick;
+            tick.moveTo(x1, y1);
+            tick.lineTo(x2, y2);
+            g.strokePath(tick, cp_.labelColor, 1.5f);
+
+            // 值标签（labelEvery=0 关闭；1 每个刻度都显示）
+            if (gp.labelEvery > 0 && i % gp.labelEvery == 0) {
+                float v = minV + (maxV - minV) * i / gp.ticks;
+                char buf[16];
+                std::snprintf(buf, sizeof(buf), "%.0f", v);
+                float lr = rOut + 22.0f;
+                drawLabel(g, buf, cx + std::cos(a) * lr, cy + std::sin(a) * lr, 10.0f, cp_.labelColor);
+            }
+        }
+    }
+
+    // ── ⑤ 指针（pointer=true 时绘制：4 造型 + hub，角度复用③的 valueAngle 动画；归零恒指向 min 角）──
+    if (gp.pointer) drawNeedle(g, cx, cy, r, rOut, valueAngle);
+}
+
+// ============================================================================
+// drawNeedle — 指针绘制（speedometer 风，pointer:true 时替换③指示弧）
+//
+// 造型（全部为凸多边形 → triangulateFill 形心三角扇正确，edgeMask 解析 AA 覆盖轮廓）：
+//   triangle      细长三角：针尖抵刻度内缘，针尾半宽 0.05r，由 hub 盖住根部
+//   torpedo       圆底梭形：针尖 + 绕 hub 鼓出的圆弧底座（背面手写采样 12 点，一体式无 hub）
+//   counterweight 配重尾针：针尖 + 穿出 hub 后方 0.30r 的长细尾（尾部半宽 0.018r）
+//   blade         宽刀片梯形：针尖半宽 0.02r、根部半宽 0.08r（距中心 0.18r）
+// hub: drawRoundedRect 且 radius=半边长 → SDF 精确圆；深色 bezel 外圈 + 针色内芯
+// ============================================================================
+void Chart::drawNeedle(Graphics &g, float cx, float cy, float r, float rOut, float a) {
+    const auto &gp = cp_.gauge;
+    const float PI = std::acos(-1.0f);
+    // 指针角单位向量 u（针向）与法向 v（针宽方向）
+    float ux = std::cos(a), uy = std::sin(a);
+    float vx = -uy, vy = ux;
+    float tip = rOut + 2.0f;                 // 针尖抵刻度内缘（刻度短线在 rOut+6..14）
+    Path p;
+
+    if (gp.needleStyle == "torpedo") {
+        // 圆底梭形：针尖 + 绕 hub 鼓出的圆弧底座（从 a+β 经背面 a+π 扫到 a-β）
+        float rb = 0.075f * r;               // 底座圆半径
+        float wb = 0.05f * r;                // 底座半宽 → 半张角 β
+        float beta = std::asin(std::min(1.0f, wb / rb));
+        const int N = 12;                    // 弧采样点数（足够平滑且开销可忽略）
+        p.moveTo(cx + ux * tip, cy + uy * tip);
+        for (int k = 0; k <= N; ++k) {       // a+β → 经背面(a+π) → a-β，保证底座向针尾鼓出
+            float ang = a + beta + (2.0f * PI - 2.0f * beta) * (static_cast<float>(k) / N);
+            p.lineTo(cx + std::cos(ang) * rb, cy + std::sin(ang) * rb);
+        }
+        p.closePath();
+        g.fillPath(p, gp.needleColor);
+        return;                              // 一体式造型，无独立 hub
+    }
+
+    if (gp.needleStyle == "counterweight") {
+        // 配重尾针：针尖 + 穿出 hub 后方 0.30r 的长细尾（经典速度表平衡杆）
+        float wt = gp.needleWidth > 0 ? gp.needleWidth * r : 0.018f * r;
+        float tail = 0.30f * r;
+        p.moveTo(cx + ux * tip, cy + uy * tip);
+        p.lineTo(cx - ux * tail + vx * wt, cy - uy * tail + vy * wt);
+        p.lineTo(cx - ux * tail - vx * wt, cy - uy * tail - vy * wt);
+        p.closePath();
+        g.fillPath(p, gp.needleColor);
+    } else if (gp.needleStyle == "blade") {
+        // 宽刀片梯形：根部宽（0.08r）渐收至针尖窄（0.02r），根部距中心 0.18r
+        float wT = 0.02f * r, wB = 0.08f * r, baseAt = 0.18f * r;
+        p.moveTo(cx + ux * tip - vx * wT, cy + uy * tip - vy * wT);
+        p.lineTo(cx + ux * baseAt - vx * wB, cy + uy * baseAt - vy * wB);
+        p.lineTo(cx + ux * baseAt + vx * wB, cy + uy * baseAt + vy * wB);
+        p.lineTo(cx + ux * tip + vx * wT, cy + uy * tip + vy * wT);
+        p.closePath();
+        g.fillPath(p, gp.needleColor);
+    } else {  // triangle（默认）
+        // 细长三角：针尖抵刻度，针尾半宽 0.05r 落于中心，由 hub 盖住根部
+        float w = gp.needleWidth > 0 ? gp.needleWidth * r : 0.05f * r;
+        p.moveTo(cx + ux * tip, cy + uy * tip);
+        p.lineTo(cx + vx * w, cy + vy * w);
+        p.lineTo(cx - vx * w, cy - vy * w);
+        p.closePath();
+        g.fillPath(p, gp.needleColor);
+    }
+
+    // ── 中心 hub：深色 bezel 外圈 + 针色内芯（drawRoundedRect 半边长 → 精确圆 SDF）──
+    float hr = gp.hubRadius > 0.0f ? gp.hubRadius : 0.07f * r;
+    g.drawRoundedRect(Rect{cx - hr - 2, cy - hr - 2, (hr + 2) * 2, (hr + 2) * 2}, hr + 2, gp.hubColor);
+    g.drawRoundedRect(Rect{cx - hr, cy - hr, hr * 2, hr * 2}, hr, gp.needleColor);
+}
+
+// ============================================================================
 // drawLegend — 顶部横向图例（色块 + 系列名）
 // ============================================================================
 void Chart::drawLegend(Graphics &g) {
@@ -485,4 +659,23 @@ void Chart::resolveThemeDefaults() {
         if (cp_.labelColor == Color{120, 120, 120, 255}) cp_.labelColor = t.colors.onSurfaceVariant;
     if (!c("legendColor", cp_.legendColor))
         if (cp_.legendColor == Color{80, 80, 80, 255}) cp_.legendColor = t.colors.onSurface;
+}
+
+// ============================================================================
+// setPropertyTyped — Chart 专有属性增量更新（State+ref 绑定路径）
+//   state.key 变更 → binding_registry → setPropertyTyped("value", typed)
+//   → 更新当前值 + 重新播放扫入动画（阈值分段按值域实时跟随）
+// ============================================================================
+bool Chart::setPropertyTyped(const char *name, const TypedProp &value) {
+    if (std::strcmp(name, "value") == 0) {
+        if (auto *d = std::get_if<double>(&value)) {
+            cp_.value = static_cast<float>(*d);
+            animStarted_ = false;    // 重新播放扫入动画
+            animProgress_ = 0.0f;
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    return View::setPropertyTyped(name, value);
 }

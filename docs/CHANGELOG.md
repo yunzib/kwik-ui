@@ -36,6 +36,17 @@
   → 改用 View::resolveEffectiveSize 统一换算，textAlign center/right 才有对齐空间；
   顺带修复多行 glyph.y 行局部坐标扁平绘制会行重叠的隐患（Text 复用 TextArea 逐行
   translate 渲染模式）
+- SDF 圆环管线 Graphics::fillRing（triangle.slang gradMode==2）：每环 6 顶点 1 quad，
+  fragment 像素级精确圆+渐变+端帽（平头=角度软边/圆头=端帽圆盘），fwidth AA 下限 0.75px；
+  FillRingCmd/backend.fillRing/TriangleRenderer::drawRing（PushConstants 128B）
+- ProgressRing 圆环进度组件：双层双环 SDF、沿弧渐变、两端圆头、支持全圆/270°/180°、
+  value ref 双向绑定；中央数值由子组件组合
+- Chart type:"gauge" 仪表盘：轨道/阈值分段/指示弧/刻度全走 SDF 圆环；labelEvery 每刻度显示值、
+  trackRatio/innerRatio 带宽可调；归零无残留、内外环同心对齐、指示弧平头端帽
+- gauge 指针模式（pointer:true）：指示弧替换为指针+hub，4 造型
+  （triangle/torpedo/counterweight/blade），fillPath 凸多边形+edgeMask 解析 AA，
+  hub 用 drawRoundedRect 正圆；改值扫动动画、归零落 min 角
+- gauge 中央数值移除内置 unit，由子组件组合（值+单位同行/附加信息）
 
 ### 修复：
 - Button 点击缩放锚点错误（Graphics::scale 前置/后乘混用 → 绕屏幕原点而非按钮中心，已改为后乘 M·S）——若已实施

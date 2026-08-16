@@ -306,3 +306,4 @@ export LazyListProps parseLazyListProps(PropsExtractor &ex);
 export KeyboardProps parseKeyboardProps(PropsExtractor &ex);
 export DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex);
 export ChartProps parseChartProps(PropsExtractor &ex);
+export ProgressRingProps parseProgressRingProps(PropsExtractor &ex);

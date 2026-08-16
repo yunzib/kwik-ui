@@ -90,6 +90,54 @@ export struct StrokeTrianglesCmd {
     Transform2D t;  
 };
 
+/**
+ * @brief Sweep 扫描渐变参数（环形进度用，模拟主流框架 SweepGradient）
+ *
+ * cx/cy 为圆心（本地逻辑坐标），随矩阵一起作用于顶点，
+ * 因此 rotate/scale/clip 对渐变与纯色填充一致（与 Gradient 语义相同）。
+ * 起点色复用命令中的 color0。
+ */
+export struct SweepGrad {
+    float cx = 0, cy = 0;   // 圆心（本地逻辑坐标）
+    float a0 = 0, a1 = 0;   // 渐变起止角（弧度）
+    Color color1;           // 渐变终点色
+};
+
+/**
+ * @brief 渐变弧带命令（单条连续弧 + Sweep 角度渐变）
+ *
+ * 与 strokePath 的区别：附加圆心/起止角/终点色，渲染时顶点按角度插值颜色，
+ * 实现"单命令 + 无缝 + GPU 平滑渐变"（替代 N 段短弧拼接）。
+ */
+export struct StrokeArcCmd {
+    size_t vertexOffset;
+    uint32_t vertexCount;
+    Color  color0;          // 渐变起点色（透明度已烘焙）
+    float  cx, cy;          // 圆心（本地逻辑坐标）
+    float  a0, a1;          // 渐变起止角（弧度）
+    Color  color1;          // 渐变终点色（透明度已烘焙）
+    Transform2D t;
+};
+
+/**
+ * @brief SDF 圆环命令（UberSDF 同款：后端内部生成 6 顶点 quad，零折线细分）
+ *
+ * 圆度/渐变/端帽全部由 fragment SDF 计算：每环仅 6 顶点 1 draw call，
+ * 彻底规避折线描边在近共线圆环上的 miter join 退化（h≈0.001px → 半透明接缝）。
+ * 参数均为本地逻辑坐标（随矩阵变换，与 Gradient 语义一致）。
+ */
+export struct FillRingCmd {
+    float cx = 0, cy = 0;      // 圆心（本地逻辑坐标）
+    float midR = 0;            // 圆环中径（本地逻辑坐标）
+    float halfW = 0;           // 半带宽（本地逻辑坐标 = strokeWidth/2）
+    float a0 = 0, a1 = 0;      // 弧起止角（弧度，span = a1 - a0）
+    bool  roundCap = true;     // true=圆头端帽  false=平头软边
+    float pad = 2.0f;          // quad 外扩（本地坐标，覆盖 AA 过渡带）
+    Color color0;              // 弧起点色 / 纯色（透明度已烘焙）
+    Color color1;              // 弧终点色（透明度已烘焙；== color0 时即纯色）
+    Transform2D t;
+};
+
 /*
  * ── 状态命令 ──
  * PushClipCmd / PopClipCmd 由 Graphics 直接 append 到 CommandBuffer，

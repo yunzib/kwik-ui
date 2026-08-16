@@ -61,6 +61,7 @@ import kwik.element.lazy_list_source;
 import kwik.element.keyboard;
 import kwik.element.datepicker;
 import kwik.element.chart;
+import kwik.element.progressring;
 
 import std;
 
@@ -590,6 +591,16 @@ static struct InitBuiltinTypes {
             v->propMeta = std::move(meta);
             applyBindings(v.get(), pv);
             return v;
+        });
+
+         // ── ProgressRing ──
+        ElementParser::registerType("ProgressRing", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto pr = std::make_unique<ProgressRing>(parseViewProps(ex), parseProgressRingProps(ex));
+            pr->propMeta = std::move(meta);
+            applyBindings(pr.get(), pv);
+            return pr;
         });
     }
 } _init_builtin_types;

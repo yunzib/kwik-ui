@@ -120,6 +120,8 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "transition") return "../../test/ui/transition.js";
         if (arg == "flexwrap") return "../../test/ui/flex_wrap.js";
         if (arg == "textflow") return "../../test/ui/text_flow.js";
+        if (arg == "gauge") return "../../test/ui/gauge.js";
+        if (arg == "progressring") return "../../test/ui/progressring.js";
         return arg;
     }
     return "../../test/ui/example.js";

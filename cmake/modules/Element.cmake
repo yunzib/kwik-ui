@@ -41,6 +41,7 @@ target_sources(kwik_element
             modules/element/keyboard.cppm
             modules/element/datepicker.cppm
             modules/element/chart.cppm
+            modules/element/progressring.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -89,7 +90,8 @@ target_sources(kwik_element
         src/element/keyboard.cpp
         src/element/datepicker.cpp
         src/element/chart.cpp
-
+        src/element/progressring.cpp
+        
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp
         src/layout/stack_layout.cpp

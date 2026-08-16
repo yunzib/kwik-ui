@@ -309,12 +309,13 @@ void Graphics::fillPath(const Path &path, const Color &color) {
         FillTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
-void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
-    if (!recording_ || currentState_.noop) return;
-    auto triangles = triangulateStroke(path, lineWidth);
-    if (triangles.empty()) return;
 
-    // ★ 修正：原残留旧代码（用 currentState_.sx/sy/tx/ty + 无矩阵）→ 改为与 fillPath 一致的矩阵版
+
+std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
+    auto triangles = triangulateStroke(path, lineWidth);
+    if (triangles.empty()) return {};
+
+    // 与 fillPath 一致使用当前变换矩阵（含 scale），边高按矩阵缩放折算为物理像素
     const auto &m = currentState_.m;
     float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
 
@@ -336,8 +337,47 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
         verts[i++] = {{t.p1.x, t.p1.y}, mask, h0, h1, h2};
         verts[i++] = {{t.p2.x, t.p2.y}, mask, h0, h1, h2};
     }
+    return verts;
+}
+
+void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
+    if (!recording_ || currentState_.noop) return;
+    auto verts = strokeVerts(path, lineWidth);
+    if (verts.empty()) return;
     size_t off = cb_->appendVertices(verts.data(), verts.size());
     cb_->append(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
+}
+
+void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1,
+                         float width, const Color &color0, const Color &color1) {
+    if (!recording_ || currentState_.noop) return;
+    if (r <= 0.0f || width <= 0.0f) return;
+
+    // 单条连续高密度弧：Path::arc 密度 ≈1.5 采样/弧度（r≈80 时弦长 ~0.7px，视觉平滑）
+    Path path;
+    path.arc(cx, cy, r, a0, a1, false);
+    auto verts = strokeVerts(path, width);
+    if (verts.empty()) return;
+
+    // 圆心/角度以本地逻辑坐标传给 shader，随矩阵一起作用于顶点 → 渐变与纯色变换一致
+    // 两端颜色均烘焙透明度，渐变中间 alpha 由 shader 插值（lerp 语义）
+    size_t off = cb_->appendVertices(verts.data(), verts.size());
+    cb_->append(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0),
+                             cx, cy, a0, a1, applyOpacity(color1), currentState_.m});
+}
+
+void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, float a1,
+                        const Color &color0, const Color &color1, bool roundCap) {
+    if (!recording_ || currentState_.noop) return;
+    if (midR <= 0.0f || halfW <= 0.0f) return;
+
+    // quad 外扩：覆盖 fragment SDF 的 AA 过渡带（约 2 物理像素，随矩阵缩放折算到本地坐标）
+    const auto &m = currentState_.m;
+    float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
+    float pad = (sc > 1e-6f) ? 2.0f / sc : 2.0f;
+
+    cb_->append(FillRingCmd{cx, cy, midR, halfW, a0, a1, roundCap, pad,
+                            applyOpacity(color0), applyOpacity(color1), currentState_.m});
 }
 
 void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,

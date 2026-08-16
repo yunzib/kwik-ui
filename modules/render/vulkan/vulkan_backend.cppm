@@ -53,7 +53,10 @@ public:
     BackendType getType() const override { return BackendType::Vulkan; }
     int getWidth() const override { return width_; }
     int getHeight() const override { return height_; }
-    void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) override;
+    void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices,
+                       const SweepGrad *sweep = nullptr) override;
+    void fillRing(const FillRingCmd &cmd) override;
+
     void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) override;
 
     /** @brief 重置帧内 GPU 状态缓存（当前 no-op，保留接口） */
@@ -75,5 +78,5 @@ private:
     enum class PushKind : uint8_t { Clip };    // 仅剩 Clip（transform/opacity 已烘烤）
     std::vector<PushKind> pushKinds_;
 
-    uint32_t drawCalls_ = 0;   ///< 临时探针：本帧绘制调用计数
+    uint32_t drawCalls_ = 0;    ///< 临时探针：本帧绘制调用计数
 };

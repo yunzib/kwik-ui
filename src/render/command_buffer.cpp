@@ -63,6 +63,12 @@ void CommandBuffer::replay(RenderBackend &backend) const {
                     // Stroke 复用 fill 渲染路径：补全 mode 与矩阵（FillTrianglesCmd 为 5 字段）
                     FillTrianglesCmd fc{arg.vertexOffset, arg.vertexCount, arg.color, BlendMode::SrcOver, arg.t};
                     backend.fillTriangles(fc, verts);
+                } else if constexpr (std::is_same_v<T, StrokeArcCmd>) {
+                    const AAVertex *verts = vertices_.data() + arg.vertexOffset;
+                    // 渐变弧带复用 fill 渲染路径：附加 Sweep 渐变参数（圆心/角度/终点色）
+                    SweepGrad sg{arg.cx, arg.cy, arg.a0, arg.a1, arg.color1};
+                    FillTrianglesCmd fc{arg.vertexOffset, arg.vertexCount, arg.color0, BlendMode::SrcOver, arg.t};
+                    backend.fillTriangles(fc, verts, &sg);
                 } else if constexpr (std::is_same_v<T, DrawMeshCmd>) {
                     const Vertex3D *verts = meshVertices_.data() + arg.vertexOffset;
                     backend.drawMesh(arg, verts);    // 对象空间 MVP，无 2D 矩阵
@@ -72,6 +78,8 @@ void CommandBuffer::replay(RenderBackend &backend) const {
                     backend.pushClipRoundedRect(arg.rect, arg.radius, arg.t, arg.clipRect);    // 加 arg.clipRect
                 } else if constexpr (std::is_same_v<T, PopClipCmd>) {
                     backend.popState();
+                } else if constexpr (std::is_same_v<T, FillRingCmd>) {
+                    backend.fillRing(arg);    // SDF 圆环：后端内部生成 quad，无顶点引用
                 }
             },
             cmd);

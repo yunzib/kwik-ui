@@ -1595,6 +1595,11 @@ static JSValue js_chart(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return makeElement(ctx, "Chart", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+static JSValue js_progressring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
+    return makeElement(ctx, "ProgressRing", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
 
@@ -1645,6 +1650,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("Keyboard", 1, js_keyboard),
         JS_CFUNC_DEF("DateTimePicker", 2, js_datepicker),
         JS_CFUNC_DEF("Chart", 2, js_chart),
+        JS_CFUNC_DEF("ProgressRing", 2, js_progressring),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

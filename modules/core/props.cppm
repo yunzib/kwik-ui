@@ -680,6 +680,45 @@ export struct ChartSeries {
 };
 
 /**
+ * @brief 仪表盘阈值分段（type=="gauge" 专用）
+ * @note 段按值域顺序排列，值单调不减；value 为段上限（位于 [gauge.min, gauge.max]）
+ */
+export struct GaugeSegment {
+    float value;                    ///< 段上限（值域 [min,max] 内）
+    Color color;                    ///< 段色（transparent = 跳过该段）
+};
+
+/**
+ * @brief 仪表盘专用属性 — ChartProps.gauge 子结构
+ *
+ * 子结构模式：新图表类型专用字段一律各自子结构内嵌，避免 ChartProps 顶层字段
+ * 无限膨胀；顶层只允许跨类型通用字段。JS 侧嵌套用法：
+ *   Chart({ type: "gauge", series:[{data:[68]}],
+ *          gauge: { min:0, max:100, ticks:10,
+ *                   segments:[{value:60,color:"#4CAF50"},{value:85,color:"#FF9800"}] } })
+ */
+export struct GaugeProps {
+    float min = 0.0f;               ///< 仪表最小值（默认 0）
+    float max = 100.0f;             ///< 仪表最大值（默认 100）
+    float start = 135.0f;           ///< 起始角（度，默认 135 → 与默认 270° 扫角组合终点 45°，圆弧在正下方开口）
+    float sweep = 270.0f;           ///< 扫过角（度，默认 270 = 3/4 圆环仪表）
+    int ticks = 0;                  ///< 主刻度数（0 = 不画刻度）
+    int labelEvery = 1;             ///< 刻度值标签间隔（1=每个刻度都显示；2=隔一个；0=不显示标签）
+    float trackRatio = 0.23f;       ///< 外环轨道带宽占 r 比例（外缘固定 0.95r，向内收；0=不画轨道）
+    float innerRatio = 0.18f;       ///< 内环指示带宽占 r 比例（与外环同心居中于轨道带内）
+
+    // ── 指针模式（speedometer 风）──
+    bool pointer = false;                  ///< true → 指针模式（③指示弧替换为指针+hub）
+    std::string needleStyle = "triangle";  ///< 指针造型: triangle / torpedo / counterweight / blade
+    Color needleColor{211, 47, 47, 255};   ///< 指针颜色（默认经典红）
+    Color hubColor{20, 30, 45, 255};       ///< 中心 hub 颜色
+    float hubRadius = 0.0f;                ///< hub 半径（0=自动 0.07r）
+    float needleWidth = 0.0f;              ///< 指针基准半宽（0=按造型自动）
+
+    std::vector<GaugeSegment> segments;   ///< 阈值分段（按值域着色，超出分段范围部分显示背景轨道色）
+};
+
+/**
  * @brief 图表专有属性
  *
  * 过渡动画: 数据首次渲染或 series 更新时, 按 duration 时长
@@ -698,4 +737,30 @@ export struct ChartProps {
     Color labelColor{120, 120, 120, 255}; // 数据标签色
     Color legendColor{80, 80, 80, 255};   // 图例文字色
     Color emptyColor{235, 235, 235, 255}; // 饼图扇区分隔细缝色
+    float value = 0.0f;             ///< 仪表盘当前值（type=="gauge" 时生效，支持 ref 绑定增量更新；series 此时仅提供图例标签）
+    GaugeProps gauge;               ///< 仪表盘专用（type=="gauge" 时生效；子结构模式，其他类型忽略）
+};
+
+// ════════════════════════════════════════════════════════
+// ProgressRing 属性 — 圆环进度（外层背景环 + 内层渐变进度环）
+// ════════════════════════════════════════════════════════
+/**
+ * @brief 圆环进度专有属性
+ *
+ * 双层双环：外层 trackThickness 宽的背景环（trackColor），
+ * 内层 thickness 宽的进度环（startColor→endColor 沿弧线性渐变、
+ * 两端圆头胶囊）。进度环半径小于外环，默认全圆 360°，起始角 -90°（顶部）。
+ */
+export struct ProgressRingProps {
+    float value = 0;                         // 当前值（支持 ref 双向绑定）
+    float min = 0;                           // 最小值
+    float max = 100;                         // 最大值
+     Color trackColor{200, 200, 200, 255};    // 外环背景色（224→200，加深，与浅灰背景区分）
+    float trackThickness = 18.0f;            // 外环带宽度（14→18）
+    float thickness = 8.0f;                  // 进度环带宽度（10→8，轨道每侧露出 5px）
+    Color startColor{33, 150, 243, 255};     // 渐变起点色 (Material Blue 500)
+    Color endColor{255, 152, 0, 255};        // 渐变终点色 (Material Orange 500)
+    float startAngle = -90.0f;               // 起始角（度，-90 = 顶部）
+    float sweep = 360.0f;                    // 扫过角度（度，360 = 全圆）
+    bool roundCap = true;                    // 进度两端圆头（false → 平头 + 单色 startColor）
 };

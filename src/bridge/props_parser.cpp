@@ -142,7 +142,7 @@ ViewProps parseViewProps(PropsExtractor &ex) {
             if (v.isString()) {
                 std::string s = v.toString();
                 if (s.size() > 1 && s.back() == '%')
-                    result.heightPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;   // "50%" → 0.5
+                    result.heightPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;    // "50%" → 0.5
                 else
                     result.height = std::stof(s);
             } else if (v.isNumber()) {
@@ -284,7 +284,7 @@ TextContent parseTextContent(PropsExtractor &ex) {
                    {"right", TextAlign::Right},
                    {"justify", TextAlign::Justify},
                });
-               ex.get("wordWrap", result.wordWrap);
+    ex.get("wordWrap", result.wordWrap);
     ex.get("maxLines", result.maxLines);
     ex.get("ellipsis", result.ellipsis);
     ex.get("lineHeight", result.lineHeight);
@@ -514,6 +514,13 @@ DropdownProps parseDropdownProps(PropsExtractor &ex) {
 template <>
 Color convertTo<Color>(const JSValueRef &v) {
     if (v.isString()) { return parseColor(v.toString()); }
+    if (v.isArray() && v.getArrayLength() >= 3) {
+        uint8_t r = static_cast<uint8_t>(v.getArrayElement(0).toInt());
+        uint8_t g = static_cast<uint8_t>(v.getArrayElement(1).toInt());
+        uint8_t b = static_cast<uint8_t>(v.getArrayElement(2).toInt());
+        uint8_t a = v.getArrayLength() >= 4 ? static_cast<uint8_t>(v.getArrayElement(3).toInt()) : 255;
+        return {r, g, b, a};
+    }
     return Color::transparent();
 }
 
@@ -898,6 +905,7 @@ DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
 ChartProps parseChartProps(PropsExtractor &ex) {
     ChartProps result;
     ex.get("type", result.type);
+    ex.get("value", result.value);
     ex.get("duration", result.duration);
     ex.get("strokeWidth", result.strokeWidth);
     ex.get("showGrid", result.showGrid);
@@ -936,5 +944,68 @@ ChartProps parseChartProps(PropsExtractor &ex) {
             }
         }
     }
+
+    // ── gauge — 仪表盘子对象 {min,max,start,sweep,ticks,segments:[{value,color}]} ──
+    if (ex.has("gauge")) {
+        auto gv = ex.raw().getProperty("gauge");
+        if (gv.isObject()) {
+            auto &g = result.gauge;
+            auto getF = [&](const char *k, float &v) {
+                auto p = gv.getProperty(k);
+                if (!p.isNull() && !p.isUndefined()) v = p.toFloat();
+            };
+            getF("min", g.min);
+            getF("max", g.max);
+            getF("start", g.start);
+            getF("sweep", g.sweep);
+            getF("trackRatio", g.trackRatio);    // 外环带宽比例
+            getF("innerRatio", g.innerRatio);    // 内环带宽比例
+            // ── 指针模式（pointer/needleStyle/needleColor/hubColor/hubRadius/needleWidth）──
+            auto ptrV = gv.getProperty("pointer");
+            if (!ptrV.isNull() && !ptrV.isUndefined()) g.pointer = ptrV.toBool();
+            auto nsV = gv.getProperty("needleStyle");
+            if (nsV.isString()) g.needleStyle = nsV.toString();
+            auto ncV = gv.getProperty("needleColor");
+            if (!ncV.isNull() && !ncV.isUndefined()) g.needleColor = convertTo<Color>(ncV);
+            auto hcV = gv.getProperty("hubColor");
+            if (!hcV.isNull() && !hcV.isUndefined()) g.hubColor = convertTo<Color>(hcV);
+            getF("hubRadius", g.hubRadius);
+            getF("needleWidth", g.needleWidth);
+
+            auto tv = gv.getProperty("ticks");
+            if (!tv.isNull() && !tv.isUndefined()) g.ticks = tv.toInt();
+            auto sv = gv.getProperty("segments");
+            if (sv.isArray()) {
+                for (int i = 0; i < sv.getArrayLength(); ++i) {
+                    auto s = sv.getArrayElement(i);
+                    GaugeSegment seg;
+                    auto valV = s.getProperty("value");
+                    if (!valV.isNull() && !valV.isUndefined()) seg.value = valV.toFloat();
+                    auto colV = s.getProperty("color");
+                    if (!colV.isNull() && !colV.isUndefined()) seg.color = convertTo<Color>(colV);
+                    g.segments.push_back(std::move(seg));
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// ════════════════════════════════════════════════════════
+// parseProgressRingProps
+// ════════════════════════════════════════════════════════
+ProgressRingProps parseProgressRingProps(PropsExtractor &ex) {
+    ProgressRingProps result;
+    ex.get("value", result.value);    // ref 绑定自动注册（binding_registry 增量链路）
+    ex.get("min", result.min);
+    ex.get("max", result.max);
+    ex.get("trackColor", result.trackColor);
+    ex.get("trackThickness", result.trackThickness);
+    ex.get("thickness", result.thickness);
+    ex.get("startColor", result.startColor);
+    ex.get("endColor", result.endColor);
+    ex.get("startAngle", result.startAngle);
+    ex.get("sweep", result.sweep);
+    ex.get("roundCap", result.roundCap);
     return result;
 }

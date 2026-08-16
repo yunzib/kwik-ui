@@ -76,8 +76,18 @@ public:
     /** @brief 绘制图像（cmd 内含矩阵） */
     virtual void drawImage(const DrawImageCmd &cmd) = 0;
 
-    /** @brief 填充三角形网格（cmd 内含矩阵） */
-    virtual void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) = 0;
+    /**
+     * @brief 绘制 AA 三角形列表（可附加 Sweep 渐变）
+     * @param sweep 非空时启用扫描渐变（color0=cmd.color 起点色，color1=终点色）
+     */
+    virtual void fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices,
+                               const SweepGrad *sweep = nullptr) = 0;
+
+    /**
+     * @brief 绘制 SDF 圆环（梯度弧带 + 圆/平头端帽，quad 由后端内部生成）
+     * @param cmd 圆环参数（本地逻辑坐标，渐变/端帽语义同 SweepGradient）
+     */
+    virtual void fillRing(const FillRingCmd &cmd) = 0;
 
     /** @brief 绘制 3D 网格（对象空间 MVP，无 2D 矩阵） */
     virtual void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) = 0;

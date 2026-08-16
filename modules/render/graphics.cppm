@@ -88,6 +88,17 @@ public:
     void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
     void fillPath(const Path &path, const Color &color);
     void strokePath(const Path &path, const Color &color, float lineWidth);
+    /** @brief 渐变弧带（Sweep 角度渐变：color0 在 a0、color1 在 a1，模拟 SweepGradient） */
+    void strokeArc(float cx, float cy, float r, float a0, float a1, float width, const Color &color0,
+                   const Color &color1);
+    /**
+     * @brief SDF 圆环（UberSDF 同款：梯度弧带 + 圆/平头端帽，quad 由后端生成）
+     * @param color0 弧起点色（a0 处） / 纯色；color1 弧终点色（a1 处）；== 相同即纯色
+     * @param roundCap true=圆头端帽  false=平头
+     */
+    void fillRing(float cx, float cy, float midR, float halfW, float a0, float a1, const Color &color0,
+                  const Color &color1, bool roundCap = true);
+
     void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
                   const float lightDir[3], const Rect &viewport);
 
@@ -113,11 +124,14 @@ public:
 private:
     std::shared_ptr<CommandBuffer> cb_;    // 当前命令流
 
+    /** @brief 折线 path → AA 三角形顶点（含解析 AA 边高，随当前变换矩阵缩放） */
+    std::vector<AAVertex> strokeVerts(const Path &path, float lineWidth);
+
     // ── CPU 状态栈（坐标/颜色烘焙仍需要）──
     struct State {
-        Transform2D m;        // 逻辑→物理 变换矩阵（含 dpi + translate/rotate/scale）
+        Transform2D m;    // 逻辑→物理 变换矩阵（含 dpi + translate/rotate/scale）
         float opacity = 1.0f;
-        int pushes = 0;       // 本 save 域未弹出的 clip 数
+        int pushes = 0;    // 本 save 域未弹出的 clip 数
         bool noop = false;
     };
     std::vector<State> stateStack_;

@@ -70,6 +70,9 @@ public:
     /** @brief 便捷数据更新入口（重启动画） */
     void setSeries(std::vector<ChartSeries> series);
 
+    /** @brief Chart 专有属性增量更新（value：仪表盘当前值，更新后重启动画；ref 绑定路径） */
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
+
     void resolveThemeDefaults() override;
 
 protected:
@@ -82,6 +85,8 @@ private:
     void drawBar(Graphics &g);       // 柱状图绘制
     void drawLegend(Graphics &g);    // 图例（顶部横向）
     void scheduleNextFrame();        // 安排动画推进（CoreTimer 绘制外驱动）
+    void drawGauge(Graphics &g);     // 仪表盘绘制（type=="gauge"）
+    void drawNeedle(Graphics &g, float cx, float cy, float r, float rOut, float a);  // 指针绘制（4 造型 + hub）
 
     // 标签文字辅助（居中锚点 x,y 为文本中心）
     void drawLabel(Graphics &g, const std::string &text, float cx, float cy,

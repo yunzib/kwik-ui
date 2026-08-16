@@ -230,10 +230,16 @@ void VulkanBackend::popState() {
     }
 }
 
-void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices) {
+void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices,
+                                  const SweepGrad *sweep) {
     drawCalls_++;
     triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, vertices, cmd.vertexCount, cmd.color,
-                            clip_.globalAlpha(), cmd.t);
+                            clip_.globalAlpha(), cmd.t, sweep);
+}
+
+void VulkanBackend::fillRing(const FillRingCmd &cmd) {
+    drawCalls_++;
+    triangle_.drawRing(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha());
 }
 
 void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
