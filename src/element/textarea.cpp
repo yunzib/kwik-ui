@@ -425,3 +425,12 @@ bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+void TextArea::applyTextAreaProps(const TextAreaProps &p) {
+    props_ = p;
+    text_ = props_.value;          // 与构造函数语义一致
+    textResult_.reset();           // 重排占位/正文
+    placeholderResult_.reset();
+    markDirty();
+    requestLayout();
+}

@@ -158,5 +158,101 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
+    if (std::strcmp(name, "wordWrap") == 0) {
+        if (auto *b = std::get_if<bool>(&value)) {
+            text_.wordWrap = *b;
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "maxLines") == 0) {
+        if (auto *i = std::get_if<std::int64_t>(&value)) {
+            text_.maxLines = static_cast<int>(*i);
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "ellipsis") == 0) {
+        if (auto *b = std::get_if<bool>(&value)) {
+            text_.ellipsis = *b;
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "lineHeight") == 0) {
+        if (auto *d = std::get_if<double>(&value)) {
+            text_.lineHeight = static_cast<float>(*d);
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "fontFamily") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            text_.fontFamily = *s;
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "textAlign") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            if (s->find("center") != std::string::npos) text_.textAlign = TextAlign::Center;
+            else if (s->find("right") != std::string::npos) text_.textAlign = TextAlign::Right;
+            else if (s->find("justify") != std::string::npos) text_.textAlign = TextAlign::Justify;
+            else text_.textAlign = TextAlign::Left;
+            layoutResult_.reset();
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "verticalAlign") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            if (s->find("center") != std::string::npos) text_.verticalAlign = TextVerticalAlign::Center;
+            else if (s->find("bottom") != std::string::npos) text_.verticalAlign = TextVerticalAlign::Bottom;
+            else text_.verticalAlign = TextVerticalAlign::Top;
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "fontWeight") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            if (s->find("bold") != std::string::npos) text_.fontWeight = FontWeight::Bold;
+            else if (s->find("light") != std::string::npos) text_.fontWeight = FontWeight::Light;
+            else if (s->find("medium") != std::string::npos) text_.fontWeight = FontWeight::Medium;
+            else text_.fontWeight = FontWeight::Normal;
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "fontStyle") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            text_.fontStyle = (s->find("italic") != std::string::npos || s->find("oblique") != std::string::npos)
+                                  ? FontStyle::Italic : FontStyle::Normal;
+            layoutResult_.reset();
+            markDirty();
+            requestLayout();
+            return true;
+        }
+        return false;
+    }
     return View::setPropertyTyped(name, value);
 }

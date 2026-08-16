@@ -47,6 +47,15 @@
   true 且 toFloat()=NaN，NaN 写入 ViewProps.width 沿布局链传播（wrap 判定恒 false、
   子项尺寸全 NaN）→ parseViewProps 先 isString 拦截百分比（存 widthPct/heightPct）
   再数字解析，resolveEffectiveSize 增 isfinite 防御
+- Text 排版属性增量绑定失效：setPropertyTyped 原只处理 text/textColor/fontSize，
+  wordWrap/maxLines/ellipsis/lineHeight/verticalAlign/textAlign/fontWeight/fontStyle/
+  fontFamily 经 ref(state) 绑定或 setProp 时静默无效（View 基类 propIdFromName 不识别）
+  → 补全 9 个分支：尺寸相关属性 reset 排版缓存 + requestLayout，
+  textAlign/verticalAlign 仅重排/重绘（matchesKey 已含缓存标识自动命中）
+- TextArea 结构刷新（reconcile）专有属性不更新：reconcile switch 缺 TextArea 分支，
+  value/placeholder/fontSize/rows/textColor 等在 JS 重渲染时保持旧值 → 新增
+  applyTextAreaProps（重置 text_/排版结果 + markDirty/requestLayout）
+  并接入 reconcile 分支（parseTextAreaProps）
 
 ## 0.0.0 — 2026-08-15
 ### 新增

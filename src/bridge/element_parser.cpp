@@ -878,6 +878,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::ListLayout:
         static_cast<ListLayout *>(oldView.get())->applyContainerProps(parseContainerProps(ex));
         break;
+    case ElementType::TextArea:
+        static_cast<TextArea *>(oldView.get())->applyTextAreaProps(parseTextAreaProps(ex));
+        break;
 
     default: break;
     }

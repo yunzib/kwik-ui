@@ -67,6 +67,8 @@ public:
         bindKey_ = key;
     }
 
+    void applyTextAreaProps(const TextAreaProps &p);
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
