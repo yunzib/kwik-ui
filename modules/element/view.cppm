@@ -50,6 +50,7 @@ export enum class ElementType : std::uint8_t {
     DateTimePicker, // M7: 日期/时间/日期时间选择器
     Chart,          // M8: 图表（饼图 / 折线图）
     ProgressRing,   // 圆环进度（外层背景环 + 内层渐变进度环）
+    SpinBox,        // 数字步进输入框（复用 Input 数字模式 + 右缘箭头步进）
 };
 
 export inline std::string_view to_string(ElementType t) {
@@ -88,6 +89,7 @@ export inline std::string_view to_string(ElementType t) {
     case ElementType::DateTimePicker: return "DateTimePicker";
     case ElementType::Chart: return "Chart";
     case ElementType::ProgressRing: return "ProgressRing";
+    case ElementType::SpinBox: return "SpinBox";
     default: return "View";
     }
     return "Unknown";
@@ -135,6 +137,7 @@ export inline ElementType elementTypeFromString(std::string_view s) {
     if (s == "DateTimePicker") return ElementType::DateTimePicker;
     if (s == "Chart") return ElementType::Chart;
     if (s == "ProgressRing") return ElementType::ProgressRing;
+    if (s == "SpinBox") return ElementType::SpinBox;
     return ElementType::View;    // 未知类型退回 View
 }
 

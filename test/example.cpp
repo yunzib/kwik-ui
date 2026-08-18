@@ -122,6 +122,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "textflow") return "../../test/ui/text_flow.js";
         if (arg == "gauge") return "../../test/ui/gauge.js";
         if (arg == "progressring") return "../../test/ui/progressring.js";
+        if (arg == "spinbox") return "../../test/ui/spinbox.js";
         return arg;
     }
     return "../../test/ui/example.js";

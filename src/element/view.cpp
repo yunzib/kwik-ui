@@ -88,15 +88,14 @@ void View::layout(Rect bounds) {
 // 注意：返回未含 padding，调用点自行叠加（与 onMeasure 现有语义一致）。
 // ═══════════════════════════════════════════════════════════════════════════
 Size View::resolveEffectiveSize(const ViewProps &p, const Constraints &c) {
-    float w = p.width.value_or(c.maxWidth);      // 显式 px 优先，否则约束上限
+    float w = p.width.value_or(c.maxWidth);    // 显式 px 优先，否则约束上限
     float h = p.height.value_or(c.maxHeight);
     // 防御：NaN（历史数据/异常解析）回退约束上限，避免污染布局链
     if (!std::isfinite(w)) w = c.maxWidth;
     if (!std::isfinite(h)) h = c.maxHeight;
     if (p.widthPct.has_value() && c.maxWidth < Constraints::INF)
-        w = c.maxWidth * *p.widthPct;            // "50%" → maxWidth * 0.5
-    if (p.heightPct.has_value() && c.maxHeight < Constraints::INF)
-        h = c.maxHeight * *p.heightPct;
+        w = c.maxWidth * *p.widthPct;    // "50%" → maxWidth * 0.5
+    if (p.heightPct.has_value() && c.maxHeight < Constraints::INF) h = c.maxHeight * *p.heightPct;
     return {w, h};
 }
 
@@ -239,6 +238,7 @@ void View::draw(Graphics &graphics) {
         graphics.endContent();
         graphics.accumulateDirtyRect(band);    // union 语义, 嵌套时重复累加无害
         lastPaintBounds_ = paintBounds();
+        subtreeDirty_ = false;    // 本路径整带已重绘, 子树脏标记一并清, 防泄漏阻断后续 markDirty 冒泡
         clearDirty();
         return;
     }
@@ -568,7 +568,7 @@ bool View::setProperty(const char *name, const char *value) {
                 auto comma3 = s.find(',', comma2 + 1);
                 if (comma3 != std::string::npos) {
                     t.rotate = std::stof(s.substr(comma2 + 1, comma3 - comma2 - 1));
-                    t.scale  = std::stof(s.substr(comma3 + 1));
+                    t.scale = std::stof(s.substr(comma3 + 1));
                 } else {
                     t.rotate = std::stof(s.substr(comma2 + 1));
                 }

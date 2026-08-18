@@ -410,7 +410,17 @@ InputProps parseInputProps(PropsExtractor &ex) {
     ex.get("focusedBorderColor", ip.focusedBorderColor);
     ex.get("maxLength", ip.maxLength);
     ex.get("readOnly", ip.readOnly);
-    if (ex.has("type")) ip.isPassword = (ex.raw().getProperty("type").toString() == "password");
+    if (ex.has("type")) {
+        // type 决定输入模式: "password" → 密码遮罩, "number" → 数字过滤
+        // 两者同时设置时 password 优先 (遮蔽优先, 见 Input::onEvent 顺序)
+        std::string t = ex.raw().getProperty("type").toString();
+        ip.isPassword = (t == "password");
+        ip.isNumber   = (t == "number");
+    }
+    // 数字模式约束 (optional, 未写则不生效)
+    if (ex.has("min"))  ip.min  = ex.raw().getProperty("min").toFloat();
+    if (ex.has("max"))  ip.max  = ex.raw().getProperty("max").toFloat();
+    if (ex.has("step")) ip.step = ex.raw().getProperty("step").toFloat();
     return ip;
 }
 
@@ -1008,4 +1018,27 @@ ProgressRingProps parseProgressRingProps(PropsExtractor &ex) {
     ex.get("sweep", result.sweep);
     ex.get("roundCap", result.roundCap);
     return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseSpinBoxProps
+// ═══════════════════════════════════════════════════════════════════════════
+SpinBoxProps parseSpinBoxProps(PropsExtractor &ex) {
+    SpinBoxProps sp;
+    ex.get("value", sp.value);
+    ex.get("arrowsWidth", sp.arrowsWidth);
+    ex.get("arrowColor", sp.arrowColor);
+    ex.get("arrowHoverColor", sp.arrowHoverColor);
+    ex.get("placeholder", sp.placeholder);
+    ex.get("fontSize", sp.fontSize);
+    ex.get("textColor", sp.textColor);
+    ex.get("placeholderColor", sp.placeholderColor);
+    ex.get("cursorColor", sp.cursorColor);
+    ex.get("focusedBorderColor", sp.focusedBorderColor);
+    ex.get("readOnly", sp.readOnly);
+    // min/max/step 为 optional, 用 ex.has 模式 (与 Input 数字模式一致)
+    if (ex.has("min"))  sp.min  = ex.raw().getProperty("min").toFloat();
+    if (ex.has("max"))  sp.max  = ex.raw().getProperty("max").toFloat();
+    if (ex.has("step")) sp.step = ex.raw().getProperty("step").toFloat();
+    return sp;
 }

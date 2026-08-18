@@ -29,6 +29,7 @@ import std;
  * 支持:
  *   - 文本输入 (含 IME 中文)
  *   - 密码模式 (type:"password" → ●)
+ *   - 数字模式 (type:"number" → 白名单过滤 + min/max/step 提交校验)
  *   - 光标渲染 (闪烁)
  *   - 焦点管理 (click to focus, click away to blur)
  *   - 键盘导航 (Backspace / Delete / 方向键 / Home / End)
@@ -109,4 +110,10 @@ private:
     bool updateCursorBlink();
     /** 触发 onChange 回调 (引擎中立) */
     void fireChange();
+
+    // ── 数字模式 ──
+    /** 提交时校验: 空值→"0"; 按 min/max clamp; 按 step 对齐; 回写文本/绑定/onChange */
+    void commitNumber();
+    /** double → 最短文本表示 (std::to_chars, 避免 "1.5"→"1.500000") */
+    static std::string formatNumber(double v);
 };

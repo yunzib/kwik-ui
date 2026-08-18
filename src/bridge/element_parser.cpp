@@ -62,6 +62,7 @@ import kwik.element.keyboard;
 import kwik.element.datepicker;
 import kwik.element.chart;
 import kwik.element.progressring;
+import kwik.element.spinbox;
 
 import std;
 
@@ -602,6 +603,16 @@ static struct InitBuiltinTypes {
             applyBindings(pr.get(), pv);
             return pr;
         });
+
+         // ── SpinBox ──
+        ElementParser::registerType("SpinBox", [](const JSValueRef &pv) {
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
+            auto sb = std::make_unique<SpinBox>(parseViewProps(ex), parseSpinBoxProps(ex));
+            sb->propMeta = std::move(meta);
+            applyBindings(sb.get(), pv);
+            return sb;
+        });
     }
 } _init_builtin_types;
 
@@ -892,6 +903,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::TextArea:
         static_cast<TextArea *>(oldView.get())->applyTextAreaProps(parseTextAreaProps(ex));
         break;
+    case ElementType::SpinBox:
+        static_cast<SpinBox *>(oldView.get())->applySpinBoxProps(parseSpinBoxProps(ex));
+        break;
 
     default: break;
     }
@@ -902,7 +916,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // ── 递归 reconcile children ──
     auto childrenVal = jsVal.getProperty("children");
     // LazyList 的 children 全是虚拟行（LazyListRow），绝不能被 JS children 替换/冲掉
-    if (childrenVal.isArray() && oldView->type() != ElementType::LazyList) {
+    // SpinBox 的内部 Input 子节点同理, 必须保留
+    if (childrenVal.isArray() && oldView->type() != ElementType::LazyList && oldView->type() != ElementType::SpinBox) {
         reconcileChildren(oldView.get(), childrenVal, oldView->children);
     }
 

@@ -225,6 +225,13 @@ bool Input::onEvent(const DispatchEvent &event) {
         if (!focused_ || input_.readOnly) return false;
         uint32_t cp = event.charCode;
         if (cp < 0x20 && cp != '\n') return false;
+        // ── 数字模式: 白名单过滤 ──
+        // 仅允许 0-9 / '-' / '.'; '-' 仅首位; '.' 至多一个
+        if (input_.isNumber) {
+            if (!((cp >= '0' && cp <= '9') || cp == '-' || cp == '.')) return true;
+            if (cp == '-' && cursorPos_ != 0) return true;                      // 负号只允许在首字符
+            if (cp == '.' && text_.find('.') != std::string::npos) return true; // 只允许一个小数点
+        }
         if (cp == '\n') {
             blur();
             return true;
@@ -375,6 +382,31 @@ void Input::fireChange() {
     if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{text_}}); }
 }
 
+// ── commitNumber — 数字模式提交校验 ──
+// 规则: 空值→"0"; 解析失败→"0"; 按 min/max clamp; 按 step 对齐 (以 min 为基准);
+// 回写文本并同步双向绑定 + onChange, 保证 State 与 UI 一致
+void Input::commitNumber() {
+    if (text_.empty()) text_ = "0";
+    double v = std::strtod(text_.c_str(), nullptr);
+    if (input_.max && v > *input_.max) v = *input_.max;                          // clamp 上限
+    if (input_.min && v < *input_.min) v = *input_.min;                          // clamp 下限
+    if (input_.step && *input_.step > 0) {                                       // 对齐步进
+        double base = input_.min ? *input_.min : 0.0;
+        v = base + std::round((v - base) / *input_.step) * *input_.step;
+    }
+    text_ = formatNumber(v);
+    if (binding_) binding_->setString(bindKey_, text_);                          // 双向绑定回写
+    fireChange();                                                                // onChange 通知 JS
+}
+
+// ── formatNumber — double 最短文本表示 ──
+// 用 to_chars 的往返保证 (shortest roundtrip), 避免 "%g" 的 locale 与精度尾巴
+std::string Input::formatNumber(double v) {
+    char buf[64];
+    auto res = std::to_chars(buf, buf + sizeof(buf), v);
+    return std::string(buf, res.ptr);
+}
+
 // ── focus() ──
 void Input::focus() {
     focused_ = true;
@@ -395,6 +427,8 @@ void Input::blur() {
     }
     focused_ = false;
     cursorVisible_ = false;
+     // 数字模式: 失焦/回车即提交校验 (clamp + step 对齐, 并同步绑定与 onChange)
+    if (input_.isNumber) commitNumber();
     markDirty();
 }
 
@@ -420,6 +454,7 @@ std::string Input::getProperty(const char *name) const {
     if (std::strcmp(name, "fontSize") == 0) return std::to_string(input_.fontSize);
     if (std::strcmp(name, "readOnly") == 0) return input_.readOnly ? "true" : "false";
     if (std::strcmp(name, "isPassword") == 0) return input_.isPassword ? "true" : "false";
+    if (std::strcmp(name, "isNumber") == 0) return input_.isNumber ? "true" : "false";
     return View::getProperty(name);
 }
 bool Input::setProperty(const char *name, const char *value) {
@@ -449,6 +484,9 @@ bool Input::setProperty(const char *name, const char *value) {
         markDirty();
         return true;
     }
+    if (std::strcmp(name, "min") == 0) { input_.min = std::stof(value); markDirty(); return true; }
+    if (std::strcmp(name, "max") == 0) { input_.max = std::stof(value); markDirty(); return true; }
+    if (std::strcmp(name, "step") == 0) { input_.step = std::stof(value); markDirty(); return true; }
     return View::setProperty(name, value);
 }
 

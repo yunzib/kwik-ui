@@ -194,6 +194,10 @@ export struct InputProps {
     int maxLength = 0;                              // 最大字符数 (0 = 不限)
     bool readOnly = false;                          // 只读模式
     bool isPassword = false;                        // 密码模式 — 显示 ● 替代原文
+    bool isNumber = false;                          // 数字模式 (type:"number") — 输入白名单过滤
+    std::optional<float> min;                       // 数字模式: 最小值 (提交时 clamp; 未设置不限制)
+    std::optional<float> max;                       // 数字模式: 最大值 (提交时 clamp; 未设置不限制)
+    std::optional<float> step;                      // 数字模式: 步进 (提交时对齐; 未设置连续)
 };
 
 // ════════════════════════════════════════════════════════
@@ -763,4 +767,23 @@ export struct ProgressRingProps {
     float startAngle = -90.0f;               // 起始角（度，-90 = 顶部）
     float sweep = 360.0f;                    // 扫过角度（度，360 = 全圆）
     bool roundCap = true;                    // 进度两端圆头（false → 平头 + 单色 startColor）
+};
+
+// ==================== SpinBox 属性 ====================
+// 组合型数值输入: 内部复用 Input 数字模式 + 右缘上下箭头步进
+export struct SpinBoxProps {
+    float value = 0.0f;                              // 当前数值 (float 类型, 区别于 Input 的 string)
+    std::optional<float> min;                        // 最小值 (未设置不限制)
+    std::optional<float> max;                        // 最大值 (未设置不限制)
+    std::optional<float> step;                       // 步进 (未设置或 <=0 时箭头按 1)
+    float arrowsWidth = 24.0f;                       // 右侧箭头区宽度 (像素)
+    Color arrowColor{153, 153, 153, 255};            // 箭头颜色
+    Color arrowHoverColor{51, 51, 51, 255};          // 箭头 hover 颜色
+    std::string placeholder;                         // 占位符
+    float fontSize = 16.0f;                          // 字段字号
+    Color textColor{0, 0, 0, 255};                   // 字段文字颜色
+    Color placeholderColor{153, 153, 153, 255};      // 占位符颜色
+    Color cursorColor{66, 133, 244, 255};            // 光标颜色
+    Color focusedBorderColor{66, 133, 244, 255};     // 聚焦时边框色
+    bool readOnly = false;                           // 只读 (禁编辑 + 禁箭头)
 };

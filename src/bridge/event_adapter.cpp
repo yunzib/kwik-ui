@@ -173,10 +173,16 @@ JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
         return obj;
     }
 
-     case ElementType::DateTimePicker: {
+    case ElementType::DateTimePicker: {
         // JS 事件形状: { value: "YYYY-MM-DD" | "HH:MM" | "YYYY-MM-DD HH:MM" }
         JSValue obj = JS_NewObject(ctx);
         JS_SetPropertyStr(ctx, obj, "value", JS_NewString(ctx, std::get<std::string>(a.value).c_str()));
+        return obj;
+    }
+
+    case ElementType::SpinBox: {
+        JSValue obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, obj, "value", JS_NewFloat64(ctx, std::get<double>(a.value)));
         return obj;
     }
 

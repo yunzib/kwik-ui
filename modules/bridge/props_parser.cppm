@@ -307,3 +307,4 @@ export KeyboardProps parseKeyboardProps(PropsExtractor &ex);
 export DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex);
 export ChartProps parseChartProps(PropsExtractor &ex);
 export ProgressRingProps parseProgressRingProps(PropsExtractor &ex);
+export SpinBoxProps parseSpinBoxProps(PropsExtractor &ex);

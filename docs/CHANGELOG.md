@@ -1,5 +1,18 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-18
+### 修复：
+- SpinBox 数字底部裁剪：内部 Input padding 参数顺序写反（`EdgeInsets{0,12,0,10}`
+  应为 `{12,0,10,0}`），垂直 22px padding 吃掉输入框可用高度 → 文字底部被裁剪，
+  水平 12/10 内缩随之丢失 → 修正参数顺序
+- 增量更新"值推进但显示卡死"：View::draw 的 `needsLayoutRepaint_` 整带重绘路径
+  提前 return 且未清 `subtreeDirty_`，残留脏标记使后续 `markDirty` 冒泡在中间节点
+  提前停止、root 不脏 → `renderFrame` 不触发，表现为数值内部已推进（点其他组件才
+  刷新出新值）→ 补 `subtreeDirty_=false`
+- SpinBox 跟随显示 Text 更新冲突：`setProp` 命令式写入与 rebuild 模板字符串重求值
+  （`→ ${form.count}`）双写 `text_` 竞态，只更新一次/闪回旧值 → 改用 ref() 绑定
+  独立 display State，走增量绑定单一路径
+
 ## 0.0.0 — 2026-08-16
 ### 新增：
 - GPU transform 统一变换：transform: "tx,ty,rot,scale"（位移/旋转/缩放，均绕中心，替换独立 scale 属性）
