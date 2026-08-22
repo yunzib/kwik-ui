@@ -113,16 +113,32 @@ ThemeData parseTheme(JSContext* ctx, JSValue val) {
 }
 
 // ── 辅助: C++ ThemeData → JS opaque 对象, 传递给 ThemeProvider ──
+//
+// 必须用真实 QuickJS 类承载指针：旧实现 JS_NewObject 创建的是普通对象
+// (class_id = JS_CLASS_OBJECT = 1)，而 unwrap 用 JS_GetOpaque(obj, 0) 取回，
+// class_id 恒不匹配 → unwrap 永远返回 NULL → 自定义主题从未生效
+// （ThemeProvider 兜底 defaultTheme，@primary 解析成 #1976D2 蓝）。
+// finalizer 负责 delete 堆上 ThemeData，顺带修复旧实现 new 后无人释放的泄漏。
+static JSClassID g_themeDataClassId = 0;
+
 JSValue wrapThemeData(JSContext* ctx, const ThemeData& data) {
-    JSValue obj = JS_NewObject(ctx);
-    // 将 ThemeData 复制到堆, 通过 JS opaque 指针传递给 ThemeProvider 构造器
-    auto* heap = new ThemeData(data);
-    JS_SetOpaque(obj, heap);
+    if (!g_themeDataClassId) {
+        // vendored quickjs 为新版签名：JS_NewClassID 需传 runtime（quickjs.h:706）
+        JS_NewClassID(JS_GetRuntime(ctx), &g_themeDataClassId);
+        static JSClassDef def = {};
+        def.class_name = "ThemeData";
+        def.finalizer = [](JSRuntime *, JSValueConst val) {
+            delete static_cast<ThemeData*>(JS_GetOpaque(val, g_themeDataClassId));
+        };
+        JS_NewClass(JS_GetRuntime(ctx), g_themeDataClassId, &def);
+    }
+    JSValue obj = JS_NewObjectClass(ctx, g_themeDataClassId);
+    JS_SetOpaque(obj, new ThemeData(data));
     return obj;
 }
 
 // ── 辅助: JS opaque 对象 → C++ ThemeData 指针 ──
 const ThemeData* unwrapThemeData(JSValue obj) {
     if (!JS_IsObject(obj)) return nullptr;
-    return static_cast<const ThemeData*>(JS_GetOpaque(obj, 0));
+    return static_cast<const ThemeData*>(JS_GetOpaque(obj, g_themeDataClassId));
 }

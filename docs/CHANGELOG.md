@@ -37,6 +37,10 @@
   一次（父链完整，theme() 可正确上溯最近 ThemeProvider）；Text 补
   resolveThemeDefaults 覆写（仅 themeTokens 含 "color" 时经 theme().resolveToken
   覆写 textColor，无 token 不改默认值）
+- 自定义主题不生效，@token 全部解析成默认浅色主题（@primary 显示为蓝色）：
+  theme() 包装用普通 JS 对象（class_id=1）存指针，解包却按 class_id=0 取回，
+  恒不匹配永远返回 NULL → ThemeProvider 兜底 defaultTheme
+  → 改用注册 QuickJS 类承载 ThemeData 指针，finalizer 顺带修复堆泄漏
 
 ## 0.0.0 — 2026-08-18
 ### 修复：
