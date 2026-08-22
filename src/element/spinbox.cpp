@@ -286,32 +286,31 @@ std::string SpinBox::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool SpinBox::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        sp_.value = clampValue(static_cast<float>(std::strtod(value, nullptr)));
-        syncFieldText();
-        if (binding_) binding_->setFloat(bindKey_, sp_.value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "min") == 0) { sp_.min = std::stof(value); markDirty(); return true; }
-    if (std::strcmp(name, "max") == 0) { sp_.max = std::stof(value); markDirty(); return true; }
-    if (std::strcmp(name, "step") == 0) { sp_.step = std::stof(value); markDirty(); return true; }
-    return View::setProperty(name, value);
-}
-
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（value/min/max/step）
+// ============================================================================
 bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
-    // ref 绑定路径: State 更新 → float 直达 (增量, 无树重建)
-    if (std::strcmp(name, "value") == 0) {
-        if (auto *d = std::get_if<double>(&value)) {
-            sp_.value = clampValue(static_cast<float>(*d));
-            syncFieldText();
-            markDirty();
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	// value：增量路径 double 直达；命令式路径 string/int64/double 宽容提取；
+	// clamp 后经 syncFieldText 同步输入框文本（自旧字符串版平移）
+	if (std::strcmp(name, "value") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		sp_.value = clampValue(*v);
+		syncFieldText();
+		markDirty();
+		return true;
+	}
+    // min/max/step：自旧字符串版平移（typed 原缺失）
+	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0 || std::strcmp(name, "step") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		if (std::strcmp(name, "min") == 0) { sp_.min = *v; }
+		else if (std::strcmp(name, "max") == 0) { sp_.max = *v; }
+		else { sp_.step = *v; }
+		markDirty();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 // ============================================================================

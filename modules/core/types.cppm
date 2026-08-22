@@ -250,9 +250,10 @@ export struct Transform {
  * @brief 类型安全的属性值变体
  *
  * 用于增量更新路径。
- * BindingRegistry::notify 将 JSValue 按 PropType 转为对应的
- * C++ 类型存入此变体，然后调用 View::setPropertyTyped 直接写入属性，
- * 避免 setProperty(const char*, const char*) 的 float/bool/Color → string 往返。
+ * 所有属性写入统一经唯一入口 View::setPropertyTyped：
+ *   增量路径（BindingRegistry::notify）将 JSValue 按 typeHint 转为原生类型成员；
+ *   命令式路径（View::setProperty）将字符串原样包装为 string 成员。
+ * 组件 handler 用下方 typedToFloat / typedToBool 宽容提取，兼容两种形态。
  *
  * 变体成员对应关系：
  *   monostate → 未知/空
@@ -275,6 +276,46 @@ export using TypedProp = std::variant<
     Transform,
     EdgeInsets
 >;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 宽容取值 helper
+//
+// 背景：命令式路径经 View::setProperty 包装后，属性值以 string 形态进入
+// setPropertyTyped；增量路径按 typeHint 携带原生类型（bool/int64/double）。
+// 组件 handler 用这些 helper 提取可同时兼容两条链路，消除平行分支。
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * @brief 宽容浮点提取
+ * @param v TypedProp 值
+ * @return double/int64 直取；纯数字字符串 strtod 解析（全量消耗才认可）；其余 nullopt
+ */
+export inline std::optional<float> typedToFloat(const TypedProp &v) {
+	if (auto *d = std::get_if<double>(&v)) { return static_cast<float>(*d); }
+	if (auto *i = std::get_if<std::int64_t>(&v)) { return static_cast<float>(*i); }
+	if (auto *s = std::get_if<std::string>(&v)) {
+		char *end = nullptr;
+		float f = std::strtof(s->c_str(), &end);
+		if (end != s->c_str() && *end == '\0') { return f; }
+	}
+	return std::nullopt;
+}
+
+/**
+ * @brief 宽容布尔提取
+ * @param v TypedProp 值
+ * @return bool 直取；数值≠0 为 true；"true"/"false"/"1"/"0"；其余 nullopt
+ */
+export inline std::optional<bool> typedToBool(const TypedProp &v) {
+	if (auto *b = std::get_if<bool>(&v)) { return *b; }
+	if (auto *i = std::get_if<std::int64_t>(&v)) { return *i != 0; }
+	if (auto *d = std::get_if<double>(&v)) { return *d != 0.0; }
+	if (auto *s = std::get_if<std::string>(&v)) {
+		if (*s == "true" || *s == "1") { return true; }
+		if (*s == "false" || *s == "0") { return false; }
+	}
+	return std::nullopt;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 动画系统 — 属性标识

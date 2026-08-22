@@ -372,33 +372,33 @@ std::string Keyboard::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool Keyboard::setProperty(const char *name, const char *value) {
-    std::string n{name};
-    if (n == "visible") {
-        bool v = (value && (value[0] == 't' || value[0] == '1'));
-        if (kp_.visible != v) {
-            kp_.visible = v;
-            if (v)
-                activate();
-            else
-                deactivate();
-        }
-        return true;
-    }
-    if (n == "layout") {
-        if (std::string(value) == "text")
-            kp_.layout = KeyboardLayout::Text;
-        else if (std::string(value) == "number")
-            kp_.layout = KeyboardLayout::Number;
-        else if (std::string(value) == "symbol")
-            kp_.layout = KeyboardLayout::Symbol;
-        else
-            return false;
-        shiftSticky_ = false;
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（visible/layout）
+// visible 拦截优先于基类通用 visible（activate/deactivate 为键盘专属语义）
+// ============================================================================
+bool Keyboard::setPropertyTyped(const char *name, const TypedProp &value) {
+	std::string n{name};
+	if (n == "visible") {
+		auto v = typedToBool(value);      // "true"/"t"/"1"、bool、数值均可
+		if (!v) { return false; }
+		if (kp_.visible != *v) {
+			kp_.visible = *v;
+			if (*v) { activate(); } else { deactivate(); }
+		}
+		return true;
+	}
+	if (n == "layout") {
+		auto *s = std::get_if<std::string>(&value);
+		if (!s) { return false; }
+		if (*s == "text") { kp_.layout = KeyboardLayout::Text; }
+		else if (*s == "number") { kp_.layout = KeyboardLayout::Number; }
+		else if (*s == "symbol") { kp_.layout = KeyboardLayout::Symbol; }
+		else { return false; }
+		shiftSticky_ = false;
+		markDirty();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 KeyArgs Keyboard::makeKeyArgs(const KeyDef &key) const {

@@ -315,42 +315,21 @@ std::string Slider::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-// ============================================================================
-// setProperty — setProp("sliderId", "value", "50") 支持
-// ============================================================================
-bool Slider::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        setValue(std::stof(value));
-        return true;
-    }
-    return View::setProperty(name, value);
-}
+
 
 // ============================================================================
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool Slider::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
-        if (auto *f = std::get_if<double>(&value)) {
-            setValue(static_cast<float>(*f));
-            return true;
-        }
-        if (auto *i = std::get_if<int64_t>(&value)) {
-            setValue(static_cast<float>(*i));
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "value") == 0) {
+		auto v = typedToFloat(value);     // double/int64/数字串均可
+		if (!v) { return false; }
+		setValue(*v);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
-// ============================================================================
-// setBinding — 设置双向绑定
-// ============================================================================
-void Slider::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
-    binding_ = std::move(binding);
-    bindKey_ = key;
-}
 
 void Slider::resolveThemeDefaults() {
     auto& t = theme();

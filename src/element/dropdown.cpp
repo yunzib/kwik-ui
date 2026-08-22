@@ -397,34 +397,9 @@ std::string Dropdown::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool Dropdown::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        for (int i = 0; i < (int)dp_.items.size(); ++i) {
-            if (dp_.items[i] == value) {
-                selectItem(i);
-                if (binding_) binding_->setString(bindKey_, dp_.items[i]);
-                markDirty();
-                return true;
-            }
-        }
-        return false;
-    }
-    if (std::strcmp(name, "index") == 0) {
-        int idx = std::stoi(value);
-        if (idx >= -1 && idx < (int)dp_.items.size()) {
-            if (idx == -1) {
-                dp_.selectedIndex = -1;
-            } else
-                selectItem(idx);
-            if (binding_) binding_->setString(bindKey_, dp_.items[idx]);
-            markDirty();
-            return true;
-        }
-        return false;
-    }
-    return View::setProperty(name, value);
-}
-
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（value/index）
+// ============================================================================
 bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
@@ -439,16 +414,17 @@ bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
         return false;
     }
     if (std::strcmp(name, "index") == 0) {
-        if (auto *i = std::get_if<int64_t>(&value)) {
-            int idx = static_cast<int>(*i);
-            if (idx >= -1 && idx < (int)dp_.items.size()) {
-                if (idx == -1)
-                    dp_.selectedIndex = -1;
-                else
-                    selectItem(idx);
-                markDirty();
-                return true;
+        auto f = typedToFloat(value);    // int64/double/数字串均可
+        if (!f) { return false; }
+        int idx = static_cast<int>(*f);
+        if (idx >= -1 && idx < (int)dp_.items.size()) {
+            if (idx == -1) {
+                dp_.selectedIndex = -1;
+            } else {
+                selectItem(idx);
             }
+            markDirty();
+            return true;
         }
         return false;
     }

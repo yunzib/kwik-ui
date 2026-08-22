@@ -372,39 +372,33 @@ std::string ScrollView::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool ScrollView::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "scrollX") == 0) {
-        setScroll(std::stof(value), scrollOffset_.y);
-        return true;
-    }
-    if (std::strcmp(name, "scrollY") == 0) {
-        setScroll(scrollOffset_.x, std::stof(value));
-        return true;
-    }
-    if (std::strcmp(name, "direction") == 0) {
-        std::string v = value;
-        if (v == "horizontal")
-            sp_.direction = ScrollDirection::Horizontal;
-        else if (v == "both")
-            sp_.direction = ScrollDirection::Both;
-        else
-            sp_.direction = ScrollDirection::Vertical;
-        requestLayout();    // 方向变化影响子节点测量约束 → 重排
-        return true;
-    }
-    return View::setProperty(name, value);
-}
 
+
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（scrollX/scrollY/direction）
+// ============================================================================
 bool ScrollView::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "scrollX") == 0) {
-        if (std::holds_alternative<double>(value))
-            setScroll(static_cast<float>(std::get<double>(value)), scrollOffset_.y);
-        return true;
-    }
-    if (std::strcmp(name, "scrollY") == 0) {
-        if (std::holds_alternative<double>(value))
-            setScroll(scrollOffset_.x, static_cast<float>(std::get<double>(value)));
-        return true;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "scrollX") == 0) {
+		auto v = typedToFloat(value);     // 修复原实现类型不符仍返回 true 的隐患
+		if (!v) { return false; }
+		setScroll(*v, scrollOffset_.y);
+		return true;
+	}
+	if (std::strcmp(name, "scrollY") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		setScroll(scrollOffset_.x, *v);
+		return true;
+	}
+	// direction：自旧字符串版平移（typed 原缺失）
+	if (std::strcmp(name, "direction") == 0) {
+		auto *s = std::get_if<std::string>(&value);
+		if (!s) { return false; }
+		if (*s == "horizontal") { sp_.direction = ScrollDirection::Horizontal; }
+		else if (*s == "both") { sp_.direction = ScrollDirection::Both; }
+		else { sp_.direction = ScrollDirection::Vertical; }
+		requestLayout();    // 方向变化影响子节点测量约束 → 重排
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }

@@ -335,24 +335,16 @@ std::string Tabs::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool Tabs::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "selectedIndex") == 0) {
-        int idx = std::atoi(value);
-        setSelectedIndex(idx);
-        return true;
-    }
-    return View::setProperty(name, value);
-}
-
 bool Tabs::setPropertyTyped(const char* name, const TypedProp& value) {
-    if (std::strcmp(name, "selectedIndex") == 0) {
-        if (auto *v = std::get_if<long long>(&value)) {
-            setSelectedIndex(static_cast<int>(*v));
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "selectedIndex") == 0) {
+		int idx = -1;
+		if (auto *v = std::get_if<int64_t>(&value)) { idx = static_cast<int>(*v); }
+		else if (auto *s = std::get_if<std::string>(&value)) { idx = std::atoi(s->c_str()); }   // ← 自旧字符串版平移
+		else { return false; }
+		setSelectedIndex(idx);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 void Tabs::resolveThemeDefaults() {

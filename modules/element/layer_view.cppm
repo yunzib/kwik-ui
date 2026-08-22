@@ -104,7 +104,6 @@ public:
 
     ElementType type() const override { return ElementType::LayerView; }
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     void draw(Graphics &g) override;

@@ -10,10 +10,12 @@
         "--completion-style=bundled",
         "--cross-file-rename",
         "--header-insertion=never",
+        // 保留后台索引，但降低其优先级 (平衡性能与功能)
         "--background-index",
+        "--background-index-priority=low", 
         "--clang-tidy",
         "--clang-tidy-checks=cppcoreguidelines-*,performance-*,bugprone-*,portability-*,modernize-*,google-*",
-        "-j=2",
+        "-j=1",
         "--pch-storage=disk",
         "--function-arg-placeholders=false",
         "--experimental-modules-support",

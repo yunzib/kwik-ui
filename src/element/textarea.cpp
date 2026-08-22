@@ -388,15 +388,7 @@ std::string TextArea::getProperty(const char *name) const {
     if (std::strcmp(name, "value") == 0) return text_;
     return View::getProperty(name);
 }
-bool TextArea::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        setValue(value);
-        if (binding_) binding_->setString(bindKey_, text_);
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
+
 
 bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {

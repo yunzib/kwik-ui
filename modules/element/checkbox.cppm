@@ -46,16 +46,12 @@ public:
      * @param tc 文字内容
      * @param cp 复选框专有属性
      */
-    explicit Checkbox(ViewProps vp, TextContent tc, CheckboxProps cp)
-        : View(std::move(vp)), text_(std::move(tc)), check_(std::move(cp)) {}
+    explicit Checkbox(ViewProps vp, TextContent tc, CheckboxProps cp) :
+        View(std::move(vp)), text_(std::move(tc)), check_(std::move(cp)) {}
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
-    bool setPropertyTyped(const char* name, const TypedProp& value) override;
-
-    // ─── 双向绑定设置 ─────────────────────────────────
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override;
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ─── 查询方法 ─────────────────────────────────────
     ElementType type() const override { return ElementType::Checkbox; }
@@ -71,11 +67,7 @@ protected:
     bool onEvent(const DispatchEvent &event) override;
 
 private:
-    TextContent text_;                          // 文字内容
-    CheckboxProps check_;                       // 复选框专有属性
-    std::shared_ptr<TextLayoutResult> layoutResult_;  // 排版结果
-
-    // ─── 双向绑定 ─────────────────────────────────────
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
+    TextContent text_;                                  // 文字内容
+    CheckboxProps check_;                               // 复选框专有属性
+    std::shared_ptr<TextLayoutResult> layoutResult_;    // 排版结果
 };

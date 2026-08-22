@@ -328,94 +328,62 @@ std::string LayerView::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool LayerView::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "active") == 0 || std::strcmp(name, "open") == 0) {
-        bool a = (std::string(value) == "true");
-        if (a != lp_.active) {
-            lp_.active = a;
-            if (a)
-                activate();
-            else
-                deactivate();
-            markDirty();
-            requestLayout();
-        }
-        return true;
-    }
-    if (std::strcmp(name, "modal") == 0) {
-        lp_.modal = (std::string(value) == "true");
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "maskClosable") == 0) {
-        lp_.maskClosable = (std::string(value) == "true");
-        return true;
-    }
-    if (std::strcmp(name, "transparent") == 0) {
-        lp_.transparent = (std::string(value) == "true");
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "width") == 0) {
-        try {
-            lp_.width = std::stof(value);
-        } catch (...) { return false; }
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "height") == 0) {
-        try {
-            lp_.height = std::stof(value);
-        } catch (...) { return false; }
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "borderRadius") == 0) {
-        try {
-            lp_.borderRadius = std::stof(value);
-        } catch (...) { return false; }
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "offsetX") == 0) {
-        try {
-            lp_.offsetX = std::stof(value);
-        } catch (...) { return false; }
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "offsetY") == 0) {
-        try {
-            lp_.offsetY = std::stof(value);
-        } catch (...) { return false; }
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "position") == 0) {
-        lp_.position = value;
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "anchor") == 0) {
-        lp_.anchor = value;
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
 
+
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口
+//
+// active/open/modal/maskClosable/transparent/width/height/borderRadius/
+// offsetX/offsetY/position/anchor 均为 LayerView 专有字段（lp_），
+// 必须在基类兜底前消费，避免误写 ViewProps.width 等同名通用属性。
+// 原 typed 经 setProperty("active",…) 回环调用的写法随旧函数一并删除。
+// ============================================================================
 bool LayerView::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "active") == 0 || std::strcmp(name, "open") == 0) {
-        bool a = std::holds_alternative<bool>(value) ? std::get<bool>(value) : false;
-        return setProperty("active", a ? "true" : "false");
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "active") == 0 || std::strcmp(name, "open") == 0) {
+		auto b = typedToBool(value);
+		if (!b) { return false; }
+		if (*b != lp_.active) {
+			lp_.active = *b;
+			if (*b) { activate(); } else { deactivate(); }
+			markDirty();
+			requestLayout();
+		}
+		return true;
+	}
+	if (std::strcmp(name, "modal") == 0 || std::strcmp(name, "maskClosable") == 0 ||
+	    std::strcmp(name, "transparent") == 0) {
+		auto b = typedToBool(value);
+		if (!b) { return false; }
+		if (std::strcmp(name, "modal") == 0) { lp_.modal = *b; markDirty(); }
+		else if (std::strcmp(name, "maskClosable") == 0) { lp_.maskClosable = *b; }   // 原实现无重绘
+		else { lp_.transparent = *b; markDirty(); }
+		return true;
+	}
+	// 尺寸/偏移：变化影响布局 → requestLayout（原 try/stof 换宽容提取）
+	if (std::strcmp(name, "width") == 0 || std::strcmp(name, "height") == 0 ||
+	    std::strcmp(name, "offsetX") == 0 || std::strcmp(name, "offsetY") == 0 ||
+	    std::strcmp(name, "borderRadius") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		if (std::strcmp(name, "width") == 0) { lp_.width = *v; }
+		else if (std::strcmp(name, "height") == 0) { lp_.height = *v; }
+		else if (std::strcmp(name, "offsetX") == 0) { lp_.offsetX = *v; }
+		else if (std::strcmp(name, "offsetY") == 0) { lp_.offsetY = *v; }
+		else { lp_.borderRadius = *v; }
+		markDirty();
+		if (std::strcmp(name, "borderRadius") != 0) { requestLayout(); }    // 圆角仅重绘
+		return true;
+	}
+	if (std::strcmp(name, "position") == 0 || std::strcmp(name, "anchor") == 0) {
+		auto *s = std::get_if<std::string>(&value);
+		if (!s) { return false; }
+		if (std::strcmp(name, "position") == 0) { lp_.position = *s; }
+		else { lp_.anchor = *s; }
+		markDirty();
+		requestLayout();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 // ── reconcile 同步：整体覆盖 LayerProps + active 状态迁移 ──

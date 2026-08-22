@@ -93,9 +93,11 @@ static void applyBindings(View *view, const JSValueRef &pv) {
         auto keyVal = pv.getProperty(keyName.c_str());
 
         if (!stateVal.isUndefined() && !keyVal.isUndefined() && !JS_IsNull(stateVal.raw())) {
-            // ── View → State 反向绑定（基类默认空实现，交互组件覆写）──
-            view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString());
-
+            // ── View → State 反向绑定（基类统一存储，组件无需覆写）──
+			PropEntry *entry = meta.find(propName);
+			view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString(),
+			                 propName, entry ? entry->typeHint : PropType::Unknown);
+                             
             // ── State → View 增量绑定（通用，所有组件受益）──
             if (auto *reg = getRegisteredRegistry()) {
                 void *statePtr = JS_VALUE_GET_PTR(stateVal.raw());

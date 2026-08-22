@@ -339,31 +339,26 @@ public:
      * @return 属性值字符串, 不支持返回 ""
      */
     virtual std::string getProperty(const char *name) const;
-    /**
-     * @brief 设置控件属性值 (立即生效, 无 rebuildTree)
-     *
-     * 子类覆写以支持各自专有属性, 先处理自己的属性,
-     * 不识别时回退到 View::setProperty 或返回 false.
-     *
-     * @param name  属性名
-     * @param value 属性值字符串
-     * @return true 属性已识别并设置, false 未知属性
-     */
-    virtual bool setProperty(const char *name, const char *value);
 
     /**
-     * @brief 设置属性值（类型安全版本）
-     * @param name  属性名（如 "value"、"fontSize"、"checked"）
-     * @param value TypedProp 变体，携带该属性的原始 C++ 类型值
-     * @return true  属性已识别并设置
+     * @brief 设置控件属性值（字符串便捷入口，非虚模板方法）
      *
-     * 增量更新路径的入口。与 setProperty(const char*, const char*) 的区别：
-     *   - 不经过 string 序列化/反序列化往返
-     *   - 不触发 binding_->setBool/setString 写回 State（避免循环）
+     * 仅命令式路径使用（PropBus setProp / 内部联动 / parse 初值）。
+     * 值原样包装为 string 型 TypedProp 转发唯一虚入口，成功后自动回声绑定 State。
+     */
+    bool setProperty(const char *name, const char *value);
+
+    /**
+     * @brief 属性写入唯一虚入口（纯赋值）
      *
-     * 默认实现将 TypedProp 按类型转换为 string 后调用 setProperty。
-     * 子类（Input/Checkbox/TextArea/Dropdown/RadioGroup）建议覆写，
-     * 直接使用 TypedProp 中的原始类型值操作内部成员，避免 string 转换。
+     * 命令式路径（经 setProperty 包装，string 形态）与 State 增量路径
+     * （BindingRegistry::notify，原生类型）均汇入此处。
+     * 子类覆写专有属性：原生 variant 分支服务增量路径，string 分支服务
+     * 命令式包装；handler 内禁止直接写 State（回声由基类 echoBoundState 负责）。
+     *
+     * 默认实现：描述符表直写；string 形态按 reader 反推的期望类型转换
+     * （double→strtod、Color→parseHexColor、bool→typedToBool、
+     * transform→"tx,ty[,rot,scale]" 专用解析），通用属性无需子类参与。
      */
     virtual bool setPropertyTyped(const char *name, const TypedProp &value);
 
@@ -550,18 +545,19 @@ public:
     }
 
     /**
-     * @brief 建立 View → State 的反向绑定
+     * @brief 绑定 State（反向：View 变更 → State 同步）
+     * @param binding  StateBinding 实现（所有权转移至 View）
+     * @param stateKey State 上的属性名（回写目标）
+     * @param propName 触发同步的 View 属性名（命令式回声匹配用）
+     * @param typeHint 属性类型（决定回写用 setBool/setFloat/setString）
      *
-     * 交互组件（Input/Checkbox/Dropdown 等）覆写此方法，
-     * 将 View 属性变更回写到 State（如输入框文本变化 → state.value）。
-     * 非交互组件（View/Text/Flex 等）保留基类空实现，
-     * applyBindings 始终调用此方法，由子类的覆写决定是否启用背向传播。
-     *
-     * @param binding State 绑定对象（含 JS context + state 对象引用）
-     * @param key     State 中与本 View 属性对应的键名
+     * 基类统一存储绑定状态；组件无需再持有 binding_/bindKey_，
+     * 也无需覆写本函数。onEvent 内可直接使用 protected 成员。
      */
-    virtual void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {}
-
+    virtual void setBinding(std::unique_ptr<StateBinding> binding,
+                            const std::string &stateKey,
+                            const std::string &propName,
+                            PropType typeHint);
     /**
      * @brief 获取当前 View 从父树继承的主题数据
      *
@@ -591,6 +587,15 @@ protected:
      *  本节点仅由 LayerStack::drawAll 直接 draw、LayerStack::hitTest 直接 hitTest。
      *  消除旧 Portal 机制的"树内+portal 双录"与跨边界判定缺位问题。 */
     bool drawnElsewhere_ = false;
+
+    // ── 反向绑定状态（setBinding 存入；onEvent 写回与命令式回声共用）──
+    std::unique_ptr<StateBinding> binding_;        ///< 非空即已绑定
+    std::string bindKey_;                          ///< State 属性名
+    std::string boundPropName_;                    ///< 触发同步的 View 属性名
+    PropType boundTypeHint_ = PropType::Unknown;   ///< 决定回写用 setX
+
+    /** @brief 命令式回声：name 为绑定属性时，将 getProperty 当前值按 typeHint 写回 State */
+    void echoBoundState(const char *name);
 
     /**
      * @brief 测量回调 (子类重写)

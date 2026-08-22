@@ -72,18 +72,22 @@ std::string Line::getProperty(const char *name) const {
 }
 
 // ============================================================================
-// setProperty
+// setPropertyTyped — 属性写入唯一入口（direction/strokeWidth）
 // ============================================================================
-bool Line::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "direction") == 0) {
-        lp_.direction = value;
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "strokeWidth") == 0) {
-        lp_.strokeWidth = std::stof(value);
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
+bool Line::setPropertyTyped(const char *name, const TypedProp &value) {
+	if (std::strcmp(name, "direction") == 0) {
+		auto *s = std::get_if<std::string>(&value);
+		if (!s) { return false; }
+		lp_.direction = *s;
+		markDirty();
+		return true;
+	}
+	if (std::strcmp(name, "strokeWidth") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		lp_.strokeWidth = *v;
+		markDirty();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }

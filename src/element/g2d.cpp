@@ -172,32 +172,25 @@ std::string G2D::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-/**
- * @brief 属性设置入口（由 setProp / JS 属性赋值 调用）
- *
- * 支持 G2D 特有属性:
- *   fillStyle / strokeStyle / lineWidth / globalAlpha
- */
-bool G2D::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "fillStyle") == 0) {
-        fillStyle_ = parseColor(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "strokeStyle") == 0) {
-        strokeStyle_ = parseColor(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "lineWidth") == 0) {
-        lineWidth_ = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "globalAlpha") == 0) {
-        globalAlpha_ = std::clamp(std::stof(value), 0.0f, 1.0f);
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（fillStyle/strokeStyle/lineWidth/globalAlpha）
+// ============================================================================
+bool G2D::setPropertyTyped(const char *name, const TypedProp &value) {
+	if (std::strcmp(name, "fillStyle") == 0 || std::strcmp(name, "strokeStyle") == 0) {
+		auto *s = std::get_if<std::string>(&value);
+		if (!s) { return false; }
+		if (std::strcmp(name, "fillStyle") == 0) { fillStyle_ = parseColor(*s); }
+		else { strokeStyle_ = parseColor(*s); }
+		markDirty();
+		return true;
+	}
+	if (std::strcmp(name, "lineWidth") == 0 || std::strcmp(name, "globalAlpha") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		if (std::strcmp(name, "lineWidth") == 0) { lineWidth_ = *v; }
+		else { globalAlpha_ = std::clamp(*v, 0.0f, 1.0f); }
+		markDirty();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }

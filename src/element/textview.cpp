@@ -923,15 +923,6 @@ std::string TextView::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool TextView::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        setValue(value);
-        if (binding_) binding_->setString(bindKey_, value);
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
 
 bool TextView::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {

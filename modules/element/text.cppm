@@ -53,8 +53,6 @@ protected:
     /** @brief 绘制文本（ensureGlyphs + collectDraws） */
     void onDraw(Graphics &graphics) override;
 
-    bool setProperty(const char *name, const char *value) override;
-
     /**
      * @brief 处理 Text 专有属性的增量更新
      *

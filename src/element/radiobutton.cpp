@@ -147,12 +147,18 @@ std::string RadioButton::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool RadioButton::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "checked") == 0) {
-        setChecked(std::strcmp(value, "true") == 0);
-        return true;
-    }
-    return View::setProperty(name, value);
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（checked）
+// RadioGroup 联动经 View::setProperty 包装到达此处（radio_group.cpp:30/86/111）
+// ============================================================================
+bool RadioButton::setPropertyTyped(const char *name, const TypedProp &value) {
+	if (std::strcmp(name, "checked") == 0) {
+		auto b = typedToBool(value);
+		if (!b) { return false; }
+		setChecked(*b);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 void RadioButton::resolveThemeDefaults() {

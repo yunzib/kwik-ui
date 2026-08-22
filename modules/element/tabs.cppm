@@ -45,7 +45,6 @@ public:
 
     // ─── 属性读写 (PropBus 支持) ───────────────────────
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ─── 查询 ─────────────────────────────────────────

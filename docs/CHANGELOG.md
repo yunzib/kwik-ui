@@ -1,5 +1,21 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-22
+### 重构：属性写入单一入口
+- `setProperty` 收敛为基类非虚模板方法（字符串包装转发 + 命令式回声）；
+  `setPropertyTyped` 成为唯一虚写入入口且为**纯赋值**；24 个组件删除平行
+  字符串版实现，专有属性解析统一收敛到 typed handler（数值/布尔用宽容
+  helper typedToFloat/typedToBool 兼容双形态）
+- State 回声归口：新增 `View::echoBoundState`（仅命令式路径触发，规范化值取
+  getProperty，按 typeHint 分派 setBool/setFloat/setString）；结构性消除
+  setProp↔notify 循环风险，handler 内不再出现任何 State 写回语句
+- 反向绑定上提基类：binding_/bindKey_/boundPropName_/boundTypeHint_ 统一存入
+  View，`setBinding` 扩为四参 (binding, stateKey, propName, typeHint)，
+  删除 ~12 个组件的重复成员与样板覆写
+- ViewProps 通用属性字符串形态按描述符 reader 反推期望类型转换
+  （double/Color/bool/Transform），替代旧 if-chain；非法数值由抛异常改为
+  返回 false；x/y/scale 等描述符属性新增字符串可写能力
+
 ## 0.0.0 — 2026-08-18
 ### 修复：
 - SpinBox 数字底部裁剪：内部 Input padding 参数顺序写反（`EdgeInsets{0,12,0,10}`

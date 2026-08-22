@@ -909,34 +909,32 @@ std::string DateTimePicker::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool DateTimePicker::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        dp_.value = value;
-        parseValue();
-        markDirty();
-        if (binding_) binding_->setString(bindKey_, dp_.value);
-        return true;
-    }
-    if (std::strcmp(name, "mode") == 0) {
-        dp_.mode = value;
-        parseValue();
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
 
+
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（value/mode）
+// ============================================================================
 bool DateTimePicker::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
-        if (auto *s = std::get_if<std::string>(&value)) {
-            dp_.value = *s;
-            parseValue();
-            markDirty();
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "value") == 0) {
+		if (auto *s = std::get_if<std::string>(&value)) {
+			dp_.value = *s;
+			parseValue();
+			markDirty();
+			return true;
+		}
+		return false;
+	}
+	// mode：自旧字符串版平移（typed 原缺失）
+	if (std::strcmp(name, "mode") == 0) {
+		if (auto *s = std::get_if<std::string>(&value)) {
+			dp_.mode = *s;
+			parseValue();
+			markDirty();
+			return true;
+		}
+		return false;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 void DateTimePicker::resolveThemeDefaults() {

@@ -107,14 +107,7 @@ public:
 
     // ── 属性 ──
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
-
-    // ── 绑定支持（同 Input/TextArea 模式）──
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     const std::string &value() const { return plainText_; }
 
@@ -143,8 +136,6 @@ protected:
     void onLayout() override;
 
 private:
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
     // ── 成员变量 ──
     TextViewProps tvp_;               ///< JS 传入的专有属性
     std::vector<TextRun> content_;    ///< 文档模型（有序 TextRun）

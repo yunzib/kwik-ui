@@ -82,54 +82,29 @@ std::string ProgressBar::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-// ============================================================================
-// setProperty — setProp("progressId", "value", "50") 支持
-// ============================================================================
-bool ProgressBar::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        pp_.value = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "min") == 0) {
-        pp_.min = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "max") == 0) {
-        pp_.max = std::stof(value);
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
+
 
 // ============================================================================
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool ProgressBar::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
-        if (auto *f = std::get_if<double>(&value)) {
-            pp_.value = static_cast<float>(*f);
-            markDirty();
-            return true;
-        }
-        if (auto *i = std::get_if<int64_t>(&value)) {
-            pp_.value = static_cast<float>(*i);
-            markDirty();
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
-}
-
-// ============================================================================
-// setBinding — 设置双向绑定
-// ============================================================================
-void ProgressBar::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
-    binding_ = std::move(binding);
-    bindKey_ = key;
+	if (std::strcmp(name, "value") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		pp_.value = *v;
+		markDirty();
+		return true;
+	}
+	// min / max：自旧字符串版平移（typed 原缺失）
+	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0) {
+		auto v = typedToFloat(value);
+		if (!v) { return false; }
+		if (std::strcmp(name, "min") == 0) { pp_.min = *v; }
+		else { pp_.max = *v; }
+		markDirty();
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 void ProgressBar::resolveThemeDefaults() {

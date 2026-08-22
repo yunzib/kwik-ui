@@ -54,13 +54,7 @@ public:
     bool acceptsFocus() const override { return field_ ? field_->acceptsFocus() : false; }
 
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
-
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     /** reconcile 增量更新: 替换 SpinBoxProps 并同步内部字段 */
     void applySpinBoxProps(SpinBoxProps sp);
@@ -76,9 +70,6 @@ private:
     SpinBoxProps sp_;
     Input *field_ = nullptr;      // 内部数字输入子节点 (裸指针, 所有权在 children_)
     int arrowHovered_ = 0;        // 0=无 1=上 2=下 (hover 高亮)
-
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
 
     // ── 数值操作 ──
     /** clamp 到已设 [min,max] */

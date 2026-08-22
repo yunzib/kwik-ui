@@ -72,34 +72,6 @@ std::string RadioGroup::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-// ============================================================================
-// setProperty — setProp("grpSize", "selected", "Large") 支持
-// ============================================================================
-bool RadioGroup::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "selected") == 0) {
-        if (group_.selected == value) return true;
-        group_.selected = value;
-
-        for (auto &child : children) {
-            if (child->type() != ElementType::RadioButton) continue;
-            bool shouldCheck = (child->getProperty("value") == group_.selected);
-            child->setProperty("checked", shouldCheck ? "true" : "false");
-        }
-
-        if (binding_) { binding_->setString(bindKey_, group_.selected); }
-        markDirty();
-        return true;
-    }
-    return View::setProperty(name, value);
-}
-
-// ============================================================================
-// setBinding — 设置双向绑定
-// ============================================================================
-void RadioGroup::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
-    binding_ = std::move(binding);
-    bindKey_ = key;
-}
 
 bool RadioGroup::setPropertyTyped(const char* name, const TypedProp& value) {
     if (std::strcmp(name, "selected") == 0) {

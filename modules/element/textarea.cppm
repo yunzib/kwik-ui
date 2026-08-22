@@ -59,13 +59,7 @@ public:
     void focus();
     void blur();
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
-
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     void applyTextAreaProps(const TextAreaProps &p);
 
@@ -85,9 +79,6 @@ private:
     // ── 排版结果（元素自己持有，无全局缓存） ─────────
     std::shared_ptr<TextLayoutResult> textResult_;
     std::shared_ptr<TextLayoutResult> placeholderResult_;
-
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
 
     CoreTimer::Id blinkTimerId_ = 0;
     void scheduleBlinkTick();

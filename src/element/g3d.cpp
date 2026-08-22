@@ -364,14 +364,21 @@ std::string G3D::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool G3D::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "autoRotate") == 0) {
-        setAutoRotate(std::strcmp(value, "true") == 0 || std::strcmp(value, "1") == 0);
-        return true;
-    }
-    if (std::strcmp(name, "showAxes") == 0) {    // ← 新增
-        setShowAxes(std::strcmp(value, "true") == 0 || std::strcmp(value, "1") == 0);
-        return true;
-    }
-    return View::setProperty(name, value);
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（autoRotate/showAxes）
+// ============================================================================
+bool G3D::setPropertyTyped(const char *name, const TypedProp &value) {
+	if (std::strcmp(name, "autoRotate") == 0) {
+		auto b = typedToBool(value);      // 兼容 "true"/"1"
+		if (!b) { return false; }
+		setAutoRotate(*b);
+		return true;
+	}
+	if (std::strcmp(name, "showAxes") == 0) {
+		auto b = typedToBool(value);
+		if (!b) { return false; }
+		setShowAxes(*b);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }

@@ -405,24 +405,7 @@ bool TreeMenu::applyCheckedSet(const std::vector<std::string> &want) {
     return true;
 }
 
-bool TreeMenu::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "checked") == 0) {
-        // "a,b,c" → 勾选集合
-        std::vector<std::string> want;
-        std::string cur;
-        for (const char *p = value;; ++p) {
-            if (*p == ',' || *p == '\0') {
-                if (!cur.empty()) want.push_back(cur);
-                cur.clear();
-                if (*p == '\0') break;
-            } else {
-                cur += *p;
-            }
-        }
-        return applyCheckedSet(want);
-    }
-    return View::setProperty(name, value);
-}
+
 
 bool TreeMenu::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "checked") == 0) {

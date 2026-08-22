@@ -44,16 +44,11 @@ public:
      * @param vp 通用视图属性
      * @param sp 滑动条专有属性
      */
-    explicit Slider(ViewProps vp, SliderProps sp)
-        : View(std::move(vp)), sp_(std::move(sp)) {}
+    explicit Slider(ViewProps vp, SliderProps sp) : View(std::move(vp)), sp_(std::move(sp)) {}
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
-    bool setPropertyTyped(const char* name, const TypedProp& value) override;
-
-    // ─── 双向绑定 ─────────────────────────────────────
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override;
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ─── 查询 ─────────────────────────────────────────
     ElementType type() const override { return ElementType::Slider; }
@@ -71,12 +66,8 @@ protected:
 private:
     SliderProps sp_;
 
-    // ─── 双向绑定 ─────────────────────────────────────
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
-
     // ─── 拖拽状态 ─────────────────────────────────────
-    bool isDragging_ = false;             // Pointer 拖拽中
+    bool isDragging_ = false;    // Pointer 拖拽中
 
     // ─── 内部辅助 ─────────────────────────────────────
     /**

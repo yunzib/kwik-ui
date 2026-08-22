@@ -63,13 +63,7 @@ public:
     /** @brief 提交选中：更新选中态 + 回写绑定 + 触发 onChange + 关闭菜单（MenuView 调用） */
     void commitSelection(int index);
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
-
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     void resolveThemeDefaults() override;
 
@@ -88,9 +82,6 @@ private:
 
     // ── 文字 (TextRenderPipeline 排版) ──
     std::shared_ptr<TextLayoutResult> triggerResult_;   // 触发区文字排版结果
-
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
 
     // 菜单层节点（MenuView*）：所有权归 children 向量（addChild 转移），
     // 此指针仅作类型化定位；菜单类同文件定义，模块接口不暴露。

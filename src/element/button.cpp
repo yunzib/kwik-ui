@@ -10,6 +10,7 @@ import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
+import kwik.core.log;
 
 import std;
 

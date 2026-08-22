@@ -334,10 +334,3 @@ std::string Table::getProperty(const char *name) const {
     if (std::strcmp(name, "rowCount") == 0) { return std::to_string(rowCount()); }
     return View::getProperty(name);
 }
-
-// ============================================================================
-// setProperty — setProp("tableId", "...", "...") 支持
-// ============================================================================
-bool Table::setProperty(const char *name, const char *value) {
-    return View::setProperty(name, value);
-}

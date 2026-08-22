@@ -87,13 +87,7 @@ public:
     Rect panelRect() const;
 
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
-
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     void resolveThemeDefaults() override;
 
@@ -123,8 +117,7 @@ private:
     int viewYear_ = 0, viewMonth_ = 1;               // 浮层展示年/月（翻页不改选中）
 
     std::shared_ptr<TextLayoutResult> triggerResult_;    // 触发区文字排版缓存
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
+   
 
     // 浮层节点（CalendarView*，匿名 namespace 类型，模块接口不暴露）
     View *panelLayer_ = nullptr;

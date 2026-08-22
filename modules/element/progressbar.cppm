@@ -50,11 +50,7 @@ public:
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
-
-    // ─── 双向绑定 ─────────────────────────────────────
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override;
 
     // ─── 查询 ─────────────────────────────────────────
     ElementType type() const override { return ElementType::ProgressBar; }
@@ -77,8 +73,4 @@ protected:
 
 private:
     ProgressBarProps pp_;
-
-    // ─── 双向绑定 ─────────────────────────────────────
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
 };

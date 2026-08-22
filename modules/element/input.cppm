@@ -63,13 +63,7 @@ public:
     void blur();
 
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
-
-    void setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) override {
-        binding_ = std::move(binding);
-        bindKey_ = key;
-    }
 
     void resolveThemeDefaults() override;
 
@@ -88,9 +82,6 @@ private:
 
     std::shared_ptr<TextLayoutResult> textResult_;           // 文字排版结果
     std::shared_ptr<TextLayoutResult> placeholderResult_;    // 占位符排版结果
-
-    std::unique_ptr<StateBinding> binding_;
-    std::string bindKey_;
 
     CoreTimer::Id blinkTimerId_ = 0;
     void scheduleBlinkTick();

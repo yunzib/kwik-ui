@@ -54,9 +54,16 @@ public:
 
     // ─── 属性读写（RadioGroup 通过此接口读取 checked/value） ───
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
 
     void resolveThemeDefaults() override;
+
+     /**
+     * @brief 属性写入唯一虚入口
+     *
+     * 命令式路径与 State 增量路径均汇入此处；
+     * string 分支=setProp 包装，原生分支=notify 直传。
+     */
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
 protected:
     Size onMeasure(Constraints constraints) override;

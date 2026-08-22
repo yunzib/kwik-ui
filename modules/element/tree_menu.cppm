@@ -48,7 +48,6 @@ public:
 
     // ── 属性读写（getProp/setProp 支持 checked）──
     std::string getProperty(const char *name) const override;
-    bool setProperty(const char *name, const char *value) override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ── 行控件（同 TU TreeRowView）调用的公共接口 ──

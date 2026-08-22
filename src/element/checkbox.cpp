@@ -71,25 +71,6 @@ std::string Checkbox::getProperty(const char *name) const {
 }
 
 // ============================================================================
-// setProperty — setProp("chkId", "checked", "true") 支持
-// ============================================================================
-bool Checkbox::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "checked") == 0) {
-        setChecked(std::strcmp(value, "true") == 0);
-        return true;
-    }
-    return View::setProperty(name, value);
-}
-
-// ============================================================================
-// setBinding — 设置双向绑定
-// ============================================================================
-void Checkbox::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
-    binding_ = std::move(binding);
-    bindKey_ = key;
-}
-
-// ============================================================================
 // onEvent — Tap 切换选中 + 自动更新绑定 + 触发 onChange
 // ============================================================================
 bool Checkbox::onEvent(const DispatchEvent &event) {
@@ -181,14 +162,13 @@ void Checkbox::onDraw(Graphics &graphics) {
 // setPropertyTyped — 类型安全属性写入
 // ============================================================================
 bool Checkbox::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "checked") == 0) {
-        if (auto *b = std::get_if<bool>(&value)) {
-            setChecked(*b);
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "checked") == 0) {
+		auto b = typedToBool(value);      // 增量=bool；命令式="true"/"false"/"1"/"0"
+		if (!b) { return false; }
+		setChecked(*b);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
 void Checkbox::resolveThemeDefaults() {

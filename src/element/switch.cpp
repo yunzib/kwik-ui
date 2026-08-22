@@ -125,38 +125,21 @@ std::string Switch::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-// ============================================================================
-// setProperty — setProp("switchId", "checked", "true") 支持
-// ============================================================================
-bool Switch::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "checked") == 0) {
-        setChecked(std::strcmp(value, "true") == 0 || std::strcmp(value, "1") == 0);
-        return true;
-    }
-    return View::setProperty(name, value);
-}
+
 
 // ============================================================================
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool Switch::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "checked") == 0) {
-        if (auto *b = std::get_if<bool>(&value)) {
-            setChecked(*b);
-            return true;
-        }
-        return false;
-    }
-    return View::setPropertyTyped(name, value);
+	if (std::strcmp(name, "checked") == 0) {
+		auto b = typedToBool(value);      // 兼容 "1"/"0"（原字符串版语义）
+		if (!b) { return false; }
+		setChecked(*b);
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }
 
-// ============================================================================
-// setBinding — 设置双向绑定
-// ============================================================================
-void Switch::setBinding(std::unique_ptr<StateBinding> binding, const std::string &key) {
-    binding_ = std::move(binding);
-    bindKey_ = key;
-}
 
 void Switch::resolveThemeDefaults() {
     auto& t = theme();

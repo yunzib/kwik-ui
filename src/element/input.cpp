@@ -229,8 +229,8 @@ bool Input::onEvent(const DispatchEvent &event) {
         // 仅允许 0-9 / '-' / '.'; '-' 仅首位; '.' 至多一个
         if (input_.isNumber) {
             if (!((cp >= '0' && cp <= '9') || cp == '-' || cp == '.')) return true;
-            if (cp == '-' && cursorPos_ != 0) return true;                      // 负号只允许在首字符
-            if (cp == '.' && text_.find('.') != std::string::npos) return true; // 只允许一个小数点
+            if (cp == '-' && cursorPos_ != 0) return true;                         // 负号只允许在首字符
+            if (cp == '.' && text_.find('.') != std::string::npos) return true;    // 只允许一个小数点
         }
         if (cp == '\n') {
             blur();
@@ -388,15 +388,15 @@ void Input::fireChange() {
 void Input::commitNumber() {
     if (text_.empty()) text_ = "0";
     double v = std::strtod(text_.c_str(), nullptr);
-    if (input_.max && v > *input_.max) v = *input_.max;                          // clamp 上限
-    if (input_.min && v < *input_.min) v = *input_.min;                          // clamp 下限
-    if (input_.step && *input_.step > 0) {                                       // 对齐步进
+    if (input_.max && v > *input_.max) v = *input_.max;    // clamp 上限
+    if (input_.min && v < *input_.min) v = *input_.min;    // clamp 下限
+    if (input_.step && *input_.step > 0) {                 // 对齐步进
         double base = input_.min ? *input_.min : 0.0;
         v = base + std::round((v - base) / *input_.step) * *input_.step;
     }
     text_ = formatNumber(v);
-    if (binding_) binding_->setString(bindKey_, text_);                          // 双向绑定回写
-    fireChange();                                                                // onChange 通知 JS
+    if (binding_) binding_->setString(bindKey_, text_);    // 双向绑定回写
+    fireChange();                                          // onChange 通知 JS
 }
 
 // ── formatNumber — double 最短文本表示 ──
@@ -427,7 +427,7 @@ void Input::blur() {
     }
     focused_ = false;
     cursorVisible_ = false;
-     // 数字模式: 失焦/回车即提交校验 (clamp + step 对齐, 并同步绑定与 onChange)
+    // 数字模式: 失焦/回车即提交校验 (clamp + step 对齐, 并同步绑定与 onChange)
     if (input_.isNumber) commitNumber();
     markDirty();
 }
@@ -457,55 +457,41 @@ std::string Input::getProperty(const char *name) const {
     if (std::strcmp(name, "isNumber") == 0) return input_.isNumber ? "true" : "false";
     return View::getProperty(name);
 }
-bool Input::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "value") == 0) {
-        setValue(value);
-        if (binding_) binding_->setString(bindKey_, text_);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "placeholder") == 0) {
-        input_.placeholder = value;
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "fontSize") == 0) {
-        input_.fontSize = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "readOnly") == 0) {
-        input_.readOnly = (std::string(value) == "true");
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "isPassword") == 0) {
-        input_.isPassword = (std::string(value) == "true");
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "min") == 0) { input_.min = std::stof(value); markDirty(); return true; }
-    if (std::strcmp(name, "max") == 0) { input_.max = std::stof(value); markDirty(); return true; }
-    if (std::strcmp(name, "step") == 0) { input_.step = std::stof(value); markDirty(); return true; }
-    return View::setProperty(name, value);
-}
 
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（value/placeholder/fontSize/readOnly）
+// 原生分支=增量路径（notify），string 分支=setProp 命令式包装
+// ============================================================================
 bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();
+            return true;    // 纯赋值：State 同步由基类 echoBoundState 负责
+        }
+        return false;
+    }
+    if (std::strcmp(name, "placeholder") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            input_.placeholder = *s;
+            markDirty();
             return true;
         }
         return false;
     }
     if (std::strcmp(name, "fontSize") == 0) {
-        if (auto *d = std::get_if<double>(&value)) {
-            input_.fontSize = static_cast<float>(*d);
-            markDirty();
-            return true;
-        }
-        return false;
+        auto fs = typedToFloat(value);
+        if (!fs) { return false; }
+        input_.fontSize = *fs;
+        markDirty();
+        return true;
+    }
+    if (std::strcmp(name, "readOnly") == 0) {
+        auto ro = typedToBool(value);
+        if (!ro) { return false; }
+        input_.readOnly = *ro;
+        markDirty();
+        return true;
     }
     return View::setPropertyTyped(name, value);
 }

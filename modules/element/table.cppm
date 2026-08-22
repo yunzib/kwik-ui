@@ -56,7 +56,6 @@ public:
 
 	// ─── 属性读写 ─────────────────────────────────────
 	std::string getProperty(const char *name) const override;
-	bool setProperty(const char *name, const char *value) override;
 
 	// ─── 查询 ─────────────────────────────────────────
 	ElementType type() const override { return ElementType::Table; }

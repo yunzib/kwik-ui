@@ -487,8 +487,8 @@ View *View::findById(const std::string &id) {
     return nullptr;
 }
 
-// ============================================================================
-// getProperty / setProperty — 通用属性总线 (基类)
+// ==========================================================================
+// getProperty — 通用属性总线 (基类)
 // ============================================================================
 std::string View::getProperty(const char *name) const {
     if (std::strcmp(name, "width") == 0) return std::to_string(frame.width);
@@ -512,75 +512,47 @@ std::string View::getProperty(const char *name) const {
     return "";
 }
 
+/**
+ * @brief 字符串属性入口（非虚模板方法，禁止覆写）
+ *
+ * 字符串原样包装转发唯一虚入口；成功后命令式回声。
+ */
 bool View::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "width") == 0) {
-        props.width = std::stof(value);
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "height") == 0) {
-        props.height = std::stof(value);
-        markDirty();
-        requestLayout();
-        return true;
-    }
-    if (std::strcmp(name, "background") == 0) {
-        props.background = parseHexColor(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "borderRadius") == 0) {
-        props.borderRadius = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "borderWidth") == 0) {
-        props.borderWidth = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "borderColor") == 0) {
-        props.borderColor = parseHexColor(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "opacity") == 0) {
-        props.opacity = std::stof(value);
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "visible") == 0) {
-        props.visible = (std::string(value) == "true");
-        markDirty();
-        return true;
-    }
-    if (std::strcmp(name, "transform") == 0) {
-        // transform 序列化为 "tx,ty,rot,scale"（向后兼容 "tx,ty"）
-        std::string s(value);
-        auto comma1 = s.find(',');
-        if (comma1 != std::string::npos) {
-            Transform t;
-            t.translateX = std::stof(s.substr(0, comma1));
-            auto comma2 = s.find(',', comma1 + 1);
-            if (comma2 != std::string::npos) {
-                t.translateY = std::stof(s.substr(comma1 + 1, comma2 - comma1 - 1));
-                auto comma3 = s.find(',', comma2 + 1);
-                if (comma3 != std::string::npos) {
-                    t.rotate = std::stof(s.substr(comma2 + 1, comma3 - comma2 - 1));
-                    t.scale = std::stof(s.substr(comma3 + 1));
-                } else {
-                    t.rotate = std::stof(s.substr(comma2 + 1));
-                }
-            } else {
-                t.translateY = std::stof(s.substr(comma1 + 1));
-            }
-            props.transform = t;
-        }
-        markDirty();
-        return true;
-    }
-    return false;    // 子类未覆写 → 未知属性
+	if (!setPropertyTyped(name, TypedProp{std::string(value)})) { return false; }
+	echoBoundState(name);
+	return true;
+}
+
+// ============================================================================
+// setBinding / echoBoundState — 反向绑定统一存储 + 命令式回声（设计 T）
+//
+// 回声仅由非虚 View::setProperty 在写入成功后调用；增量路径（notify）不经过
+// 此处，且各组件 handler 为纯赋值，故结构性无递归。
+// 规范化值取 getProperty 当前值：SpinBox 的 clamp、Dropdown 的映射天然生效。
+// ============================================================================
+void View::setBinding(std::unique_ptr<StateBinding> binding,
+                      const std::string &stateKey,
+                      const std::string &propName,
+                      PropType typeHint) {
+	binding_ = std::move(binding);
+	bindKey_ = stateKey;
+	boundPropName_ = propName;
+	boundTypeHint_ = typeHint;
+}
+
+/** @see view.cppm echoBoundState */
+void View::echoBoundState(const char *name) {
+	if (!binding_ || boundPropName_ != name) { return; }    // 未绑定或属性不匹配
+	std::string v = getProperty(name);
+	if (v.empty() && boundTypeHint_ != PropType::String) { return; }    // 取不到有效值不回写
+	switch (boundTypeHint_) {
+	case PropType::Bool: binding_->setBool(bindKey_, v == "true"); break;
+	case PropType::Int:
+	case PropType::Float:
+		binding_->setFloat(bindKey_, std::strtof(v.c_str(), nullptr)); break;    // JS number 即 double
+	case PropType::String: binding_->setString(bindKey_, v); break;
+	default: break;                                         // Color 等暂不支持命令式回声
+	}
 }
 
 // ============================================================================
@@ -629,15 +601,81 @@ void View::addDirtyRect(const Rect &r) {
     }
 }
 
-bool View::setPropertyTyped(const char *name, const TypedProp &value) {
-    PropId prop = propIdFromName(name);
-    if (prop == PropId::COUNT) return false;    // 未知属性
+/**
+ * @brief 解析 transform 序列化格式（自原字符串解析链平移）
+ *
+ * 格式："tx,ty" / "tx,ty,rot" / "tx,ty,rot,scale"，绕中心变换。
+ * @param s   字符串值
+ * @param out 解析结果（成功时覆写）
+ * @return true 格式合法
+ */
+static bool parseTransformString(const std::string &s, Transform &out) {
+	auto comma1 = s.find(',');
+	if (comma1 == std::string::npos) { return false; }
+	Transform t;
+	t.translateX = std::stof(s.substr(0, comma1));
+	auto comma2 = s.find(',', comma1 + 1);
+	if (comma2 == std::string::npos) {
+		t.translateY = std::stof(s.substr(comma1 + 1));
+		out = t;
+		return true;
+	}
+	t.translateY = std::stof(s.substr(comma1 + 1, comma2 - comma1 - 1));
+	auto comma3 = s.find(',', comma2 + 1);
+	if (comma3 == std::string::npos) {
+		t.rotate = std::stof(s.substr(comma2 + 1));
+	} else {
+		t.rotate = std::stof(s.substr(comma2 + 1, comma3 - comma2 - 1));
+		t.scale = std::stof(s.substr(comma3 + 1));
+	}
+	out = t;
+	return true;
+}
 
-    // ── 无 transition → 直接写入属性 ──
-    writeProperty(prop, value);
-    markDirty();
-    if (getPropMeta(prop).layoutAffecting) { requestLayout(); }
-    return true;
+// ============================================================================
+// setPropertyTyped 默认实现 — 描述符表直写 + string 形态按期望类型反推
+//
+// string 转换规则：getPropMeta(prop).reader(props) 返回值的变体类型即该属性
+// 的期望类型——double→strtod、Color→parseHexColor、bool→typedToBool、
+// Transform→专用格式；EdgeInsets 等不支持字符串形态（与旧行为一致返回 false）。
+// 行为差异说明（相对旧字符串链）：
+//   - 非法数值（如 width="abc"）由 stof 抛异常改为返回 false；
+//   - x/y/scale/translateX 等描述符属性新增字符串可写能力（旧链不支持，超集）；
+//   - textColor/fontSize 为桩 writer，字符串可解析但写入无效果、返回 true。
+// ============================================================================
+bool View::setPropertyTyped(const char *name, const TypedProp &value) {
+	PropId prop = propIdFromName(name);
+	if (prop == PropId::COUNT) { return false; }    // 未知属性
+
+	TypedProp v = value;
+	if (auto *s = std::get_if<std::string>(&v)) {   // string 形态 → 按期望类型反推转换
+		const PropMeta &meta = getPropMeta(prop);
+		if (!meta.reader || !meta.writer) { return false; }
+		TypedProp expect = meta.reader(props);      // dummy-read：返回值类型即期望类型
+		if (std::get_if<double>(&expect)) {
+			char *end = nullptr;
+			double d = std::strtod(s->c_str(), &end);
+			if (end == s->c_str() || *end != '\0') { return false; }    // 全量消耗才算数值
+			v = d;
+		} else if (std::get_if<Color>(&expect)) {
+			v = parseHexColor(s->c_str());
+		} else if (std::get_if<bool>(&expect)) {
+			auto b = typedToBool(value);
+			if (!b) { return false; }
+			v = *b;
+		} else if (std::get_if<Transform>(&expect)) {
+			Transform t;
+			if (!parseTransformString(*s, t)) { return false; }
+			v = t;
+		} else {
+			return false;                           // EdgeInsets 等：不支持字符串形态
+		}
+	}
+
+	writeProperty(prop, v);
+	markDirty();
+	if (getPropMeta(prop).layoutAffecting) { requestLayout(); }
+	return true;
 }
 
 bool View::onEvent(const DispatchEvent &event) {

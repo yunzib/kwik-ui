@@ -87,10 +87,15 @@ std::string StackIndex::getProperty(const char *name) const {
     return View::getProperty(name);
 }
 
-bool StackIndex::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "index") == 0) {
-        setIndex(std::atoi(value));
-        return true;
-    }
-    return View::setProperty(name, value);
+// ============================================================================
+// setPropertyTyped — 属性写入唯一入口（index）
+// ============================================================================
+bool StackIndex::setPropertyTyped(const char *name, const TypedProp &value) {
+	if (std::strcmp(name, "index") == 0) {
+		auto v = typedToFloat(value);     // int64/double/数字串均可
+		if (!v) { return false; }
+		setIndex(static_cast<int>(*v));
+		return true;
+	}
+	return View::setPropertyTyped(name, value);
 }

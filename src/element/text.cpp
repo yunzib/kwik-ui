@@ -126,11 +126,7 @@ void Text::onDraw(Graphics &graphics) {
     }
 }
 
-bool Text::setProperty(const char *name, const char *value) {
-    if (std::strcmp(name, "text") == 0)
-        return setPropertyTyped(name, TypedProp{std::string(value)});
-    return View::setProperty(name, value);
-}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Text::setPropertyTyped — 处理 text_ 属性的增量更新
