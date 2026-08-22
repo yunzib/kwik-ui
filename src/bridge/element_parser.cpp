@@ -97,7 +97,7 @@ static void applyBindings(View *view, const JSValueRef &pv) {
 			PropEntry *entry = meta.find(propName);
 			view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString(),
 			                 propName, entry ? entry->typeHint : PropType::Unknown);
-                             
+
             // ── State → View 增量绑定（通用，所有组件受益）──
             if (auto *reg = getRegisteredRegistry()) {
                 void *statePtr = JS_VALUE_GET_PTR(stateVal.raw());
@@ -633,6 +633,20 @@ std::unique_ptr<View> ElementParser::parse(JSContext *ctx, JSValueConst value) {
     JSValueRef jsVal(ctx, JS_DupValue(ctx, value));
     return parse(jsVal);
 }
+
+/**
+ * @brief 自底向上遍历整树调用 resolveThemeDefaults
+ *
+ * 必须在树完全构建（所有 parent_ 已挂接）后调用，
+ * 使 View::theme() 能正确上溯到最近 ThemeProvider，
+ * 替代旧 parse 期逐子节点解析（彼时父链未完整 → 深节点解析成 defaultTheme）。
+ */
+static void resolveThemeTree(View *view) {
+    if (!view) return;
+    for (auto &c : view->children) resolveThemeTree(c.get());
+    view->resolveThemeDefaults();
+}
+
 // ============================================================================
 // 公开接口 - parse(const JSValueRef& jsVal)
 //
@@ -641,8 +655,13 @@ std::unique_ptr<View> ElementParser::parse(JSContext *ctx, JSValueConst value) {
 // ============================================================================
 std::unique_ptr<View> ElementParser::parse(const JSValueRef &jsVal) {
     if (!jsVal.isObject() || jsVal.isNull()) { return nullptr; }
-    return parseNode(jsVal);
+    auto tree = parseNode(jsVal);
+    if (tree) resolveThemeTree(tree.get());
+    return tree;
 }
+
+
+
 // ============================================================================
 // 私有 - parseNode(const JSValueRef& jsVal)
 //
@@ -695,7 +714,6 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
             auto child = parseNode(childrenVal.getArrayElement(i));
             if (child) {
                 element->addChild(std::move(child));
-                element->children.back()->resolveThemeDefaults();
             }
         }
     }

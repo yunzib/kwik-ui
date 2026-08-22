@@ -258,3 +258,20 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     return View::setPropertyTyped(name, value);
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Text::resolveThemeDefaults — 解析 color 的 @token
+//
+// 仅当 props.themeTokens 含 "color" 时才覆写 text_.textColor；
+// 无 token 时不改默认，避免影响无主题的既有 demo。
+// 调用时机已由 ElementParser 移到 parse 完成后的统一遍历（父链完整），
+// theme() 可正确上溯到最近 ThemeProvider。
+// ════════════════════════════════════════════════════════════════════════
+void Text::resolveThemeDefaults() {
+    auto it = props.themeTokens.find("color");
+    if (it != props.themeTokens.end()) {
+        if (auto v = theme().resolveToken(it->second)) {
+            text_.textColor = *v;
+        }
+    }
+}

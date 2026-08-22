@@ -26,6 +26,17 @@
   脏区只剩 `drawUnderlay` 底色 → 组件消失；首帧全树自脏、无透传祖先故正常
   → 修复：`Graphics::beginContent(false)`（正常录制域 path ③/①/③'）进入时强制
   `noop=false`，透传域（`beginContent(true)`）语义不变
+- 主题 token 双缺陷叠加导致深色主题下文字不可见（car demo 状态栏文字全黑）：
+  ① 时序缺陷——resolveThemeDefaults 原在 parseNode 子循环内逐节点调用，彼时深层
+  节点祖先 parent_ 链尚未挂接完整，View::theme() 上溯中途 parent_==nullptr 回退
+  defaultTheme()（浅色），仅 ThemeProvider 直接子节点取到正确主题，更深节点全部
+  解析成浅色默认主题色（@primary→蓝而非主题橙）；② 覆写缺失——Text 与基类 View
+  均无 resolveThemeDefaults 覆写，color:"@token" 存入 props.themeTokens 后从不
+  解析，textColor 停留默认黑 → 修复：删除 parse 期逐子调用，新增静态
+  resolveThemeTree 自底向上遍历整树，ElementParser::parse 树构建完成后统一调用
+  一次（父链完整，theme() 可正确上溯最近 ThemeProvider）；Text 补
+  resolveThemeDefaults 覆写（仅 themeTokens 含 "color" 时经 theme().resolveToken
+  覆写 textColor，无 token 不改默认值）
 
 ## 0.0.0 — 2026-08-18
 ### 修复：

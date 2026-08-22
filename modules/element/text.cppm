@@ -61,6 +61,9 @@ protected:
      */
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
+    /** @brief 解析 @color token（父链完整后由 ElementParser 统一调用） */
+    void resolveThemeDefaults() override;
+
 private:
     std::shared_ptr<TextLayoutResult> layoutResult_; /**< 排版结果 */
 };
