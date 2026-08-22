@@ -22,6 +22,7 @@ import kwik.render.command;
 import kwik.core.binding;
 import kwik.element.typed_prop;
 import kwik.event;
+import kwik.core.log;
 
 import std;
 
@@ -70,6 +71,9 @@ void Switch::setChecked(bool val) {
 // ③ 滑块阴影
 // ============================================================================
 void Switch::onDraw(Graphics &graphics) {
+    Log::info("[SwOnDraw] id={} checked={} frame=({:.0f},{:.0f},{:.0f},{:.0f}) trackH={} thumb={}",
+          props.id, sp_.checked, frame.x, frame.y, frame.width, frame.height,
+          sp_.trackHeight, sp_.thumbSize);
     View::onDraw(graphics);
 
     float contentH = frame.height - props.padding.vertical();

@@ -39,11 +39,11 @@ function BoundTextView() {
         }),
         View({ flexDirection: "row", gap: 8, margin: [8, 0, 0, 0] }, [
             Button({
-                text: "Reset", width: 80, height: 32, color: "ffffff",
+                text: "Reset", width: 80, height: 32, color: "#ffffff",
                 onClick: () => form.update({ content: "Hello World from State" }),
             }),
             Button({
-                text: "Clear", width: 80, height: 32, color: "ffffff",
+                text: "Clear", width: 80, height: 32, color: "#ffffff",
                 onClick: () => form.update({ content: "" }),
             }),
         ]),
@@ -72,14 +72,14 @@ function ControlPanel() {
         Text({ text: "getProp / setProp", fontSize: 18, fontWeight: "bold", margin: [0, 0, 8, 0] }),
         View({ flexDirection: "row", gap: 8 }, [
             Button({
-                text: "Get value", width: 100, height: 32, color: "ffffff",
+                text: "Get value", width: 100, height: 32, color: "#ffffff",
                 onClick: () => {
                     let val = getProp("boundTextview", "value");
                     console.log("Current value:", val);
                 },
             }),
             Button({
-                text: "Set plain", width: 100, height: 32, color: "ffffff",
+                text: "Set plain", width: 100, height: 32, color: "#ffffff",
                 onClick: () => {
                     setProp("boundTextview", "value", "替换为纯文本");
                 },

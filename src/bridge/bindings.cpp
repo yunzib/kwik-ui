@@ -228,6 +228,7 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
             if (key) {
                 Log::debug("State set_property called   incCb: {}  key: {}", (void *)incCb, key);
                 handled = incCb(JS_VALUE_GET_PTR(obj), key, ctx, value);
+                Log::info("[StateSet] key={} incHandled={}", key, handled);
                 JS_FreeCString(ctx, key);
             }
         }

@@ -16,6 +16,17 @@
   （double/Color/bool/Transform），替代旧 if-chain；非法数值由抛异常改为
   返回 false；x/y/scale 等描述符属性新增字符串可写能力
 
+### 修复
+- 透传域 no-op 泄漏导致重绘内容丢失（Switch 点击后消失、仅残留边缘线条）：
+  命令缓冲扁平化后透传（path ②，仅子树脏）以 Graphics 状态标志 `noop` 实现，
+  祖先 `save()` 置 noop=true、`restore()` 恢复；自脏视图（path ③）的
+  `beginContent()` 仅清 `passThrough_` 未清 `noop`，且 `View::onDraw` 内部
+  save/restore 对返回后 noop 已恢复为透传祖先的 true → 在 `View::onDraw` 之后
+  绘制的内容（Switch 轨道/滑块、Button 等自绘组件）被 draw* 的 `noop` 检查丢弃，
+  脏区只剩 `drawUnderlay` 底色 → 组件消失；首帧全树自脏、无透传祖先故正常
+  → 修复：`Graphics::beginContent(false)`（正常录制域 path ③/①/③'）进入时强制
+  `noop=false`，透传域（`beginContent(true)`）语义不变
+
 ## 0.0.0 — 2026-08-18
 ### 修复：
 - SpinBox 数字底部裁剪：内部 Input padding 参数顺序写反（`EdgeInsets{0,12,0,10}`

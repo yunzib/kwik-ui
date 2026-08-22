@@ -152,6 +152,7 @@ void Graphics::resetClip() {
 void Graphics::beginContent(bool passThrough) {
     contentDepth_++;
     passThrough_ = passThrough;
+    if (!passThrough) { currentState_.noop = false; }    // 重绘域进入即复位
 }
 
 void Graphics::endContent() {
@@ -195,13 +196,13 @@ void Graphics::drawRoundedRectGradient(const Rect &rect, float radius, const Gra
     if (g.type == GradientType::Linear) {
         // CSS 角度语义：0°=向上, 90°=向右, 180°=向下；色带从 color0(起点) → color1(终点)
         constexpr float kPi = 3.14159265358979f;
-        const float    rad = g.angleDeg * (kPi / 180.0f);
-        const float    dx  = std::sin(rad), dy = -std::cos(rad);
+        const float rad = g.angleDeg * (kPi / 180.0f);
+        const float dx = std::sin(rad), dy = -std::cos(rad);
         // L 取 max(w,h)，保证渐变线两端落在矩形对角线之外，任意角度均完全覆盖
         const float L = std::max(rect.width, rect.height);
-        g.x0 = rect.width * 0.5f - dx * L;   // 起点（相对 rect 左上）
+        g.x0 = rect.width * 0.5f - dx * L;    // 起点（相对 rect 左上）
         g.y0 = rect.height * 0.5f - dy * L;
-        g.x1 = rect.width * 0.5f + dx * L;   // 终点
+        g.x1 = rect.width * 0.5f + dx * L;    // 终点
         g.y1 = rect.height * 0.5f + dy * L;
     } else if (g.type == GradientType::Radial) {
         // 中心辐射，半径 = 对角线一半（cover）
@@ -309,8 +310,6 @@ void Graphics::fillPath(const Path &path, const Color &color) {
         FillTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
-
-
 std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
     auto triangles = triangulateStroke(path, lineWidth);
     if (triangles.empty()) return {};
@@ -348,8 +347,8 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
     cb_->append(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
 }
 
-void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1,
-                         float width, const Color &color0, const Color &color1) {
+void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1, float width, const Color &color0,
+                         const Color &color1) {
     if (!recording_ || currentState_.noop) return;
     if (r <= 0.0f || width <= 0.0f) return;
 
@@ -362,12 +361,12 @@ void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1,
     // 圆心/角度以本地逻辑坐标传给 shader，随矩阵一起作用于顶点 → 渐变与纯色变换一致
     // 两端颜色均烘焙透明度，渐变中间 alpha 由 shader 插值（lerp 语义）
     size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0),
-                             cx, cy, a0, a1, applyOpacity(color1), currentState_.m});
+    cb_->append(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0), cx, cy, a0, a1, applyOpacity(color1),
+                             currentState_.m});
 }
 
-void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, float a1,
-                        const Color &color0, const Color &color1, bool roundCap) {
+void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, float a1, const Color &color0,
+                        const Color &color1, bool roundCap) {
     if (!recording_ || currentState_.noop) return;
     if (midR <= 0.0f || halfW <= 0.0f) return;
 
@@ -376,8 +375,8 @@ void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, f
     float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
     float pad = (sc > 1e-6f) ? 2.0f / sc : 2.0f;
 
-    cb_->append(FillRingCmd{cx, cy, midR, halfW, a0, a1, roundCap, pad,
-                            applyOpacity(color0), applyOpacity(color1), currentState_.m});
+    cb_->append(FillRingCmd{cx, cy, midR, halfW, a0, a1, roundCap, pad, applyOpacity(color0), applyOpacity(color1),
+                            currentState_.m});
 }
 
 void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
