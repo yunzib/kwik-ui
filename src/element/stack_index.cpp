@@ -74,8 +74,14 @@ void StackIndex::onDraw(Graphics &graphics) {
 void StackIndex::setIndex(int index) {
     if (index == sp_.index) return;
     sp_.index = index;
+    int idx = activeChild_();
+    if (idx >= 0) {
+        // 新面板可能从未参与测量（启动只测 index 指向的面板）
+        children[static_cast<size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
+        onLayout();    // 立即交换各面板 frame；固定尺寸下框架布局门(moved||childChanged, view.cpp:51)不会触发
+    }
     markDirty();
-    requestLayout();    // 主循环已消费 → relayoutTree 先 resize 容器再布局 child, 再 renderFrame
+    requestLayout();    // 常规通道保留：下一帧全树校准
     if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{}, sp_.index}); }
 }
 

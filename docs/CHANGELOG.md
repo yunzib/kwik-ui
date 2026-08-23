@@ -32,6 +32,12 @@
   节点），分发阶段① 对预设目标单发直递不走冒泡，叶子无 onClick 即吞事件
   → 阶段① 目标未消费时对 Tap/LongPress 沿祖先链补冒泡
   （Hover/Pointer/Pan 语义不变）
+- 固定尺寸 StackIndex 切换后面板内容不更新：setIndex 仅改索引+标记脏，
+  而 View::layout 的 onLayout 门为 moved||子节点测量标记，固定宽高容器
+  切换两者皆否 → 子面板 frame 从未交换，新面板保持空 frame
+  → setIndex 内对新活动面板补 measure 并直接调用自身 onLayout 立即重排
+  （兑现头注释"手动 measure+layout"的设计意图），同步清除旧面板 frame
+  消除幽灵命中
 
 ## 0.0.0 — 2026-08-22
 ### 重构：属性写入单一入口
