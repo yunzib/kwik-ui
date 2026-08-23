@@ -164,18 +164,11 @@ bool Application::init() {
     // 多图层管理器：base 指向主树根
     LayerStack::instance().setBase(tree_.get());
 
-    // 从窗口读取实际逻辑尺寸（含屏幕适配），使布局与窗口物理尺寸一致
-    int w, h;
-    window_.GetSize(&w, &h);
-    float dpi = window_.GetDpiScale();
-    auto sz = Size{(float)w / dpi, (float)h / dpi};
-
-    // 通知文本渲染管线更新 DPI 比例，
-    // 使字形栅格化分辨率随屏幕物理密度自适应
-    TextRenderPipeline::instance().setDpiScale(dpi);
+    // px = 逻辑像素：布局空间与文字密度统一跟随 S 因子
+    TextRenderPipeline::instance().setDpiScale(renderScale());
 
     // ④ measure 循环 + layout (共用 relayoutTree, 消除与 rebuildTree/WindowResize 的重复代码)
-    relayoutTree(sz);
+    relayoutTree(layoutSize());
 
     // 调试用结构查看
     // ElementParser::printTree(tree_.get());
@@ -187,7 +180,7 @@ bool Application::init() {
 
     // ⑥ 事件系统
     eventRouter_.setRootTarget(&LayerStack::instance());    // 事件路由根：LayerStack（hitTest 顶→底 layers 再 base）
-    eventRouter_.setDpiScale(window_.GetDpiScale());
+    eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
     // 虚拟键盘注入：合成 RawEvent 复用物理键盘管线（KeyboardHandler→focused→Input）
     setRawEventInjector([this](const RawEvent &r) { eventRouter_.feedRawEvent(r); });
 
@@ -214,12 +207,8 @@ void Application::rebuildTree() {
     // bindingRegistry 不再全局 clear —— unbind 已 inline 处理被销毁的单个 View
 
     if (tree_) {
-        int w, h;
-        window_.GetSize(&w, &h);
-        float dpi = window_.GetDpiScale();
-        auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
         tree_->markAllMeasureDirty();              // reconcile 直接赋值 props/text，必须全量重测
-        relayoutTree(sz);                          // needsRelayout_ 已在 setPropertyTyped 中标记
+        relayoutTree(layoutSize());                // needsRelayout_ 已在 setPropertyTyped 中标记
         if (tree_) tree_->clearLayoutRequest();    // 防标志残留导致重复 relayout
     }
 
@@ -244,7 +233,7 @@ void Application::rebuildTree() {
  */
 void Application::renderFrame() {
     auto t0 = std::chrono::steady_clock::now();
-    float dpi = window_.GetDpiScale();
+    float S = renderScale();
 
     bool structural = treeStructureChanged_;
     treeStructureChanged_ = false;
@@ -253,7 +242,7 @@ void Application::renderFrame() {
     canvas.setCommandBuffer(renderThread_.commandQueue().currentCommandBuffer());
     canvas.setDirtyRectAccum(&dirtyRect_);    // ← 传入脏矩形累加器
     canvas.beginFrame(structural);
-    canvas.scale(dpi, dpi);
+    canvas.scale(S, S);
 
     LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
 
@@ -262,15 +251,14 @@ void Application::renderFrame() {
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
     if (dr.isEmpty()) {
-        int w, h;
-        window_.GetSize(&w, &h);
-        dr = Rect{0, 0, static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
+        Size vs = layoutSize();
+        dr = Rect{0, 0, vs.width, vs.height};    // 全量脏区（逻辑空间）
     }
 
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
     frame.commandBuffer = std::move(commandBuffer);
-    frame.dirtyRect = {dr.x * dpi, dr.y * dpi, dr.width * dpi, dr.height * dpi};
+    frame.dirtyRect = {dr.x * S, dr.y * S, dr.width * S, dr.height * S};
     frame.structuralChange = structural;
     frame.needsResize = false;
 
@@ -283,6 +271,24 @@ void Application::renderFrame() {
 
     dirtyRect_ = {};    // 清零，准备下一帧
     needsRedraw_ = false;
+}
+
+float Application::renderScale() {
+    // px=逻辑像素：S 为窗口所在屏固有系数（工作区÷基准屏），
+    // 与客户区大小、系统 DPI 设置均无关 → 内容尺寸不随窗口变化
+    int waW = 0, waH = 0;
+    window_.GetScreenWorkArea(&waW, &waH);
+    if (waW <= 0 || waH <= 0) return 1.0f;    // 兜底：查询失败按未缩放
+    float sw = float(waW) / float(kBaselineScreenW);
+    float sh = float(waH) / float(kBaselineScreenH);
+    return sw < sh ? sw : sh;
+}
+
+Size Application::layoutSize() {
+    // 布局空间恒为设计稿坐标系（px=设计稿像素）
+    int dw, dh;
+    window_.GetDesignSize(&dw, &dh);
+    return Size{static_cast<float>(dw), static_cast<float>(dh)};
 }
 
 // ============================================================================
@@ -356,11 +362,7 @@ int Application::run() {
             static_cast<void *>(tree_.get()));
         // 如果布局属性（width/height/padding/margin）正在动画中 → 重新布局
         if (AnimationEngine::instance().hasLayoutAnimation()) {
-            int w, h;
-            window_.GetSize(&w, &h);
-            float dpi = window_.GetDpiScale();
-            auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
-            relayoutTree(sz);
+            relayoutTree(layoutSize());
             tree_->markAllDirty();
             needsRedraw_ = true;
         }
@@ -373,10 +375,7 @@ int Application::run() {
 
         // 动画帧已由上方 hasLayoutAnimation 全量 relayout + markAllDirty，跳过避免重复
         if (!AnimationEngine::instance().hasLayoutAnimation() && tree_ && tree_->hasLayoutRequest()) {
-            int w, h;
-            window_.GetSize(&w, &h);
-            float dpi = window_.GetDpiScale();
-            relayoutTree(Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi});
+            relayoutTree(layoutSize());
             tree_->clearLayoutRequest();
         }
 
@@ -432,14 +431,16 @@ void Application::handleResize(int width, int height) {
 
     treeStructureChanged_ = true;
 
-    float dpi = window_.GetDpiScale();
-    TextRenderPipeline::instance().setDpiScale(dpi);
-    auto sz = Size{static_cast<float>(width) / dpi, static_cast<float>(height) / dpi};
-    relayoutTree(sz);
-    if (tree_) tree_->markAllDirty();    // ← 全树脏标记
+    TextRenderPipeline::instance().setDpiScale(renderScale());
+
+    relayoutTree(layoutSize());
+    if (tree_) {
+        tree_->markAllDirty();             // ← 全树脏标记：全量重录命令
+        tree_->markAllLayoutRepaint();     // ← 强制整带重绘：保住渐变/半透明面板背景不被底图擦黑
+    }
 
     eventRouter_.reset();
-    eventRouter_.setDpiScale(dpi);
+    eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
 
     needsRedraw_ = true;    // ← 替代 dirtyTracker_.markFull()
     resizeBurstFrames_ = 10;
@@ -550,12 +551,8 @@ void Application::onHotReloadTriggered(const std::string &path) {
     eventRouter_.setRootTarget(&LayerStack::instance());
     eventRouter_.reset();
 
-    // ⑪ 重新布局
-    int w, h;
-    window_.GetSize(&w, &h);
-    float dpi = window_.GetDpiScale();
-    auto sz = Size{static_cast<float>(w) / dpi, static_cast<float>(h) / dpi};
-    relayoutTree(sz);
+    // ⑪ 重新布局（px=逻辑像素，坐标系=客户区÷S）
+    relayoutTree(layoutSize());
 
     // ⑫ 刷新文件时间戳缓存
     fileWatchCache_.clear();

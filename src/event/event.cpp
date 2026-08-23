@@ -432,8 +432,8 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     scaled.timestamp = ts;
     if (raw.device == RawEvent::Device::Mouse || raw.device == RawEvent::Device::Touch
         || raw.device == RawEvent::Device::Pen) {
-        scaled.x = raw.x / dpiScale_;
-        scaled.y = raw.y / dpiScale_;
+       scaled.x = (raw.x - offsetX_) / scale_;
+        scaled.y = (raw.y - offsetY_) / scale_;
         scaled.scrollX = raw.scrollX;
         scaled.scrollY = raw.scrollY;
     }

@@ -52,6 +52,11 @@ export enum class WindowDecoration {
     Transparent    // 透明背景（用于异形窗口）
 };
 
+/** 基准屏参照系（全库唯一定义）：px=逻辑像素模型中
+ *  S₀ = 所在屏工作区 ÷ 基准屏；1920×1080 为约定基准，非设备假设 */
+export inline constexpr int kBaselineScreenW = 1920;
+export inline constexpr int kBaselineScreenH = 1080;
+
 /**
  * @brief 平台窗口抽象接口
  *
@@ -97,6 +102,13 @@ public:
      * @return 96 DPI 时为 1.0, 192 DPI 时为 2.0
      */
     virtual float GetDpiScale() const = 0;
+
+    /**
+     * @brief 获取设计尺寸（Create 传入的原始逻辑尺寸）
+     * 用于计算统一渲染系数 S；默认回退当前客户区尺寸（其他平台行为不变）
+     */
+    virtual void GetDesignSize(int *width, int *height) const { GetSize(width, height); }
+
     /**
      * @brief 获取主显示器工作区尺寸（不含任务栏），可在 Create() 前调用
      */

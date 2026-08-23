@@ -25,6 +25,8 @@ public:
     void Hide() override;
     void GetSize(int *width, int *height) const override;
     float GetDpiScale() const override;
+    void RefitToNearestMonitor();
+    void GetDesignSize(int *width, int *height) const override;
     void GetScreenWorkArea(int *width, int *height) override;
     // 软件渲染
     bool LockBackBuffer(void **pixels, int *stride) override;
@@ -60,6 +62,12 @@ private:
     int designHeight_ = 600;        // Create() 传入的原始逻辑高度（缩放前）
     WindowDecoration decoration_ = WindowDecoration::Normal;
     RawEventCallback rawCallback_ = nullptr;
+    float grabRelX_ = 0.5f;   // 抓取点在窗口内的归一化位置（0~1）
+    float grabRelY_ = 0.5f;
+    RECT enterRect_{};    // 进入模态循环时的窗口矩形（判别 移动 vs 手动缩放）
+    HMONITOR enterMon_ = nullptr;    // 进入模态循环时所在屏（判别是否跨屏）
+    HMONITOR moveTrackMon_ = nullptr;    // 拖动中最近一次所在屏（WM_MOVE 更新）
+    bool moveCrossed_ = false;           // 本轮拖动曾跨越屏幕边界
 };
 
 #endif    // _WIN32

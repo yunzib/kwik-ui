@@ -182,4 +182,9 @@ private:
     void pollFilesForHotReload();
     /// 检测到文件变更时的重载处理
     void onHotReloadTriggered(const std::string &path);
+
+    /** 统一渲染系数：min(系统DPI, 客户区宽÷设计宽, 客户区高÷设计高)。只缩不涨 */
+    float renderScale();
+    /** 布局空间 = 客户区 ÷ renderScale()，恒 ≥ 设计稿 */
+    Size layoutSize();
 };

@@ -43,28 +43,39 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     designWidth_ = width;
     designHeight_ = height;
 
-    // DPI 缩放: 用户逻辑尺寸 → 物理像素
-    HDC hdc = GetDC(nullptr);
-    float dpiScale = (float)GetDeviceCaps(hdc, LOGPIXELSX) / 96.0f;
-    ReleaseDC(nullptr, hdc);
+    // ── 设计分辨率模式：初始窗口 = 设计稿 × S₀
+    //    S₀ = 主屏物理工作区 ÷ 基准屏(1920×1080)，与系统 DPI 设置完全无关；
+    //    占屏比恒 ≈67%（1280/1920），纵横比由双向取小保证安全 ──
+    RECT wa;
+    int availW = kBaselineScreenW, availH = kBaselineScreenH;
+    if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0)) {
+        availW = wa.right - wa.left;
+        availH = wa.bottom - wa.top;
+    }
+    float s0w = (float)availW / kBaselineScreenW;
+    float s0h = (float)availH / kBaselineScreenH;
+    float S0 = s0w < s0h ? s0w : s0h;
 
-    // 屏幕适配：以 1920×1080 逻辑工作区为基准，自动缩放窗口，
-    // 使窗口跨屏保持一致的占比（800/1920 ≈ 41.7%）
-    // 高 DPI 小屏 → 缩小；低 DPI 大屏 → 放大
+    int scaledW = (int)(width * S0);
+    int scaledH = (int)(height * S0);
+    Log::info("[Fit] S0={} client={}x{} screen={}x{}", S0, scaledW, scaledH, GetSystemMetrics(SM_CXSCREEN),
+              GetSystemMetrics(SM_CYSCREEN));
+
+    // 物理钳制：设计×DPI 若超出主屏工作区则等比缩小，窗口永不超屏
     {
-        RECT workArea;
-        if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0)) {
-            int logicalW = (int)((workArea.right - workArea.left) / dpiScale);
-            if (logicalW > 0) {
-                float scale = (float)logicalW / 1920.0f;
-                width = (int)(width * scale);
-                height = (int)(height * scale);
+        RECT wa;
+        if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0)) {
+            int availW = (wa.right - wa.left) - 32;    // 余量含标题栏/边框
+            int availH = (wa.bottom - wa.top) - 32;
+            float sc = std::min(1.0f, std::min((float)availW / scaledW, (float)availH / scaledH));
+            if (sc < 1.0f) {
+                Log::info("[DPI] clamp x{} -> {}x{}", sc, (int)(scaledW * sc), (int)(scaledH * sc));
+                scaledW = (int)(scaledW * sc);
+                scaledH = (int)(scaledH * sc);
             }
         }
     }
 
-    int scaledW = (int)(width * dpiScale);
-    int scaledH = (int)(height * dpiScale);
     // 注册窗口类
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
@@ -406,44 +417,46 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
 
     // 窗口绘制
     case WM_PAINT: ValidateRect(hwnd_, nullptr); return 0;
-
-    // 窗口 DPI 变更（拖到不同缩放比例的另一块屏幕）
+    // 跨缩放率屏幕拖动：系统通知到达即重算。仅采纳建议位置（保持跟手），
+    // 尺寸统一交既有 RefitToNearestMonitor() 重算（含夹紧与装饰补偿，逻辑零改动）
     case WM_DPICHANGED: {
-        UINT newDpiX = LOWORD(wParam);
-        float newDpiScale = newDpiX / 96.0f;
-        // 用 lParam 建议矩形的中心点定位目标显示器，
-        // 而非 MonitorFromWindow (窗口可能跨屏，定位不准)
         RECT *suggested = (RECT *)lParam;
-        POINT center = {0, 0};
-        if (suggested) {
-            center.x = suggested->left + (suggested->right - suggested->left) / 2;
-            center.y = suggested->top + (suggested->bottom - suggested->top) / 2;
-        }
-        HMONITOR hMon = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
-        if (!hMon) {
-            return 0;    // 兜底: 取不到目标屏则不做缩放
-        }
-        MONITORINFO mi = {sizeof(mi)};
-        if (GetMonitorInfoW(hMon, &mi)) {
-            int physicalW = mi.rcWork.right - mi.rcWork.left;
-            int logicalW = (int)((float)physicalW / newDpiScale);
-            if (logicalW > 0) {
-                float scale = (float)logicalW / 1920.0f;
-                int w = (int)(designWidth_ * scale);
-                int h = (int)(designHeight_ * scale);
-                int newPhysW = (int)((float)w * newDpiScale);
-                int newPhysH = (int)((float)h * newDpiScale);
-                if (suggested) {
-                    SetWindowPos(hwnd_, NULL, suggested->left, suggested->top, newPhysW, newPhysH,
-                                 SWP_NOZORDER | SWP_NOACTIVATE);
-                } else {
-                    SetWindowPos(hwnd_, NULL, 0, 0, newPhysW, newPhysH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-                }
-            }
-        }
+        if (suggested)
+            SetWindowPos(hwnd_, NULL, suggested->left, suggested->top, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        RefitToNearestMonitor();
+        // 本轮系统已介入改窗：同步基线，防 EXITSIZEMOVE 误判为手动缩放
+        GetWindowRect(hwnd_, &enterRect_);
+        moveTrackMon_ = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+        moveCrossed_ = false;
         return 0;
     }
-
+    // 拖动中持续跟踪所在屏：相邻两次位置异屏即标记迁移。
+    // 纯观察者：只记两个标量，消息照常交还 DefWindowProc
+    case WM_MOVE: {
+        HMONITOR m = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+        if (moveTrackMon_ && m != moveTrackMon_) moveCrossed_ = true;
+        moveTrackMon_ = m;
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+    case WM_ENTERSIZEMOVE:
+        GetWindowRect(hwnd_, &enterRect_);    // 记录进入模态循环时的窗口尺寸
+        moveTrackMon_ = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+        moveCrossed_ = false;
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    case WM_EXITSIZEMOVE: {
+        // 本次循环中尺寸未变 ⇒ 纯位置拖动 → 交由 Refit 跨屏重算占屏；
+        // 尺寸被用户改变 ⇒ 手动缩放结果，完全尊重，不回弹
+        RECT now{};
+        GetWindowRect(hwnd_, &now);
+        bool sizeKept = std::abs(int(now.right - now.left) - int(enterRect_.right - enterRect_.left)) <= 1
+                        && std::abs(int(now.bottom - now.top) - int(enterRect_.bottom - enterRect_.top)) <= 1;
+        bool movedAcross = moveCrossed_;                         // 全程曾跨屏，对循环重启免疫
+        if (sizeKept && movedAcross) RefitToNearestMonitor();    // 仅跨屏迁移才重算
+        moveCrossed_ = false;
+        moveTrackMon_ = nullptr;
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
     default: return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
 
@@ -532,11 +545,26 @@ float PlatformWindowWin32::GetDpiScale() const {
     return 1.0f;
 }
 
+void PlatformWindowWin32::GetDesignSize(int *width, int *height) const {
+    // Create() 已保存未经缩放的设计尺寸（designWidth_/designHeight_ 成员）
+    if (width) *width = designWidth_;
+    if (height) *height = designHeight_;
+}
+
 void PlatformWindowWin32::GetScreenWorkArea(int *width, int *height) {
-    RECT workArea;
-    if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0)) {
-        if (width) *width = workArea.right - workArea.left;
-        if (height) *height = workArea.bottom - workArea.top;
+    // 窗口所在屏的工作区（非主屏）：跨屏/最大化时内容系数跟随所在屏
+    HMONITOR hMon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi{sizeof(mi)};
+    if (hMon && GetMonitorInfoW(hMon, &mi)) {
+        if (width) *width = mi.rcWork.right - mi.rcWork.left;
+        if (height) *height = mi.rcWork.bottom - mi.rcWork.top;
+        return;
+    }
+    // 兜底：查询失败退回主屏
+    RECT wa{};
+    if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0)) {
+        if (width) *width = wa.right - wa.left;
+        if (height) *height = wa.bottom - wa.top;
     } else {
         if (width) *width = GetSystemMetrics(SM_CXSCREEN);
         if (height) *height = GetSystemMetrics(SM_CYSCREEN);
@@ -639,4 +667,46 @@ static RawEvent toRawEvent(const Event &e, UINT msg, WPARAM wParam, LPARAM) {
     default: break;
     }
     return r;
+}
+
+void PlatformWindowWin32::RefitToNearestMonitor() {
+    HMONITOR hMon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+    if (!hMon) return;
+    MONITORINFO mi{sizeof(mi)};
+    if (!GetMonitorInfoW(hMon, &mi)) return;
+
+    // 目标屏固有系数：S0 = min(工作区宽÷1920, 工作区高÷1080)
+    float sw = float(mi.rcWork.right - mi.rcWork.left) / kBaselineScreenW;
+    float sh = float(mi.rcWork.bottom - mi.rcWork.top) / kBaselineScreenH;
+    float s0 = sw < sh ? sw : sh;
+
+    // 客户区目标 = 设计稿 × S0（与 Create 初值公式同源）
+    int tgtW = int(designWidth_ * s0);
+    int tgtH = int(designHeight_ * s0);
+    RECT rc{0, 0, tgtW, tgtH};
+    AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
+
+    // 锚定松手处，夹进目标屏工作区
+    RECT now{};
+    GetWindowRect(hwnd_, &now);
+    const int waL = int(mi.rcWork.left), waR = int(mi.rcWork.right);
+    const int waT = int(mi.rcWork.top), waB = int(mi.rcWork.bottom);
+    const int winW = rc.right - rc.left, winH = rc.bottom - rc.top;
+
+    int x = std::max(waL, std::min(int(now.left), waR - winW));
+    int y = std::max(waT, std::min(int(now.top), waB - winH));
+    SetWindowPos(hwnd_, NULL, x, y, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+    // 二次校正：PMv2 下非客户区按目标屏实际缩放，实测客户区增量补偿装饰误差
+    for (int i = 0; i < 2; ++i) {
+        RECT cli{};
+        GetClientRect(hwnd_, &cli);
+        int dW = tgtW - (cli.right - cli.left);
+        int dH = tgtH - (cli.bottom - cli.top);
+        if (std::abs(dW) <= 1 && std::abs(dH) <= 1) break;
+        RECT cur{};
+        GetWindowRect(hwnd_, &cur);
+        SetWindowPos(hwnd_, NULL, 0, 0, cur.right - cur.left + dW, cur.bottom - cur.top + dH,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
 }

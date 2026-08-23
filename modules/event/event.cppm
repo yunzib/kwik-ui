@@ -481,7 +481,12 @@ public:
     EventRouter() = default;
 
     // ── 配置 ──
-    void setDpiScale(float dpi) { dpiScale_ = dpi; }
+    /** 内容变换：逻辑坐标 = (物理坐标 − 偏移) ÷ 缩放 */
+    void setContentTransform(float scale, float offsetX, float offsetY) {
+        scale_ = scale;
+        offsetX_ = offsetX;
+        offsetY_ = offsetY;
+    }
     void setRootTarget(EventTarget *root) {
         rootTarget_ = root;
         gestureRecognizer_.reset();
@@ -514,7 +519,9 @@ public:
     FocusManager &focusManager() { return focusManager_; }
 
 private:
-    float dpiScale_ = 1.0f;
+    float scale_ = 1.0f;
+    float offsetX_ = 0.0f;
+    float offsetY_ = 0.0f;
     EventTarget *rootTarget_ = nullptr;
 
     PointerTracker pointerTracker_;
