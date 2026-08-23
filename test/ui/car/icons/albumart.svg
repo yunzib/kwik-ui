@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.30"/>
+      <stop offset="50%" stop-color="#FF6B35" stop-opacity="0.50"/>
+      <stop offset="100%" stop-color="#7B1FA2" stop-opacity="0.85"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="30%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#0A0015" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="400" height="400" rx="28" fill="#0D0618"/>
+  <rect x="0" y="0" width="400" height="400" rx="28" fill="url(#bg1)"/>
+  <rect x="0" y="0" width="400" height="400" rx="28" fill="url(#glow)"/>
+
+  <path d="M0 200 Q50 180 100 200 T200 200 T300 200 T400 200" fill="none" stroke="#FF6B35" stroke-width="2" opacity="0.60"/>
+  <path d="M0 220 Q50 200 100 220 T200 220 T300 220 T400 220" fill="none" stroke="#00D4FF" stroke-width="2" opacity="0.50"/>
+  <path d="M0 180 Q50 160 100 180 T200 180 T300 180 T400 180" fill="none" stroke="#FF6B35" stroke-width="2" opacity="0.40"/>
+
+  <circle cx="200" cy="200" r="80" fill="none" stroke="#FF6B35" stroke-width="1.5" opacity="0.30"/>
+  <circle cx="200" cy="200" r="60" fill="none" stroke="#00D4FF" stroke-width="1.5" opacity="0.40"/>
+  <circle cx="200" cy="200" r="40" fill="#FF6B35" fill-opacity="0.19" stroke="#FF6B35" stroke-width="1" opacity="0.50"/>
+  <circle cx="200" cy="200" r="15" fill="#00D4FF" opacity="0.80"/>
+  <circle cx="200" cy="200" r="6" fill="#FFFFFF" opacity="0.90"/>
+
+  <g transform="translate(100 300)" opacity="0.70">
+    <rect x="0" y="-32" width="6" height="32" rx="3" fill="#FF6B35"/>
+    <rect x="12.5" y="-48" width="6" height="48" rx="3" fill="#00D4FF"/>
+    <rect x="25" y="-28" width="6" height="28" rx="3" fill="#FF6B35"/>
+    <rect x="37.5" y="-55" width="6" height="55" rx="3" fill="#00D4FF"/>
+    <rect x="50" y="-42" width="6" height="42" rx="3" fill="#FF6B35"/>
+    <rect x="62.5" y="-60" width="6" height="60" rx="3" fill="#00D4FF"/>
+    <rect x="75" y="-38" width="6" height="38" rx="3" fill="#FF6B35"/>
+    <rect x="87.5" y="-52" width="6" height="52" rx="3" fill="#00D4FF"/>
+    <rect x="100" y="-30" width="6" height="30" rx="3" fill="#FF6B35"/>
+    <rect x="112.5" y="-45" width="6" height="45" rx="3" fill="#00D4FF"/>
+    <rect x="125" y="-35" width="6" height="35" rx="3" fill="#FF6B35"/>
+    <rect x="137.5" y="-50" width="6" height="50" rx="3" fill="#00D4FF"/>
+    <rect x="150" y="-28" width="6" height="28" rx="3" fill="#FF6B35"/>
+    <rect x="162.5" y="-42" width="6" height="42" rx="3" fill="#00D4FF"/>
+    <rect x="175" y="-36" width="6" height="36" rx="3" fill="#FF6B35"/>
+    <rect x="187.5" y="-58" width="6" height="58" rx="3" fill="#00D4FF"/>
+  </g>
+
+  <circle cx="320" cy="80" r="40" fill="#00D4FF" opacity="0.15"/>
+  <circle cx="60" cy="320" r="60" fill="#FF6B35" opacity="0.12"/>
+
+  <g fill="#FFFFFF" opacity="0.60">
+    <circle cx="80" cy="100" r="1.5"/>
+    <circle cx="340" cy="180" r="1"/>
+    <circle cx="120" cy="340" r="1.5"/>
+    <circle cx="300" cy="360" r="1"/>
+    <circle cx="260" cy="60" r="1"/>
+    <circle cx="50" cy="200" r="1"/>
+  </g>
+</svg>

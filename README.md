@@ -114,8 +114,35 @@ export default () => Root(
 ```
 ## 3.2 效果示例
 ![alt text](doc/image/examle.png)
-![alt text](docs/image/button.png)
-![alt text](docs/image/input.png)
+
+<table>
+  <tr>
+    <td><img src="docs/image/button.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/input.png" alt="图片描述2" width="100%"></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img src="docs/image/nav.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/music.png" alt="图片描述2" width="100%"></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img src="docs/image/climate.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/car.png" alt="图片描述2" width="100%"></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img src="docs/image/phone.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/setting.png" alt="图片描述2" width="100%"></td>
+  </tr>
+</table>
+
 - 更多示例可参考:  examples/
 - 更多组件相关参考:  doc/1.kwik-ui 组件.md
 

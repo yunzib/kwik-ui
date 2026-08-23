@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <defs>
+    <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="windowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0a0f1a" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="400" cy="310" rx="320" ry="15" fill="#00D4FF" opacity="0.08"/>
+
+  <g stroke="#00D4FF" stroke-width="2" fill="none" opacity="0.9">
+    <path d="M80 240 L160 160 L280 130"/>
+    <path d="M280 130 L340 70 L460 55"/>
+    <path d="M460 55 L600 60"/>
+    <path d="M600 60 L700 110 L730 180"/>
+    <path d="M730 180 L740 240"/>
+    <path d="M80 240 L180 255 L220 275 L300 275 L350 255 L450 255 L500 275 L580 275 L630 255 L740 240"/>
+  </g>
+
+  <path d="M80 240 L160 160 L280 130 L340 70 L460 55 L600 60 L700 110 L730 180 L740 240 L630 255 L580 275 L500 275 L450 255 L350 255 L300 275 L220 275 L180 255 L80 240 Z"
+    fill="url(#carBodyGrad)"/>
+
+  <path d="M290 132 L345 75 L455 60 L595 64 L695 108 L700 150 L295 150 Z"
+    fill="url(#windowGrad)" opacity="0.8"/>
+
+  <g stroke="#00D4FF" stroke-width="1.5" opacity="0.5">
+    <line x1="455" y1="60" x2="475" y2="150"/>
+    <line x1="580" y1="62" x2="600" y2="150"/>
+  </g>
+
+  <circle cx="260" cy="265" r="45" fill="none" stroke="#00D4FF" stroke-width="2" opacity="0.8"/>
+  <circle cx="260" cy="265" r="32" fill="none" stroke="#00D4FF" stroke-width="1" opacity="0.5"/>
+  <circle cx="260" cy="265" r="12" fill="#00D4FF" opacity="0.3"/>
+  <circle cx="260" cy="265" r="5" fill="#00D4FF" opacity="0.7"/>
+  <circle cx="540" cy="265" r="45" fill="none" stroke="#00D4FF" stroke-width="2" opacity="0.8"/>
+  <circle cx="540" cy="265" r="32" fill="none" stroke="#00D4FF" stroke-width="1" opacity="0.5"/>
+  <circle cx="540" cy="265" r="12" fill="#00D4FF" opacity="0.3"/>
+  <circle cx="540" cy="265" r="5" fill="#00D4FF" opacity="0.7"/>
+
+  <ellipse cx="95" cy="200" rx="18" ry="8" fill="#00D4FF" opacity="0.6"/>
+  <path d="M95 200 L40 185" stroke="#00D4FF" stroke-width="1" opacity="0.3"/>
+  <path d="M95 200 L30 200" stroke="#00D4FF" stroke-width="1" opacity="0.25"/>
+  <path d="M95 200 L40 215" stroke="#00D4FF" stroke-width="1" opacity="0.3"/>
+
+  <ellipse cx="725" cy="195" rx="15" ry="10" fill="#FF4444" opacity="0.6"/>
+  <line x1="725" y1="185" x2="745" y2="180" stroke="#FF4444" stroke-width="1" opacity="0.4"/>
+  <line x1="725" y1="195" x2="748" y2="195" stroke="#FF4444" stroke-width="1" opacity="0.35"/>
+  <line x1="725" y1="205" x2="745" y2="210" stroke="#FF4444" stroke-width="1" opacity="0.4"/>
+
+  <rect x="330" y="170" width="40" height="4" rx="2" fill="#00D4FF" opacity="0.5"/>
+  <rect x="510" y="170" width="40" height="4" rx="2" fill="#00D4FF" opacity="0.5"/>
+
+  <g transform="translate(600 120)">
+    <rect width="100" height="8" rx="4" fill="#FFFFFF" fill-opacity="0.1"/>
+    <rect width="78" height="8" rx="4" fill="#00D4FF" opacity="0.8"/>
+  </g>
+</svg>
