@@ -419,6 +419,17 @@ public:
      */
     void markAllDirty();
 
+    /**
+     * @brief 递归标记整棵子树需要"布局位移整带重绘" (resize 后调用)
+     *
+     * resize 时画布重建且 frame 不变 (moved=false), 整带机制不会经 layout() 自动激活;
+     * 若仅 markAllDirty(), 各视图走裸路径③各自 drawUnderlay(underlayColor()),
+     * underlayColor() 会跳过渐变背景祖先 → 渐变面板被根暗色底图擦成黑块。
+     * 置 needsLayoutRepaint_ 强制下一帧父级整片一次底图 + 自身背景重绘,
+     * 子级只画内容 (s_suppressUnderlay), 与启动首帧/HMR 行为一致。
+     */
+    void markAllLayoutRepaint();
+
     /** @brief 是否脏 */
     bool isDirty() const { return dirty_; }
 

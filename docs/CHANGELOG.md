@@ -1,5 +1,22 @@
 # 更新日志
 
+
+## 0.0.0 — 2026-08-23
+### 新增
+- 纯逻辑像素模型：px 属性统一为逻辑像素（DIP），布局空间恒定设计尺寸，
+  渲染按显示器 DPI 缩放因子放大（画布物理尺寸、文字 setDpiScale、事件
+  setContentTransform 同步换算）；跨屏拖动经 WM_DPICHANGED 以新缩放自动
+  重建画布并整树重排，UI 物理大小跨屏保持一致
+
+### 修复
+- 窗口 resize 后渐变/半透明面板背景被擦成黑块（拖边框/最大化/跨屏均复现，
+  热重载可恢复）：resize 时所有 frame 不变 → 整带重绘机制（needsLayoutRepaint_）
+  不激活，各视图走裸脏路径各自 drawUnderlay 擦除，而 underlayColor() 跳过
+  渐变背景祖先、回退根部暗色 → 渐变面板被底图擦黑
+  → 新增 View::markAllLayoutRepaint()（递归置 needsLayoutRepaint_），
+  handleResize 在 markAllDirty 后调用，强制父级整片一次底图+自身背景重绘、
+  子级只画内容，与启动首帧/HMR 行为一致
+
 ## 0.0.0 — 2026-08-22
 ### 重构：属性写入单一入口
 - `setProperty` 收敛为基类非虚模板方法（字符串包装转发 + 命令式回声）；

@@ -582,6 +582,18 @@ void View::markAllDirty() {
     }
 }
 
+// ============================================================================
+// markAllLayoutRepaint — 递归标记整棵子树需要"布局位移整带重绘" (resize 后调用)
+//
+// resize 时 frame 未变 (moved=false), 整带机制不经 layout() 激活; 裸路径③的
+// drawUnderlay 用 underlayColor() 擦除会跳过渐变祖先 → 面板渐变被擦黑。
+// 置 needsLayoutRepaint_ 使父级下一帧整片一次底图+自身背景重绘, 子级只画内容。
+// ============================================================================
+void View::markAllLayoutRepaint() {
+    needsLayoutRepaint_ = true;    // 下一帧父级整片区域一次性重绘
+    for (auto &c : children) c->markAllLayoutRepaint();
+}
+
 // markAllMeasureDirty — 递归标记整棵子树需要重新测量 (rebuild 后强制全量测量)
 void View::markAllMeasureDirty() {
     needsMeasure_ = true;
