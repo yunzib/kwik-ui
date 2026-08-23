@@ -10,6 +10,7 @@ import kwik.core.constraints;
 import kwik.event;
 import kwik.core.log;
 import kwik.core.prop_meta;
+import kwik.core.color_parser;
 
 import std;
 
@@ -265,7 +266,10 @@ void View::draw(Graphics &graphics) {
             // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
             // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
             if (!drawnElsewhere_) { graphics.drawUnderlay(region, underlayColor()); }
+            bool prev = s_suppressUnderlay;
+            s_suppressUnderlay = true;    // 底图已覆盖本区域：脏后代走③'只画内容，不再各自冲底打洞
             onDraw(graphics);
+            s_suppressUnderlay = prev;
             graphics.endContent();
             Rect paint = region.unionRect(dirtyRectOverride_);
             graphics.accumulateDirtyRect(paint);
@@ -456,27 +460,6 @@ void View::removeFromParent() {
         }
     }
 }
-
-// ============================================================================
-// 辅助 — 内联 hex 颜色解析
-// ============================================================================
-namespace {
-Color parseHexColor(const std::string &s) {
-    if (s.size() >= 7 && s[0] == '#') {
-        auto h = [&](size_t off) -> uint8_t {
-            auto c = [](char ch) -> int {
-                if (ch >= '0' && ch <= '9') return ch - '0';
-                if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
-                if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
-                return 0;
-            };
-            return (uint8_t)((c(s[off]) << 4) | c(s[off + 1]));
-        };
-        return {h(1), h(3), h(5), 255};
-    }
-    return {0, 0, 0, 255};
-}
-}    // namespace
 
 View *View::findById(const std::string &id) {
     if (props.id == id) return this;
@@ -670,7 +653,7 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 			if (end == s->c_str() || *end != '\0') { return false; }    // 全量消耗才算数值
 			v = d;
 		} else if (std::get_if<Color>(&expect)) {
-			v = parseHexColor(s->c_str());
+			v = parseColor(*s);
 		} else if (std::get_if<bool>(&expect)) {
 			auto b = typedToBool(value);
 			if (!b) { return false; }

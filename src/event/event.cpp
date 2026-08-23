@@ -378,7 +378,16 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
     if (!root) return false;
 
     // ── 阶段①: 预设目标 (HoverEnter / HoverLeave) ──
-    if (event.presetTarget) { return fireOnTarget(event.presetTarget, event); }
+    if (event.presetTarget) {
+        if (fireOnTarget(event.presetTarget, event)) { return true; }
+        // 点击类手势(Tap/LongPress): 最深目标未消费 → 沿祖先链冒泡
+        if (event.type == DispatchEvent::Type::Tap || event.type == DispatchEvent::Type::LongPress) {
+            for (EventTarget *v = event.presetTarget->parent(); v; v = v->parent()) {
+                if (fireOnTarget(v, event)) { return true; }
+            }
+        }
+        return false;
+    }
 
     // ── 阶段②: 滚轮事件 ──
     // hitTest + fireOnTarget + parent scrollable→applyScroll
@@ -432,7 +441,7 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     scaled.timestamp = ts;
     if (raw.device == RawEvent::Device::Mouse || raw.device == RawEvent::Device::Touch
         || raw.device == RawEvent::Device::Pen) {
-       scaled.x = (raw.x - offsetX_) / scale_;
+        scaled.x = (raw.x - offsetX_) / scale_;
         scaled.y = (raw.y - offsetY_) / scale_;
         scaled.scrollX = raw.scrollX;
         scaled.scrollY = raw.scrollY;
@@ -539,5 +548,9 @@ FocusChangeHook &focusChangeHookStorage() {
 }
 }    // namespace
 
-void setFocusChangeHook(FocusChangeHook hook) { focusChangeHookStorage() = std::move(hook); }
-const FocusChangeHook &focusChangeHook() { return focusChangeHookStorage(); }
+void setFocusChangeHook(FocusChangeHook hook) {
+    focusChangeHookStorage() = std::move(hook);
+}
+const FocusChangeHook &focusChangeHook() {
+    return focusChangeHookStorage();
+}

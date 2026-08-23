@@ -16,6 +16,22 @@
   → 新增 View::markAllLayoutRepaint()（递归置 needsLayoutRepaint_），
   handleResize 在 markAllDirty 后调用，强制父级整片一次底图+自身背景重绘、
   子级只画内容，与启动首帧/HMR 行为一致
+- 切换 Tab 后激活项图标/文字背后出现暗色矩形（点击跟随选中项移动）：
+  路径③增量重绘中，自身 drawUnderlay 冲底后遍历脏后代，脏后代再次执行各自
+  drawUnderlay，underlayColor() 跳过半透明祖先回退根部不透明暗色，
+  在半透明高亮底上凿出不透明暗块
+  → 路径③ onDraw 前置 s_suppressUnderlay=true（与 needsLayoutRepaint_
+  整带路径一致），脏后代改走既有③'分支只画内容
+- setProp 字符串颜色与声明式构建表现不一致：命令式 Color 走残废版
+  parseHexColor（仅 #RRGGBB 且强制不透明、非 hex 回退纯黑），
+  "#FF6B3530" 变全亮橙、"transparent" 变不透明黑
+  → view.cpp 改为委托 kwik.core.color_parser::parseColor（支持 #RRGGBBAA/
+  命名色/rgba()，失败兜底透明），删除 parseHexColor；text.cpp 拦截 "color"
+  写入 text_.textColor（原为静默无效桩）
+- 点击容器内图标/文字无响应：Tap 合成始终携带 presetTarget（按下点最深命中
+  节点），分发阶段① 对预设目标单发直递不走冒泡，叶子无 onClick 即吞事件
+  → 阶段① 目标未消费时对 Tap/LongPress 沿祖先链补冒泡
+  （Hover/Pointer/Pan 语义不变）
 
 ## 0.0.0 — 2026-08-22
 ### 重构：属性写入单一入口

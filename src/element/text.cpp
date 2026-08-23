@@ -14,6 +14,7 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.element.typed_prop;
 import kwik.core.log;
+import kwik.core.color_parser;
 
 import std;
 
@@ -26,7 +27,10 @@ import std;
 // 否则截断串与原文本 hash 不同会导致每帧重排。
 // ═══════════════════════════════════════════════════════════════════════════
 void Text::ensureLayout(float maxW) {
-    if (text_.text.empty()) { layoutResult_.reset(); return; }
+    if (text_.text.empty()) {
+        layoutResult_.reset();
+        return;
+    }
     auto &pipe = TextRenderPipeline::instance();
     FontId fid = pipe.loadFont(text_.fontFamily);
     if (fid == kInvalidFontId) fid = pipe.activeFont();
@@ -46,10 +50,9 @@ void Text::ensureLayout(float maxW) {
     auto full = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
 
     // 超行 + 省略号 → 截断重排
-    if (text_.maxLines > 0 && text_.ellipsis && full && full->truncated
-        && !full->lines.empty()) {
+    if (text_.maxLines > 0 && text_.ellipsis && full && full->truncated && !full->lines.empty()) {
         auto &last = full->lines.back();
-        displayedText_ = text_.text.substr(0, last.clusterEnd) + "\xE2\x80\xA6";  // U+2026 …
+        displayedText_ = text_.text.substr(0, last.clusterEnd) + "\xE2\x80\xA6";    // U+2026 …
         // 截断串缓存匹配：cutCfg.maxLines=0（截断串已定长），与排版所用 cfg 一致
         // —— 若仍用原 cfg（maxLines>0）则 Result.maxLines=0 恒不匹配 → 每帧重排
         auto cutCfg = cfg;
@@ -71,12 +74,13 @@ Size Text::onMeasure(Constraints constraints) {
     if (!layoutResult_) return constraints.constrain({0, 0});
     // 显式/百分比宽 → 满宽（frame 宽 = 父内容宽，textAlign 偏移才有空间）；
     // 否则自适应内容宽
-    float w = (props.width.has_value() || props.widthPct.has_value())
-                  ? eff.width
-                  : layoutResult_->totalWidth + props.padding.horizontal();
-    float h = props.height.has_value() ? *props.height
-              : (props.heightPct.has_value() ? eff.height
-                 : std::max(layoutResult_->totalHeight, 16.0f) + props.padding.vertical());
+    float w = (props.width.has_value() || props.widthPct.has_value()) ?
+                  eff.width :
+                  layoutResult_->totalWidth + props.padding.horizontal();
+    float h = props.height.has_value() ? *props.height :
+                                         (props.heightPct.has_value() ?
+                                              eff.height :
+                                              std::max(layoutResult_->totalHeight, 16.0f) + props.padding.vertical());
     return constraints.constrain({w, h});
 }
 
@@ -126,18 +130,16 @@ void Text::onDraw(Graphics &graphics) {
     }
 }
 
-
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Text::setPropertyTyped — 处理 text_ 属性的增量更新
 // ═══════════════════════════════════════════════════════════════════════════
 bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
-   if (std::strcmp(name, "text") == 0) {
+    if (std::strcmp(name, "text") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             text_.text = *s;
-            layoutResult_.reset();   // ← 排版结果废止，下次 onDraw 时惰性重建
+            layoutResult_.reset();    // ← 排版结果废止，下次 onDraw 时惰性重建
             markDirty();
-            requestLayout();         // ← 文字变化影响尺寸，增量路径下必须 relayout
+            requestLayout();    // ← 文字变化影响尺寸，增量路径下必须 relayout
             return true;
         }
         return false;
@@ -153,7 +155,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "fontSize") == 0) {
         if (auto *d = std::get_if<double>(&value)) {
             text_.fontSize = static_cast<float>(*d);
-            layoutResult_.reset();   // 字号影响行高 → 重排版 + re-layout
+            layoutResult_.reset();    // 字号影响行高 → 重排版 + re-layout
             markDirty();
             requestLayout();
             return true;
@@ -212,10 +214,14 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     if (std::strcmp(name, "textAlign") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
-            if (s->find("center") != std::string::npos) text_.textAlign = TextAlign::Center;
-            else if (s->find("right") != std::string::npos) text_.textAlign = TextAlign::Right;
-            else if (s->find("justify") != std::string::npos) text_.textAlign = TextAlign::Justify;
-            else text_.textAlign = TextAlign::Left;
+            if (s->find("center") != std::string::npos)
+                text_.textAlign = TextAlign::Center;
+            else if (s->find("right") != std::string::npos)
+                text_.textAlign = TextAlign::Right;
+            else if (s->find("justify") != std::string::npos)
+                text_.textAlign = TextAlign::Justify;
+            else
+                text_.textAlign = TextAlign::Left;
             layoutResult_.reset();
             markDirty();
             return true;
@@ -224,9 +230,12 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     if (std::strcmp(name, "verticalAlign") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
-            if (s->find("center") != std::string::npos) text_.verticalAlign = TextVerticalAlign::Center;
-            else if (s->find("bottom") != std::string::npos) text_.verticalAlign = TextVerticalAlign::Bottom;
-            else text_.verticalAlign = TextVerticalAlign::Top;
+            if (s->find("center") != std::string::npos)
+                text_.verticalAlign = TextVerticalAlign::Center;
+            else if (s->find("bottom") != std::string::npos)
+                text_.verticalAlign = TextVerticalAlign::Bottom;
+            else
+                text_.verticalAlign = TextVerticalAlign::Top;
             markDirty();
             return true;
         }
@@ -234,10 +243,14 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     if (std::strcmp(name, "fontWeight") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
-            if (s->find("bold") != std::string::npos) text_.fontWeight = FontWeight::Bold;
-            else if (s->find("light") != std::string::npos) text_.fontWeight = FontWeight::Light;
-            else if (s->find("medium") != std::string::npos) text_.fontWeight = FontWeight::Medium;
-            else text_.fontWeight = FontWeight::Normal;
+            if (s->find("bold") != std::string::npos)
+                text_.fontWeight = FontWeight::Bold;
+            else if (s->find("light") != std::string::npos)
+                text_.fontWeight = FontWeight::Light;
+            else if (s->find("medium") != std::string::npos)
+                text_.fontWeight = FontWeight::Medium;
+            else
+                text_.fontWeight = FontWeight::Normal;
             layoutResult_.reset();
             markDirty();
             requestLayout();
@@ -247,11 +260,22 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     }
     if (std::strcmp(name, "fontStyle") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
-            text_.fontStyle = (s->find("italic") != std::string::npos || s->find("oblique") != std::string::npos)
-                                  ? FontStyle::Italic : FontStyle::Normal;
+            text_.fontStyle = (s->find("italic") != std::string::npos || s->find("oblique") != std::string::npos) ?
+                                  FontStyle::Italic :
+                                  FontStyle::Normal;
             layoutResult_.reset();
             markDirty();
             requestLayout();
+            return true;
+        }
+        return false;
+    }
+    if (std::strcmp(name, "color") == 0) {
+        TypedProp v = value;
+        if (auto *s = std::get_if<std::string>(&v)) { v = parseColor(*s); }
+        if (auto *c = std::get_if<Color>(&v)) {
+            text_.textColor = *c;
+            markDirty();
             return true;
         }
         return false;
@@ -270,8 +294,6 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
 void Text::resolveThemeDefaults() {
     auto it = props.themeTokens.find("color");
     if (it != props.themeTokens.end()) {
-        if (auto v = theme().resolveToken(it->second)) {
-            text_.textColor = *v;
-        }
+        if (auto v = theme().resolveToken(it->second)) { text_.textColor = *v; }
     }
 }
