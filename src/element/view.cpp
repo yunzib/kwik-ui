@@ -218,7 +218,10 @@ void View::onLayout() {
 //   ③ 自身脏          → 正常录制：重录自身内容 + 遍历子树重录脏后代
 // ============================================================================
 void View::draw(Graphics &graphics) {
-    if (!props.visible) return;
+    if (!props.visible) {
+        clearDirty();    // 不可见节点清脏, 防 dirty_ 残留反复进入遍历
+        return;
+    }
 
     // ── 布局位移重绘: 父级整片区域一次底图 + 内容重绘 ──
     // 相邻视图同时位移/变尺寸时, 各自底图(old∪new)会互相冲洗;
@@ -401,8 +404,23 @@ void View::iterateChildren(Graphics &graphics) {
         for (auto *c : sorted) {
             if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
+
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
+            // ── 背景层豁免（仅父级透传帧生效, dirty_==false）──
+            // 完全包住脏区并集的大面积干净兄弟（页面背景类）禁止强制重绘：
+            // 强制会使其走路径③以 lastPaintBounds 整带底图擦除, 带远大于 subDirty,
+            // 所有不相交的干净兄弟像素被抹掉后无人补画
+            // （表现为点击 Tab 后左区+音量条消失, 只剩面板底色）。
+            // 豁免后被擦局部由脏兄弟自身记录补回; 最底层无需为 z 序跟随。
+            // 父级自身脏（路径③整带模式）时门禁关闭 —— 原强制自愈逻辑不变。
+            // Rect 无 contains(Rect), 逐字段判断包含关系。
+            if (!dirty_ && overlaps && !subDirty.isEmpty() &&
+                c->frame.x <= subDirty.x && c->frame.y <= subDirty.y &&
+                c->frame.x + c->frame.width >= subDirty.x + subDirty.width &&
+                c->frame.y + c->frame.height >= subDirty.y + subDirty.height) {
+                continue;
+            }
             if (isDirty || overlaps) {
                 if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
                 c->draw(graphics);
@@ -412,8 +430,23 @@ void View::iterateChildren(Graphics &graphics) {
         for (auto &c : children) {
             if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
+
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
+            // ── 背景层豁免（仅父级透传帧生效, dirty_==false）──
+            // 完全包住脏区并集的大面积干净兄弟（页面背景类）禁止强制重绘：
+            // 强制会使其走路径③以 lastPaintBounds 整带底图擦除, 带远大于 subDirty,
+            // 所有不相交的干净兄弟像素被抹掉后无人补画
+            // （表现为点击 Tab 后左区+音量条消失, 只剩面板底色）。
+            // 豁免后被擦局部由脏兄弟自身记录补回; 最底层无需为 z 序跟随。
+            // 父级自身脏（路径③整带模式）时门禁关闭 —— 原强制自愈逻辑不变。
+            // Rect 无 contains(Rect), 逐字段判断包含关系。
+            if (!dirty_ && overlaps && !subDirty.isEmpty() &&
+                c->frame.x <= subDirty.x && c->frame.y <= subDirty.y &&
+                c->frame.x + c->frame.width >= subDirty.x + subDirty.width &&
+                c->frame.y + c->frame.height >= subDirty.y + subDirty.height) {
+                continue;
+            }
             if (isDirty || overlaps) {
                 if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
                 c->draw(graphics);
