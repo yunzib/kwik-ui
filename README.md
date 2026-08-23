@@ -117,8 +117,8 @@ export default () => Root(
 
 <table>
   <tr>
-    <td><img src="docs/image/button.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/input.png" alt="图片描述2" width="100%"></td>
+    <td><img src="docs/image/button1.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/input1.png" alt="图片描述2" width="100%"></td>
   </tr>
 </table>
 
