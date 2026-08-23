@@ -618,6 +618,20 @@ protected:
      * @brief 布局回调 (子类重写)
      */
     virtual void onLayout();
+
+    /** @brief 绘制自身装饰层并压栈状态：save / transform / opacity / shadow /
+     *         渐变或纯色背景 / 边框描边 / 内容区圆角裁剪。
+     *         不遍历子树、末尾不 restore —— 由调用方负责配对弹出
+     *         （View::onDraw 内由 iterateChildren 收尾配对） */
+    void drawSelfContent(Graphics &graphics);
+
+    /** @brief 脏门子节点迭代：收集脏子 frame 并集 → 干净但被覆盖的子节点
+     *         标记后跟随重绘以维持 z-order；z≠0 时稳定排序分支。
+     *         末尾 restore 与 drawSelfContent 开头的 save 配对。
+     *         加固：零面积子树直接跳过（如 StackIndex 非活跃面板——
+     *         根 frame 为空但子树坐标仍有效，防止越界绘制泄漏） */
+    void iterateChildren(Graphics &graphics);
+    
     /**
      * @brief 绘制回调 (子类重写)
      * @param graphics 绘图上下文

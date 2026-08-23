@@ -38,6 +38,7 @@
   → setIndex 内对新活动面板补 measure 并直接调用自身 onLayout 立即重排
   （兑现头注释"手动 measure+layout"的设计意图），同步清除旧面板 frame
   消除幽灵命中
+- 修复(StackIndex)：启动首帧非活跃面板子树被 View::onDraw 尾部脏门迭代无裁剪绘制的泄漏——面板根 frame 为空但子树坐标仍有效（窗口原点系），幽灵内容压在 SideNav 上；拆分 onDraw 为 drawSelfContent(自身装饰,save 不配对)+iterateChildren(脏门子迭代+尾部 restore)，StackIndex 改为只画自身装饰并独立裁剪呈现活动面板；子迭代新增零面积子树跳过加固
 
 ## 0.0.0 — 2026-08-22
 ### 重构：属性写入单一入口

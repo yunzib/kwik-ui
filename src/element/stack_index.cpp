@@ -53,19 +53,26 @@ void StackIndex::onLayout() {
 
 // ============================================================================
 // onDraw — 仅绘制选中面板, 裁剪防止内容溢出容器
+//
+// 不得调用 View::onDraw：其尾部的脏门子迭代会把全部面板当普通兄弟遍历，
+// 非活跃面板根 frame 为空但子树坐标有效（窗口原点系），启动全脏帧会被
+// 无裁剪画出 → 内容压到 SideNav 等区域上（幽灵绘制泄漏）。
+// 这里只画自身装饰层，再单独裁剪呈现活动面板。
 // ============================================================================
 void StackIndex::onDraw(Graphics &graphics) {
-    View::onDraw(graphics);
-    int idx = activeChild_();
-    if (idx < 0) return;
+    drawSelfContent(graphics);    // 内部 save 未配对，下方所有出口必须 restore
 
-    // Log::info("[StackIndex] self={},{},{},{} panel={},{},{},{}", frame.x, frame.y, frame.width, frame.height,
-    //           children[idx]->frame.x, children[idx]->frame.y, children[idx]->frame.width, children[idx]->frame.height);
+    int idx = activeChild_();
+    if (idx < 0) {
+        graphics.restore();       // 配对 drawSelfContent 的 save
+        return;
+    }
 
     graphics.save();
     graphics.clipRoundedRect(frame, props.borderRadius);
     children[idx]->draw(graphics);
     graphics.restore();
+    graphics.restore();           // 弹出面板裁剪后再配对 drawSelfContent 的 save
 }
 
 // ============================================================================

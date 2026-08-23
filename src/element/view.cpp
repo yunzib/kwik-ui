@@ -320,7 +320,15 @@ Color View::underlayColor() const {
     return Color{245, 245, 245, 255};    // 画布初值 0.96 灰
 }
 
-void View::onDraw(Graphics &graphics) {
+
+
+// ============================================================================
+// drawSelfContent — 自身装饰层（原 View::onDraw 前半段拆出）
+// save 后应用变换/透明度/阴影/背景/边框，并按内容区圆角裁剪（子节点继承该裁剪）。
+// 注意：此处 save 不配对 —— 普通路径由 iterateChildren 尾部 restore 收尾，
+// 自定义呈现器（StackIndex 等）须自行配对弹出。
+// ============================================================================
+void View::drawSelfContent(Graphics &graphics) {
     graphics.save();
 
     if (props.transform.has_value()) {
@@ -352,7 +360,18 @@ void View::onDraw(Graphics &graphics) {
     Rect contentRect = {frame.x + props.padding.left, frame.y + props.padding.top,
                         frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (props.borderRadius > 0) { graphics.clipRoundedRect(contentRect, props.borderRadius); }
+}
 
+// ============================================================================
+// iterateChildren — 脏门子节点迭代（原 View::onDraw 后半段拆出）
+// 只重绘脏子树；被脏兄弟覆盖的干净子节点标记后跟随重绘以维持 z-order。
+// 加固：零面积子树（frame 为空）没有可画内容，直接跳过 ——
+//   修复 StackIndex 非活跃面板启动泄漏：其根 frame 虽为 (0,0,0,0)，
+//   但子节点仍以窗口原点布局且首帧全脏，会被本循环无裁剪画出，
+//   幽灵内容恰好压在 SideNav 对应全局坐标的位置上。
+// 末尾 restore 与 drawSelfContent 的 save 配对。
+// ============================================================================
+void View::iterateChildren(Graphics &graphics) {
     // ── 只遍历脏子树 ──
     // 收集直接子节点脏区并集：被脏兄弟覆盖的干净兄弟也需重绘，保持 z-order
     Rect subDirty;
@@ -361,10 +380,12 @@ void View::onDraw(Graphics &graphics) {
         // 该区域内的干净子节点必须跟随重绘，否则被底图擦除（文字消失）
         subDirty = lastPaintBounds_.unionRect(paintBounds());
     }
-    for (auto &c : children)
+    for (auto &c : children) {
+        if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
         // 借根节点不参与 base 兄弟重叠协调（其绘制/脏由 LayerStack 负责）
         if (c->dirty_ && c->props.visible && !c->drawnElsewhere_)
             subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
+    }
 
     bool needSort = false;
     for (auto &c : children) {
@@ -378,6 +399,7 @@ void View::onDraw(Graphics &graphics) {
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
         for (auto *c : sorted) {
+            if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
@@ -388,6 +410,7 @@ void View::onDraw(Graphics &graphics) {
         }
     } else {
         for (auto &c : children) {
+            if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
             if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
             bool isDirty = c->dirty_ || c->subtreeDirty_;
             bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
@@ -398,6 +421,14 @@ void View::onDraw(Graphics &graphics) {
         }
     }
     graphics.restore();
+}
+
+// ============================================================================
+// onDraw — 标准绘制 = 自身装饰 + 脏门子树迭代（行为与拆分前逐字节等价）
+// ============================================================================
+void View::onDraw(Graphics &graphics) {
+    drawSelfContent(graphics);
+    iterateChildren(graphics);
 }
 
 // ============================================================================
