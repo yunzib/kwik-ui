@@ -631,6 +631,8 @@ protected:
      *         加固：零面积子树直接跳过（如 StackIndex 非活跃面板——
      *         根 frame 为空但子树坐标仍有效，防止越界绘制泄漏） */
     void iterateChildren(Graphics &graphics);
+
+    void markTreeIntersecting(View &v, const Rect &band);    ///< 冲突晋升预标记: 仅置脏, 不产生任何擦除
     
     /**
      * @brief 绘制回调 (子类重写)

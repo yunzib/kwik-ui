@@ -31,14 +31,18 @@ const navItem = (i) => {
     const bar = { id: `sNavBar${i}`, x: 0, y: y, width: 3, height: 44, background: ACCENT };
     if (!active) bar.visible = false;
     return [
-        Flex({ id: `sNav${i}`, x: 0, y: y, width: 200, height: 44,
-               direction: "row", alignItems: "center",
-               onClick: () => switchSection(i) }, []),
+        // 高亮条放在 Flex 之前（底层）：逆序命中时 Flex 先于它，整行可点
         View(bar, []),
-        Image({ src: `../../test/ui/car/icons/${active ? SECTIONS[i][1] + "_a" : SECTIONS[i][1]}.svg`,
-                x: 16, y: y + 12, width: 20, height: 20 }),
-        Text({ id: `sNavLabel${i}`, x: 48, y: y + 13, text: SECTIONS[i][0], fontSize: 14,
-               fontWeight: "500", color: active ? "#FFFFFF" : "#FFFFFF80" }),
+        // 可点击容器：padding[16,0,0,0] + gap 12 复现原图标 x=16、文字 x=48；
+        // alignItems center 等效原手工 y+12/y+13 垂直居中
+        Flex({ id: `sNav${i}`, x: 0, y: y, width: 200, height: 44,
+               direction: "row", alignItems: "center", gap: 12,
+               padding: [0, 0, 0, 16],
+               onClick: () => switchSection(i) },
+            [Image({ src: `../../test/ui/car/icons/${active ? SECTIONS[i][1] + "_a" : SECTIONS[i][1]}.svg`,
+                     width: 20, height: 20 }),
+             Text({ id: `sNavLabel${i}`, text: SECTIONS[i][0], fontSize: 14,
+                    fontWeight: "500", color: active ? "#FFFFFF" : "#FFFFFF80" })]),
     ];
 };
 
@@ -109,7 +113,6 @@ const secDisplay = View({ width: 970, height: 680 }, [
          Slider({ id: "sSlBright", x: 60, y: 196, width: 850, value: 80, min: 0, max: 100,
                   color: ACCENT, trackColor: [255, 255, 255, 26],
                   trackHeight: 4, thumbSize: 14 })]),
-    Text({ x: 60, y: 176, text: "屏幕亮度", fontSize: 14, fontWeight: "500", color: "#FFFFFF80" }),
     divider(234),
     ...settingRow(234, "夜间模式", "使用深色主题以减少夜间驾驶眩光",
         [Switch({ id: "sSwNight", x: 866, y: 256, checked: true, checkedColor: ACCENT,
@@ -191,7 +194,7 @@ const secAbout = View({ width: 970, height: 680 }, [
          Text({ text: "版本 1.0.0 · 2026-08-22", fontSize: 13, color: "#FFFFFF96" })]),
 ]);
 
-export default View({}, [
+export default View({ background: "#0b0d14" }, [
     // ① 背景
     View({ x: 0, y: 0, width: 1170, height: 680, gradient: "linear 180 #0b0d14 #0e1018" }, []),
 

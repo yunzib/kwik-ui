@@ -390,6 +390,53 @@ void View::iterateChildren(Graphics &graphics) {
             subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
     }
 
+    // ── 擦除冲突晋升：复用首帧流程 ──
+    // 自身脏子级的底图擦除区(lastPaint∪paintBounds)覆盖到干净可见兄弟时,
+    // 逐子级擦除必然互相冲洗(设置页图标/竖条消失、音乐页左区消失均此因)。
+    // 本帧改走与启动首帧相同的流程：
+    // 本容器一次底图 → 子级只画内容(s_suppressUnderlay) → 相交者按序重录。
+    Rect conflictBand;
+    bool promote = false;
+    if (!dirty_) {
+        for (auto &c : children) {
+            if (c->frame.isEmpty() || !c->props.visible || c->drawnElsewhere_ || !c->dirty_) continue;
+            Rect b = c->lastPaintBounds_.unionRect(c->paintBounds());
+            conflictBand = conflictBand.isEmpty() ? b : conflictBand.unionRect(b);
+        }
+        for (auto &c : children) {
+            if (c->frame.isEmpty() || !c->props.visible || c->drawnElsewhere_ || c->dirty_) continue;
+            if (conflictBand.intersects(c->frame)) { promote = true; break; }
+        }
+    }
+    if (promote) {
+        for (auto &c : children) markTreeIntersecting(*c, conflictBand);
+        graphics.beginContent();
+        if (!s_suppressUnderlay) graphics.drawUnderlay(conflictBand, underlayColor());
+        bool prev = s_suppressUnderlay;
+        s_suppressUnderlay = true;    // 首帧同款：子级只画内容，无二次擦除
+        auto drawInBand = [&](View *v) {
+            if (v->frame.isEmpty() || v->drawnElsewhere_ || !v->props.visible) return;
+            if (!conflictBand.intersects(v->frame)) return;
+            v->draw(graphics);
+        };
+        bool sortNeeded = false;
+        for (auto &c : children)
+            if (c->props.z != 0) { sortNeeded = true; break; }
+        if (sortNeeded) {
+            std::vector<View *> ord;
+            for (auto &c : children) ord.push_back(c.get());
+            std::stable_sort(ord.begin(), ord.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
+            for (auto *v : ord) drawInBand(v);
+        } else {
+            for (auto &c : children) drawInBand(c.get());
+        }
+        s_suppressUnderlay = prev;
+        graphics.endContent();
+        graphics.accumulateDirtyRect(conflictBand);
+        graphics.restore();    // 与 drawSelfContent 的 save 配对
+        return;
+    }
+
     bool needSort = false;
     for (auto &c : children) {
         if (c->props.z != 0) {
@@ -462,6 +509,26 @@ void View::iterateChildren(Graphics &graphics) {
 void View::onDraw(Graphics &graphics) {
     drawSelfContent(graphics);
     iterateChildren(graphics);
+}
+
+// ============================================================================
+// markTreeIntersecting — 冲突晋升预标记
+// 透传容器内部的脏门只见自己的直接子级, 看不到外部底图擦了哪些区域；
+// 本函数把与 band 相交的最深后代预先置脏, 使其在晋升帧内随行重录。
+// 只打标记：配合 s_suppressUnderlay 这些节点走③'只画内容, 不可能产生新擦除。
+// 中间节点置 subtreeDirty_ 维持透传链, 最深相交节点置 dirty_。
+// ============================================================================
+void View::markTreeIntersecting(View &v, const Rect &band) {
+    for (auto &ch : v.children) {
+        if (ch->frame.isEmpty() || ch->drawnElsewhere_ || !ch->props.visible) continue;
+        if (!band.intersects(ch->frame)) continue;
+        ch->subtreeDirty_ = true;
+        bool deeper = false;
+        for (auto &g : ch->children)
+            if (!g->frame.isEmpty() && g->props.visible && band.intersects(g->frame)) { deeper = true; break; }
+        if (deeper) markTreeIntersecting(*ch, band);
+        else ch->dirty_ = true;
+    }
 }
 
 // ============================================================================
