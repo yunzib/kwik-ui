@@ -137,6 +137,7 @@ private:
     std::vector<State> stateStack_;
     State currentState_;
 
+    Rect transformRectAABB(const Rect &rect) const;    ///< 变换后 AABB（浮点，不取整）
     Rect transformRect(const Rect &rect) const;
     Color applyOpacity(const Color &color) const;
 

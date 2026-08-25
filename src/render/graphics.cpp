@@ -233,8 +233,14 @@ void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) 
 
 void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
     if (!recording_) return;    // 无视 noop：底图必须在透传域也录制
-    // 底图覆盖残留像素：物理坐标（transformRect AABB）+ 单位矩阵
-    cb_->append(FillRectCmd{transformRect(rect), color, BlendMode::SrcOver, Transform2D{}});
+    // 底图必须完整盖住内容 quad 的浮点光栅覆盖：transformRect 的四舍五入
+    // 会向内收半像素（107.5→108），第 107 行旧像素无人重写 → 残留 1px 细线
+    // （按钮按下缩放边缘线、导航高亮残留线均此因）。min 向下/max 向上取整。
+    Rect a = transformRectAABB(rect);
+    Rect phys{std::floor(a.x), std::floor(a.y),
+              std::ceil(a.x + a.width) - std::floor(a.x),
+              std::ceil(a.y + a.height) - std::floor(a.y)};
+    cb_->append(FillRectCmd{phys, color, BlendMode::SrcOver, Transform2D{}});
 }
 
 // ════════════════════════════════════════════
@@ -411,8 +417,10 @@ void Graphics::getSize(int *width, int *height) const {
     if (height) *height = height_;
 }
 
-Rect Graphics::transformRect(const Rect &rect) const {
-    // 变换矩形 4 角，取 AABB（供 clip 物理坐标 / dirtyRect / underlay / clearRectArea 使用）
+
+
+Rect Graphics::transformRectAABB(const Rect &rect) const {
+    // 变换矩形 4 角，取 AABB（浮点原始值，不取整）
     const auto &m = currentState_.m;
     float x0 = m.m00 * rect.x + m.m01 * rect.y + m.m02;
     float y0 = m.m10 * rect.x + m.m11 * rect.y + m.m12;
@@ -424,7 +432,13 @@ Rect Graphics::transformRect(const Rect &rect) const {
     float y3 = m.m10 * (rect.x + rect.width) + m.m11 * (rect.y + rect.height) + m.m12;
     float minx = std::min({x0, x1, x2, x3}), maxx = std::max({x0, x1, x2, x3});
     float miny = std::min({y0, y1, y2, y3}), maxy = std::max({y0, y1, y2, y3});
-    return {std::round(minx), std::round(miny), std::round(maxx - minx), std::round(maxy - miny)};
+    return {minx, miny, maxx - minx, maxy - miny};
+}
+
+Rect Graphics::transformRect(const Rect &rect) const {
+    // 原语义不变（clip/clearRectArea 等继续用）：四舍五入对齐整数像素
+    Rect a = transformRectAABB(rect);
+    return {std::round(a.x), std::round(a.y), std::round(a.width), std::round(a.height)};
 }
 
 Color Graphics::applyOpacity(const Color &color) const {

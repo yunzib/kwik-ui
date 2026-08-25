@@ -312,15 +312,28 @@ Rect View::paintBounds() const {
 }
 
 Color View::underlayColor() const {
-    // 沿父链找最近一个不透明背景；半透明背景（a<255）跳过，
-    // 因为其合成结果不是纯色，直接近似为更深层的不透明底色。
+    // 沿父链找首个不透明背景作合成基底；其内侧的半透明背景按"外层先画"
+    // 顺序依次 source-over 合成 → 真实平色近似。
+    // 旧实现跳过半透明层 → 擦除色丢叠层，擦过区域与周围出现色差斑块。
+    // 弹层子节点语义不变：背景由浮层自绘，返回透明避免遮罩上露灰。
+    // 渐变背景无法平色合成，维持跳过（既有局限）。
+    std::vector<Color> stack;    // [0]=最近父级 … [n-1]=最外半透明层
+    Color base{245, 245, 245, 255};    // 画布初值 0.96 灰
     for (View *p = parent_; p; p = p->parent_) {
-        // 弹层子节点：其背景由所属浮层（drawnElsewhere_ 祖先）自身绘制，
-        // 不填父链底色 → 返回透明，避免在 modal 遮罩上露出 base 灰。
-        if (p->drawnElsewhere_) { return Color::transparent(); }
-        if (p->props.background.isVisible() && p->props.background.a == 255) { return p->props.background; }
+        if (p->drawnElsewhere_) return Color::transparent();
+        const Color &bg = p->props.background;
+        if (!bg.isVisible()) continue;
+        if (bg.a == 255) { base = bg; break; }
+        stack.push_back(bg);
     }
-    return Color{245, 245, 245, 255};    // 画布初值 0.96 灰
+    for (auto it = stack.rbegin(); it != stack.rend(); ++it) {    // 逆序 = 自外向内
+        float a = it->a / 255.0f;
+        base.r = static_cast<uint8_t>(it->r * a + base.r * (1.0f - a));
+        base.g = static_cast<uint8_t>(it->g * a + base.g * (1.0f - a));
+        base.b = static_cast<uint8_t>(it->b * a + base.b * (1.0f - a));
+    }
+    base.a = 255;
+    return base;
 }
 
 

@@ -93,10 +93,12 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     if (!token) return false;
     currentToken_ = std::move(token);
 
-    int32_t sx = std::max(0, static_cast<int32_t>(dirtyRect.x));
-    int32_t sy = std::max(0, static_cast<int32_t>(dirtyRect.y));
-    uint32_t sw = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.width)));
-    uint32_t sh = std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.height)));
+    int32_t sx = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.x)));
+    int32_t sy = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.y)));
+    uint32_t sw =
+        std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.x + dirtyRect.width) - std::floor(dirtyRect.x)));
+    uint32_t sh =
+        std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.y + dirtyRect.height) - std::floor(dirtyRect.y)));
 
     if (ctx_.consumeJustRecreated()) {
         Log::info("beginFrame: swapchain recreated -> force full redraw {}x{}", currentToken_->extent.width,
@@ -159,8 +161,8 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, cons
 void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c, const Gradient &gradient,
                                     const Transform2D &t) {
     drawCalls_++;
-    rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, gradient,
-                          clip_.globalAlpha(), t);
+    rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, gradient, clip_.globalAlpha(),
+                          t);
 }
 
 void VulkanBackend::drawSegment(const DrawSegmentCmd &cmd) {
@@ -210,11 +212,12 @@ void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad, const Transfor
     if (clip_.level() == 0) {
         vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
         vkCmdSetStencilWriteMask(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
-        rect_.writeStencilMask(currentToken_->commandBuffer, currentToken_->extent, r, rad, t);   // stencil 仍用逻辑+矩阵
+        rect_.writeStencilMask(currentToken_->commandBuffer, currentToken_->extent, r, rad,
+                               t);    // stencil 仍用逻辑+矩阵
         vkCmdSetStencilCompareMask(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
         vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
     }
-    clip_.pushClipRoundedRect(currentToken_->commandBuffer, clipRect, rad);   // ← scissor 用物理 AABB
+    clip_.pushClipRoundedRect(currentToken_->commandBuffer, clipRect, rad);    // ← scissor 用物理 AABB
     pushKinds_.push_back(PushKind::Clip);
 }
 
@@ -230,8 +233,7 @@ void VulkanBackend::popState() {
     }
 }
 
-void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices,
-                                  const SweepGrad *sweep) {
+void VulkanBackend::fillTriangles(const FillTrianglesCmd &cmd, const AAVertex *vertices, const SweepGrad *sweep) {
     drawCalls_++;
     triangle_.drawTriangles(currentToken_->commandBuffer, currentToken_->extent, vertices, cmd.vertexCount, cmd.color,
                             clip_.globalAlpha(), cmd.t, sweep);
@@ -247,4 +249,3 @@ void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
     mesh_.drawMesh(currentToken_->commandBuffer, currentToken_->extent, cmd.viewport, vertices, cmd.vertexCount,
                    cmd.mvp, cmd.color, cmd.lightDir);
 }
-

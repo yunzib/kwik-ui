@@ -9,6 +9,12 @@
   零新增状态；附带修复背景渐变被 navBg 擦成平色
 - 设置页导航点击命中被无事件兄弟遮蔽：navItem 重构为 Flex 包裹 Image/Text（父子冒泡命中），
   高亮条置于 Flex 前，padding 改 CSS 序 [0,0,0,16]
+- 按钮/导航点击后右/下边缘残留1px旧像素线：Vulkan 后端 scissor 用截断取整
+  （int32_t），drawUnderlay 用 ceil 外扩——两者语义不对齐时 erase fill 被 scissor
+  裁掉1列/行，LOAD_OP_LOAD 保留旧帧像素；修复：scissor 改 floor/ceil 与
+  drawUnderlay 对齐（vulkan_backend.cpp beginFrame）；drawUnderlay 内新增
+  transformRectAABB 浮点辅助，原 transformRect 改为调用后取整，保持 clip/clear
+  语义不变
 
 ## 0.0.0 — 2026-08-23
 ### 新增
