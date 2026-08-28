@@ -56,10 +56,7 @@ public:
     void setDpiScale(float dpi) {
         if (dpiScale_ != dpi) {
             dpiScale_ = dpi;
-            // NEAREST 采样下 1∶1 像素映射，无需超采样:
-            // 保留 supersample_ 字段供未来高 DPI 切换 LINEAR 时使用
-            supersample_ = 1.0f;
-            atlasGeneration_++;
+            atlasGeneration_++;    // DPI 变 → 图集代际 +1，缓存条目据其重打包
         }
     }
 
@@ -126,8 +123,6 @@ private:
     std::vector<UploadJob> uploads_;
     /** @brief 当前 DPI 缩放比例，默认 1.0 */
     float dpiScale_ = 1.0f;
-    /** @brief 当前超采样倍数，NEAREST 下固定 1x */
-    float supersample_ = 2.0f;
 
     /** @brief 尝试在指定页上打包 w×h 矩形 */
     auto tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optional<PackResult>;

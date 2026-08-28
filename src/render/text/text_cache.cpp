@@ -47,11 +47,9 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
         g.uvTop = static_cast<float>(entry.atlasY + 1) / atlasSize_f;
         g.uvRight = static_cast<float>(entry.atlasX + entry.packedW - 1) / atlasSize_f;
         g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize_f;
-        float pixelSize = std::max(1.0f, std::round(g.fontSize * dpiScale_ * supersample_));
-        float s2l = g.fontSize / pixelSize;    // 与 text_shaper.cpp:152 scaleToLogical 同式
-        g.width = static_cast<float>(entry.packedW - 2) / supersample_ / dpiScale_;    // 1:1 物理,清晰(恢复)
-        g.height = static_cast<float>(entry.packedH - 2) / supersample_ / dpiScale_;
-        g.topOffset = (entry.info.bearingY - g.bearingY) / dpiScale_;    // 与位置同网格 = *supersample? supersample_=1
+        g.width = static_cast<float>(entry.packedW - 2) / dpiScale_;    // 1:1 物理,清晰
+        g.height = static_cast<float>(entry.packedH - 2) / dpiScale_;
+        g.topOffset = (entry.info.bearingY - g.bearingY) / dpiScale_;    // 位图顶部与 metric bearingY 之差
     }
 }
 
@@ -65,8 +63,8 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
     if (!ftFace) return;
 
-    // NEAREST + 1∶1 栅格化，supersample_=1.0 固定
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_ * supersample_));
+    // NEAREST + 1∶1 栅格化
+    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_));
 
     FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
     if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
