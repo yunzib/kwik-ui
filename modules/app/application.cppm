@@ -138,6 +138,8 @@ private:
 
     void handleResize(int width, int height);
 
+    void syncTextDpiScale();
+
     /**
      * @brief 初始化: 启动渲染线程 + 加载字体 + 解析 JS + 首次布局
      * @return true 成功

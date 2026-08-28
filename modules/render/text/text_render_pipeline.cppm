@@ -73,10 +73,8 @@ public:
      * @param config  排版配置（wrap/maxWidth/align 等）
      * @return 排版结果 shared_ptr（持续有效，元素析构时自动释放）
      */
-    std::shared_ptr<TextLayoutResult> layoutText(const std::string &text,
-                                                  FontId fontId,
-                                                  float fontSize,
-                                                  const TextLayoutConfig &config);
+    std::shared_ptr<TextLayoutResult> layoutText(const std::string &text, FontId fontId, float fontSize,
+                                                 const TextLayoutConfig &config);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 字形就绪 — 确保所有字形已栅格化并打包到图集
@@ -103,7 +101,14 @@ public:
      * @brief 设置 DPI 缩放比例，透传给内部 TextCache，
      *        DPI 变更后需在 Application 侧同步调用
      */
-    void setDpiScale(float dpi) { dpiScale_ = dpi; cache_.setDpiScale(dpi); }
+    void setDpiScale(float dpi) {
+        if (dpiScale_ == dpi) return;    // 同一值不幂等重排
+        dpiScale_ = dpi;
+        bumpTextLayoutEpoch();    // DPI 变 → 使所有排版缓存失效
+        cache_.setDpiScale(dpi);
+    }
+
+    float dpiScale() const { return dpiScale_; }
 
 private:
     FontManager fontManager_;

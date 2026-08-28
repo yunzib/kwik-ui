@@ -22,10 +22,7 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
     for (auto &g : result.glyphs) {
         if (g.isNewline) continue;
 
-        g.fontSize = std::round(g.fontSize);
-        if (g.fontSize < 1.0f) g.fontSize = 1.0f;
-
-        GlyphKey key{g.fontId, g.glyphIndex, g.fontSize, 0};
+        GlyphKey key{g.fontId, g.glyphIndex, std::round(g.fontSize), 0};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
             CachedGlyph entry;
@@ -50,8 +47,11 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
         g.uvTop = static_cast<float>(entry.atlasY + 1) / atlasSize_f;
         g.uvRight = static_cast<float>(entry.atlasX + entry.packedW - 1) / atlasSize_f;
         g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize_f;
-        g.width = static_cast<float>(entry.packedW - 2) / supersample_ / dpiScale_;
+        float pixelSize = std::max(1.0f, std::round(g.fontSize * dpiScale_ * supersample_));
+        float s2l = g.fontSize / pixelSize;    // 与 text_shaper.cpp:152 scaleToLogical 同式
+        g.width = static_cast<float>(entry.packedW - 2) / supersample_ / dpiScale_;    // 1:1 物理,清晰(恢复)
         g.height = static_cast<float>(entry.packedH - 2) / supersample_ / dpiScale_;
+        g.topOffset = (entry.info.bearingY - g.bearingY) / dpiScale_;    // 与位置同网格 = *supersample? supersample_=1
     }
 }
 

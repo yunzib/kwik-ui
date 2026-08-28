@@ -234,6 +234,7 @@ void Application::rebuildTree() {
 void Application::renderFrame() {
     auto t0 = std::chrono::steady_clock::now();
     float S = renderScale();
+    syncTextDpiScale();
 
     bool structural = treeStructureChanged_;
     treeStructureChanged_ = false;
@@ -432,11 +433,12 @@ void Application::handleResize(int width, int height) {
     treeStructureChanged_ = true;
 
     TextRenderPipeline::instance().setDpiScale(renderScale());
+    if (tree_) tree_->markAllMeasureDirty();
 
     relayoutTree(layoutSize());
     if (tree_) {
-        tree_->markAllDirty();             // ← 全树脏标记：全量重录命令
-        tree_->markAllLayoutRepaint();     // ← 强制整带重绘：保住渐变/半透明面板背景不被底图擦黑
+        tree_->markAllDirty();            // ← 全树脏标记：全量重录命令
+        tree_->markAllLayoutRepaint();    // ← 强制整带重绘：保住渐变/半透明面板背景不被底图擦黑
     }
 
     eventRouter_.reset();
@@ -564,4 +566,17 @@ void Application::onHotReloadTriggered(const std::string &path) {
     // ⑬ 强制全屏重绘
     needsRedraw_ = true;
     renderFrame();
+}
+
+void Application::syncTextDpiScale() {
+    auto &pipe = TextRenderPipeline::instance();
+    float s = renderScale();
+    if (pipe.dpiScale() == s) return;    // 一致则零开销退出
+    pipe.setDpiScale(s);                 // epoch++ + atlas 失效
+    if (tree_) {
+        tree_->markAllMeasureDirty();
+        tree_->markAllDirty();
+    }
+    treeStructureChanged_ = true;    // 结构变化 → 整帧重录重绘
+    needsRedraw_ = true;
 }

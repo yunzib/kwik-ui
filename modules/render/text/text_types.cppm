@@ -11,6 +11,19 @@ export module kwik.render.text.types;
 import kwik.core.types;
 import std;
 export {
+    // 排版版本号：DPI 等影响坐标准确性的输入变化时递增，
+    // 所有 TextLayoutResult 缓存据其失效（matchesKey 内部比对）
+    inline uint64_t &textLayoutEpochRef() {    // 内部存储（单例，跨 TU 唯一）
+        static uint64_t epoch = 0;
+        return epoch;
+    }
+    inline uint64_t currentTextLayoutEpoch() {
+        return textLayoutEpochRef();
+    }
+    inline void bumpTextLayoutEpoch() {
+        ++textLayoutEpochRef();
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // 排版配置
     // ═══════════════════════════════════════════════════════════════════════════
@@ -63,7 +76,8 @@ export {
         uint32_t cluster = 0;                ///< 原始文本 UTF-8 字节偏移
         uint32_t pageIndex = 0;
         bool isNewline = false;    ///< 是否为 \n 标记字形（不渲染）
-        bool isSpace = false;            ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
+        bool isSpace = false;      ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
+        float topOffset = 0;       ///< 位图顶部 bitmap_top 与 metric horiBearingY 之差（cache 幂等写，绘制叠加）
     };
 
     /**
@@ -96,7 +110,7 @@ export {
         float totalWidth = 0;                 ///< 最大行宽
         float totalHeight = 0;                ///< 总高度（行高累加）
 
-        bool truncated = false;                 ///< 是否因 maxLines 截断（截断行 = lines.back()）
+        bool truncated = false;    ///< 是否因 maxLines 截断（截断行 = lines.back()）
 
         // ── 缓存标识（pipeline 填充，element 用于跳过重排版） ──
         size_t textHash = 0;
@@ -105,26 +119,19 @@ export {
         float maxWidth = 0;
         WrapMode wrap = WrapMode::NoWrap;
 
-        LayoutTextAlign align = LayoutTextAlign::Start;   
-        float lineSpacing = 0;                   
-        float lineHeight = 0;                    
-        int maxLines = 0;                        
-        int fontWeight = 3;                      
-        int fontStyle = 0;                       
+        LayoutTextAlign align = LayoutTextAlign::Start;
+        float lineSpacing = 0;
+        float lineHeight = 0;
+        int maxLines = 0;
+        int fontWeight = 3;
+        int fontStyle = 0;
+        uint64_t layoutEpoch = 0;    // 排版时版本快照（pipeline.layoutText 回填）
 
-        bool matchesKey(const std::string &text, FontId fid, float fs,
-                        const TextLayoutConfig &cfg) const {
-            return textHash == std::hash<std::string>{}(text)
-                && fontId == fid
-                && fontSize == fs
-                && maxWidth == cfg.maxWidth
-                && wrap == cfg.wrap
-                && align == cfg.align
-                && lineSpacing == cfg.lineSpacing
-                && lineHeight == cfg.lineHeight
-                && maxLines == cfg.maxLines
-                && fontWeight == cfg.fontWeight
-                && fontStyle == cfg.fontStyle;
+        bool matchesKey(const std::string &text, FontId fid, float fs, const TextLayoutConfig &cfg) const {
+            return layoutEpoch == currentTextLayoutEpoch() && textHash == std::hash<std::string>{}(text)
+                   && fontId == fid && fontSize == fs && maxWidth == cfg.maxWidth && wrap == cfg.wrap
+                   && align == cfg.align && lineSpacing == cfg.lineSpacing && lineHeight == cfg.lineHeight
+                   && maxLines == cfg.maxLines && fontWeight == cfg.fontWeight && fontStyle == cfg.fontStyle;
         }
     };
 

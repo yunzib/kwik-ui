@@ -48,21 +48,18 @@ FontMetrics TextRenderPipeline::getFontMetrics(FontId font, float fontSize) {
 // ═══════════════════════════════════════════════════════════════════════════
 // 排版 — 塑形 + 布局，结果由元素持有
 // ═══════════════════════════════════════════════════════════════════════════
-std::shared_ptr<TextLayoutResult> TextRenderPipeline::layoutText(
-    const std::string &text, FontId fontId, float fontSize,
-    const TextLayoutConfig &config)
-{
+std::shared_ptr<TextLayoutResult> TextRenderPipeline::layoutText(const std::string &text, FontId fontId, float fontSize,
+                                                                 const TextLayoutConfig &config) {
     auto result = std::make_shared<TextLayoutResult>();
     auto glyphs = shaper_.shapeText(fontId, text.c_str(), fontSize, dpiScale_);
-    if (!glyphs.empty()) {
-        *result = TextLayout().layout(glyphs, config);
-    }
+    if (!glyphs.empty()) { *result = TextLayout().layout(glyphs, config); }
     // 回填缓存标识
     result->textHash = std::hash<std::string>{}(text);
     result->fontId = fontId;
     result->fontSize = fontSize;
     result->maxWidth = config.maxWidth;
     result->wrap = config.wrap;
+    result->layoutEpoch = currentTextLayoutEpoch();    // 回填版本快照
     return result;
 }
 

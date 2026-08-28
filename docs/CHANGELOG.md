@@ -1,5 +1,22 @@
 # 更新日志
 
+## 0.0.0 — 2026-08-29
+### 修复
+- 跨屏拖动（2K↔1K）后文字上下错乱、间距不稳，需点击一次才恢复：
+  逻辑像素模型下画布缩放每帧实时跟随所在屏，而文字字形/排版缩放
+  仅由 handleResize(WM_SIZE 链路) 驱动，跨屏时二者脱节 → 旧 dpiScale
+  排版 + 新画布缩放混显
+  → 排版缓存加版本号失效（TextLayoutResult.layoutEpoch + matchesKey
+  内部比对 currentTextLayoutEpoch），setDpiScale 幂等化并新增
+  dpiScale() 访问器，Application 新增 syncTextDpiScale() 每帧以
+  renderScale() 对齐文字管线，handleResize 补 treeStructureChanged_
+  与 markAllMeasureDirty（与 rebuildTree 语义对齐）
+- 单字纵向怪动、模糊与边缘重叠：字形尺寸/位置/位图顶部分别按
+  (packed-2)/dpiScale 与 1/dpiScale 统一到物理 1:1 网格（删除旧的
+  fontSize/pixelSize 二次换算 1.0833×0.956≈放大 3.5%），新增
+  ShapedGlyph.topOffset=(bitmap_top−bearingY)/dpiScale，graphics
+  drawTextCached 绘制上移叠加该偏移
+
 ## 0.0.0 — 2026-08-25
 ### 修复
 - 嵌套增量重绘缺口：透传容器内部的干净后代被兄弟底图擦除后无人补录（设置页切换分区后图标消失）
