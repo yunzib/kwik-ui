@@ -237,7 +237,8 @@ void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
     // 会向内收半像素（107.5→108），第 107 行旧像素无人重写 → 残留 1px 细线
     // （按钮按下缩放边缘线、导航高亮残留线均此因）。min 向下/max 向上取整。
     Rect a = transformRectAABB(rect);
-    Rect phys{std::floor(a.x), std::floor(a.y), std::ceil(a.x + a.width) - std::floor(a.x),
+    Rect phys{std::floor(a.x), std::floor(a.y),
+              std::ceil(a.x + a.width) - std::floor(a.x),
               std::ceil(a.y + a.height) - std::floor(a.y)};
     cb_->append(FillRectCmd{phys, color, BlendMode::SrcOver, Transform2D{}});
 }
@@ -253,7 +254,6 @@ void Graphics::drawText(const std::string &, const std::string &, float, float, 
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
     if (glyphs.empty() || !recording_ || currentState_.noop) return;
     for (auto &g : glyphs) {
-        float drawY = g.y + g.topOffset;
         DrawGlyphCmd cmd{g.fontId,
                          g.glyphIndex,
                          g.x,
@@ -416,6 +416,8 @@ void Graphics::getSize(int *width, int *height) const {
     if (width) *width = width_;
     if (height) *height = height_;
 }
+
+
 
 Rect Graphics::transformRectAABB(const Rect &rect) const {
     // 变换矩形 4 角，取 AABB（浮点原始值，不取整）

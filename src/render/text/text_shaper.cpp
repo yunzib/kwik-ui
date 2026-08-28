@@ -161,8 +161,6 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         sg.advanceX = xAdv * scaleToLogical;
         sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f * scaleToLogical;
         sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f * scaleToLogical;
-        sg.bearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f * scaleToLogical;
-        sg.bearingY = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f;    // 原始像素,供 topOffset
         sg.cluster = glyphInfo[i].cluster;
         // Justify 词间拉伸需要标记空格字形（U+0020 半角 / U+3000 全角）
         {

@@ -70,14 +70,12 @@ export {
         float x = 0, y = 0;                  ///< 绘制坐标（baseline 已烘焙）
         float advanceX = 0;                  ///< 水平步进
         float width = 0, height = 0;         ///< 字形 ink 包围盒
-        float bearingX = 0, bearingY = 0;    ///< 字形 bearing
         float uvLeft = 0, uvRight = 0;       ///< 图集 UV（x 方向）
         float uvTop = 0, uvBottom = 0;       ///< 图集 UV（y 方向）
         uint32_t cluster = 0;                ///< 原始文本 UTF-8 字节偏移
         uint32_t pageIndex = 0;
         bool isNewline = false;    ///< 是否为 \n 标记字形（不渲染）
         bool isSpace = false;      ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
-        float topOffset = 0;       ///< 位图顶部 bitmap_top 与 metric horiBearingY 之差（cache 幂等写，绘制叠加）
     };
 
     /**
@@ -162,7 +160,6 @@ export {
      */
     struct GlyphInfo {
         float advanceX = 0;
-        float bearingX = 0, bearingY = 0;
         float width = 0, height = 0;
         std::vector<uint8_t> pixelData;    ///< FreeType LCD 子像素 RGBA
     };

@@ -49,7 +49,6 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
         g.uvBottom = static_cast<float>(entry.atlasY + entry.packedH - 1) / atlasSize_f;
         g.width = static_cast<float>(entry.packedW - 2) / dpiScale_;    // 1:1 物理,清晰
         g.height = static_cast<float>(entry.packedH - 2) / dpiScale_;
-        g.topOffset = (entry.info.bearingY - g.bearingY) / dpiScale_;    // 位图顶部与 metric bearingY 之差
     }
 }
 
@@ -71,8 +70,6 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
-    entry.info.bearingX = (float)ftFace->glyph->bitmap_left;
-    entry.info.bearingY = (float)ftFace->glyph->bitmap_top;
     entry.info.advanceX = ftFace->glyph->advance.x / 64.0f;
     entry.info.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
     entry.info.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;

@@ -1,21 +1,24 @@
 # 更新日志
 
 ## 0.0.0 — 2026-08-29
+### 新增
+- 排版缓存版本失效：TextLayoutResult.layoutEpoch + 全局 currentTextLayoutEpoch
+  （matchesKey 内部比对，调用方零改动）
+
 ### 修复
-- 跨屏拖动（2K↔1K）后文字上下错乱、间距不稳，需点击一次才恢复：
-  逻辑像素模型下画布缩放每帧实时跟随所在屏，而文字字形/排版缩放
-  仅由 handleResize(WM_SIZE 链路) 驱动，跨屏时二者脱节 → 旧 dpiScale
-  排版 + 新画布缩放混显
-  → 排版缓存加版本号失效（TextLayoutResult.layoutEpoch + matchesKey
-  内部比对 currentTextLayoutEpoch），setDpiScale 幂等化并新增
-  dpiScale() 访问器，Application 新增 syncTextDpiScale() 每帧以
-  renderScale() 对齐文字管线，handleResize 补 treeStructureChanged_
-  与 markAllMeasureDirty（与 rebuildTree 语义对齐）
-- 单字纵向怪动、模糊与边缘重叠：字形尺寸/位置/位图顶部分别按
-  (packed-2)/dpiScale 与 1/dpiScale 统一到物理 1:1 网格（删除旧的
-  fontSize/pixelSize 二次换算 1.0833×0.956≈放大 3.5%），新增
-  ShapedGlyph.topOffset=(bitmap_top−bearingY)/dpiScale，graphics
-  drawTextCached 绘制上移叠加该偏移
+- 跨屏拖动（2K↔1K）文字错乱、需点击才恢复：画布缩放每帧跟随所在屏而文字
+  dpi 仅 WM_SIZE 链路驱动 → 脱节。加 layoutEpoch 失效 + setDpiScale 幂等化
+  + dpiScale() 访问器 + syncTextDpiScale() 每帧对齐 + handleResize 补
+  markAllMeasureDirty/treeStructureChanged_
+- 单字纵向怪动/模糊：尺寸与坐标统一物理 1:1 网格（(packed-2)/dpiScale、
+  1/dpiScale，删除 1.0833×0.956≈3.5% 二次换算）；顶部对齐曾拟用
+  ShapedGlyph.topOffset=(bitmap_top−bearingY)/dpiScale 修正位图与度量
+  顶部之差，实测 LIGHT hinting 下二者恒等、机制从不生效
+  → topOffset/bearing 字段、shaper/cache 赋值、drawTextCached 悬空接线
+  一并删除（死机制，零行为变化）
+- 去除 supersample_ 死字段：恒 1.0，仅冷启动（1K 屏）默认 2.0 绕过
+  setDpiScale 造成 2x 栅格化 + NEAREST 错配 → 删除字段、pixelSize/s2l
+  死变量，栅格化统一 round(fontSize*dpiScale)
 
 ## 0.0.0 — 2026-08-25
 ### 修复
