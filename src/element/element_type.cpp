@@ -93,7 +93,6 @@ static struct InitElementTypeNames {
         registerElementType(ElementType::RootView, "RootView");
         registerElementType(ElementType::Tabs, "Tabs");
         registerElementType(ElementType::G2D, "G2D");
-        registerElementType(ElementType::G3D, "G3D");
         registerElementType(ElementType::ThemeProvider, "ThemeProvider");
         registerElementType(ElementType::StackIndex, "StackIndex");
         registerElementType(ElementType::LayerView, "LayerView");

@@ -33,7 +33,6 @@ target_sources(kwik_element
             modules/element/table_data_source.cppm
             modules/element/stack_index.cppm
             modules/element/layer_view.cppm
-            modules/element/g3d.cppm
             modules/element/scroll_view.cppm
             modules/element/tree_menu.cppm
             modules/element/lazy_list_source.cppm
@@ -84,8 +83,6 @@ target_sources(kwik_element
         src/element/theme_provider.cpp
         src/element/stack_index.cpp
         src/element/layer_view.cpp
-        src/element/g3d_gltf.cpp
-        src/element/g3d.cpp
         src/element/scroll_view.cpp
         src/element/tree_menu.cpp
         src/element/lazy_list.cpp
@@ -116,7 +113,6 @@ target_link_libraries(kwik_element
         TernMath
         nanosvg
         nanosvgrast
-        fastgltf           #  glTF 模型加载 (G3D 组件)
 )
 
 target_include_directories(kwik_element

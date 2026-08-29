@@ -44,7 +44,6 @@ export enum class ElementType : std::uint32_t {
     RootView,
     Tabs,
     G2D,
-    G3D,
     ThemeProvider,
     StackIndex,
     LayerView,

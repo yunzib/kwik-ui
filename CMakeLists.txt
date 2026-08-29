@@ -126,13 +126,6 @@ message(STATUS "===== 完成引入 stb_image =====")
 # nanosvg
 add_subdirectory(third_party/nanosvg)
 
-# fastgltf — glTF 模型加载 (G3D 组件)
-# 关闭内置安装 / C++20 模块目标, 仅需静态库目标 fastgltf
-# (simdjson 依赖在 configure 时自动下载到 third_party/fastgltf/deps/)
-set(FASTGLTF_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/fastgltf)
-
 
 
 ################################## 项目配置 ######################################
@@ -180,6 +173,7 @@ target_link_libraries(kwik INTERFACE
     kwik_event
     kwik_app
     kwik_ext_video
+    kwik_ext_g3d
 )
 
 # 示例程序

@@ -26,7 +26,7 @@ module;
 #include <vector>
 #include <cmath>
 
-export module kwik.element.g3d;
+export module kwik.ext.g3d;
 
 import kwik.element.view;
 import kwik.core.props;
@@ -63,7 +63,10 @@ public:
     std::string getProperty(const char *name) const override;
 
     // ─── 查询 ─────────────────────────────────────────
-    ElementType type() const override { return ElementType::G3D; }
+    ElementType type() const override {
+        static ElementType id = registerExtensionType("G3D");    // 注册式扩展类型
+        return id;
+    }
 
     // ─── 事件 (Pan 拖拽旋转) ──────────────────────────
     bool onEvent(const DispatchEvent &event) override;
@@ -163,3 +166,6 @@ private:
      */
     void drawAxes(Graphics &g, const Mat4 &viewProj, const Rect &viewport);
 };
+
+/** @brief 自注册入口 (App 在 register_kwikui_module 前调用)。 */
+export void registerG3DElement();

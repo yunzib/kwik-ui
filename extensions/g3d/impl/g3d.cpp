@@ -12,7 +12,7 @@ module;
 #include <cmath>
 #include "kwik/g3d_gltf.h"
 
-module kwik.element.g3d;
+module kwik.ext.g3d;
 
 import kwik.element.view;
 import kwik.core.props;

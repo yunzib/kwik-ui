@@ -19,6 +19,16 @@
   （registerElementType + registerElementTypeAlias 别名）；
   枚举底层加宽 uint8→uint32，扩展类型经 registerExtensionType 运行时分配 id
   （>= 0x10000），实现「枚举级整数身份 + 可动态扩展」的统一类型体系
+- G3D 组件迁移为可插拔扩展 extensions/g3d（kwik.ext.g3d，与 Video 同级别）：
+  ElementType::G3D 枚举从核心删除，type() 改用 registerExtensionType("G3D")
+  运行时分配扩展 id；核心移除 G3D 解析/JS 绑定/Element.cmake/fastgltf，
+  新增 registerG3DElement() + KWIK_ENABLE_G3D 构件开关（fastgltf add_subdirectory
+  随扩展块，关闭时完全不拉取/构建）；G3D 保留 eager __g3d_ptr（loadModel/addBox
+  在树建立前调用），与 Video 的按 id 查树定位机制不同
+- G2D 命令式 2D 绘制组件拆分为独立桥接模块 kwik.bridge.g2d（g2d.cppm/g2d.cpp）：
+  注册逻辑从共享 bindings.cpp 收敛出新增 registerG2DElement()，由
+  register_kwikui_module 显式调用（内置常驻式注册，显式调用制造强引用，
+  防止静态库链接器丢弃对象文件），共享 bindings.cpp 不再内联 G2D 接线
 
 ### 修复
 - 跨屏拖动（2K↔1K）文字错乱、需点击才恢复：画布缩放每帧跟随所在屏而文字

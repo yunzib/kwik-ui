@@ -52,7 +52,6 @@ import kwik.element.theme_provider;      // ThemeProvider — 主题注入 View 
 import kwik.bridge.js_table_data_source; // createJsTableDataSource — 注入 Table 数据源
 import kwik.element.stack_index;
 import kwik.element.layer_view;
-import kwik.element.g3d;
 import kwik.element.scroll_view;
 import kwik.element.tree_menu;
 import kwik.element.lazy_list; // LazyList — 虚拟化列表
@@ -473,29 +472,6 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<LayerView>(parseViewProps(ex), parseLayerProps(ex));
-            v->propMeta = std::move(meta);
-            applyBindings(v.get(), pv);
-            return v;
-        });
-
-        ElementParser::registerType("G3D", [](const JSValueRef &pv) {
-            // 检查是否已有 eager 创建的 C++ G3D (js_g3d 工厂已构造)
-            if (pv.hasProperty("__g3d_ptr")) {
-                auto ptrVal = pv.getProperty("__g3d_ptr");
-                JSContext *ctx = pv.context();
-                double v;
-                JS_ToFloat64(ctx, &v, ptrVal.raw());
-                auto *existing = reinterpret_cast<G3D *>(static_cast<uintptr_t>(v));
-                // 从 JS props 更新 ViewProps (width/height 等)
-                TypedPropMap meta;
-                PropsExtractor ex(pv, &meta);
-                existing->props = parseViewProps(ex);
-                return std::unique_ptr<G3D>(existing);    // 树接管所有权
-            }
-            // 降级：正常创建（无 eager 创建的场景）
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto v = std::make_unique<G3D>(parseViewProps(ex));
             v->propMeta = std::move(meta);
             applyBindings(v.get(), pv);
             return v;

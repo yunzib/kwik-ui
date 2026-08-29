@@ -14,6 +14,7 @@ import kwik.app;
 import kwik.engine.channel;
 import kwik.core.log;
 import kwik.ext.video; // 视频扩展插件
+import kwik.ext.g3d;
 
 class ChannelTest {
 public:
@@ -141,6 +142,7 @@ int main(int argc, char *argv[]) {
     window->Show();
 
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
+    registerG3DElement();
 
     Application app(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
 
