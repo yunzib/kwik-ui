@@ -14,6 +14,7 @@ target_sources(kwik_bridge
             modules/bridge/js_table_data_source.cppm
             modules/bridge/js_lazy_list_source.cppm
             modules/bridge/element_spec.cppm
+            modules/bridge/g2d.cppm
     
     PRIVATE
         src/bridge/props_parser.cpp
@@ -26,6 +27,7 @@ target_sources(kwik_bridge
         src/bridge/js_table_data_source.cpp
         src/bridge/js_lazy_list_source.cpp
         src/bridge/element_spec.cpp
+        src/bridge/g2d.cpp
 )
 target_link_libraries(kwik_bridge
     PRIVATE
