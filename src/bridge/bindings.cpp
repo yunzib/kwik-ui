@@ -26,6 +26,7 @@ import kwik.element.g3d;
 import kwik.bridge.js_lazy_list_source; // createJsLazyListSource（直接引用→强制该对象文件进链接）
 import kwik.element.lazy_list_source;   // LazyListSource（工厂签名返回类型可见性）
 import kwik.bridge.element_parser;
+import kwik.bridge.element_spec; 
 
 import std;
 
@@ -175,6 +176,15 @@ static JSValue makeElement(JSContext *ctx, const char *type, JSValueConst props,
     JS_SetPropertyStr(ctx, obj, "props", JS_DupValue(ctx, props));
     JS_SetPropertyStr(ctx, obj, "children", JS_DupValue(ctx, children));
     return obj;
+}
+
+/**
+ * @brief 通用组件创建入口 (公开化) — 包装同文件 static makeElement
+ *
+ * 供扩展插件 (Video) 的 JS 工厂复用 { type, props, children } 构造 + ref 解析。
+ */
+JSValue makeElementHelper(JSContext *ctx, const char *type, JSValueConst props, JSValueConst children) {
+    return makeElement(ctx, type, props, children);
 }
 
 static void state_gc_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
@@ -1682,10 +1692,24 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_SetPropertyStr(ctx, channelObj, "handle", JS_NewCFunction(ctx, js_channel_handle, "handle", 2));
         JS_SetModuleExport(ctx, m, "channel", channelObj);
 
+        // ── 追加扩展元素 JS 导出 (init 时设置实际工厂函数) ──
+        for (const auto &[name, spec] : ElementRegistry::instance().specs()) {
+            if (spec.jsFactoryFn) {
+                if (JS_SetModuleExport(ctx, m, spec.jsFactoryName,
+                                       JS_NewCFunction(ctx, spec.jsFactoryFn, spec.jsFactoryName,
+                                                       spec.jsFactoryArgc)) < 0)
+                    return -1;
+            }
+        }
+
         return 0;
     });
 
     if (!m) return false;
+
+    // ── 追加扩展元素 JS 导出声明 (Video 等插件经 ElementRegistry 注入) ──
+    for (const auto &[name, spec] : ElementRegistry::instance().specs())
+        if (spec.jsFactoryFn) JS_AddModuleExport(ctx, m, spec.jsFactoryFn ? spec.jsFactoryName : name.c_str());
 
     // 声明所有导出的名称（顺序与数量无关）
     JS_AddModuleExportList(ctx, m, ui_exports, std::size(ui_exports));

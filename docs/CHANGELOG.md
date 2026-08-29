@@ -4,6 +4,21 @@
 ### 新增
 - 排版缓存版本失效：TextLayoutResult.layoutEpoch + 全局 currentTextLayoutEpoch
   （matchesKey 内部比对，调用方零改动）
+- 通用组件插件框架：新增 kwik.bridge.element_spec（ElementSpec + ElementRegistry），
+  扩展组件经 ElementParser::registerExtension 一次性注册 creator/reconcileProps/
+  attachHandlers/jsFactory；makeElementHelper 与 applyBindings 公开化供插件复用；
+  reconcile 类型匹配改 canonicalTypeName(typeName()) 字符串比较，扩展类型无需
+  新增 ElementType 枚举值即可复用旧 View
+- 视频扩展组件 extensions/video：Video 元素 + VideoBackend 抽象（可插拔后端，
+  默认 Null 后端出静态帧验证全链路），JS 工厂 Video({src/autoplay/loop/muted})
+  + play/pause/seek 方法（按 id 查树定位 C++ 对象），经 registerVideoElement 自注册
+
+### 重构
+- ElementType 从 kwik.element.view 抽到独立模块 kwik.element.element_type，
+  to_string / elementTypeFromString 由手写 switch/if 改为注册表查询
+  （registerElementType + registerElementTypeAlias 别名）；
+  枚举底层加宽 uint8→uint32，扩展类型经 registerExtensionType 运行时分配 id
+  （>= 0x10000），实现「枚举级整数身份 + 可动态扩展」的统一类型体系
 
 ### 修复
 - 跨屏拖动（2K↔1K）文字错乱、需点击才恢复：画布缩放每帧跟随所在屏而文字

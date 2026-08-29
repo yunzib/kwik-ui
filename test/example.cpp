@@ -13,6 +13,7 @@ import kwik.platform.win32_window;
 import kwik.app;
 import kwik.engine.channel;
 import kwik.core.log;
+import kwik.ext.video; // 视频扩展插件
 
 class ChannelTest {
 public:
@@ -124,6 +125,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "progressring") return "../../test/ui/progressring.js";
         if (arg == "spinbox") return "../../test/ui/spinbox.js";
         if (arg == "car") return "../../test/ui/car/ivi.js";
+        if (arg == "video") return "../../test/ui/video.js";
         return arg;
     }
     return "../../test/ui/example.js";
@@ -137,6 +139,9 @@ int main(int argc, char *argv[]) {
     auto window = std::make_unique<PlatformWindowWin32>();
     if (!window || !window->Create("KwiK UI Demo", 1280, 800)) return -1;
     window->Show();
+
+    registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
+
     Application app(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
 
     if (argc >= 2 && std::string(argv[1]) == "channel") { ChannelTest::setup(); }

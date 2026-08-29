@@ -15,3 +15,11 @@ import kwik.engine.context;
  */
 export bool register_kwikui_module(QuickJSContext &qctx);
 
+/**
+ * @brief 通用组件创建入口 (公开化供扩展插件复用)
+ *
+ * 与内置 js_xxx 工厂内部使用的 makeElement 同源:
+ * 返回 { type, props, children } 对象, 并统一处理 ref(state,key) 绑定解析。
+ * 扩展组件 (Video) 的 JS 工厂调用此函数造元素描述符。
+ */
+export JSValue makeElementHelper(JSContext *ctx, const char *type, JSValueConst props, JSValueConst children);

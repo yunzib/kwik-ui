@@ -14,132 +14,7 @@ import kwik.core.theme;
 
 import std;
 
-export enum class ElementType : std::uint8_t {
-    View,
-    Button,
-    Text,
-    Input,
-    Image,
-    Checkbox,
-    RadioButton,
-    Dropdown,
-    TextArea,
-    FlexLayout,
-    GridLayout,
-    ListLayout,
-    StackLayout,
-    RadioGroup,
-    Slider,
-    ProgressBar,
-    Switch,
-    Line,
-    Spinner,
-    Table,
-    TextView,
-    RootView,
-    Tabs,
-    G2D,
-    G3D,              //  3D 绘制组件
-    ThemeProvider,    // 主题注入节点 — 无视觉渲染, 仅占据 View 树位置
-    StackIndex,
-    LayerView,     // M2: 通用浮层原语（薄 Dialog，无 mask/modal/position 锚点）
-    ScrollView,    // M3: 通用滚动视口（双轴 + 滚动条拖拽）
-    TreeMenu,      // M4: 树形菜单（多选级联 + 展开折叠，滚动复用 ScrollView）
-    LazyList,      // M5: 虚拟化滚动列表（窗口 diff，固定/可变行高双模式）
-    Keyboard,      // M6: 虚拟键盘（浮层 OSK，合成 RawEvent 注入）
-    DateTimePicker, // M7: 日期/时间/日期时间选择器
-    Chart,          // M8: 图表（饼图 / 折线图）
-    ProgressRing,   // 圆环进度（外层背景环 + 内层渐变进度环）
-    SpinBox,        // 数字步进输入框（复用 Input 数字模式 + 右缘箭头步进）
-};
-
-export inline std::string_view to_string(ElementType t) {
-    switch (t) {
-    case ElementType::View: return "View";
-    case ElementType::Button: return "Button";
-    case ElementType::Text: return "Text";
-    case ElementType::Input: return "Input";
-    case ElementType::Image: return "Image";
-    case ElementType::Checkbox: return "Checkbox";
-    case ElementType::RadioButton: return "RadioButton";
-    case ElementType::Dropdown: return "Dropdown";
-    case ElementType::TextArea: return "TextArea";
-    case ElementType::FlexLayout: return "FlexLayout";
-    case ElementType::GridLayout: return "GridLayout";
-    case ElementType::ListLayout: return "ListLayout";
-    case ElementType::StackLayout: return "StackLayout";
-    case ElementType::RadioGroup: return "RadioGroup";
-    case ElementType::Slider: return "Slider";
-    case ElementType::ProgressBar: return "ProgressBar";
-    case ElementType::Switch: return "Switch";
-    case ElementType::Line: return "Line";
-    case ElementType::Spinner: return "Spinner";
-    case ElementType::Table: return "Table";
-    case ElementType::TextView: return "TextView";
-    case ElementType::RootView: return "RootView";
-    case ElementType::Tabs: return "Tabs";
-    case ElementType::G2D: return "G2D";
-    case ElementType::StackIndex: return "StackIndex";
-    case ElementType::LayerView: return "LayerView";
-    case ElementType::G3D: return "G3D";
-    case ElementType::ScrollView: return "ScrollView";
-    case ElementType::TreeMenu: return "TreeMenu";
-    case ElementType::LazyList: return "LazyList";
-    case ElementType::Keyboard: return "Keyboard";
-    case ElementType::DateTimePicker: return "DateTimePicker";
-    case ElementType::Chart: return "Chart";
-    case ElementType::ProgressRing: return "ProgressRing";
-    case ElementType::SpinBox: return "SpinBox";
-    default: return "View";
-    }
-    return "Unknown";
-}
-
-/**
- * @brief 从 JS 组件类型名反查 ElementType
- *
- * JS 侧 "Flex" → ElementType::FlexLayout, "Root" → ElementType::RootView
- * 供 reconcileNode 判断新旧节点的类型是否一致。
- * 空=类型未注册（降级为 View）。
- */
-export inline ElementType elementTypeFromString(std::string_view s) {
-    if (s == "View") return ElementType::View;
-    if (s == "Root") return ElementType::RootView;
-    if (s == "Text") return ElementType::Text;
-    if (s == "Button") return ElementType::Button;
-    if (s == "Input") return ElementType::Input;
-    if (s == "Image") return ElementType::Image;
-    if (s == "Checkbox") return ElementType::Checkbox;
-    if (s == "RadioButton") return ElementType::RadioButton;
-    if (s == "Dropdown") return ElementType::Dropdown;
-    if (s == "TextArea") return ElementType::TextArea;
-    if (s == "Flex") return ElementType::FlexLayout;
-    if (s == "Grid") return ElementType::GridLayout;
-    if (s == "Stack") return ElementType::StackLayout;
-    if (s == "List") return ElementType::ListLayout;
-    if (s == "RadioGroup") return ElementType::RadioGroup;
-    if (s == "Slider") return ElementType::Slider;
-    if (s == "ProgressBar") return ElementType::ProgressBar;
-    if (s == "Switch") return ElementType::Switch;
-    if (s == "Line") return ElementType::Line;
-    if (s == "Spinner") return ElementType::Spinner;
-    if (s == "Table") return ElementType::Table;
-    if (s == "TextView") return ElementType::TextView;
-    if (s == "Tabs") return ElementType::Tabs;
-    if (s == "G2D") return ElementType::G2D;
-    if (s == "G3D") return ElementType::G3D;
-    if (s == "StackIndex") return ElementType::StackIndex;
-    if (s == "LayerView") return ElementType::LayerView;
-    if (s == "ScrollView") return ElementType::ScrollView;
-    if (s == "TreeMenu") return ElementType::TreeMenu;
-    if (s == "LazyList") return ElementType::LazyList;
-    if (s == "Keyboard") return ElementType::Keyboard;
-    if (s == "DateTimePicker") return ElementType::DateTimePicker;
-    if (s == "Chart") return ElementType::Chart;
-    if (s == "ProgressRing") return ElementType::ProgressRing;
-    if (s == "SpinBox") return ElementType::SpinBox;
-    return ElementType::View;    // 未知类型退回 View
-}
+export import kwik.element.element_type;    // 重导出 ElementType / to_string / elementTypeFromString / registerExtensionType
 
 // ============================================================================
 // 事件参数与处理器 —— 引擎中立的事件封装
@@ -565,10 +440,8 @@ public:
      * 基类统一存储绑定状态；组件无需再持有 binding_/bindKey_，
      * 也无需覆写本函数。onEvent 内可直接使用 protected 成员。
      */
-    virtual void setBinding(std::unique_ptr<StateBinding> binding,
-                            const std::string &stateKey,
-                            const std::string &propName,
-                            PropType typeHint);
+    virtual void setBinding(std::unique_ptr<StateBinding> binding, const std::string &stateKey,
+                            const std::string &propName, PropType typeHint);
     /**
      * @brief 获取当前 View 从父树继承的主题数据
      *
@@ -600,10 +473,10 @@ protected:
     bool drawnElsewhere_ = false;
 
     // ── 反向绑定状态（setBinding 存入；onEvent 写回与命令式回声共用）──
-    std::unique_ptr<StateBinding> binding_;        ///< 非空即已绑定
-    std::string bindKey_;                          ///< State 属性名
-    std::string boundPropName_;                    ///< 触发同步的 View 属性名
-    PropType boundTypeHint_ = PropType::Unknown;   ///< 决定回写用 setX
+    std::unique_ptr<StateBinding> binding_;         ///< 非空即已绑定
+    std::string bindKey_;                           ///< State 属性名
+    std::string boundPropName_;                     ///< 触发同步的 View 属性名
+    PropType boundTypeHint_ = PropType::Unknown;    ///< 决定回写用 setX
 
     /** @brief 命令式回声：name 为绑定属性时，将 getProperty 当前值按 typeHint 写回 State */
     void echoBoundState(const char *name);
@@ -633,7 +506,7 @@ protected:
     void iterateChildren(Graphics &graphics);
 
     void markTreeIntersecting(View &v, const Rect &band);    ///< 冲突晋升预标记: 仅置脏, 不产生任何擦除
-    
+
     /**
      * @brief 绘制回调 (子类重写)
      * @param graphics 绘图上下文

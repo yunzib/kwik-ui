@@ -43,6 +43,7 @@ target_sources(kwik_element
             modules/element/chart.cppm
             modules/element/progressring.cppm
             modules/element/spinbox.cppm
+            modules/element/element_type.cppm
 
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/layout
         FILES
@@ -93,6 +94,7 @@ target_sources(kwik_element
         src/element/chart.cpp
         src/element/progressring.cpp
         src/element/spinbox.cpp
+        src/element/element_type.cpp
         
         src/layout/flex_layout.cpp
         src/layout/grid_layout.cpp

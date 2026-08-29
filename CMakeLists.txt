@@ -155,6 +155,7 @@ include(cmake/modules/Event.cmake)
 include(cmake/modules/App.cmake)
 include(cmake/modules/Bytecode.cmake)
 include(cmake/modules/TernMath.cmake)
+include(cmake/modules/Extension.cmake)
 
 # 构建选项
 option(KWIK_BUILD_TESTS "Build tests" OFF)
@@ -178,6 +179,7 @@ target_link_libraries(kwik INTERFACE
     kwik_bridge
     kwik_event
     kwik_app
+    kwik_ext_video
 )
 
 # 示例程序

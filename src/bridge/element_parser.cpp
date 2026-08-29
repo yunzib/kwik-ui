@@ -63,6 +63,7 @@ import kwik.element.datepicker;
 import kwik.element.chart;
 import kwik.element.progressring;
 import kwik.element.spinbox;
+import kwik.bridge.element_spec; // ElementSpec / ElementRegistry — 扩展契约
 
 import std;
 
@@ -82,7 +83,7 @@ import std;
  *              去模板化后覆盖全部 26 种组件类型）
  * @param pv    JS props 对象（含 __bind_*State / __bind_*Key 隐藏属性）
  */
-static void applyBindings(View *view, const JSValueRef &pv) {
+void applyBindings(View *view, const JSValueRef &pv) {
     auto &meta = view->propMeta;
     JSContext *ctx = pv.context();
 
@@ -94,9 +95,9 @@ static void applyBindings(View *view, const JSValueRef &pv) {
 
         if (!stateVal.isUndefined() && !keyVal.isUndefined() && !JS_IsNull(stateVal.raw())) {
             // ── View → State 反向绑定（基类统一存储，组件无需覆写）──
-			PropEntry *entry = meta.find(propName);
-			view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString(),
-			                 propName, entry ? entry->typeHint : PropType::Unknown);
+            PropEntry *entry = meta.find(propName);
+            view->setBinding(createJSBinding(ctx, stateVal.raw()), keyVal.toString(), propName,
+                             entry ? entry->typeHint : PropType::Unknown);
 
             // ── State → View 增量绑定（通用，所有组件受益）──
             if (auto *reg = getRegisteredRegistry()) {
@@ -171,6 +172,12 @@ std::unordered_map<std::string, TypeCreator> &ElementParser::creators() {
 void ElementParser::registerType(const std::string &name, TypeCreator creator) {
     creators()[name] = std::move(creator);
 }
+
+void ElementParser::registerExtension(ElementSpec spec) {
+    registerType(spec.typeName, spec.creator);                       // 复用现有 creator 分发
+    ElementRegistry::instance().registerElement(std::move(spec));    // 全量契约供 reconcile/事件/导出
+}
+
 // ============================================================================
 // 模块静态初始化 —— 在 main() 之前自动注册内置组件类型
 //
@@ -596,7 +603,7 @@ static struct InitBuiltinTypes {
             return v;
         });
 
-         // ── ProgressRing ──
+        // ── ProgressRing ──
         ElementParser::registerType("ProgressRing", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
@@ -606,7 +613,7 @@ static struct InitBuiltinTypes {
             return pr;
         });
 
-         // ── SpinBox ──
+        // ── SpinBox ──
         ElementParser::registerType("SpinBox", [](const JSValueRef &pv) {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
@@ -660,7 +667,17 @@ std::unique_ptr<View> ElementParser::parse(const JSValueRef &jsVal) {
     return tree;
 }
 
-
+/**
+ * @brief 由 JS 类型名解析规范类型名 (供 reconcile 字符串匹配)
+ *
+ * 先查扩展注册表 (命中即扩展类型, 返回其规范名, 如 "Video");
+ * 未命中则回退内置映射 (elementTypeFromString + to_string,
+ * 覆盖 "Flex"→"FlexLayout" / "Root"→"RootView" / "Layer"→"LayerView" 等别名)。
+ */
+static std::string_view canonicalTypeName(std::string_view jsType) {
+    if (const ElementSpec *spec = ElementRegistry::instance().find(jsType)) return spec->typeName;
+    return to_string(elementTypeFromString(jsType));
+}
 
 // ============================================================================
 // 私有 - parseNode(const JSValueRef& jsVal)
@@ -712,13 +729,21 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
         int len = childrenVal.getArrayLength();
         for (int i = 0; i < len; ++i) {
             auto child = parseNode(childrenVal.getArrayElement(i));
-            if (child) {
-                element->addChild(std::move(child));
-            }
+            if (child) { element->addChild(std::move(child)); }
         }
     }
-    // ── 5. 提取事件处理器 (JS 回调 → std::function 适配, 见 event_adapter) ──
-    if (element && propsVal.isObject()) { attachJsHandlers(*element, propsVal); }
+    // ── 5. 提取事件处理器 (JS 回调 → std::function 适配)
+    //    扩展组件走 spec.attachHandlers (如 Video 自定义事件), 否则内置 attachJsHandlers ──
+    if (element && propsVal.isObject()) {
+        if (const ElementSpec *spec = ElementRegistry::instance().find(type)) {
+            if (spec->attachHandlers)
+                spec->attachHandlers(*element, propsVal);
+            else
+                attachJsHandlers(*element, propsVal);
+        } else {
+            attachJsHandlers(*element, propsVal);
+        }
+    }
 
     return element;
 }
@@ -729,7 +754,15 @@ std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
  *  * 覆盖式重绑: 旧 std::function 析构自动释放其持有的 JSValue。
  */
 void ElementParser::rebindHandlers(View *view, const JSValueRef &propsVal) {
-    if (view && propsVal.isObject()) { attachJsHandlers(*view, propsVal); }
+    if (!view || !propsVal.isObject()) return;
+    // 扩展组件优先走 spec.attachHandlers, 否则内置 attachJsHandlers
+    if (const ElementSpec *spec = ElementRegistry::instance().find(to_string(view->type()))) {
+        if (spec->attachHandlers) {
+            spec->attachHandlers(*view, propsVal);
+            return;
+        }
+    }
+    attachJsHandlers(*view, propsVal);
 }
 
 /**
@@ -775,18 +808,18 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         if (!jsId.empty()) {
             auto it = oldById.find(jsId);
             if (it != oldById.end() && !claimed[it->second]) {
-                ElementType oldType = oldChildren[it->second]->type();
-                ElementType newType = elementTypeFromString(jsType);
+                std::string_view oldType = to_string(oldChildren[it->second]->type());
+                std::string_view newType = canonicalTypeName(jsType);
                 if (oldType == newType) { matchIdx = it->second; }
             }
         }
 
         // ── id 未命中 → 位置+类型匹配 ──
         if (matchIdx == SIZE_MAX) {
-            ElementType newType = elementTypeFromString(jsType);
+            std::string_view newType = canonicalTypeName(jsType);
             for (; posCursor < oldN; ++posCursor) {
                 if (claimed[posCursor]) continue;
-                ElementType oldType = oldChildren[posCursor]->type();
+                std::string_view oldType = to_string(oldChildren[posCursor]->type());
                 if (oldType == newType) {
                     matchIdx = posCursor;
                     ++posCursor;
@@ -835,8 +868,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     std::string jsType = typeVal.toString();
     auto propsVal = jsVal.getProperty("props");
 
-    ElementType newType = elementTypeFromString(jsType);
-    ElementType oldType = oldView->type();
+    std::string_view newType = canonicalTypeName(jsType);
+    std::string_view oldType = to_string(oldView->type());
 
     // ── 类型不一致 → 销毁旧 View，创建新 View ──
     if (newType != oldType) {
@@ -923,11 +956,14 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::TextArea:
         static_cast<TextArea *>(oldView.get())->applyTextAreaProps(parseTextAreaProps(ex));
         break;
-    case ElementType::SpinBox:
-        static_cast<SpinBox *>(oldView.get())->applySpinBoxProps(parseSpinBoxProps(ex));
-        break;
+    case ElementType::SpinBox: static_cast<SpinBox *>(oldView.get())->applySpinBoxProps(parseSpinBoxProps(ex)); break;
 
     default: break;
+    }
+
+    // ── 扩展组件专有属性重解析 (如 Video 的 src/autoplay/loop/muted) ──
+    if (const ElementSpec *spec = ElementRegistry::instance().find(to_string(oldView->type()))) {
+        if (spec->reconcileProps) spec->reconcileProps(oldView.get(), ex);
     }
 
     oldView->propMeta = std::move(meta);       // ← 更新 hasBinding 标记

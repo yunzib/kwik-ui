@@ -26,7 +26,9 @@ import std;
  *
  * 使用 std::function 而非函数指针，以支持 lambda 捕获（后续可扩展为含状态的工厂）
  */
-export using TypeCreator = std::function<std::unique_ptr<View>(const JSValueRef &propsVal)>;
+// export using TypeCreator = std::function<std::unique_ptr<View>(const JSValueRef &propsVal)>;
+export import kwik.bridge.element_spec;    // 重导出 TypeCreator / ElementSpec / ElementRegistry
+
 // ============================================================================
 // ElementParser 类声明
 // ============================================================================
@@ -64,6 +66,16 @@ public:
      * 若同名类型已注册，新创建器将覆盖旧值。
      */
     static void registerType(const std::string &name, TypeCreator creator);
+
+    /**
+     * @brief 注册扩展元素 (插件入口)
+     *
+     * 内部完成两件事:
+     *   1. registerType(spec.typeName, spec.creator) — 复用现有 creator 分发
+     *   2. ElementRegistry::registerElement(spec)   — 全量契约供 reconcile/事件/JS 导出
+     * 内置组件无需经此接口, 扩展组件 (Video 等) 在显式初始化时调用。
+     */
+    static void registerExtension(ElementSpec spec);
 
     // ==================== 调试接口 ====================
     /**
@@ -133,6 +145,14 @@ private:
                                   std::vector<std::unique_ptr<View>> &oldChildren);
     static void rebindHandlers(View *view, const JSValueRef &propsVal);
 };
+
+/**
+ * @brief 统一绑定注入 — 公开化供扩展 creator 使用
+ *
+ * 遍历 propMeta 中 hasBinding=true 的属性, 建立 State<->View 双向绑定。
+ * 扩展组件 (Video) 的 creator 中调用, 使其 props 支持 ref(state, key) 增量更新。
+ */
+export void applyBindings(View *view, const JSValueRef &pv);
 
 // ============================================================================
 // LazyList 数据源工厂钩子
