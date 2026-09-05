@@ -6,6 +6,7 @@ module;
 #include "quickjs.h"
 #include "quickjs-libc.h"    // js_module_set_import_meta / js_std_dump_error
 #include "kwik/bytecode_module.h"
+#include <kwik/kwikui_exports.h> 
 
 module kwik.engine.context;
 
@@ -100,13 +101,12 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     std::string id = msg.substr(start, pos - start);
     if (id.empty()) return {};
 
-    static const char *knownExports[] = {
-        "View",  "Root",        "Text",       "Button",   "Flex",     "Grid",     "Stack",  "List",        "Image",
-        "Input", "RadioButton", "RadioGroup", "Checkbox", "TextArea", "Dropdown", "Slider", "ProgressBar", "Switch",
-        "Line",  "Spinner",     "Table",      "TextView", "State",    "channel",  "ref",    "getProp",     "setProp"};
+    static const char *const *knownExports = kwik_ui::exports;
+    static const size_t knownExportCount = kwik_ui::export_count;
 
     // 精确匹配
-    for (auto *exp : knownExports) {
+    for (size_t i = 0; i < knownExportCount; ++i) {
+        const char *exp = knownExports[i];
         if (id == exp) {
             return std::format("未导入组件 '{}' — 请在文件开头添加: import {{ {} }} from 'kwikui'", id, id);
         }
@@ -115,7 +115,8 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     // 大小写不敏感匹配
     std::string idLower = id;
     for (auto &c : idLower) c = (char)std::tolower((unsigned char)c);
-    for (auto *exp : knownExports) {
+    for (size_t i = 0; i < knownExportCount; ++i) {
+        const char *exp = knownExports[i];
         std::string expLower(exp);
         for (auto &c : expLower) c = (char)std::tolower((unsigned char)c);
         if (idLower == expLower) {
@@ -126,7 +127,8 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     // 编辑距离 ≤ 2 模糊匹配
     std::string_view best;
     int bestDist = 3;
-    for (auto *exp : knownExports) {
+    for (size_t i = 0; i < knownExportCount; ++i) {
+        const char *exp = knownExports[i];
         int d = levenshtein(id, exp);
         if (d < bestDist) {
             bestDist = d;

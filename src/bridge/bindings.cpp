@@ -1,5 +1,6 @@
 module;
-
+// 注意：此处的 ui_exports[] 必须与 <kwik/kwikui_exports.h> 保持同步
+// 修改导出名时需同时更新两处
 #include "quickjs.h"
 #include <atomic>
 

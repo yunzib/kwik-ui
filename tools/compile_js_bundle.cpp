@@ -22,7 +22,7 @@
  *   生成一个 .cpp 源文件，通过静态初始化调用 kwik_register_app_js()
  *   将字节码模块表注入 Application。用户将该文件编译进可执行文件即可。
  */
-
+#include <kwik/kwikui_exports.h>
 #include "quickjs.h"
 #include "quickjs-libc.h"
 #include <cstdio>
@@ -220,52 +220,22 @@ int main(int argc, char *argv[]) {
     //   kwik_app 运行时注册真实模块（实际 View/Text/State 实现）。
     //   生成的 bytecode 只记录模块结构，不包含模块导出函数体，
     //   运行时由真实模块提供函数实现。
-    static const JSCFunctionListEntry ui_exports[] = {
-        // ── UI 组件工厂函数 ──
-        JS_CFUNC_DEF("View", 1, js_stub),
-        JS_CFUNC_DEF("Root", 1, js_stub),
-        JS_CFUNC_DEF("Text", 1, js_stub),
-        JS_CFUNC_DEF("Button", 2, js_stub),
-        JS_CFUNC_DEF("Flex", 2, js_stub),
-        JS_CFUNC_DEF("Grid", 2, js_stub),
-        JS_CFUNC_DEF("Stack", 2, js_stub),
-        JS_CFUNC_DEF("List", 2, js_stub),
-        JS_CFUNC_DEF("Image", 1, js_stub),
-        JS_CFUNC_DEF("Input", 1, js_stub),
-        JS_CFUNC_DEF("RadioButton", 2, js_stub),
-        JS_CFUNC_DEF("RadioGroup", 2, js_stub),
-        JS_CFUNC_DEF("Checkbox", 2, js_stub),
-        JS_CFUNC_DEF("TextArea", 2, js_stub),
-        JS_CFUNC_DEF("Dropdown", 2, js_stub),
-        JS_CFUNC_DEF("Slider", 2, js_stub),
-        JS_CFUNC_DEF("ProgressBar", 2, js_stub),
-        JS_CFUNC_DEF("Switch", 2, js_stub),
-        JS_CFUNC_DEF("Line", 1, js_stub),
-        JS_CFUNC_DEF("Spinner", 1, js_stub),
-        JS_CFUNC_DEF("Table", 1, js_stub),
-        JS_CFUNC_DEF("TextView", 1, js_stub),
-        JS_CFUNC_DEF("Tabs", 1, js_stub),
-        JS_CFUNC_DEF("Dialog", 1, js_stub),
-        JS_CFUNC_DEF("Tip", 1, js_stub),
-        JS_CFUNC_DEF("G2D", 1, js_stub),
-        // ── 动画 API ──
-        JS_CFUNC_DEF("animate", 3, js_stub),
-        JS_CFUNC_DEF("stop", 2, js_stub),
-        JS_CFUNC_DEF("isAnimating", 2, js_stub),
-        // ── 属性 / 引用工具 ──
-        JS_CFUNC_DEF("getProp", 2, js_stub),
-        JS_CFUNC_DEF("setProp", 3, js_stub),
-        JS_CFUNC_DEF("ref", 2, js_stub),
-        // ── 主题系统 ──
-        JS_CFUNC_DEF("theme", 1, js_stub),
-        JS_CFUNC_DEF("ThemeProvider", 1, js_stub),
-    };
+    // 从 kwikui_exports.h 生成桩导出列表
+    // 所有导出均使用 js_stub 作为实现（COMPILE_ONLY 阶段不执行函数体）
+    static const auto stub_exports = []() -> std::vector<JSCFunctionListEntry> {
+        std::vector<JSCFunctionListEntry> entries;
+        for (size_t i = 0; i < kwik_ui::export_count; ++i) {
+            JSCFunctionListEntry entry = JS_CFUNC_DEF(kwik_ui::exports[i], 1, js_stub);
+            entries.push_back(entry);
+        }
+        return entries;
+    }();
 
     // 注册名为 "kwikui" 的 C 模块（模块名必须与运行时一致）
     // init 函数由 JS_NewCModule 存储，在模块首次执行时调用。
     // 此处 init 只做导出列表设置（桩函数），COMPILE_ONLY 阶段不会执行。
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
-        return JS_SetModuleExportList(ctx, m, ui_exports, std::size(ui_exports));
+        return JS_SetModuleExportList(ctx, m, stub_exports.data(), static_cast<int>(stub_exports.size()));
     });
     if (!m) {
         fprintf(stderr, "[错误] 无法注册 kwikui C 模块，编译终止\n");
@@ -273,18 +243,7 @@ int main(int argc, char *argv[]) {
     }
 
     // 声明模块导出名（供 COMPILE_ONLY 阶段的 import 解析使用）
-    JS_AddModuleExportList(ctx, m, ui_exports, std::size(ui_exports));
-
-    // State 和 channel 不是普通工厂函数，需单独处理：
-    //   - State 在运行时是类构造函数 (register_state_class)
-    //   - channel 在运行时是单例对象（含 send/on/call/handle）
-    // 编译期不需要实际功能，用桩函数和空对象占位即可
-    JS_SetModuleExport(ctx, m, "State", JS_NewCFunction(ctx, js_stub, "State", 0));
-    JS_AddModuleExport(ctx, m, "State");
-
-    JSValue channelObj = JS_NewObject(ctx);
-    JS_SetModuleExport(ctx, m, "channel", channelObj);
-    JS_AddModuleExport(ctx, m, "channel");
+    JS_AddModuleExportList(ctx, m, stub_exports.data(), static_cast<int>(stub_exports.size()));
 
     // 注册 console.log / console.error 等全局函数
     js_std_add_helpers(ctx, 0, nullptr);
