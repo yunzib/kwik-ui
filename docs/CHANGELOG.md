@@ -1,5 +1,20 @@
 # 更新日志
 
+# 0.0.0 — 2026-09-06
+### 修复
+- 模态弹框内容在鼠标悬停时消失：08-23 将 onDraw 拆为 drawSelfContent/iterateChildren 后，
+  “透传帧抑制自身绘制”依赖首个 save 的顺序；LayerView 先自行 save 再委托 View::onDraw 时，
+  通用 ViewProps.background（全屏 frame）在透传帧仍被重画，盖住未被重画的干净子内容。
+  → Layer 背景收敛为唯一来源 lp_.background：新增 LayerView::stripGenericBackground()
+  于创建（element_parser Layer creator）与 applyLayerProps 中禁用通用自绘背景/边框/渐变/阴影；
+  容器与 transparent（tooltip/toast）均改由 lp_.background 按 contentBounds 圆角绘制
+- 模态遮罩在鼠标悬停时逐帧加深：遮罩原在首个 save 之前直绘，透传帧不被抑制、
+  在持久单帧画布上逐帧 SrcOver 叠加变深并盖暗面板内容。
+  → 将 mask 移入 onDraw 首个 save 域内：仅本层全量重绘帧绘制，透传帧不再叠加
+说明：以上两条分别对应当前暂存的 layer_view.cpp onDraw 重构（mask 入首个 save 域 +
+transparent 补画 lp 背景）与 stripGenericBackground 双解析收敛（cppm 声明 + cpp 实现/接入 +
+element_parser creator 调用）。
+
 ## 0.0.0 — 2026-08-29
 ### 新增
 - 排版缓存版本失效：TextLayoutResult.layoutEpoch + 全局 currentTextLayoutEpoch

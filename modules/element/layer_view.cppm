@@ -113,6 +113,11 @@ public:
      *   其余字段变化触发重绘/重排） */
     void applyLayerProps(const LayerProps &lp);
 
+    /** @brief 禁掉通用 ViewProps 自绘背景/边框/渐变/阴影。
+     *  Layer 背景唯一来源是 lp_.background（onDraw 按 contentBounds 绘制）；
+     *  drawSelfContent 的全屏 frame 通用背景在透传帧会覆盖子内容，故一律禁用。 */
+    void stripGenericBackground();
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;

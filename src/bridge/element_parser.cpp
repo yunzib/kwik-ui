@@ -472,6 +472,7 @@ static struct InitBuiltinTypes {
             TypedPropMap meta;
             PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<LayerView>(parseViewProps(ex), parseLayerProps(ex));
+            v->stripGenericBackground();    // 新建即禁用通用自绘背景（背景统一走 lp_）
             v->propMeta = std::move(meta);
             applyBindings(v.get(), pv);
             return v;

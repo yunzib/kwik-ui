@@ -193,28 +193,28 @@ void LayerView::onLayout() {
     }
 }
 
-// ── onDraw：mask + 容器 clip + children ──
-// 重写 onDraw 后必须显式画 children（children 循环在 View::onDraw 内）：
-// 在容器 clip 内调 View::onDraw 委托其 children 循环（含 z 排序/脏重叠协调）。
-// View::onDraw 的 background/border 因本节点 ViewProps 默认透明/0 而不绘制；
-// 其 clipRoundedRect(fullscreen,0) 与容器 clip 求交仍为容器，不影响裁剪。
 void LayerView::onDraw(Graphics &g) {
     if (!lp_.active) return;
 
-    // 1. 全屏遮罩（modal，无 clip）
+    g.save();    // 首个 save：透传帧(仅子树脏)抑制自身绘制，全量帧正常画
     if (lp_.modal && !lp_.transparent) { g.drawRect(frame, lp_.maskColor); }
 
-    // 2. 容器：clip + 背景，保持 clip 供 children 在内绘制
     if (isContainerMode() && !lp_.transparent) {
-        g.save();
         g.clipRoundedRect(contentBounds_, lp_.borderRadius);
         g.drawRoundedRect(contentBounds_, lp_.borderRadius, lp_.background);
-        View::onDraw(g);    // ← 委托 children 循环（在容器 clip 内）
-        g.restore();
-    } else {
-        // 自由模式 / transparent：直接画 children（无容器 clip）
-        View::onDraw(g);
     }
+
+    if (isContainerMode() && !lp_.transparent) {
+        View::onDraw(g);    // children（容器 clip 内，脏子节点各自域内正常绘制）
+    } else {
+        // transparent+容器（tooltip/toast）：无容器 clip，但按 contentBounds 自绘 lp 背景
+        // （通用背景已禁用，透明层底色唯一来源；避免走全屏 frame 铺色）
+        if (lp_.transparent && isContainerMode() && lp_.background.isVisible()) {
+            g.drawRoundedRect(contentBounds_, lp_.borderRadius, lp_.background);
+        }
+        View::onDraw(g);    // 自由 / transparent：children
+    }
+    g.restore();    // 弹出本域 clip（pushes 归零）
 }
 
 // ── hitTest：modal 阻断 / transparent 穿透 / children 优先 ──
@@ -388,6 +388,7 @@ bool LayerView::setPropertyTyped(const char *name, const TypedProp &value) {
 
 // ── reconcile 同步：整体覆盖 LayerProps + active 状态迁移 ──
 void LayerView::applyLayerProps(const LayerProps &lp) {
+    stripGenericBackground();
     bool wasActive = lp_.active;
     lp_ = lp;
     if (lp_.active != wasActive) {
@@ -395,4 +396,12 @@ void LayerView::applyLayerProps(const LayerProps &lp) {
         return;    // activate/deactivate 内部已处理注册/布局/脏标记
     }
     if (lp_.active) { markAllDirty(); requestLayout(); }    // 字段级变化：重绘重排
+}
+
+void LayerView::stripGenericBackground() {
+    props.background = Color::transparent();
+    props.borderWidth = 0.0f;
+    props.borderColor = Color{0, 0, 0, 0};
+    props.gradient = std::nullopt;
+    props.shadow.reset();
 }
