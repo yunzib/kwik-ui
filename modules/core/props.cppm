@@ -76,6 +76,13 @@ export struct ViewProps {
     float opacity = 1.0f;
     float transitionDuration = 0.0f;   ///< 隐式过渡时长（秒，0=关闭）：ref 数据绑定更新时自动补间
     std::optional<Shadow> shadow;
+    /** @brief 液态玻璃背板模糊半径（像素；0=关闭，零路径）。>0 时该元素就地模糊其下层内容作为底色。 */
+    float backdropBlur = 0.0f;
+    /** @brief 液态玻璃边缘折射强度（像素；0=关闭）。SDF 边缘带内按法线偏移采样原始内容，形成液态玻璃弯折感。 */
+    float backdropRefraction = 0.0f;
+    /** @brief 液态玻璃边缘高光强度（0..1；0=关闭）。边缘带 rim 光，配合折射模拟玻璃反光。 */
+    float backdropSpecular = 0.0f;
+    
     // ── 子项定位 (父布局通过 child->props.xxx 访问) ──
     Align align = Align::Default;
     bool hasExplicitX = false, hasExplicitY = false;

@@ -1,5 +1,53 @@
 # 更新日志
 
+# 0.0.0 — 2026-09-10
+### 新增
+- 通用液态玻璃 backdrop 模糊：ViewProps 新增 backdropBlur:float（像素；0=off 零路径）。
+  任意元素就地模糊其下层内容作底色，半透明白/着色由既有 background 叠加（不新增 tint 字段）。
+  - 阶段0 属性：props.cppm / types.cppm PropId / prop_meta 描述符+名字 / props_parser 解析，
+    支持 setProperty/动画/readProperty（double→float）
+  - 阶段1 录制：command.cppm BackdropBlurCmd（元素 rect + 物理 captureBox + 半径 + 圆角 +
+    折射/高光 + 矩阵）、command_buffer replay、backend 纯虚 backdropBlur、graphics.cppm
+    beginBackdropBlur（外扩 ceil(3σ) 与折射 clamp 统一在此烘焙）
+  - 阶段4 后端实现：vulkan_backdrop_renderer（离屏 capture/pingA/pingB + 独立 offscreen pass +
+    分离高斯 blurH/blurV 全屏 quad + composite 圆角 SDF，全部复用共享 VB/IB，同 ImageRenderer 行式）；
+    VulkanBackend::backdropBlur = endRenderPass → draw → beginMainRenderPass → reapplyState → composite
+  - 阶段5 通用接线：View::drawBackdropStage（backdropBlur>0 即发命令，置于 transform 之后/
+    background 之前）；LayerView 复用留待后续
+- 液态玻璃折射：ViewProps 新增 backdropRefraction:float（边缘折射偏移 px，0=off）与
+  backdropSpecular:float（边缘 rim 高光 0..1）。composite shader 内以圆角 SDF 边缘带构造
+  高度场/法线：法线方向偏移采样原始捕获图（capture，binding1）实现边缘弯折，rim^3×受光
+  偏置加高光；内部仍为高斯磨砂（pingB）。全链路（PropId/元信息/解析/setProperty）同 backdropBlur。
+
+### 修复（液态玻璃 v1 实现缺陷，均已在本次落地）
+- **DEVICE_LOST（玻璃首帧必崩，验证层定位四因）**：
+  非 clip 合成管线 pDepthStencilState=NULL 但主 pass 子通道带 DS 附件（非法用法，垃圾模板
+  状态）→ 恒提供禁用态 DS 状态；canvasStencilImage 缺 TRANSFER_DST 用途位（帧首
+  vkCmdClearDepthStencilImage 非法）→ 创建时补上；合成（静态模板管线）绑定后动态模板
+  ref/mask 被失效，裁剪内后续文本绘制 UB → composite 后再 reapplyState；同帧多玻璃
+  尺寸不同 → ensureTargets 中途销毁+reset 描述符池使已录制 draw 失效 → target 固定
+  canvas/4 尺寸（换画布才重建，帧内零重分配），blit 到同位置子区域，合成 UV 简化为
+  世界坐标/视口（push 常量回落 64B，cap 字段删除）
+- 合成 SDF 坐标双重缩放：顶点误将世界坐标当 0..1 再乘 size → fragPos=inPosition 对齐 rect.slang
+- 合成管线未开混合：覆盖写画布 → 改 SrcOver（SRC_ALPHA/ONE_MINUS_SRC_ALPHA，同 rect/image/glyph）
+- 圆角从未生效：cornerRadius 硬编码 0 → 随命令下发（props.borderRadius）
+- 合成域 = 3σ 外扩 rect 造成边缘一圈磨砂光晕 → 只画元素 frame，UV 由世界坐标映射捕获盒
+  （capX/Y/W/H push 常量），任意仿射变换下精确；离屏/出界元素 clamp 后捕获域与合成 UV
+  严格像素对应，不再错位
+- σ 语义错（radius 被当 1/4 纹理 texel σ，实际模糊量 ≈4×props 值，捕获盒反而过小致边缘拉丝）→
+  σ_texel = σ_screen/downsample，屏幕模糊量 = backdropBlur×渲染缩放；σ 封顶 64px
+- 主 pass 中断重开清空 stencil（遮罩/裁剪内的玻璃不可见，且殃及后续 clipped 绘制）→
+  renderpass depth/stencil 改 LOAD+ATTACHMENT initialLayout，beginFrame 帧首显式
+  vkCmdClearDepthStencilImage 清一次；捕获盒 ∩ scissor（currentScissor 接线）
+- 正确性策略 v1 落地：Graphics::backdropUsed() 帧标志 + LayerStack::drawAll 尾部判定 →
+  全层 markAllDirty，下一帧整屏重绘（玻璃的背板依赖绘制序，增量帧不重录会残影）
+
+已知限制（v1）：祖先真圆角(stencil) clip 的捕获以物理 AABB∩scissor 近似，圆角边缘或有轻微 halo；
+LayerView 背景（lp_）自身无玻璃（stripGenericBackground 关通用背景，玻璃走 drawBackdropStage）。
+≥2 玻璃未做逐层离线缓存（每帧整屏重画 + 各自捕获），帧成本随玻璃数近似线性；后续 v2 再做伤害缓存。
+模糊在 gamma 域进行（与引擎 UNORM+sRGB 色彩空间全局约定一致，保文字清晰）；折射采样同为 1/4 降采样图，
+极精细内容边缘或稍软。
+
 # 0.0.0 — 2026-09-06
 ### 修复
 - 模态弹框内容在鼠标悬停时消失：08-23 将 onDraw 拆为 drawSelfContent/iterateChildren 后，

@@ -88,6 +88,17 @@ export struct Rect {
         float by2 = std::max(bottom(), other.bottom());
         return {lx, ty, rx2 - lx, by2 - ty};
     }
+
+    /**
+     * @brief 两矩形交集 (无交集时返回空矩形)
+     */
+    constexpr Rect intersection(const Rect &other) const {
+        float lx = std::max(x, other.x);
+        float ty = std::max(y, other.y);
+        float rx2 = std::min(right(), other.right());
+        float by2 = std::min(bottom(), other.bottom());
+        return {lx, ty, std::max(0.0f, rx2 - lx), std::max(0.0f, by2 - ty)};
+    }
 };
 
 /**
@@ -359,6 +370,10 @@ export enum class PropId : uint8_t {
     // ── 文字 ──
     textColor,        // Color
     fontSize,         // double → float
+
+    backdropBlur,           // double → float
+    backdropRefraction,     // double → float
+    backdropSpecular,       // double → float
 
     /// sentinel — 用作数组长度，不可作为实际属性值
     COUNT,

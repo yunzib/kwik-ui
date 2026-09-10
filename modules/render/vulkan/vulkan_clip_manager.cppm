@@ -1,5 +1,6 @@
 module;
 #include <vulkan/vulkan.h>
+#include <optional>
 #include <vector>
 export module kwik.render.vulkan.clip_manager;
 import kwik.core.types;
@@ -19,6 +20,12 @@ public:
     size_t level() const {
         return clipStack_.size();
     }
+
+    /** @brief 当前最内侧裁剪矩形（物理），无裁剪返回 nullopt */
+    std::optional<Rect> currentScissor() const;
+
+    /** @brief 无栈扰动地把当前 clip 动态状态重新应用到 GPU（render pass 重启后恢复用） */
+    void reapplyState(VkCommandBuffer cmd);
 
 private:
     std::vector<Rect> clipStack_;

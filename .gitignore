@@ -1,6 +1,7 @@
 build/
 .VSCodeCounter/
 .opencode/
+.zcode/
 .cache/
 CMakeFiles/
 .opencode/package-lock.json

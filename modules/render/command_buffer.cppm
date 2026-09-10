@@ -15,7 +15,7 @@ import std;
 export using DrawCommand = std::variant<ClearCmd, FillRectCmd, FillRoundedRectCmd, StrokeRoundedRectCmd,
                                        DrawShadowCmd, DrawGlyphCmd, DrawImageCmd, FillTrianglesCmd,
                                        StrokeTrianglesCmd, StrokeArcCmd, DrawMeshCmd, DrawSegmentCmd,
-                                       PushClipCmd, PopClipCmd, FillRingCmd>;
+                                       PushClipCmd, PopClipCmd, FillRingCmd, BackdropBlurCmd>;
 
 /**
  * @brief 扁平命令流（替代原 DrawList + 层树）

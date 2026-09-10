@@ -99,6 +99,17 @@ public:
         return v;
     }
 
+    /** @brief 立即结束当前主 render pass（canvas → TRANSFER_SRC）。液态玻璃帧中途中断用。 */
+    void endRenderPass();
+
+    /** @brief 重启主 render pass（TRANSFER_SRC→COLOR_ATTACHMENT barrier + LOAD_OP_LOAD 保留画布 + 复位动态状态） */
+    void beginMainRenderPass();
+
+    /** @brief 当前主色画布 / 宽 / 高（backdrop 捕获用） */
+    VkImage canvasImage() const { return canvasImage_; }
+    uint32_t canvasWidth() const { return swapchainExtent_.width; }
+    uint32_t canvasHeight() const { return swapchainExtent_.height; }
+
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     VkInstance vkInstance_ = VK_NULL_HANDLE;

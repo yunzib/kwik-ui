@@ -65,6 +65,14 @@ void LayerStack::drawAll(Graphics &g, Rect *dirtyAccum) {
         // 累入本层脏区，供更上层判定
         if (dirtyAccum) lowerDirty = *dirtyAccum;
     }
+
+    // ③ 液态玻璃正确性策略 v1：本帧录制过玻璃命令 → 全层标记脏，下一帧整屏重绘。
+    //    玻璃的背板 = 绘制它之前画布内容；下层内容变化但玻璃自身不脏时，
+    //    增量帧不会重录玻璃 → 残影。接受玻璃存在期间的全量重绘成本，v2 做 per-layer 缓存。
+    if (g.backdropUsed()) {
+        base_->markAllDirty();
+        for (auto *layer : layers_) layer->markAllDirty();
+    }
 }
 
 // ══════════════════════════════════════════════════════════════

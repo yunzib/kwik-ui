@@ -498,6 +498,16 @@ protected:
      *         （View::onDraw 内由 iterateChildren 收尾配对） */
     void drawSelfContent(Graphics &graphics);
 
+    /**
+     * @brief 液态玻璃 backdrop 阶段（自绘生命周期钩子）
+     *
+     * 默认实现：backdropBlur>0 时发 BackdropBlurCmd——捕获域 = frame 外扩 ceil(3σ)（Graphics 烘焙），
+     * 合成域 = frame 本身（圆角 SDF 蒙版），可选 backdropRefraction/backdropSpecular 边缘折射/高光；
+     * 在 drawSelfContent 的 transform 之后、background 之前调用。
+     * 自定义 onDraw 组件（如 LayerView）如需液态玻璃，可在其 lp_.background 前复用本方法。
+     */
+    void drawBackdropStage(Graphics &graphics);
+
     /** @brief 脏门子节点迭代：收集脏子 frame 并集 → 干净但被覆盖的子节点
      *         标记后跟随重绘以维持 z-order；z≠0 时稳定排序分支。
      *         末尾 restore 与 drawSelfContent 开头的 save 配对。

@@ -336,7 +336,17 @@ Color View::underlayColor() const {
     return base;
 }
 
-
+// ============================================================================
+// drawBackdropStage — 液态玻璃 backdrop 阶段
+// 仅 backdropBlur>0 时发命令；否则零成本直接返回。
+// 元素 frame 原样传入：外扩边距 ceil(3σ) 与折射 clamp 由 Graphics 统一烘焙；
+// 圆角/折射/高光随命令下发，合成端按 SDF 蒙版。
+// ============================================================================
+void View::drawBackdropStage(Graphics &graphics) {
+    if (props.backdropBlur <= 0.0f) return;
+    graphics.beginBackdropBlur(frame, props.backdropBlur, props.borderRadius,
+                               props.backdropRefraction, props.backdropSpecular);
+}
 
 // ============================================================================
 // drawSelfContent — 自身装饰层（原 View::onDraw 前半段拆出）
@@ -363,6 +373,9 @@ void View::drawSelfContent(Graphics &graphics) {
 
     if (props.opacity < 1.0f) { graphics.setOpacity(props.opacity); }
     Rect drawRect = frame;
+
+    drawBackdropStage(graphics);    // 液态玻璃：就地捕获下层（置于 transform 之后，matrix 含自身变换）
+    
     if (props.shadow.has_value()) { graphics.drawShadow(drawRect, props.borderRadius, *props.shadow); }
     if (props.gradient && props.gradient->type != GradientType::None) {
         // 渐变背景优先于纯色 background；border 由下一条 stroke 叠加

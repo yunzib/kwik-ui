@@ -151,6 +151,9 @@ ViewProps parseViewProps(PropsExtractor &ex) {
         }
     }
     ex.get("background", result.background);
+    ex.get("backdropBlur", result.backdropBlur);
+    ex.get("backdropRefraction", result.backdropRefraction);
+    ex.get("backdropSpecular", result.backdropSpecular);
     ex.get("borderRadius", result.borderRadius);
     ex.get("borderWidth", result.borderWidth);
     ex.get("borderColor", result.borderColor);

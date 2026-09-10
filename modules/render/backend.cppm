@@ -92,6 +92,9 @@ public:
     /** @brief 绘制 3D 网格（对象空间 MVP，无 2D 矩阵） */
     virtual void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) = 0;
 
+    /** @brief 液态玻璃 backdrop：中断主 pass 捕获 rect∩scissor → 降采样 → 高斯 → 以底色合成恢复 */
+    virtual void backdropBlur(const BackdropBlurCmd &cmd) = 0;
+
     virtual uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) = 0;
     virtual void destroyImageTexture(uint32_t id) = 0;
 

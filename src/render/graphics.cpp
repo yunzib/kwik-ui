@@ -50,6 +50,7 @@ void Graphics::setCommandBuffer(std::shared_ptr<CommandBuffer> cb) {
 
 void Graphics::beginFrame(bool /*structural*/) {
     recording_ = true;
+    backdropUsed_ = false;
     currentState_ = State{};
     stateStack_.clear();
     passThrough_ = false;
@@ -237,8 +238,7 @@ void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
     // 会向内收半像素（107.5→108），第 107 行旧像素无人重写 → 残留 1px 细线
     // （按钮按下缩放边缘线、导航高亮残留线均此因）。min 向下/max 向上取整。
     Rect a = transformRectAABB(rect);
-    Rect phys{std::floor(a.x), std::floor(a.y),
-              std::ceil(a.x + a.width) - std::floor(a.x),
+    Rect phys{std::floor(a.x), std::floor(a.y), std::ceil(a.x + a.width) - std::floor(a.x),
               std::ceil(a.y + a.height) - std::floor(a.y)};
     cb_->append(FillRectCmd{phys, color, BlendMode::SrcOver, Transform2D{}});
 }
@@ -417,8 +417,6 @@ void Graphics::getSize(int *width, int *height) const {
     if (height) *height = height_;
 }
 
-
-
 Rect Graphics::transformRectAABB(const Rect &rect) const {
     // 变换矩形 4 角，取 AABB（浮点原始值，不取整）
     const auto &m = currentState_.m;
@@ -445,4 +443,25 @@ Color Graphics::applyOpacity(const Color &color) const {
     Color result = color;
     result.a = static_cast<uint8_t>(color.a * currentState_.opacity);
     return result;
+}
+
+void Graphics::beginBackdropBlur(const Rect &frame, float radius, float cornerRadius, float refraction,
+                                 float specular) {
+    if (!recording_ || currentState_.noop) return;
+    // 外扩边距 = ceil(3σ)：blur 核支持域（防边缘截断），同时作为折射采样的余量上限
+    float m = std::ceil(radius * 3.0f);
+    Rect expanded{frame.x - m, frame.y - m, frame.width + 2.0f * m, frame.height + 2.0f * m};
+    const Transform2D &t = currentState_.m;
+    float s = std::sqrt(std::abs(t.m00 * t.m11 - t.m01 * t.m10));    // |det|^0.5（等比缩放）
+    backdropUsed_ = true;
+    cb_->append(BackdropBlurCmd{
+        .rect = frame,
+        .captureBox = transformRect(expanded),
+        .radius = radius,
+        .cornerRadius = cornerRadius,
+        .refraction = std::min(refraction, m),
+        .specular = std::clamp(specular, 0.0f, 1.0f),
+        .scale = s,
+        .t = t,
+    });
 }

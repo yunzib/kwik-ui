@@ -102,8 +102,17 @@ public:
     void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
                   const float lightDir[3], const Rect &viewport);
 
-    // ── 帧控制 ──
+    /** @brief 追加液态玻璃 backdrop 命令
+     *  frame 为元素逻辑框（未外扩）：内部按 ceil(3σ) 烘焙外扩 captureBox，
+     *  折射强度 clamp ≤ 外扩边距（保证折射采样不越过捕获域）。
+     *  cornerRadius/refraction/specular 来自 props，0 = 关闭对应特性。 */
+    void beginBackdropBlur(const Rect &frame, float radius, float cornerRadius, float refraction,
+                           float specular);
 
+    /** @brief 本帧是否录制过液态玻璃 backdrop（驱动“玻璃存在 → 整屏重绘”正确性策略） */
+    bool backdropUsed() const { return backdropUsed_; }
+
+    // ── 帧控制 ──
     void present();
     void resize(int width, int height);
     void getSize(int *width, int *height) const;
@@ -142,6 +151,7 @@ private:
     Color applyOpacity(const Color &color) const;
 
     bool recording_ = false;
+    bool backdropUsed_ = false;    // 本帧录制过 BackdropBlurCmd（renderFrame 消费后随 beginFrame 清零）
     int width_ = 0;
     int height_ = 0;
     Rect *dirtyRectAccum_ = nullptr;

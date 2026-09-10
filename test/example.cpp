@@ -125,6 +125,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "gauge") return "../../test/ui/gauge.js";
         if (arg == "progressring") return "../../test/ui/progressring.js";
         if (arg == "spinbox") return "../../test/ui/spinbox.js";
+        if (arg == "glass") return "../../test/ui/glass.js";
         if (arg == "car") return "../../test/ui/car/ivi.js";
         if (arg == "video") return "../../test/ui/video.js";
         return arg;

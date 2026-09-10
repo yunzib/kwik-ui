@@ -16,6 +16,7 @@ import kwik.render.vulkan.triangle_renderer;
 import kwik.core.path;
 import kwik.render.vulkan.mesh_renderer;
 import kwik.core.types;
+import kwik.render.vulkan.backdrop_renderer;
 
 import std;
 
@@ -59,6 +60,8 @@ public:
 
     void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) override;
 
+    void backdropBlur(const BackdropBlurCmd &cmd) override;
+
     /** @brief 重置帧内 GPU 状态缓存（当前 no-op，保留接口） */
     void resetFrameCache() {}
 
@@ -74,6 +77,7 @@ private:
     int height_ = 0;
     TriangleRenderer triangle_;
     MeshRenderer mesh_;
+    BackdropRenderer backdrop_;
 
     enum class PushKind : uint8_t { Clip };    // 仅剩 Clip（transform/opacity 已烘烤）
     std::vector<PushKind> pushKinds_;

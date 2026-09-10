@@ -74,6 +74,10 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
     jsCtx_{} {}
 
 Application::~Application() {
+    // 先停动画：stopAll 会经 onComplete resolve 各 animate() 的 Promise，
+    // 释放其持有的 JS 函数引用（jsCtx_ 成员在函数体之后才析构，此刻仍有效）；
+    // 跳过则退出时 gc_obj_list 非空 → quickjs.c 断言
+    AnimationEngine::instance().stopAll();
     // 先清图层（base_ 置空），防树析构时 Layer 节点 deactivate 访问悬空 base
     LayerStack::instance().clear();
     LayerStack::instance().setBase(nullptr);

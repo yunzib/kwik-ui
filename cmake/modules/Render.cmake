@@ -52,6 +52,7 @@ if(KWIK_RENDER_VULKAN)
         modules/render/vulkan/vulkan_backend.cppm
         modules/render/vulkan/vulkan_triangle_renderer.cppm
         modules/render/vulkan/vulkan_3d_renderer.cppm
+        modules/render/vulkan/vulkan_backdrop_renderer.cppm
     )
     list(APPEND RENDER_PRIVATE_SOURCES
         src/render/vulkan/vulkan_context.cpp
@@ -62,6 +63,7 @@ if(KWIK_RENDER_VULKAN)
         src/render/vulkan/vulkan_backend.cpp
         src/render/vulkan/vulkan_triangle_renderer.cpp
         src/render/vulkan/vulkan_3d_renderer.cpp
+        src/render/vulkan/vulkan_backdrop_renderer.cpp
     )
 
     list(APPEND RENDER_LINK_LIBRARIES Vulkan::Vulkan)

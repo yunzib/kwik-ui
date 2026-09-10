@@ -138,6 +138,28 @@ export struct FillRingCmd {
     Transform2D t;
 };
 
+/** @brief 液态玻璃 backdrop 命令（录制层）
+ *
+ * rect         元素逻辑框（未外扩）—— composite 绘制与圆角 SDF 用
+ * captureBox   外扩 box 的物理 AABB（transformRect 烘焙）—— 捕获 blit 与合成 UV 映射共用
+ * radius       = props.backdropBlur（逻辑 px 高斯 σ；0=off 不应发出该命令）
+ * cornerRadius = props.borderRadius（合成 SDF 圆角）
+ * refraction   边缘折射强度（逻辑 px，录制时已 clamp ≤ 3σ 外扩边距）
+ * specular     边缘高光强度（0..1）
+ * scale        = |det(t)|^0.5（逻辑→物理），blur σ 换算屏幕 px 用
+ * t            当前烘焙矩阵
+ */
+export struct BackdropBlurCmd {
+    Rect rect;
+    Rect captureBox;
+    float radius = 0.0f;
+    float cornerRadius = 0.0f;
+    float refraction = 0.0f;
+    float specular = 0.0f;
+    float scale = 1.0f;
+    Transform2D t;
+};
+
 /*
  * ── 状态命令 ──
  * PushClipCmd / PopClipCmd 由 Graphics 直接 append 到 CommandBuffer，

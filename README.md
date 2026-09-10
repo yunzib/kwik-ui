@@ -143,6 +143,13 @@ export default () => Root(
   </tr>
 </table>
 
+<table>
+  <tr>
+    <td><img src="docs/image/glass.png" alt="图片描述1" width="100%"></td>
+    <td><img src="docs/image/0.png" alt="" width="100%"></td>
+  </tr>
+</table>
+
 - 更多示例可参考:  examples/
 - 更多组件相关参考:  doc/1.kwik-ui 组件.md
 

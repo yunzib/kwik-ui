@@ -442,6 +442,37 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(commandBuffers_[frameIndex_], &bi);
 
+    // ── ③' 每帧显式清深度/模板一次（depth=1, stencil=0）──
+    // pass 用 LOAD 保留（液态玻璃中断/恢复不丢模板），清深改由帧首完成：
+    // UNDEFINED→TRANSFER_DST（弃旧内容）→ clear → DEPTH_STENCIL_ATTACHMENT（= initialLayout）
+    {
+        VkCommandBuffer cbk = commandBuffers_[frameIndex_];
+        VkImageSubresourceRange dsRange{VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
+        VkImageMemoryBarrier toClear{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        toClear.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        toClear.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toClear.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        toClear.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toClear.image = canvasStencilImage_;
+        toClear.subresourceRange = dsRange;
+        toClear.srcQueueFamilyIndex = toClear.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        vkCmdPipelineBarrier(cbk, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &toClear);
+        VkClearDepthStencilValue dsv{1.0f, 0};
+        vkCmdClearDepthStencilImage(cbk, canvasStencilImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &dsv, 1, &dsRange);
+        VkImageMemoryBarrier toAtt{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        toAtt.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toAtt.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        toAtt.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toAtt.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        toAtt.image = canvasStencilImage_;
+        toAtt.subresourceRange = dsRange;
+        toAtt.srcQueueFamilyIndex = toAtt.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        vkCmdPipelineBarrier(cbk, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &toAtt);
+    }
+
     // ── ④ 开始 canvas render pass（LOAD_OP_LOAD，全屏 renderArea）──
     VkRenderPassBeginInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     rpInfo.renderPass = renderPass_;
@@ -752,7 +783,10 @@ void VulkanContext::cleanupSwapchain() {
     swapchainImageLayouts_.clear();
 }
 // ================================================================
-// RenderPass — Canvas 颜色（1x, LOAD_OP_LOAD）+ DepthStencil（1x, CLEAR）
+// RenderPass — Canvas 颜色（1x, LOAD_OP_LOAD）+ DepthStencil（1x, LOAD）
+// DepthStencil 用 LOAD + ATTACHMENT initialLayout：液态玻璃帧中途中断/恢复主
+// pass 时模板内容不丢（stencil 裁剪内玻璃可见）。每帧开头由 beginFrame
+// 显式 vkCmdClearDepthStencilImage 清一次（depth=1, stencil=0）。
 // ================================================================
 bool VulkanContext::createRenderPass() {
     VkAttachmentDescription colorAtt{};
@@ -768,14 +802,11 @@ bool VulkanContext::createRenderPass() {
     VkAttachmentDescription stencilAtt{};
     stencilAtt.format = VK_FORMAT_D24_UNORM_S8_UINT;
     stencilAtt.samples = VK_SAMPLE_COUNT_1_BIT;
-    // 注：vkCmdBeginRenderPass 的 clearValues（vulkan_context.cpp:410-412）已含 cvs[1].depthStencil = {1.0f,
-    // 0}，depth=1.0 即最大深度（远平面），与管线 LESS_OR_EQUAL 匹配，无需修改。2D 管线 depthTestEnable=VK_FALSE
-    // 不受影响。
-    stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;    //  DONT_CARE → CLEAR (G3D 深度测试需要每帧清深)
-    stencilAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    stencilAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    stencilAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    stencilAtt.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    stencilAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    stencilAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    stencilAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+    stencilAtt.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     stencilAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
@@ -975,6 +1006,8 @@ bool VulkanContext::createCanvasImage() {
     if (vkCreateImageView(vkDevice_, &vi, nullptr, &canvasView_) != VK_SUCCESS) return false;
 
     // ── Stencil 附件（D24S8, 1x, 单份）──
+    // TRANSFER_DST：beginFrame 帧首 vkCmdClearDepthStencilImage 需要（pass 内 LOAD 保留，
+    // 液态玻璃中断/恢复主 pass 时模板不丢）
     VkImageCreateInfo sImg{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     sImg.imageType = VK_IMAGE_TYPE_2D;
     sImg.format = VK_FORMAT_D24_UNORM_S8_UINT;
@@ -983,7 +1016,7 @@ bool VulkanContext::createCanvasImage() {
     sImg.arrayLayers = 1;
     sImg.samples = VK_SAMPLE_COUNT_1_BIT;
     sImg.tiling = VK_IMAGE_TILING_OPTIMAL;
-    sImg.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    sImg.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     sImg.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     if (vkCreateImage(vkDevice_, &sImg, nullptr, &canvasStencilImage_) != VK_SUCCESS) return false;
     VkMemoryRequirements smr;
@@ -1120,4 +1153,38 @@ void VulkanContext::accumulateDirtyRect(const Rect &dirtyRect) {
     Rect r{std::max(0.0f, (float)dirtyRect.x), std::max(0.0f, (float)dirtyRect.y), std::max(1.0f, (float)dw),
            std::max(1.0f, (float)dh)};
     for (auto &acc : accumulatedDirtyRects_) { acc = acc.isEmpty() ? r : acc.unionRect(r); }
+}
+
+void VulkanContext::endRenderPass() {
+    vkCmdEndRenderPass(commandBuffers_[frameIndex_]);
+}
+
+void VulkanContext::beginMainRenderPass() {
+    VkCommandBuffer cb = commandBuffers_[frameIndex_];
+    VkImageMemoryBarrier bar{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    bar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    bar.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    bar.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    bar.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    bar.srcQueueFamilyIndex = bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bar.image = canvasImage_;
+    bar.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
+    VkRenderPassBeginInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    rp.renderPass = renderPass_;
+    rp.framebuffer = canvasFramebuffer_;
+    rp.renderArea = {{0, 0}, swapchainExtent_};
+    VkClearValue cvs[2];
+    cvs[0].color = {{0,0,0,0}};
+    cvs[1].depthStencil = {1.0f, 0};
+    rp.clearValueCount = 2; rp.pClearValues = cvs;
+    vkCmdBeginRenderPass(cb, &rp, VK_SUBPASS_CONTENTS_INLINE);
+    VkViewport vp{0,0,(float)swapchainExtent_.width,(float)swapchainExtent_.height,0,1};
+    vkCmdSetViewport(cb, 0, 1, &vp);
+    VkRect2D sc{{0,0}, swapchainExtent_};
+    vkCmdSetScissor(cb, 0, 1, &sc);
+    vkCmdSetStencilReference(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
+    vkCmdSetStencilCompareMask(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
+    vkCmdSetStencilWriteMask(cb, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
 }

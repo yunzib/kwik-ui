@@ -68,8 +68,10 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
+    backdrop_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer());
     Log::info("[startup] pipeline_create = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count());
+
     return true;
 }
 
@@ -78,6 +80,7 @@ void VulkanBackend::shutdown() {
     image_.destroy();
     glyph_.destroy();
     rect_.destroy();
+    backdrop_.destroy();
     ctx_.shutdown();
 }
 
@@ -248,4 +251,33 @@ void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
     drawCalls_++;
     mesh_.drawMesh(currentToken_->commandBuffer, currentToken_->extent, cmd.viewport, vertices, cmd.vertexCount,
                    cmd.mvp, cmd.color, cmd.lightDir);
+}
+
+
+void VulkanBackend::backdropBlur(const BackdropBlurCmd &cmd) {
+    if (!currentToken_) return;
+    drawCalls_++;
+    // 捕获盒 ∩ scissor ∩ 画布，取整对齐：blit 子区域与画布同构映射，
+    // 离屏/出界元素不错位（composite UV = 世界坐标/视口，与 cap 解耦）。
+    Rect cap = cmd.captureBox;
+    if (auto sc = clip_.currentScissor()) cap = cap.intersection(*sc);
+    cap = cap.intersection(
+        Rect{0, 0, static_cast<float>(currentToken_->extent.width), static_cast<float>(currentToken_->extent.height)});
+    cap = Rect{std::round(cap.x), std::round(cap.y), std::round(cap.width), std::round(cap.height)};
+    if (cap.isEmpty()) return;
+    // ① 中断主 pass（canvas → TRANSFER_SRC）
+    ctx_.endRenderPass();
+    // ② 捕获 + 离屏模糊（capture→pingA→pingB）；σ 换算到屏幕 px 并封顶
+    float sigma = std::clamp(cmd.radius * cmd.scale, 0.0f, 64.0f);
+    bool ok = backdrop_.draw(currentToken_->commandBuffer, currentToken_->extent, ctx_.canvasImage(),
+                             currentToken_->extent.width, currentToken_->extent.height, ctx_.physicalDevice(),
+                             cap, sigma);
+    // ③ 恢复主 pass（LOAD_OP_LOAD 保留画布 + 模板跨中断保留）+ 复位裁剪动态状态
+    ctx_.beginMainRenderPass();
+    clip_.reapplyState(currentToken_->commandBuffer);
+    // ④ 合成（元素框 + 圆角 + 可选折射/高光；stencil 裁剪用 clip 变体）
+    if (ok) backdrop_.composite(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.level() > 0);
+    // ⑤ 合成管线为静态模板状态，绑定会使后续动态模板状态管线的 ref/mask 失效
+    //    （如 clip 内继续绘制文本），重设一次恢复
+    clip_.reapplyState(currentToken_->commandBuffer);
 }

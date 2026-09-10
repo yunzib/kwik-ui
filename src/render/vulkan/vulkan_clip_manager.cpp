@@ -63,3 +63,29 @@ void ClipManager::restoreState(VkCommandBuffer cmd) {
 void ClipManager::setGlobalAlpha(float a) {
     globalAlpha_ = std::clamp(a, 0.0f, 1.0f);
 }
+
+std::optional<Rect> ClipManager::currentScissor() const {
+    if (clipStack_.empty()) return std::nullopt;
+    return clipStack_.back();
+}
+
+void ClipManager::reapplyState(VkCommandBuffer cmd) {
+    VkRect2D sc;
+    if (clipStack_.empty()) {
+        sc = initialScissor_;
+    } else {
+        auto &r = clipStack_.back();
+        sc = {{(int32_t)std::max(0.f, std::round(r.x)), (int32_t)std::max(0.f, std::round(r.y))},
+              {(uint32_t)std::max(0.0f, std::round(r.width)), (uint32_t)std::max(0.0f, std::round(r.height))}};
+    }
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+    if (clipStack_.empty()) {
+        vkCmdSetStencilReference(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
+        vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
+        vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);
+    } else {
+        vkCmdSetStencilReference(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
+        vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
+        vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
+    }
+}

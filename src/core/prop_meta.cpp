@@ -171,9 +171,11 @@ static const PropMeta kPropMetas[] = {
         },
     },
 
-    // ── 位置（绝对定位，不影响兄弟节点布局）──
+    // ── 位置（绝对定位，不影响兄弟节点布局，但自身 frame 需重排生效）──
+    // layoutAffecting=true：setProperty/动画改 x/y 须 requestLayout 重排，
+    // 否则仅改 props.x 而 frame 不更新（视图不动）；与 kLayoutProps 含 x/y 一致
     [static_cast<int>(PropId::x)] = {
-        PropId::x, false, false,
+        PropId::x, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.x);
         },
@@ -182,7 +184,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::y)] = {
-        PropId::y, false, false,
+        PropId::y, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.y);
         },
@@ -247,6 +249,33 @@ static const PropMeta kPropMetas[] = {
             // 子类覆盖
         },
     },
+    [static_cast<int>(PropId::backdropBlur)] = {
+        PropId::backdropBlur, /*layoutAffecting*/ false, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.backdropBlur);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.backdropBlur = static_cast<float>(std::get<double>(v));
+        },
+    },
+    [static_cast<int>(PropId::backdropRefraction)] = {
+        PropId::backdropRefraction, /*layoutAffecting*/ false, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.backdropRefraction);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.backdropRefraction = static_cast<float>(std::get<double>(v));
+        },
+    },
+    [static_cast<int>(PropId::backdropSpecular)] = {
+        PropId::backdropSpecular, /*layoutAffecting*/ false, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.backdropSpecular);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.backdropSpecular = static_cast<float>(std::get<double>(v));
+        },
+    },
 };
 
 // sentinel 校验
@@ -297,6 +326,9 @@ static constexpr struct {
     {"absBottom",    PropId::absBottom},
     {"textColor",    PropId::textColor},
     {"fontSize",     PropId::fontSize},
+    {"backdropBlur", PropId::backdropBlur},
+    {"backdropRefraction", PropId::backdropRefraction},
+    {"backdropSpecular", PropId::backdropSpecular},
     // 别名（备选匹配）
     {"bg",           PropId::background},
     {"backgroundColor", PropId::background},

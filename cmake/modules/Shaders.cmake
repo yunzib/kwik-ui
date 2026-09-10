@@ -124,3 +124,43 @@ add_custom_command(
     COMMENT "Compiling mesh shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/mesh_shaders.h)
+
+# ── Backdrop 捕捉/模糊（分离高斯）──────────────────────────────
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/backdrop_shaders.h
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/backdrop.slang
+            -entry vertexMain -stage vertex -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/backdrop.vert.spv
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/backdrop.slang
+            -entry fragmentMain -stage fragment -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/backdrop.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/backdrop.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/backdrop.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/backdrop_shaders.h
+        -DNAME=kBackdrop
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/backdrop.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling backdrop blur shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/backdrop_shaders.h)
+
+# ── Backdrop 合成（圆角 quad）──────────────────────────────────
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/backdrop_quad_shaders.h
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/backdrop_quad.slang
+            -entry vertexMain -stage vertex -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/backdrop_quad.vert.spv
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/backdrop_quad.slang
+            -entry fragmentMain -stage fragment -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/backdrop_quad.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/backdrop_quad.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/backdrop_quad.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/backdrop_quad_shaders.h
+        -DNAME=kBackdropQuad
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/backdrop_quad.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling backdrop composite shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/backdrop_quad_shaders.h)

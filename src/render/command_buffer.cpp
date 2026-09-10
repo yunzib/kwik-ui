@@ -80,6 +80,8 @@ void CommandBuffer::replay(RenderBackend &backend) const {
                     backend.popState();
                 } else if constexpr (std::is_same_v<T, FillRingCmd>) {
                     backend.fillRing(arg);    // SDF 圆环：后端内部生成 quad，无顶点引用
+                } else if constexpr (std::is_same_v<T, BackdropBlurCmd>) {
+                    backend.backdropBlur(arg);    // 自包含模块：中断/捕获/模糊/恢复
                 }
             },
             cmd);

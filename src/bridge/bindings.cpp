@@ -500,25 +500,26 @@ static JSValue js_textview(JSContext *ctx, JSValueConst this_val, int argc, JSVa
  *
  *  import { animate } from 'kwikui';
  *
+ *  duration/delay/stagger 单位均为【秒】（引擎按秒计时，无毫秒换算）。
  *  支持以下调用形式:
  *    // 单属性 tween
- *    animate('#id', { opacity: 0.2 }, { duration: 600, easing: 'easeOut' });
+ *    animate('#id', { opacity: 0.2 }, { duration: 0.6, easing: 'easeOut' });
  *
  *    // 多属性同步（返回 AnimationGroup）
  *    const g = animate('#id', { scale: 1.6, opacity: 0.4 },
- *                       { duration: 600, easing: 'spring(200,15)' });
+ *                       { duration: 0.6, easing: 'spring(200,15)' });
  *
  *    // 关键帧
  *    animate('#id', { opacity: [1, 0, 1] },
- *            { duration: 800, keyframes: [0, 0.5, 1] });
+ *            { duration: 0.8, keyframes: [0, 0.5, 1] });
  *
  *    // 交错
  *    animate(['id0','id1','id2'], { opacity: 1 },
- *             { duration: 400, stagger: 0.08 });
+ *             { duration: 0.4, stagger: 0.08 });
  *
  *    // 循环 + 方向
  *    animate('#id', { scale: 2 },
- *            { duration: 500, loop: 3, direction: 'alternate' });
+ *            { duration: 0.5, loop: 3, direction: 'alternate' });
  *
  *  返回 Promise<AnimationResult> + 附加 handle 方法
  *
