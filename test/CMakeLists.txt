@@ -63,6 +63,12 @@ if(KWIK_BUILD_EXAMPLES)
     add_executable(example ${CMAKE_SOURCE_DIR}/test/example.cpp)
     target_link_libraries(example PRIVATE kwik)
 
+    # kwik_unit_tests — 纯逻辑单测（不依赖窗口/GPU）：Rect / PropMeta 一致性 / DisplayList
+    # enable_testing() 在顶层 CMakeLists（ctest 只发现顶层注册的用例）
+    add_executable(kwik_unit_tests unit/core_tests.cpp)
+    target_link_libraries(kwik_unit_tests PRIVATE kwik_element kwik_core)
+    add_test(NAME core_tests COMMAND kwik_unit_tests)
+
      # vk_smoke — 裸 Vulkan 内存冒烟测试（诊断工具, 不链接 kwik, 仅 Win32）
     if(WIN32)
         add_executable(vk_smoke ${CMAKE_CURRENT_SOURCE_DIR}/vk_smoke.cpp)

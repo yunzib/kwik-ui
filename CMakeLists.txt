@@ -178,6 +178,7 @@ target_link_libraries(kwik INTERFACE
 
 # 示例程序
 if(KWIK_BUILD_EXAMPLES)
+    enable_testing()    # 须在顶层（或 add_subdirectory 之前）调用，ctest 才能发现子目录用例
     add_subdirectory(test)
 endif()
 

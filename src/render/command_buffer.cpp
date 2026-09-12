@@ -7,15 +7,17 @@ module kwik.render.command_buffer;
 
 import kwik.render.backend;
 import kwik.render.command;
+import kwik.core.types;    // Transform2D — expandDamageForBackdrop 变换 AABB
 import kwik.core.path;
 
 import std;
 
 // ════════════════════════════════════════════
-// 顶点追加
+// DisplayList —— 保留式清单（唯一渲染路径）
+// 顶点池 memcpy 追加 + 回放（叶子命令 dispatch + 子树按位合并 + 伤害带剔除）
 // ════════════════════════════════════════════
 
-size_t CommandBuffer::appendVertices(const AAVertex *v, size_t n) {
+size_t DisplayList::appendVertices(const AAVertex *v, size_t n) {
     if (n == 0) return 0;
     size_t off = vertices_.size();
     vertices_.resize(off + n);
@@ -23,7 +25,7 @@ size_t CommandBuffer::appendVertices(const AAVertex *v, size_t n) {
     return off;
 }
 
-size_t CommandBuffer::appendMeshVertices(const Vertex3D *v, size_t n) {
+size_t DisplayList::appendMeshVertices(const Vertex3D *v, size_t n) {
     if (n == 0) return 0;
     size_t off = meshVertices_.size();
     meshVertices_.resize(off + n);
@@ -32,14 +34,13 @@ size_t CommandBuffer::appendMeshVertices(const Vertex3D *v, size_t n) {
 }
 
 // ════════════════════════════════════════════
-// 回放（渲染线程解析执行，解耦保留）
+// 回放核心（渲染线程解析执行）
 // ════════════════════════════════════════════
 
 namespace {
-// 共享回放核心：一条叶子命令 → backend dispatch。
-// verts/meshVerts 为命令流宿主的顶点池（CommandBuffer / DisplayList 同构字段，
-// 由各自 replay 成员函数传入——private 字段对模板不可见，故传引用而非对象）。
-// CommandBuffer::replay 与 DisplayList::replay 共用，避免 16 分支双份维护。
+// 回放核心：一条叶子命令 → backend dispatch。
+// verts/meshVerts 为宿主清单的顶点池（private 字段对模板不可见，
+// 由 replay 成员函数传入——传引用而非对象）。
 template <typename VertsT, typename MeshVertsT>
 static void replayLeafCommand(const DrawCommand &cmd, RenderBackend &backend,
                               const VertsT &verts, const MeshVertsT &meshVerts) {
@@ -93,51 +94,66 @@ static void replayLeafCommand(const DrawCommand &cmd, RenderBackend &backend,
 }
 } // namespace
 
-void CommandBuffer::replay(RenderBackend &backend) const {
-    for (const auto &cmd : commands_) {
-        replayLeafCommand(cmd, backend, vertices_, meshVertices_);
-    }
-}
-
-void CommandBuffer::reset() {
-    commands_.clear();
-    vertices_.clear();
-    meshVertices_.clear();
-}
-
-// ════════════════════════════════════════════
-// DisplayList —— 保留式清单（清单挂载阶段）
-// 数据结构与 CommandBuffer 同构：appendVertices/appendMeshVertices 同款
-// memcpy；replay 同构 + 子树合并循环。
-// 刻意不复用/提取 CommandBuffer 的 16 分支：换取现有回放路径零改动，
-// 清单机制验证稳定后再考虑消重。
-// ════════════════════════════════════════════
-
-size_t DisplayList::appendVertices(const AAVertex *v, size_t n) {
-    if (n == 0) return 0;
-    size_t off = vertices_.size();
-    vertices_.resize(off + n);
-    std::memcpy(vertices_.data() + off, v, n * sizeof(AAVertex));
-    return off;
-}
-
-size_t DisplayList::appendMeshVertices(const Vertex3D *v, size_t n) {
-    if (n == 0) return 0;
-    size_t off = meshVertices_.size();
-    meshVertices_.resize(off + n);
-    std::memcpy(meshVertices_.data() + off, v, n * sizeof(Vertex3D));
-    return off;
-}
-
-void DisplayList::replay(RenderBackend &backend) const {
+void DisplayList::replay(RenderBackend &backend, const Rect &damageBand) const {
+    bool cull = !damageBand.isEmpty();    // 空带 = 防御性全量回放
     size_t sub = 0;    // subtrees_ 游标（按插入位置有序）
     for (size_t i = 0; i <= commands_.size(); ++i) {
-        // ① 先展开插入位置 == i 的子树（同一位置按追加顺序）
+        // ① 先展开插入位置 == i 的子树（同一位置按追加顺序）。
+        //    剔除：包含盒与伤害带不相交的子树整棵跳过（带外像素有效）
         while (sub < subtrees_.size() && subtrees_[sub].first == i) {
-            if (subtrees_[sub].second) subtrees_[sub].second->replay(backend);
+            const auto &child = subtrees_[sub].second;
+            if (child && (!cull || child->bounds().intersects(damageBand))) {
+                child->replay(backend, damageBand);
+            }
             ++sub;
         }
-        // ② 再回放第 i 条叶子命令（分支逻辑与 CommandBuffer 共用 helper）
         if (i < commands_.size()) replayLeafCommand(commands_[i], backend, vertices_, meshVertices_);
     }
+}
+
+// ════════════════════════════════════════════
+// 玻璃伤害带扩展 — 渲染线程回放前调用（见 command_buffer.cppm 方法注释）
+// ════════════════════════════════════════════
+
+namespace {
+// Transform2D × Rect → AABB（数学同 Graphics::transformRectAABB，不取整）
+Rect applyTransform(const Transform2D &t, const Rect &r) {
+    float x0 = t.m00 * r.x + t.m01 * r.y + t.m02;
+    float y0 = t.m10 * r.x + t.m11 * r.y + t.m12;
+    float x1 = t.m00 * (r.x + r.width) + t.m01 * r.y + t.m02;
+    float y1 = t.m10 * (r.x + r.width) + t.m11 * r.y + t.m12;
+    float x2 = t.m00 * r.x + t.m01 * (r.y + r.height) + t.m02;
+    float y2 = t.m10 * r.x + t.m11 * (r.y + r.height) + t.m12;
+    float x3 = t.m00 * (r.x + r.width) + t.m01 * (r.y + r.height) + t.m02;
+    float y3 = t.m10 * (r.x + r.width) + t.m11 * (r.y + r.height) + t.m12;
+    float minx = std::min({x0, x1, x2, x3}), maxx = std::max({x0, x1, x2, x3});
+    float miny = std::min({y0, y1, y2, y3}), maxy = std::max({y0, y1, y2, y3});
+    return {minx, miny, maxx - minx, maxy - miny};
+}
+} // namespace
+
+bool DisplayList::expandDamageForBackdrop(Rect &bandLogical, Rect &bandPhysical) const {
+    bool changed = false;
+    for (const auto &cmd : commands_) {
+        if (const auto *bb = std::get_if<BackdropBlurCmd>(&cmd)) {
+            // 逻辑带判交（bandLogical 与 cmd.rect 同系）；物理带同步扩展
+            // （beginFrame scissor 用）。两带是同一矩形的两种比例，判一即可。
+            if (bb->rect.intersects(bandLogical)) {
+                Rect newL = bandLogical.unionRect(bb->rect);
+                Rect newP = bandPhysical.unionRect(applyTransform(bb->t, bb->rect));
+                if (newL.width != bandLogical.width || newL.height != bandLogical.height ||
+                    newL.x != bandLogical.x || newL.y != bandLogical.y) {
+                    bandLogical = newL;
+                    bandPhysical = newP;
+                    changed = true;
+                }
+            }
+        }
+    }
+    // 子树递归（bounds 为逻辑系子树包含盒，带外整棵剪枝）
+    for (const auto &[pos, child] : subtrees_) {
+        if (!child || !child->bounds().intersects(bandLogical)) continue;
+        if (child->expandDamageForBackdrop(bandLogical, bandPhysical)) changed = true;
+    }
+    return changed;
 }

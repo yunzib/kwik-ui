@@ -49,7 +49,7 @@ void LayerStack::clear() {
 void LayerStack::drawAll(Graphics &g, Rect * /*dirtyAccum*/) {
     if (!base_) return;
 
-    // ① base 树：根经 View::draw 按需编码清单（别名引用，子级原地重编自动新鲜）
+    // ① base 树：根经 View::draw 按需编码清单（引用各 View 不可变快照）
     base_->draw(g);
 
     // ② 弹层底→顶：各层经 LayerView::draw（内部 View::draw 同款语义）。

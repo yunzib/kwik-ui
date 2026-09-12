@@ -75,9 +75,12 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
     jsCtx_{} {}
 
 Application::~Application() {
-    // 先停动画：stopAll 会经 onComplete resolve 各 animate() 的 Promise，
-    // 释放其持有的 JS 函数引用（jsCtx_ 成员在函数体之后才析构，此刻仍有效）；
-    // 跳过则退出时 gc_obj_list 非空 → quickjs.c 断言
+    // ① 先停渲染线程：防止最后一帧回放与纹理销毁竞态（偶发退出段错误，
+    //    image demo 冒烟复现；~RenderThread 要到成员析构阶段才停止，太晚）
+    renderThread_.stop(true);
+    // ② 停动画：stopAll 会经 onComplete resolve 各 animate() 的 Promise，
+    //    释放其持有的 JS 函数引用（jsCtx_ 成员在函数体之后才析构，此刻仍有效）；
+    //    跳过则退出时 gc_obj_list 非空 → quickjs.c 断言
     AnimationEngine::instance().stopAll();
     // 先清图层（base_ 置空），防树析构时 Layer 节点 deactivate 访问悬空 base
     LayerStack::instance().clear();
@@ -245,14 +248,13 @@ void Application::renderFrame() {
     treeStructureChanged_ = false;
 
     Graphics canvas;
-    canvas.setCommandBuffer(renderThread_.commandQueue().currentCommandBuffer());
+    // 帧命令流通道已退役：绘制全部落各 View 的保留式清单，
+    // 帧槽只携带复合根快照引用 + 伤害带（背压由 currentFrame 的 waitWritable 承担）
     canvas.setDirtyRectAccum(&dirtyRect_);    // ← 传入脏矩形累加器
     canvas.beginFrame(structural);
     canvas.scale(S, S);
 
     LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
-
-    auto commandBuffer = canvas.endFrame();
 
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
@@ -263,14 +265,15 @@ void Application::renderFrame() {
 
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
-    frame.commandBuffer = std::move(commandBuffer);
     frame.dirtyRect = {dr.x * S, dr.y * S, dr.width * S, dr.height * S};
+    frame.dirtyRectLogical = dr;    // 清单 bounds 同为逻辑坐标（回放剔除用）
     frame.structuralChange = structural;
     frame.needsResize = false;
 
     // ── 复合根清单（唯一渲染路径的回放源）──
-    // base 树 + 各弹层（与 drawAll 同序）。清单引用为别名（原地重编自动新鲜）；
-    // dirtyRect 来自 encodeList 伤害累加（旧∪新 bounds）。
+    // base 树 + 各弹层（与 drawAll 同序）。引用各 View 的不可变快照，
+    // 槽位在途期间快照只读；dirtyRect 来自 encodeList 伤害累加（旧∪新 bounds）。
+    frame.displayList = nullptr;    // 槽位复用：先清残留再装配
     if (auto *base = LayerStack::instance().base()) {
         auto root = std::make_shared<DisplayList>();
         if (base->publishedList()) root->appendSubtree(base->publishedList());
@@ -410,6 +413,13 @@ int Application::run() {
         }
 
         frameCount++;
+
+        // 冒烟模式：达到帧数上限自动退出（example.cpp 以 Log::errorCount 为退出码）
+        if (smokeMaxFrames_ > 0 && frameCount >= smokeMaxFrames_) {
+            Log::info("[smoke] reached {} frames, exiting (errors={})", frameCount, Log::errorCount());
+            running_ = false;
+        }
+
         auto now = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
         if (elapsed >= 2000) {
@@ -439,7 +449,7 @@ void Application::preloadImageTextures(View *view) {
 void Application::handleResize(int width, int height) {
     auto &frame = renderThread_.commandQueue().currentFrame();
     frame.frameId = ++frameId_;
-    frame.commandBuffer = nullptr;
+    frame.displayList = nullptr;    // resize-only 帧：槽位复用，防回放 3 帧前的陈旧清单
     frame.needsResize = true;
     frame.resizeWidth = width;
     frame.resizeHeight = height;

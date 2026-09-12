@@ -211,16 +211,23 @@ void View::onLayout() {
 // View::draw — 保留式清单路径（唯一渲染路径，方案见 当前优化任务清单.md §1.6）
 //
 //   自身脏/首帧   → encodeList：三明治内跑完整 onDraw（自身图元 + 子级引用
-//                  挂入本清单），发布别名快照，伤害 = lastPaintBounds_∪新bounds
-//   仅子树脏      → 复用既有清单容器，只重建子级引用段（自身图元不动）
-//   全干净       → 零操作（清单即缓存；画布由渲染线程按伤害带重放清单维护）
-// 末尾：把本节点清单引用挂入上级 sink（父级编码中；根级无 sink 则零操作）。
-// 子级重编码 = 原地清空重填同一容器 → 父级别名引用自动新鲜，无需沿链重编。
+//                  挂入本清单），发布不可变快照，伤害 = lastPaintBounds_∪新bounds
+//   仅子树脏      → 复用编码草稿，只重建子级引用段（自身图元不动）后重发布
+//   全干净       → 零操作（快照即缓存；画布由渲染线程按伤害带重放清单维护）
+// 末尾：把本节点快照引用挂入上级 sink（父级重建引用段时；根级无 sink 零操作）。
+// 子级重编发布新快照 → 父级引用段重建时自动取新（快照一经发布只读）。
 // ============================================================================
 void View::draw(Graphics &graphics) {
     if (!props.visible) {
         // 不可见：清脏防帧门空转（重新可见时 setProperty → markDirty 再进）
         listDirty_ = subtreeDirty_ = false;
+        if (publishedList_) {
+            // 首次经过：父级重建引用段时本节点从清单消失，最近绘制区域
+            // 无人重画 → 报为伤害由带内重放填补，并摘除残留快照
+            if (!lastPaintBounds_.isEmpty()) graphics.accumulateDirtyRect(lastPaintBounds_);
+            lastPaintBounds_ = {};
+            publishedList_.reset();
+        }
         return;
     }
 
@@ -233,6 +240,8 @@ void View::draw(Graphics &graphics) {
         pendingList_->clearSubtreeRefs();    // 只重建引用段，自身图元保留
         iterateChildren(graphics);           // 子级自行编码/挂接；尾部 restore 配对 save
         graphics.popSink();
+        // 引用段已变（子级新快照挂入）：快照一经发布只读 → 重拷贝固化
+        publishedList_ = std::make_shared<DisplayList>(*pendingList_);
     }
     // 无论脏净都挂引用：父级重编码时干净子级的清单必须留在父清单里，
     // 否则该子级从父清单消失 → 区域不刷新（"父脏子净"洞）
@@ -256,6 +265,34 @@ Rect View::paintBounds() const {
         b = b.unionRect(rot);
     }
     return b;
+}
+
+// ============================================================================
+// effectBounds — 绘制影响范围（paintBounds + 特效外延，契约 #7）
+// 阴影 quad = 本体偏移 (offsetX,offsetY) 再四向扩 blurRadius（真实画在
+// 体外，必须外延）；描边压在本体外 borderWidth。玻璃 backdropBlur 不外延：
+// 合成被 SDF 蒙版限制在元素圆角矩形内（模糊变化只影响体内像素），捕获域
+// ceil(3σ) 外扩只是"读"画布余量不写像素——外延进伤害带会把补间期间每帧
+// 伤害扩大成 126px 环带，环带内容无谓重放（重绘痕迹超出面板 + 结束跳变）。
+// ============================================================================
+Rect View::effectBounds() const {
+    Rect b = paintBounds();
+    float padL = 0.0f, padT = 0.0f, padR = 0.0f, padB = 0.0f;
+    if (props.shadow.has_value()) {
+        const auto &sh = *props.shadow;
+        float blur = std::max(0.0f, sh.blurRadius);
+        padL = std::max(padL, blur - sh.offsetX);
+        padT = std::max(padT, blur - sh.offsetY);
+        padR = std::max(padR, blur + sh.offsetX);
+        padB = std::max(padB, blur + sh.offsetY);
+    }
+    if (props.borderWidth > 0.0f) {
+        padL = std::max(padL, props.borderWidth);
+        padT = std::max(padT, props.borderWidth);
+        padR = std::max(padR, props.borderWidth);
+        padB = std::max(padB, props.borderWidth);
+    }
+    return {b.x - padL, b.y - padT, b.width + padL + padR, b.height + padT + padB};
 }
 
 // ============================================================================
@@ -355,11 +392,11 @@ void View::onDraw(Graphics &graphics) {
 // encodeList — 保留式清单编码（唯一渲染路径，§1.6）
 //
 // 三明治内跑完整虚 onDraw：自身图元（含组件覆写的自定义内容）落本清单，
-// 子级经 iterateChildren → child->draw 把引用挂入本清单（别名引用，
-// 子级后续原地重编自动新鲜）。状态配对：save 快照 → onDraw（drawSelfContent
-// 的 save 由 iterateChildren 尾部 restore 配对，内部自平衡）→ popSink →
-// restore 配对快照（恰好一次，不多不少）。
-// 伤害：lastPaintBounds_（旧）∪ paintBounds()（新）进帧累加器。
+// 子级经 iterateChildren → child->draw 把子级快照引用挂入本清单。
+// 状态配对：save 快照 → onDraw（drawSelfContent 的 save 由 iterateChildren
+// 尾部 restore 配对，内部自平衡）→ popSink → restore 配对快照（恰好一次）。
+// 伤害：lastPaintBounds_（旧）∪ effectBounds()（新，含特效外延）进帧累加器。
+// 发布：pendingList_ 拷贝为不可变快照（槽位在途期间只读，见 §1.6）。
 // ============================================================================
 void View::encodeList(Graphics &graphics) {
     listDirty_ = false;
@@ -368,8 +405,8 @@ void View::encodeList(Graphics &graphics) {
     DisplayList &list = *pendingList_;
     list.clear();    // 重编码前清空（容量复用）——不清空则逐帧追加，清单线性膨胀
 
-    // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画）
-    Rect bounds = paintBounds();
+    // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画），含特效外延
+    Rect bounds = effectBounds();
     if (!lastPaintBounds_.isEmpty()) {
         graphics.accumulateDirtyRect(lastPaintBounds_.unionRect(bounds));
     } else {
@@ -384,9 +421,9 @@ void View::encodeList(Graphics &graphics) {
     graphics.popSink();
     graphics.restore();               // 配对三明治 save（onDraw 内部已自平衡）
 
-    // 发布：别名指针（清单归本节点所有，原地重编；父级引用自动新鲜）。
-    // 渲染线程经 FrameSubmit 的复合根引用读取——阶段 2 若实测撕裂改双缓冲。
-    publishedList_ = std::shared_ptr<const DisplayList>(pendingList_.get(), [](const DisplayList *) {});
+    // 发布：拷贝为不可变快照（§1.6：快照一经发布只读）。槽位在途期间由
+    // FrameSubmit 持有的 shared_ptr 托底；pendingList_ 原地重编互不影响
+    publishedList_ = std::make_shared<DisplayList>(*pendingList_);
 }
 
 // ============================================================================
@@ -402,7 +439,7 @@ void View::publishEmptyList(Graphics &graphics) {
     if (!stale.isEmpty()) graphics.accumulateDirtyRect(stale);
     if (!pendingList_) pendingList_ = std::make_unique<DisplayList>();
     pendingList_->clear();
-    publishedList_ = std::shared_ptr<const DisplayList>(pendingList_.get(), [](const DisplayList *) {});
+    publishedList_ = std::make_shared<DisplayList>(*pendingList_);    // 发布空快照（只读）
     listDirty_ = true;
 }
 
@@ -548,7 +585,8 @@ void View::echoBoundState(const char *name) {
 // markDirty — 标记本控件区域为脏 + 向上冒泡
 // ============================================================================
 void View::markDirty() {
-    listDirty_ = true;    // 视觉可能变化：清单待重编（阶段 1 旁路记录，见 §1.6）
+    listDirty_ = true;       // 视觉可能变化：清单待重编
+    subtreeDirty_ = true;    // 自身也置位：根节点无父可冒泡，帧门（hasDirtySubtree）才能打开
     View *p = parent_;
     while (p && !p->subtreeDirty_) {
         p->subtreeDirty_ = true;

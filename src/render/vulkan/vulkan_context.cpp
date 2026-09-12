@@ -272,12 +272,17 @@ bool VulkanContext::createInstance(void *nativeHandle) {
             break;
         }
     }
+    // KWIK_VALIDATION 环境变量覆盖编译期开关：=1 强制开（自查/冒烟），=0 强制关，
+    // 未设则按 KWIK_ENABLE_VALIDATION 编译选项
+    bool wantValidation = false;
 #ifdef KWIK_ENABLE_VALIDATION
-    if (hasValidation) {
+    wantValidation = true;
+#endif
+    if (const char *venv = std::getenv("KWIK_VALIDATION")) { wantValidation = (venv[0] == '1'); }
+    if (wantValidation && hasValidation) {
         ci.enabledLayerCount = 1;
         ci.ppEnabledLayerNames = validationLayers;
     }
-#endif
 
     // 创建实例（若不支持 VK_EXT_debug_utils 则降级重试）
     VkResult instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);

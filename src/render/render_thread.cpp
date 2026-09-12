@@ -175,8 +175,6 @@ void RenderThread::threadMain() {
         std::cerr << "Render thread error: " << e.what() << std::endl;
     }
 
-    // 清理资源
-    cleanup();
 
     // 标记为停止状态
     {
@@ -221,7 +219,8 @@ void RenderThread::cleanup() {
 }
 
 /**
- * @brief 回放命令流 + 顺序解析 CommandBuffer 命令，dispatch 到 backend（含 PushClip/PopClip 状态命令）
+ * @brief 回放复合根清单：叶子命令 dispatch 到 backend（含 PushClip/PopClip 状态命令），
+ *        子树按插入位置合并、伤害带剔除（带外整棵跳过）、玻璃带已扩到整块覆盖
  */
 bool RenderThread::processCommands(const FrameSubmit &frame) {
     if (!backend_) return true;                       // 无后端：消费丢弃，不重试
@@ -229,18 +228,27 @@ bool RenderThread::processCommands(const FrameSubmit &frame) {
     // ── resize（在 beginFrame 之前，需重建 swapchain）──
     if (frame.needsResize) { backend_->resize(frame.resizeWidth, frame.resizeHeight); }
 
-    if (!frame.commandBuffer) return true;                // resize-only 帧：正常消费
+    if (!frame.displayList) return true;                // resize-only 帧：正常消费
 
     if (frame.structuralChange) { resetRendererCache(); }
 
     auto t0 = std::chrono::steady_clock::now();
 
-    if (!backend_->beginFrame(frame.dirtyRect)) return false;   // acquire失败/自愈跳帧 → 保槽重试
+    // ── 玻璃伤害带扩展（不动点）：带与玻璃元素矩形相交 → 扩带到完整覆盖 ──
+    // 玻璃合成 = 全元素重捕获 + 写整块矩形，非带幂等：带只盖一部分时带外
+    // 子级被剔除不重画（合成覆盖子内容 → "消失"）、带内外捕获时点不同
+    // （接缝）。扩到整块后 scissor 覆盖合成区、子级全部在带内重画。
+    // beginFrame 内部既有的账本登记按扩展后 scissor 走，per-image 补拷自洽。
+    Rect dirtyPhysical = frame.dirtyRect;
+    Rect dirtyLogical = frame.dirtyRectLogical;
+    for (int i = 0; i < 8 && frame.displayList->expandDamageForBackdrop(dirtyLogical, dirtyPhysical); ++i) {
+    }
 
-    // 清单接线：displayList 存在时走保留式清单回放（KWIK_DISPLAY_LIST=1 填入），
-    // 否则旧命令流（默认路径，行为不变）
-    if (frame.displayList) frame.displayList->replay(*backend_);
-    else frame.commandBuffer->replay(*backend_);
+    if (!backend_->beginFrame(dirtyPhysical)) return false;   // acquire失败/自愈跳帧 → 保槽重试
+
+    // 单一回放路径：复合根清单 + 伤害带剔除（带外子树整棵跳过）。
+    // dirtyLogical 与清单 bounds 同为逻辑坐标；物理带已用于 scissor
+    frame.displayList->replay(*backend_, dirtyLogical);
 
     backend_->endFrame();
     bool ok = backend_->present();                       // present失败 → 保槽重试

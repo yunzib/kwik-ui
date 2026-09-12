@@ -74,6 +74,8 @@ void notifyGroupComplete(AnimationEngine &engine, uint64_t groupId,
 
 }    // anonymous namespace
 
+bool animationPropAffectsLayout(PropId prop) { return kLayoutProps.count(prop) > 0; }    // 外部链接:导出符号(见 .cppm 声明)
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AnimationHandle
 // ═══════════════════════════════════════════════════════════════════════════
@@ -285,14 +287,14 @@ void AnimationEngine::stopAll() {
 void AnimationEngine::stopByView(const std::string& viewId) {
     for (auto& a : animations_) {
         if (a->viewId == viewId && a->state != ActiveAnimation::Finished)
-            stopAnim(*a, true);
+            stopAnim(*a, false);    // JS stop() = 停在原地（不写期末值，往复动画不瞬跳端点）
     }
 }
 
 void AnimationEngine::stopByViewAndProp(const std::string& viewId, PropId prop) {
     for (auto& a : animations_) {
         if (a->viewId == viewId && a->prop == prop && a->state != ActiveAnimation::Finished)
-            stopAnim(*a, true);
+            stopAnim(*a, false);    // 同上：停在当前插值位置
     }
 }
 

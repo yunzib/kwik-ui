@@ -34,8 +34,14 @@ public:
     }
     template <typename... Args>
     static void error(std::string_view fmt, Args &&...args) {
-        if (should_log(LogLevel::Error)) { log_dispatch(LogLevel::Error, fmt, std::forward<Args>(args)...); }
+        if (should_log(LogLevel::Error)) {
+            error_count()->fetch_add(1, std::memory_order_relaxed);
+            log_dispatch(LogLevel::Error, fmt, std::forward<Args>(args)...);
+        }
     }
+
+    /** @brief 本次进程累计 Log::error 次数（冒烟测试退出码依据；线程安全） */
+    static int errorCount() noexcept { return error_count()->load(std::memory_order_relaxed); }
 
 private:
     // 内部分派：检测最后一个参数是否为 source_location
@@ -72,6 +78,7 @@ private:
 
     static std::atomic<LogLevel> current_level_;
     static bool color_enabled_;
+    static std::atomic<int> *error_count();    // 函数局部静态（避免静态初始化顺序问题）
 };
 
 // import kwik.core.log;

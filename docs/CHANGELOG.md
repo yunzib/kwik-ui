@@ -1,41 +1,28 @@
 # 更新日志
 
 # 0.0.0 — 2026-09-12
-### 重构（渲染架构：保留式显示清单成为唯一渲染路径）
-- **新增 DisplayList**（command_buffer 模块，与 CommandBuffer 数据同构、生命周期不同）：
-  每 View 持有各自清单，仅视觉变化时重编码（O(变更节点)）；子树嵌套不进 DrawCommand
-  变体（避免「变体→SubtreeCmd→DisplayList→变体」定义循环），以「插入位置→子清单别名
-  引用」双序列存放；回放 = 叶子命令与子树按位合并（CommandBuffer::replay 的 16 种命令
-  分支零改动，16 分支提取为共享 replayLeafCommand 模板）
-- **Graphics sink 栈**：24 处落笔点收口为 appendCmd/appendVerts/appendMeshVerts 三转发，
-  View 编码期间落自身清单、平时落帧命令流
-- **View::draw 新语义**：自身脏 → save/restore 三明治内跑完整虚 onDraw（组件覆写内容
-  全捕获，Text 字形/Button 标签不再漏），发布别名快照 + 伤害累加（lastPaintBounds_∪
-  paintBounds）；仅子树脏 → 复用清单容器只重建引用段；全干净 → 挂引用即返（清单即缓存）
-- **伤害驱动**：伤害写入点收敛为 encodeList/publishEmptyList 两处 → FrameSubmit.dirtyRect
-  → 现有 beginFrame scissor / present 拷贝（GPU 侧零改动）；实测小区域拷贝生效
-- **RootView 页面底色 owner**：填 245 底色（=画布初始化色）——弹层摘除/视图移走留下的
-  空洞有归属者填补，替代旧 drawUnderlay
-- **删除旧增量重绘机制全链**（符号普查清零）：脏门三态机、markTreeIntersecting 晋升
-  反查、drawUnderlay/underlayColor 底图修复、passThrough/noop/beginContent 透传抑制、
-  forceLocalDirty 跨层协调、backdropUsed 玻璃整屏重绘特例、dirty_/dirtyRectOverride_/
-  addDirtyRect/isDirty/clearDirty/needsLayoutRepaint_/markAllLayoutRepaint；
-  iterateChildren 退化为纯 z 序循环；LayerStack::drawAll 简化为 base+弹层两行
-- 净代码量 -58 行（450 增/508 删）；回归 layer/glass/view/car/tabs/scrollview/
-  lazylist/animation/gradient 九示例全绿（64+ FPS 零错误）
-- 设计与 QA 全程记录：docs/当前优化任务清单.md §1（含扩展性压力测试）
+### 重构（渲染：保留式显示清单 + 伤害带增量重绘）
+- DisplayList 唯一渲染路径：每 View 持有清单、仅视觉变化时重编码，发布为
+  不可变快照（三缓冲槽位托底生命周期，槽释放即回收）；旧增量重绘协调机制
+  （脏门三态/晋升/豁免/underlay/玻璃整屏重绘特例）全链删除
+- 回放伤害带剔除：子树包含盒与伤害带不相交整棵跳过；伤害带与玻璃元素
+  相交时扩展到整块覆盖（玻璃合成为全元素重捕获+整块写入，非带幂等）
+- 帧命令流通道与 CommandBuffer 类删除，渲染线程单一回放路径
+- effectBounds 特效外延（阴影/描边，玻璃不外延）；View 不可见翻转补伤害；
+  markDirty 补根节点帧门缺口
+
+### 新增（测试门禁）
+- 冒烟测试 smoke.py：37 示例自动退出 + 错误扫描；Vulkan 验证层开关
+  KWIK_VALIDATION；纯逻辑单测 kwik_unit_tests（45 断言）
 
 ### 修复
-- 模态弹框关闭后遮罩区域不刷新、右下弹框关不掉：LayerView::deactivate 原立即注销导致
-  publishEmptyList 永不执行 → 复合根持续回放旧遮罩/弹框清单；改为延迟注销（关闭帧先
-  发布空清单摘除 + 旧区域并入伤害，下帧 draw 内完成注销）
-- JS 动画 x/y 不生效：PropMeta::layoutAffecting 与 AnimationEngine::kLayoutProps 双源
-  登记错位（x/y 标 false）→ 改 true，动画帧正确触发 relayout；两表后续应由 schema 统一
-- 退出时 QuickJS 断言（gc_obj_list 非空）：Application 析构先 AnimationEngine::stopAll()，
-  活跃动画的 animate() Promise 在 JS 上下文存活时 resolve 并释放引用
-- bindings.cpp animate() 文档注释 duration 单位误写毫秒 → 实际为秒（引擎无换算），示例
-  glass 同步修正；task/JSON 之外的 Chart duration 为独立毫秒系统（实现与文档一致，未动）
-
+- glass：模糊补间范围超出与结束跳变（玻璃外延误入伤害带）；hover 面板
+  内容消失与矩形痕（玻璃带扩展）；JS stop() 停在原地不再瞬移端点
+- Vulkan 验证层实例笔误（ppEnabledLayerNames），连带修复 image 描述符池
+  缺 FREE_DESCRIPTOR_SET_BIT、destroyTexture 不等在途帧释放
+- 弹框关闭遮罩不刷新；JS 动画 x/y 与 absTop 等布局标记双源错位；car
+  null 节点解析；image 退出段错误；QuickJS 退出断言
+- enable_testing() 移至顶层 CMakeLists；smoke.py 超时分支崩溃
 
 # 0.0.0 — 2026-09-10
 ### 新增

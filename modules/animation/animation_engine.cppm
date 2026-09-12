@@ -13,6 +13,12 @@ import std;
 // AnimationHandle — 单属性动画控制句柄
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** @brief 该属性动画是否会触发布局重排（kLayoutProps 成员查询）
+ *
+ *  独立导出供单测做「kLayoutProps ⊆ PropMeta::layoutAffecting」一致性断言
+ *  （x/y 曾双源错位，见 当前优化任务清单.md §三），亦为 §三 schema 统一铺路 */
+export bool animationPropAffectsLayout(PropId prop);
+
 /**
  * @brief 单属性动画的控制句柄
  *

@@ -19,8 +19,9 @@ import std;
  *
  * 公有 API 不变（View 子类 onDraw(Graphics&) 无需修改）。
  *
- * 架构：Graphics 直接构造 DrawCommand 并 append 到 CommandBuffer；
- * 渲染线程 replay 解析执行。无层树 / 录制器中间层。
+ * 架构：Graphics 构造 DrawCommand 并 append 到当前 sink（View 的保留式
+ * DisplayList）；渲染线程经 FrameSubmit 复合根回放清单。无层树 / 录制器
+ * 中间层，无帧命令流。
  *
  *  - save/restore/translate/scale/setOpacity → 仅维护 CPU 状态（坐标/颜色烘焙）
  *  - clipRoundedRect/resetClip              → append PushClip/PopClip 状态命令
@@ -40,14 +41,8 @@ public:
 
     // ── 帧管理 ──
 
-    /** @brief 设置当前命令流（Application 传入 CommandQueue::currentCommandBuffer() 复用对象） */
-    void setCommandBuffer(std::shared_ptr<CommandBuffer> cb);
-
-    /** @brief 开始录制一帧（清空命令流；structural 参数保留兼容，可忽略） */
+    /** @brief 开始录制一帧（重置 CPU 状态栈与 sink 栈；structural 参数保留兼容） */
     void beginFrame(bool structural = false);
-
-    /** @brief 结束录制，返回命令流（Application 填 FrameSubmit.commandBuffer） */
-    std::shared_ptr<CommandBuffer> endFrame();
 
     // ── 状态管理 ──
 
@@ -68,9 +63,10 @@ public:
     /** @brief 裁剪出栈（append PopClip） */
     void resetClip();
 
-    // ── 显示清单 sink（清单挂载阶段）──
-    // View 编码自己清单时 pushSink(&list)，绘制命令改落清单而非帧命令流；
-    // 编码完 popSink 恢复。栈底恒为帧命令流 cb_，普通路径行为不变。
+    // ── 显示清单 sink 栈 ──
+    // View 编码自己清单时 pushSink(&list)，绘制命令落清单；
+    // 编码完 popSink 恢复。栈空 = 无落笔目标（帧命令流通道已退役，
+    // drawAll 期间所有落笔都在某个 View 的清单内）。
 
     /** @brief 切换落笔目标到指定清单（View::draw 编码期间调用） */
     void pushSink(DisplayList *list);
@@ -133,14 +129,11 @@ public:
     void rotate(float angle);
 
 private:
-    std::shared_ptr<CommandBuffer> cb_;    // 当前命令流（帧全局；sink 栈底）
-
     // ── 显示清单 sink 栈 ──
-    // 空栈 = 落笔帧命令流 cb_；View 编码期间 push 自身清单指针。
-    // 三个 append* 转发方法统一收口落笔目标（分发逻辑仅此一处），
-    // Graphics 其余 25 处 cb_-> 调用点全部改走这三个方法。
+    // 空栈 = 无落笔目标（drawAll 之外不应有落笔）；View 编码期间 push 自身清单指针。
+    // 三个 append* 转发方法统一收口落笔目标（分发逻辑仅此一处）。
     std::vector<DisplayList *> sinkStack_;
-    DisplayList *sink();                   // nullptr = 落 cb_
+    DisplayList *sink();                   // nullptr = 无落笔目标（丢弃，防御）
     void appendCmd(DrawCommand cmd);
     size_t appendVerts(const AAVertex *v, size_t n);
     size_t appendMeshVerts(const Vertex3D *v, size_t n);

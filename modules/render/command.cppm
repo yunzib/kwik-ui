@@ -162,7 +162,7 @@ export struct BackdropBlurCmd {
 
 /*
  * ── 状态命令 ──
- * PushClipCmd / PopClipCmd 由 Graphics 直接 append 到 CommandBuffer，
+ * PushClipCmd / PopClipCmd 由 Graphics 直接 append 到当前清单（DisplayList），
  * 渲染线程 replay 时 dispatch 到 backend 的 pushClipRoundedRect / popState。
  * transform / opacity 已由 Graphics 烘焙（坐标/颜色），不产生命令。
  */

@@ -19,10 +19,10 @@ import std;
  */
 export struct FrameSubmit {
     uint64_t frameId = 0;             /**< 单调递增帧序号 */
-    std::shared_ptr<CommandBuffer> commandBuffer;
-    /**< 保留式清单根（KWIK_DISPLAY_LIST=1 时填，渲染线程优先回放；清单接线阶段） */
+    /**< 保留式清单根（每帧必填，渲染线程唯一回放源；生命周期由槽位 shared_ptr 托底） */
     std::shared_ptr<const DisplayList> displayList;
-    Rect dirtyRect = {};              /**< 脏区（物理像素坐标） */
+    Rect dirtyRect = {};              /**< 脏区（物理像素坐标，后端 scissor 用） */
+    Rect dirtyRectLogical = {};       /**< 脏区（逻辑坐标，清单回放剔除用，与清单 bounds 同系） */
     bool structuralChange = false;    /**< true=结构变化，渲染线程需重置 GPU 状态 */
     bool needsResize = false;
     int resizeWidth = 0;
@@ -46,15 +46,11 @@ public:
     // ── 主线程接口 ──
 
     /**
-     * @brief 获取当前可写入槽位对应的层树根
-     *
-     * 返回 writeIdx 槽位的 layer root shared_ptr。
-     * 主线程通过 LayerTreeBuilder::beginFrame(root, structural) 复用此层树。
-     */
-    std::shared_ptr<CommandBuffer> currentCommandBuffer();
-
-    /**
      * @brief 获取当前可写入的帧元数据槽位
+     *
+     * 内部先 waitWritable() 等槽位脱离在途状态（背压前移），
+     * 再返回槽位引用。渲染数据为保留式清单快照，槽位仅持
+     * shared_ptr 引用——槽释放即快照回收，无命令流预分配。
      */
     FrameSubmit &currentFrame();
 
@@ -106,10 +102,10 @@ private:
     /**
      * @brief 等待当前写槽可安全写入（背压前移的核心）
      *
-     * 背景：原设计背压在 submit() 内，但 currentFrame()/currentCommandBuffer()
-     * 在 submit() 之前就返回槽位引用并开始写入——当主线程领先 3 帧时，
-     * 写入的正是渲染线程尚未释放的在途帧（resize 标志被抹掉、命令流被
-     * use-after-free → 拉伸/闪退）。因此必须在【取槽】时先等待槽位释放。
+     * 背景：原设计背压在 submit() 内，但 currentFrame() 在 submit() 之前
+     * 就返回槽位引用并开始写入——当主线程领先 3 帧时，写入的正是渲染
+     * 线程尚未释放的在途帧（resize 标志被抹掉、快照引用被覆盖
+     * → 拉伸/闪退）。因此必须在【取槽】时先等待槽位释放。
      *
      * @return true=槽位可写；false=队列正在停止（调用方直接放弃本帧）
      */

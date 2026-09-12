@@ -276,6 +276,9 @@ void VulkanBackend::backdropBlur(const BackdropBlurCmd &cmd) {
     ctx_.beginMainRenderPass();
     clip_.reapplyState(currentToken_->commandBuffer);
     // ④ 合成（元素框 + 圆角 + 可选折射/高光；stencil 裁剪用 clip 变体）
+    //    合成整块写元素矩形——伤害带若只盖住一部分，带外子级被剔除不重画
+    //    （合成覆盖子内容）且带内外捕获时点不同（接缝）。带完整性由
+    //    RenderThread 的 expandDamageForBackdrop 保证：带相交玻璃必扩到整块。
     if (ok) backdrop_.composite(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.level() > 0);
     // ⑤ 合成管线为静态模板状态，绑定会使后续动态模板状态管线的 ref/mask 失效
     //    （如 clip 内继续绘制文本），重设一次恢复

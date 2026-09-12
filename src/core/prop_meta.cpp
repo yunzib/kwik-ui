@@ -193,7 +193,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absTop)] = {
-        PropId::absTop, false, false,
+        PropId::absTop, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absTop);
         },
@@ -202,7 +202,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absLeft)] = {
-        PropId::absLeft, false, false,
+        PropId::absLeft, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absLeft);
         },
@@ -211,7 +211,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absRight)] = {
-        PropId::absRight, false, false,
+        PropId::absRight, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absRight);
         },
@@ -220,7 +220,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absBottom)] = {
-        PropId::absBottom, false, false,
+        PropId::absBottom, /*layoutAffecting*/ true, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absBottom);
         },

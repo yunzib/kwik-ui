@@ -8,6 +8,12 @@ module kwik.core.log;
 
 import std;
 
+// Log 错误计数（函数局部静态，规避跨翻译单元静态初始化顺序问题）
+std::atomic<int> *Log::error_count() {
+    static std::atomic<int> inst{0};
+    return &inst;
+}
+
 std::atomic<LogLevel> Log::current_level_{LogLevel::Debug};
 bool Log::color_enabled_ = true;
 

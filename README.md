@@ -242,3 +242,23 @@ cmake --install build --prefix build/install
 工程参考：examples\external\
 构建： examples\external\build.bat
 ```
+
+## 4.5 测试
+
+```bash
+# 单元测试（纯逻辑，不依赖窗口/GPU；等价 cd build && ctest）
+./test/kwik_unit_tests
+
+# 冒烟测试（在 build/test 目录运行）：遍历示例逐个跑 N 帧自动退出 + 扫描错误输出
+cd build/test
+python ../../test/tools/smoke.py                    # 全部 37 示例，默认 40 帧
+python ../../test/tools/smoke.py glass layer car    # 只跑指定示例
+python ../../test/tools/smoke.py --frames 400       # 加长帧数（动画路径压测）
+python ../../test/tools/smoke.py --validation       # 开 Vulkan 验证层抓规格违规
+
+# 手动运行单个示例（正常窗口，目视检查）
+./example.exe glass
+```
+
+- 通过判定：退出码 0（冒烟模式下等于 Log 错误计数）且输出无 `[Error]` / `Assertion` / `DEVICE_LOST`
+- 环境变量 `KWIK_VALIDATION=1/0` 可强制开/关验证层（`--validation` 即封装此项）

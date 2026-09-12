@@ -510,6 +510,11 @@ public:
     void publishEmptyList(Graphics &graphics);
 
 private:
+    /** @brief 绘制影响范围 = paintBounds + 特效外延（阴影偏移+模糊、
+     *  描边线宽；玻璃 backdropBlur 不外延——合成被 SDF 蒙版限制在元素
+     *  矩形内，捕获余量只读不写）。伤害计算与剔除包含盒都用它 */
+    Rect effectBounds() const;
+
     /** @brief onDraw 开头的清单编码（三明治 + 虚 onDraw 全捕获 + 内联发布），见 view.cpp */
     void encodeList(Graphics &graphics);
 

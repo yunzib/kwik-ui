@@ -22,14 +22,13 @@ Graphics::Graphics(BackendType backend, int width, int height) : width_(width), 
 Graphics::~Graphics() = default;
 
 Graphics::Graphics(Graphics &&other) noexcept :
-    cb_(std::move(other.cb_)), stateStack_(std::move(other.stateStack_)), currentState_(other.currentState_),
+    stateStack_(std::move(other.stateStack_)), currentState_(other.currentState_),
     recording_(other.recording_), width_(other.width_), height_(other.height_) {
     other.recording_ = false;
 }
 
 Graphics &Graphics::operator=(Graphics &&other) noexcept {
     if (this != &other) {
-        cb_ = std::move(other.cb_);
         stateStack_ = std::move(other.stateStack_);
         currentState_ = other.currentState_;
         recording_ = other.recording_;
@@ -44,27 +43,17 @@ Graphics &Graphics::operator=(Graphics &&other) noexcept {
 // 帧管理
 // ════════════════════════════════════════════
 
-void Graphics::setCommandBuffer(std::shared_ptr<CommandBuffer> cb) {
-    cb_ = std::move(cb);
-}
-
 void Graphics::beginFrame(bool /*structural*/) {
     recording_ = true;
     currentState_ = State{};
     stateStack_.clear();
-    if (cb_) cb_->reset();    // 帧复用：清空命令流（vector 内存复用）
     sinkStack_.clear();     // 防异常路径残留：帧首强制回空栈
-}
-
-std::shared_ptr<CommandBuffer> Graphics::endFrame() {
-    recording_ = false;
-    return cb_;    // 提交给 FrameSubmit.commandBuffer
 }
 
 // ════════════════════════════════════════════
 // 显示清单 sink（清单挂载阶段）
-// 空栈 = 落帧命令流 cb_（普通路径，行为与改造前完全一致）；
-// View 编码自身清单期间 pushSink，命令改落清单。分发逻辑仅此一处。
+// View 编码自身清单期间 pushSink，命令落清单；栈空 = 无落笔目标
+// （drawAll 之外不应有落笔，丢弃为防御行为）。分发逻辑仅此一处。
 // ════════════════════════════════════════════
 
 DisplayList *Graphics::sink() {
@@ -87,17 +76,16 @@ void Graphics::attachList(const std::shared_ptr<const DisplayList> &child) {
 
 void Graphics::appendCmd(DrawCommand cmd) {
     if (auto *s = sink()) s->append(std::move(cmd));
-    else if (cb_) cb_->append(std::move(cmd));
 }
 
 size_t Graphics::appendVerts(const AAVertex *v, size_t n) {
     if (auto *s = sink()) return s->appendVertices(v, n);
-    return cb_ ? cb_->appendVertices(v, n) : 0;
+    return 0;
 }
 
 size_t Graphics::appendMeshVerts(const Vertex3D *v, size_t n) {
     if (auto *s = sink()) return s->appendMeshVertices(v, n);
-    return cb_ ? cb_->appendMeshVertices(v, n) : 0;
+    return 0;
 }
 
 // ════════════════════════════════════════════

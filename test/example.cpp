@@ -149,5 +149,20 @@ int main(int argc, char *argv[]) {
 
     if (argc >= 2 && std::string(argv[1]) == "channel") { ChannelTest::setup(); }
 
-    return app.run();
+    // ── 冒烟模式：KWIK_SMOKE_FRAMES=N → 运行 N 帧自动退出，错误数即退出码 ──
+    if (const char *smoke = std::getenv("KWIK_SMOKE_FRAMES")) {
+        int frames = std::atoi(smoke);
+        if (frames > 0) {
+            app.setSmokeFrames(frames);
+            Log::info("[smoke] demo='{}' frames={}", argc >= 2 ? argv[1] : "example", frames);
+        }
+    }
+
+    int rc = app.run();
+    if (std::getenv("KWIK_SMOKE_FRAMES")) {
+        int errors = Log::errorCount();
+        Log::info("[smoke] result errors={}", errors);
+        return errors > 0 ? 1 : 0;
+    }
+    return rc;
 }

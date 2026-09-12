@@ -354,6 +354,9 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc, const uint8_t *rg
     if (imageDescPool_ == VK_NULL_HANDLE) {
         VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256};
         VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        // destroyTexture 走 vkFreeDescriptorSets 逐个释放，池必须带 FREE 标志
+        // （与 glyph 渲染器一致；缺标志时 vkFreeDescriptorSets 为规格违规）
+        pi.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         pi.poolSizeCount = 1;
         pi.pPoolSizes = &ps;
         pi.maxSets = 256;
@@ -399,6 +402,9 @@ void ImageRenderer::destroyTexture(uint32_t id) {
     auto it = textures_.find(id);
     if (it == textures_.end()) return;
     auto &t = it->second;
+    // 纹理销毁为低频路径（image 重载/树重建/shutdown）：等 GPU 排空再释放，
+    // 否则最多 3 个在途帧的命令缓冲仍绑定该描述符集/采样器 → 规格违规
+    vkDeviceWaitIdle(device_);
     vkFreeDescriptorSets(device_, imageDescPool_, 1, &t.descSet);
     vkDestroySampler(device_, t.sampler, nullptr);
     vkDestroyImageView(device_, t.view, nullptr);

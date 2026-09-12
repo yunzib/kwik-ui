@@ -90,6 +90,11 @@ public:
      * @brief 退出主循环
      */
     void quit() { running_ = false; }
+
+    /** @brief 冒烟模式：运行 N 帧后自动退出（0=关闭，默认）。配合 Log::errorCount()
+     *  作为冒烟测试退出码依据 */
+    void setSmokeFrames(int frames) { smokeMaxFrames_ = frames; }
+
     /**
      * @brief 标记需要重新解析 JS 并重建 View 树
      */
@@ -118,6 +123,8 @@ private:
     QuickJSContext jsCtx_;
     std::unique_ptr<View> tree_;
     bool running_ = false;
+    int smokeMaxFrames_ = 0;    // 冒烟模式帧数上限（0=关闭）
+    int smokeFramesRun_ = 0;    // 冒烟已运行帧数（独立计数，不受 FPS 统计重置影响）
     bool cacheSaved_ = false;            // 字形缓冲
     BindingRegistry bindingRegistry_;    // 绑定注册表（增量更新用）
 

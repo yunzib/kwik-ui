@@ -649,11 +649,22 @@ static std::string_view canonicalTypeName(std::string_view jsType) {
 //   - children 非数组  → 跳过子节点解析（视为叶子节点）
 // ============================================================================
 std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
+    // 条件渲染兜底：children 数组中的 null/false/undefined 节点 → 静默跳过
+    // （React 同款语义；car demo 状态栏冒烟复现）
+    if (jsVal.isNull() || jsVal.isUndefined()) return nullptr;
+
     // ── 1. 读取组件类型 ──────────────────────────────────────────────
     auto typeVal = jsVal.getProperty("type");
     std::string type = typeVal.toString();
+    // 条件渲染跳过：JS 惯用法 `cond && View(...)` / `cond ? View(...) : null`
+    // 产生的 null/false 子节点 → 静默跳过（React 同款语义，car demo 状态栏即此写法），
+    // 不视为错误；真缺 type 的畸形节点仍报错
+    if (typeVal.isNull() || typeVal.isUndefined() || (type.empty() && typeVal.isBool() && !typeVal.toBool())) {
+        return nullptr;
+    }
     if (type.empty()) {
-        Log::error("parseNode: 缺少 type 字段 — request import type");
+        Log::error("parseNode: 缺少 type 字段 — request import type; node=\"{}\"",
+                   jsVal.toString().substr(0, 200));
         return nullptr;
     }
     // ── 2. 获取 props JS 对象 ─────────────────────────────────────
