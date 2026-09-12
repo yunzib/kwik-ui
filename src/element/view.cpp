@@ -513,58 +513,7 @@ View *View::findById(const std::string &id) {
     return nullptr;
 }
 
-// ==========================================================================
-// getProperty — 通用属性总线 (基类)
-// ============================================================================
-std::string View::getProperty(const char *name) const {
-    if (std::strcmp(name, "width") == 0) return std::to_string(frame.width);
-    if (std::strcmp(name, "height") == 0) return std::to_string(frame.height);
-    if (std::strcmp(name, "background") == 0) {
-        char buf[10];
-        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", props.background.r, props.background.g, props.background.b);
-        return buf;
-    }
-    if (std::strcmp(name, "borderRadius") == 0) return std::to_string(props.borderRadius);
-    if (std::strcmp(name, "borderWidth") == 0) return std::to_string(props.borderWidth);
-    if (std::strcmp(name, "borderColor") == 0) {
-        char buf[10];
-        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", props.borderColor.r, props.borderColor.g, props.borderColor.b);
-        return buf;
-    }
-    if (std::strcmp(name, "opacity") == 0) return std::to_string(props.opacity);
-    if (std::strcmp(name, "visible") == 0) return props.visible ? "true" : "false";
-    if (std::strcmp(name, "id") == 0) return props.id;
-    // 不识别 → 空字符串
-    return "";
-}
 
-/**
- * @brief 字符串属性入口（非虚模板方法，禁止覆写）
- *
- * 字符串原样包装转发唯一虚入口；成功后命令式回声。
- */
-bool View::setProperty(const char *name, const char *value) {
-	if (!setPropertyTyped(name, TypedProp{std::string(value)})) { return false; }
-	echoBoundState(name);
-	return true;
-}
-
-// ============================================================================
-// setBinding / echoBoundState — 反向绑定统一存储 + 命令式回声（设计 T）
-//
-// 回声仅由非虚 View::setProperty 在写入成功后调用；增量路径（notify）不经过
-// 此处，且各组件 handler 为纯赋值，故结构性无递归。
-// 规范化值取 getProperty 当前值：SpinBox 的 clamp、Dropdown 的映射天然生效。
-// ============================================================================
-void View::setBinding(std::unique_ptr<StateBinding> binding,
-                      const std::string &stateKey,
-                      const std::string &propName,
-                      PropType typeHint) {
-	binding_ = std::move(binding);
-	bindKey_ = stateKey;
-	boundPropName_ = propName;
-	boundTypeHint_ = typeHint;
-}
 
 /** @see view.cppm echoBoundState */
 void View::echoBoundState(const char *name) {
@@ -655,6 +604,76 @@ static bool parseTransformString(const std::string &s, Transform &out) {
 	return true;
 }
 
+// ==========================================================================
+// getProperty — 通用属性总线 (基类)：表驱动，覆盖全部登记属性（含别名）
+//   例外三例保留原语义：width/height 返回布局后的 frame；id 非 PropId 属性
+// ============================================================================
+
+// TypedProp → JS 字符串（getProp 回显 / State 绑定回声用）
+static std::string formatPropValue(const TypedProp &v) {
+    if (const auto *d = std::get_if<double>(&v)) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.6g", *d);
+        return buf;
+    }
+    if (const auto *b = std::get_if<bool>(&v)) return *b ? "true" : "false";
+    if (const auto *s = std::get_if<std::string>(&v)) return *s;
+    if (const auto *c = std::get_if<Color>(&v)) {
+        char buf[11];
+        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X%02X", c->r, c->g, c->b, c->a);
+        return buf;
+    }
+    if (const auto *t = std::get_if<Transform>(&v)) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%g,%g,%g,%g",
+                      t->translateX, t->translateY, t->rotate, t->scale);
+        return buf;
+    }
+    if (const auto *e = std::get_if<EdgeInsets>(&v)) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%g,%g,%g,%g", e->left, e->top, e->right, e->bottom);
+        return buf;
+    }
+    return "";    // monostate 等：无值
+}
+
+std::string View::getProperty(const char *name) const {
+    if (std::strcmp(name, "width") == 0) return std::to_string(frame.width);
+    if (std::strcmp(name, "height") == 0) return std::to_string(frame.height);
+    if (std::strcmp(name, "id") == 0) return props.id;
+    PropId pid = propIdFromName(name);
+    if (pid == PropId::COUNT) return "";
+    return formatPropValue(getPropMeta(pid).reader(props));
+}
+
+/**
+ * @brief 字符串属性入口（非虚模板方法，禁止覆写）
+ *
+ * 字符串原样包装转发唯一虚入口；成功后命令式回声。
+ */
+bool View::setProperty(const char *name, const char *value) {
+	if (!setPropertyTyped(name, TypedProp{std::string(value)})) { return false; }
+	echoBoundState(name);
+	return true;
+}
+
+// ============================================================================
+// setBinding / echoBoundState — 反向绑定统一存储 + 命令式回声（设计 T）
+//
+// 回声仅由非虚 View::setProperty 在写入成功后调用；增量路径（notify）不经过
+// 此处，且各组件 handler 为纯赋值，故结构性无递归。
+// 规范化值取 getProperty 当前值：SpinBox 的 clamp、Dropdown 的映射天然生效。
+// ============================================================================
+void View::setBinding(std::unique_ptr<StateBinding> binding,
+                      const std::string &stateKey,
+                      const std::string &propName,
+                      PropType typeHint) {
+	binding_ = std::move(binding);
+	bindKey_ = stateKey;
+	boundPropName_ = propName;
+	boundTypeHint_ = typeHint;
+}
+
 // ============================================================================
 // setPropertyTyped 默认实现 — 描述符表直写 + string 形态按期望类型反推
 //
@@ -697,7 +716,7 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 
 	writeProperty(prop, v);
 	markDirty();
-	if (getPropMeta(prop).layoutAffecting) { requestLayout(); }
+	if (getPropMeta(prop).flags & PropFlags::Layout) { requestLayout(); }
 	return true;
 }
 
@@ -742,7 +761,7 @@ void View::applyAnimationFrame(PropId prop, const TypedProp &value) {
     if (!meta.writer) return;
     meta.writer(props, value);
     markDirty();    // ← 替换 inline 的三行
-    if (meta.layoutAffecting) { requestLayout(); }
+    if (meta.flags & PropFlags::Layout) { requestLayout(); }
 }
 
 void View::requestLayout() {

@@ -19,13 +19,10 @@ import std;
 
 namespace {
 
-/// 布局属性集合（变化时需要 re-layout）
-const std::unordered_set<PropId> kLayoutProps = {
-    PropId::width, PropId::height, PropId::padding, PropId::margin,   PropId::x,
-    PropId::y,     PropId::absTop, PropId::absLeft, PropId::absRight, PropId::absBottom,
-};
+// 布局属性判定统一走 PropMeta::flags（原 kLayoutProps 集合已并入 meta 条目，
+// 双源消除；行为锁见 test/unit/core_tests.cpp 布局属性行为锁）
 
-/// 获取当前时间戳（秒）
+// 获取当前时间戳（秒）
 double nowSec() {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
@@ -74,7 +71,7 @@ void notifyGroupComplete(AnimationEngine &engine, uint64_t groupId,
 
 }    // anonymous namespace
 
-bool animationPropAffectsLayout(PropId prop) { return kLayoutProps.count(prop) > 0; }    // 外部链接:导出符号(见 .cppm 声明)
+bool animationPropAffectsLayout(PropId prop) { return getPropMeta(prop).flags & PropFlags::Layout; }    // 外部链接:导出符号(见 .cppm 声明)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AnimationHandle
@@ -330,7 +327,7 @@ bool AnimationEngine::isActive(uint64_t id) const {
 
 bool AnimationEngine::hasLayoutAnimation() const {
     for (auto &a : animations_) {
-        if (a->state != ActiveAnimation::Finished && kLayoutProps.count(a->prop)) return true;
+        if (a->state != ActiveAnimation::Finished && (getPropMeta(a->prop).flags & PropFlags::Layout)) return true;
     }
     return false;
 }
@@ -357,7 +354,7 @@ void AnimationEngine::update(double realtimeSec, void* root) {
     for (auto &a : animations_) {
         if (a->state == ActiveAnimation::Running) {
             bool changed = a->tick(realtimeSec);
-            if (changed && kLayoutProps.count(a->prop)) { hadLayoutChange = true; }
+            if (changed && (getPropMeta(a->prop).flags & PropFlags::Layout)) { hadLayoutChange = true; }
         }
     }
 

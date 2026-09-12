@@ -1,5 +1,5 @@
 // 纯逻辑单测（不依赖窗口/GPU）
-// 覆盖：Rect 运算 / PropMeta 一致性（双源登记 bug 的回归防线）/ DisplayList 基本操作
+// 覆盖：Rect 运算 / PropMeta 表完整性与行为锁（原双源登记 bug 的回归防线）/ DisplayList 基本操作
 // 运行：ctest -R core_tests 或直接执行 kwik_unit_tests
 #include <print>
 
@@ -40,29 +40,52 @@ static void test_rect() {
 }
 
 static void test_prop_meta_consistency() {
-    // ① 名字反查关键属性（含液态玻璃三件套）
+    // ① 名字反查关键属性（含液态玻璃三件套与别名）
     CHECK(propIdFromName("backdropBlur") == PropId::backdropBlur);
     CHECK(propIdFromName("backdropRefraction") == PropId::backdropRefraction);
     CHECK(propIdFromName("backdropSpecular") == PropId::backdropSpecular);
+    CHECK(propIdFromName("bg") == PropId::background);
+    CHECK(propIdFromName("w") == PropId::width);
     CHECK(propIdFromName("__nonexistent__") == PropId::COUNT);
 
-    // ② 回归防线：x/y 曾双源错位（kLayoutProps 有、meta 标 false → 动画不动）
-    CHECK(getPropMeta(PropId::x).layoutAffecting);
-    CHECK(getPropMeta(PropId::y).layoutAffecting);
-    CHECK(getPropMeta(PropId::width).layoutAffecting);
-
-    // ③ 双向一致性：动画布局表 ⊆ meta 布局标记（且反向）——新增布局属性时两处必须同步
+    // ② 布局属性行为锁：Layout 标志必须恰好钉在这 10 个属性上
+    //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线）
+    const char *kLayoutNames[] = {"width", "height", "padding", "margin",
+                                  "x", "y", "absTop", "absLeft", "absRight", "absBottom"};
     for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
         auto id = static_cast<PropId>(pi);
-        bool inAnimTable = animationPropAffectsLayout(id);
-        bool inMeta = getPropMeta(id).layoutAffecting;
-        if (inAnimTable != inMeta) {
+        bool isLayout = getPropMeta(id).flags & PropFlags::Layout;
+        bool inLock = false;
+        for (auto *n : kLayoutNames) inLock = inLock || std::string_view(propName(id)) == n;
+        if (isLayout != inLock) {
             ++g_failed;
-            std::println("FAIL 布局标记双源不一致: PropId({}) animTable={} meta={}", pi, inAnimTable, inMeta);
-            ++g_total;
+            std::println("FAIL 布局标志与行为锁不符: {} expected={} actual={}",
+                         propName(id), inLock, isLayout);
         }
         ++g_total;
     }
+    CHECK(animationPropAffectsLayout(PropId::x));        // 导出函数与 meta 同源可用
+    CHECK(!animationPropAffectsLayout(PropId::opacity));
+
+    // ③ 全表巡检：正名可反查、名字/别名全表无冲突、reader 有值（shadow 桩除外）
+    for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
+        auto id = static_cast<PropId>(pi);
+        const auto &m = getPropMeta(id);
+        CHECK(m.name != nullptr && *m.name != '\0');
+        if (propIdFromName(m.name) != id) {
+            ++g_failed;
+            std::println("FAIL 正名反查失败: {} -> PropId({})", m.name, static_cast<int>(propIdFromName(m.name)));
+        }
+        ++g_total;
+        if (id != PropId::shadow && !m.reader) {
+            ++g_failed;
+            std::println("FAIL reader 缺失: {}", m.name);
+        }
+        ++g_total;
+    }
+    // 别名不与任何正名冲突（正名优先级高，冲突别名永远不可达 = 登记错误）
+    CHECK(propIdFromName("background") == PropId::background);    // "background" 不是别的属性的别名
+    CHECK(propIdFromName("radius") == PropId::borderRadius);
 }
 
 static void test_display_list() {

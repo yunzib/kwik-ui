@@ -10,6 +10,9 @@
 - 帧命令流通道与 CommandBuffer 类删除，渲染线程单一回放路径
 - effectBounds 特效外延（阴影/描边，玻璃不外延）；View 不可见翻转补伤害；
   markDirty 补根节点帧门缺口
+- 属性元数据单表化：PropMeta 补 name/别名/unit/flags 字段，kPropNameMap、
+  kLayoutProps 双源表删除并入 meta；名字解析/布局判定/getProperty 改查表；
+  单测增布局属性行为锁与全表巡检（反射就绪雏形，见 当前优化任务清单 §三）
 
 ### 新增（测试门禁）
 - 冒烟测试 smoke.py：37 示例自动退出 + 错误扫描；Vulkan 验证层开关

@@ -358,7 +358,7 @@ public:
     void applyAnimationFrame(PropId prop, const TypedProp &value);
 
     /**
-     * @brief 请求重新布局（layoutAffecting 属性变更后调用）
+     * @brief 请求重新布局（带 Layout 标志的属性变更后调用）
      *
      *  由 applyAnimationFrame 内部自动触发，无需手动调用。
      *  设置 needsRelayout_ 标志并沿父链冒泡 subtreeLayout_，

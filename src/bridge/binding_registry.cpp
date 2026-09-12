@@ -128,7 +128,7 @@ static bool tryStartTransition(View *view, const std::string &name, const TypedP
     if (prop == PropId::COUNT) return false;
 
     const PropMeta &meta = getPropMeta(prop);
-    if (meta.layoutAffecting) return false;                       // 布局属性直接跳变
+    if (meta.flags & PropFlags::Layout) return false;             // 布局属性直接跳变
     if (!std::holds_alternative<double>(to) &&
         !std::holds_alternative<Color>(to) &&
         !std::holds_alternative<EdgeInsets>(to)) return false;    // flip 型直接写

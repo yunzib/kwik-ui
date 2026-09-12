@@ -13,10 +13,10 @@ import std;
 // AnimationHandle — 单属性动画控制句柄
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** @brief 该属性动画是否会触发布局重排（kLayoutProps 成员查询）
+/** @brief 该属性动画是否会触发布局重排（查 PropMeta::flags 的 Layout 标志）
  *
- *  独立导出供单测做「kLayoutProps ⊆ PropMeta::layoutAffecting」一致性断言
- *  （x/y 曾双源错位，见 当前优化任务清单.md §三），亦为 §三 schema 统一铺路 */
+ *  原 kLayoutProps 独立集合已并入 PropMeta（双源消除）；单测改为
+ *  布局属性行为锁（钉死 10 个属性名），见 test/unit/core_tests.cpp */
 export bool animationPropAffectsLayout(PropId prop);
 
 /**
