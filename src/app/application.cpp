@@ -15,6 +15,7 @@ import kwik.engine.context;
 import kwik.render.render_thread;
 import kwik.render.graphics;
 import kwik.render.command_queue;
+import kwik.render.command_buffer;    // DisplayList（复合根清单）
 import kwik.event;
 import kwik.element.view;
 import kwik.core.props;
@@ -267,6 +268,18 @@ void Application::renderFrame() {
     frame.structuralChange = structural;
     frame.needsResize = false;
 
+    // ── 复合根清单（唯一渲染路径的回放源）──
+    // base 树 + 各弹层（与 drawAll 同序）。清单引用为别名（原地重编自动新鲜）；
+    // dirtyRect 来自 encodeList 伤害累加（旧∪新 bounds）。
+    if (auto *base = LayerStack::instance().base()) {
+        auto root = std::make_shared<DisplayList>();
+        if (base->publishedList()) root->appendSubtree(base->publishedList());
+        LayerStack::instance().forEachLayer([&](View *layer) {
+            if (layer->publishedList()) root->appendSubtree(layer->publishedList());
+        });
+        frame.displayList = root;
+    }
+
     renderThread_.commandQueue().submit();
 
     if (frameId_ == 1) {
@@ -441,8 +454,7 @@ void Application::handleResize(int width, int height) {
 
     relayoutTree(layoutSize());
     if (tree_) {
-        tree_->markAllDirty();            // ← 全树脏标记：全量重录命令
-        tree_->markAllLayoutRepaint();    // ← 强制整带重绘：保住渐变/半透明面板背景不被底图擦黑
+        tree_->markAllDirty();            // ← 全树脏标记：全量重编清单
     }
 
     eventRouter_.reset();

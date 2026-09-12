@@ -72,8 +72,7 @@ void View::layout(Rect bounds) {
             }
         }
         if (anyChildMoved || sizeChanged) {
-            needsLayoutRepaint_ = true;    // 下一帧父级整片区域一次性重绘
-            markAllDirty();                // 带内所有视图(含原本干净的)全部重绘, 避免被底图擦后空白
+                    markAllDirty();                // 带内所有视图(含原本干净的)全部重绘, 避免被底图擦后空白
         }
     }
     needsMeasure_ = false;    // ← 末段才清，childChanged 判据真实
@@ -209,87 +208,35 @@ void View::onLayout() {
 }
 
 // ============================================================================
-// View::draw — 增量重绘：无脏标记零操作，只有脏内容才进入命令树
+// View::draw — 保留式清单路径（唯一渲染路径，方案见 当前优化任务清单.md §1.6）
 //
-// 三种状态（架构不变量：命令树 = 脏内容 + 必要作用域(clip)）：
-//   ① 自身与子树都干净 → 零操作，整棵子树不遍历（画布即缓存，无需任何处理）
-//   ② 仅子树有脏      → 透传通道：自身绘制全部 no-op（不重放、不重录），
-//                        子节点内容直接挂到上级容器；沿途必要作用域(clip)层保留
-//   ③ 自身脏          → 正常录制：重录自身内容 + 遍历子树重录脏后代
+//   自身脏/首帧   → encodeList：三明治内跑完整 onDraw（自身图元 + 子级引用
+//                  挂入本清单），发布别名快照，伤害 = lastPaintBounds_∪新bounds
+//   仅子树脏      → 复用既有清单容器，只重建子级引用段（自身图元不动）
+//   全干净       → 零操作（清单即缓存；画布由渲染线程按伤害带重放清单维护）
+// 末尾：把本节点清单引用挂入上级 sink（父级编码中；根级无 sink 则零操作）。
+// 子级重编码 = 原地清空重填同一容器 → 父级别名引用自动新鲜，无需沿链重编。
 // ============================================================================
 void View::draw(Graphics &graphics) {
     if (!props.visible) {
-        clearDirty();    // 不可见节点清脏, 防 dirty_ 残留反复进入遍历
+        // 不可见：清脏防帧门空转（重新可见时 setProperty → markDirty 再进）
+        listDirty_ = subtreeDirty_ = false;
         return;
     }
 
-    // ── 布局位移重绘: 父级整片区域一次底图 + 内容重绘 ──
-    // 相邻视图同时位移/变尺寸时, 各自底图(old∪new)会互相冲洗;
-    // 由父级把整片内容区作为整体: 一次底图 → 所有子视图"只画内容"(s_suppressUnderlay)
-    if (needsLayoutRepaint_) {
-        needsLayoutRepaint_ = false;
-        Rect band = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
-        graphics.beginContent();
-        // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
-        // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
-        if (!s_suppressUnderlay && !drawnElsewhere_) {
-            graphics.drawUnderlay(band, underlayColor());
-        }    // 整片一次底图（弹层跳过）
-        bool prev = s_suppressUnderlay;
-        s_suppressUnderlay = true;    // 带内子视图只画内容, 不各自底图
-        onDraw(graphics);
-        s_suppressUnderlay = prev;
-        graphics.endContent();
-        graphics.accumulateDirtyRect(band);    // union 语义, 嵌套时重复累加无害
-        lastPaintBounds_ = paintBounds();
-        subtreeDirty_ = false;    // 本路径整带已重绘, 子树脏标记一并清, 防泄漏阻断后续 markDirty 冒泡
-        clearDirty();
-        return;
+    if (listDirty_ || !pendingList_) {
+        encodeList(graphics);
+    } else if (subtreeDirty_) {
+        subtreeDirty_ = false;
+        graphics.save();
+        graphics.pushSink(pendingList_.get());
+        pendingList_->clearSubtreeRefs();    // 只重建引用段，自身图元保留
+        iterateChildren(graphics);           // 子级自行编码/挂接；尾部 restore 配对 save
+        graphics.popSink();
     }
-
-    // ── ① 无脏标记 → 零操作 ──
-    if (!dirty_ && !subtreeDirty_) return;
-
-    // 清子树脏标记：在 onDraw 之前清，onDraw 内调 markDirty 会重新设
-    subtreeDirty_ = false;
-
-    if (dirty_) {
-        if (s_suppressUnderlay) {
-            // ── ③' 布局位移重绘中: 父级已对整个带做底图, 这里只重画内容, 不再各自底图 ──
-            // (若仍各自底图, 后画的兄弟会用底色盖掉先画的兄弟内容 → 白角/遮挡)
-            graphics.beginContent();
-            onDraw(graphics);
-            graphics.endContent();
-            lastPaintBounds_ = paintBounds();
-        } else {
-            // ── ③ 自身脏 → 先重建脏区底图，再重录自身 + 子树 ──
-            Rect bounds = paintBounds();
-            Rect region = lastPaintBounds_.unionRect(bounds);
-            graphics.beginContent();
-            // 弹层（drawnElsewhere_）浮在 base 之上，背景即 base（drawAll 已先绘），
-            // 不画 underlay 底图——否则不透明灰 fill 会擦掉 base 内容。
-            if (!drawnElsewhere_) { graphics.drawUnderlay(region, underlayColor()); }
-            bool prev = s_suppressUnderlay;
-            s_suppressUnderlay = true;    // 底图已覆盖本区域：脏后代走③'只画内容，不再各自冲底打洞
-            onDraw(graphics);
-            s_suppressUnderlay = prev;
-            graphics.endContent();
-            Rect paint = region.unionRect(dirtyRectOverride_);
-            graphics.accumulateDirtyRect(paint);
-            lastPaintBounds_ = bounds;
-        }
-    } else {
-        // ── ② 仅子树脏 → 透传通道（自身零内容） ──
-        // onDraw 内的自身绘制经 pushNoop 全部 no-op（画布已缓存，不重放不重录）；
-        // 子节点的 save() 创建真实 Group 直挂当前（上级）容器；
-        // 沿途 clipRoundedRect 等必要作用域层照常生成。
-        // 不 accumulateDirtyRect：自身没重画任何像素，脏区只由脏后代各自累积。
-        graphics.beginContent(true);
-        onDraw(graphics);
-        graphics.endContent();
-    }
-
-    clearDirty();    // ─ 绘制完成后清脏 ─
+    // 无论脏净都挂引用：父级重编码时干净子级的清单必须留在父清单里，
+    // 否则该子级从父清单消失 → 区域不刷新（"父脏子净"洞）
+    graphics.attachList(publishedList_);
 }
 
 Rect View::paintBounds() const {
@@ -309,31 +256,6 @@ Rect View::paintBounds() const {
         b = b.unionRect(rot);
     }
     return b;
-}
-
-Color View::underlayColor() const {
-    // 沿父链找首个不透明背景作合成基底；其内侧的半透明背景按"外层先画"
-    // 顺序依次 source-over 合成 → 真实平色近似。
-    // 旧实现跳过半透明层 → 擦除色丢叠层，擦过区域与周围出现色差斑块。
-    // 弹层子节点语义不变：背景由浮层自绘，返回透明避免遮罩上露灰。
-    // 渐变背景无法平色合成，维持跳过（既有局限）。
-    std::vector<Color> stack;    // [0]=最近父级 … [n-1]=最外半透明层
-    Color base{245, 245, 245, 255};    // 画布初值 0.96 灰
-    for (View *p = parent_; p; p = p->parent_) {
-        if (p->drawnElsewhere_) return Color::transparent();
-        const Color &bg = p->props.background;
-        if (!bg.isVisible()) continue;
-        if (bg.a == 255) { base = bg; break; }
-        stack.push_back(bg);
-    }
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it) {    // 逆序 = 自外向内
-        float a = it->a / 255.0f;
-        base.r = static_cast<uint8_t>(it->r * a + base.r * (1.0f - a));
-        base.g = static_cast<uint8_t>(it->g * a + base.g * (1.0f - a));
-        base.b = static_cast<uint8_t>(it->b * a + base.b * (1.0f - a));
-    }
-    base.a = 255;
-    return base;
 }
 
 // ============================================================================
@@ -392,145 +314,37 @@ void View::drawSelfContent(Graphics &graphics) {
 }
 
 // ============================================================================
-// iterateChildren — 脏门子节点迭代（原 View::onDraw 后半段拆出）
-// 只重绘脏子树；被脏兄弟覆盖的干净子节点标记后跟随重绘以维持 z-order。
-// 加固：零面积子树（frame 为空）没有可画内容，直接跳过 ——
-//   修复 StackIndex 非活跃面板启动泄漏：其根 frame 虽为 (0,0,0,0)，
-//   但子节点仍以窗口原点布局且首帧全脏，会被本循环无裁剪画出，
-//   幽灵内容恰好压在 SideNav 对应全局坐标的位置上。
-// 末尾 restore 与 drawSelfContent 的 save 配对。
+// iterateChildren — 子节点清单挂接迭代（唯一渲染路径）
+// 纯 z 序遍历：每个子级经 View::draw 自行"按需编码 + 挂接引用"，
+// 无脏门/晋升/豁免（带内正确性由渲染线程"伤害带内全 z 序重放清单"保证）。
+// 加固：零面积/借根（drawnElsewhere_）子树跳过（原语义保留）。
+// 末尾 restore 与 drawSelfContent 开头的 save 配对（原语义保留）。
 // ============================================================================
 void View::iterateChildren(Graphics &graphics) {
-    // ── 只遍历脏子树 ──
-    // 收集直接子节点脏区并集：被脏兄弟覆盖的干净兄弟也需重绘，保持 z-order
-    Rect subDirty;
-    if (dirty_) {
-        // 父自身重绘会 drawUnderlay 擦掉 lastPaintBounds_∪paintBounds() 区域，
-        // 该区域内的干净子节点必须跟随重绘，否则被底图擦除（文字消失）
-        subDirty = lastPaintBounds_.unionRect(paintBounds());
-    }
-    for (auto &c : children) {
-        if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
-        // 借根节点不参与 base 兄弟重叠协调（其绘制/脏由 LayerStack 负责）
-        if (c->dirty_ && c->props.visible && !c->drawnElsewhere_)
-            subDirty = subDirty.isEmpty() ? c->frame : subDirty.unionRect(c->frame);
-    }
-
-    // ── 擦除冲突晋升：复用首帧流程 ──
-    // 自身脏子级的底图擦除区(lastPaint∪paintBounds)覆盖到干净可见兄弟时,
-    // 逐子级擦除必然互相冲洗(设置页图标/竖条消失、音乐页左区消失均此因)。
-    // 本帧改走与启动首帧相同的流程：
-    // 本容器一次底图 → 子级只画内容(s_suppressUnderlay) → 相交者按序重录。
-    Rect conflictBand;
-    bool promote = false;
-    if (!dirty_) {
-        for (auto &c : children) {
-            if (c->frame.isEmpty() || !c->props.visible || c->drawnElsewhere_ || !c->dirty_) continue;
-            Rect b = c->lastPaintBounds_.unionRect(c->paintBounds());
-            conflictBand = conflictBand.isEmpty() ? b : conflictBand.unionRect(b);
-        }
-        for (auto &c : children) {
-            if (c->frame.isEmpty() || !c->props.visible || c->drawnElsewhere_ || c->dirty_) continue;
-            if (conflictBand.intersects(c->frame)) { promote = true; break; }
-        }
-    }
-    if (promote) {
-        for (auto &c : children) markTreeIntersecting(*c, conflictBand);
-        graphics.beginContent();
-        if (!s_suppressUnderlay) graphics.drawUnderlay(conflictBand, underlayColor());
-        bool prev = s_suppressUnderlay;
-        s_suppressUnderlay = true;    // 首帧同款：子级只画内容，无二次擦除
-        auto drawInBand = [&](View *v) {
-            if (v->frame.isEmpty() || v->drawnElsewhere_ || !v->props.visible) return;
-            if (!conflictBand.intersects(v->frame)) return;
-            v->draw(graphics);
-        };
-        bool sortNeeded = false;
-        for (auto &c : children)
-            if (c->props.z != 0) { sortNeeded = true; break; }
-        if (sortNeeded) {
-            std::vector<View *> ord;
-            for (auto &c : children) ord.push_back(c.get());
-            std::stable_sort(ord.begin(), ord.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
-            for (auto *v : ord) drawInBand(v);
-        } else {
-            for (auto &c : children) drawInBand(c.get());
-        }
-        s_suppressUnderlay = prev;
-        graphics.endContent();
-        graphics.accumulateDirtyRect(conflictBand);
-        graphics.restore();    // 与 drawSelfContent 的 save 配对
-        return;
-    }
-
+    auto visit = [&](View *c) {
+        if (c->frame.isEmpty()) return;    // 零面积子树无可画内容（StackIndex 幽灵面板防泄漏）
+        if (c->drawnElsewhere_) return;    // 借根：base 不画，由 LayerStack 绘
+        c->draw(graphics);                 // 子级：脏则编码，随后挂引用入当前 sink
+    };
     bool needSort = false;
     for (auto &c : children) {
-        if (c->props.z != 0) {
-            needSort = true;
-            break;
-        }
+        if (c->props.z != 0) { needSort = true; break; }
     }
     if (needSort) {
         std::vector<View *> sorted;
         for (auto &c : children) sorted.push_back(c.get());
         std::stable_sort(sorted.begin(), sorted.end(), [](View *a, View *b) { return a->props.z < b->props.z; });
-        for (auto *c : sorted) {
-            if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
-            if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
-
-            bool isDirty = c->dirty_ || c->subtreeDirty_;
-            bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
-            // ── 背景层豁免（仅父级透传帧生效, dirty_==false）──
-            // 完全包住脏区并集的大面积干净兄弟（页面背景类）禁止强制重绘：
-            // 强制会使其走路径③以 lastPaintBounds 整带底图擦除, 带远大于 subDirty,
-            // 所有不相交的干净兄弟像素被抹掉后无人补画
-            // （表现为点击 Tab 后左区+音量条消失, 只剩面板底色）。
-            // 豁免后被擦局部由脏兄弟自身记录补回; 最底层无需为 z 序跟随。
-            // 父级自身脏（路径③整带模式）时门禁关闭 —— 原强制自愈逻辑不变。
-            // Rect 无 contains(Rect), 逐字段判断包含关系。
-            if (!dirty_ && overlaps && !subDirty.isEmpty() &&
-                c->frame.x <= subDirty.x && c->frame.y <= subDirty.y &&
-                c->frame.x + c->frame.width >= subDirty.x + subDirty.width &&
-                c->frame.y + c->frame.height >= subDirty.y + subDirty.height) {
-                continue;
-            }
-            if (isDirty || overlaps) {
-                if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
-                c->draw(graphics);
-            }
-        }
+        for (auto *c : sorted) visit(c);
     } else {
-        for (auto &c : children) {
-            if (c->frame.isEmpty()) continue;    // 加固：零面积子树无可画内容，跳过防泄漏
-            if (c->drawnElsewhere_) continue;    // 借根：base 不画，由 LayerStack 绘
-
-            bool isDirty = c->dirty_ || c->subtreeDirty_;
-            bool overlaps = !isDirty && c->props.visible && subDirty.intersects(c->frame);
-            // ── 背景层豁免（仅父级透传帧生效, dirty_==false）──
-            // 完全包住脏区并集的大面积干净兄弟（页面背景类）禁止强制重绘：
-            // 强制会使其走路径③以 lastPaintBounds 整带底图擦除, 带远大于 subDirty,
-            // 所有不相交的干净兄弟像素被抹掉后无人补画
-            // （表现为点击 Tab 后左区+音量条消失, 只剩面板底色）。
-            // 豁免后被擦局部由脏兄弟自身记录补回; 最底层无需为 z 序跟随。
-            // 父级自身脏（路径③整带模式）时门禁关闭 —— 原强制自愈逻辑不变。
-            // Rect 无 contains(Rect), 逐字段判断包含关系。
-            if (!dirty_ && overlaps && !subDirty.isEmpty() &&
-                c->frame.x <= subDirty.x && c->frame.y <= subDirty.y &&
-                c->frame.x + c->frame.width >= subDirty.x + subDirty.width &&
-                c->frame.y + c->frame.height >= subDirty.y + subDirty.height) {
-                continue;
-            }
-            if (isDirty || overlaps) {
-                if (overlaps) c->markAllDirty();    // 干净子节点：标记后绕过 draw 入口早退
-                c->draw(graphics);
-            }
-        }
+        for (auto &c : children) visit(c.get());
     }
-    graphics.restore();
+    graphics.restore();    // 与 drawSelfContent 的 save 配对
 }
 
 // ============================================================================
 // onDraw — 标准绘制 = 自身装饰 + 脏门子树迭代（行为与拆分前逐字节等价）
+// 清单挂载：listDirty_ 时先落笔自身清单（pushSink），编码完即内联发布；
+// 子树迭代后把各子级已发布清单按 z 序挂到本清单（嵌套结构）。
 // ============================================================================
 void View::onDraw(Graphics &graphics) {
     drawSelfContent(graphics);
@@ -538,23 +352,58 @@ void View::onDraw(Graphics &graphics) {
 }
 
 // ============================================================================
-// markTreeIntersecting — 冲突晋升预标记
-// 透传容器内部的脏门只见自己的直接子级, 看不到外部底图擦了哪些区域；
-// 本函数把与 band 相交的最深后代预先置脏, 使其在晋升帧内随行重录。
-// 只打标记：配合 s_suppressUnderlay 这些节点走③'只画内容, 不可能产生新擦除。
-// 中间节点置 subtreeDirty_ 维持透传链, 最深相交节点置 dirty_。
+// encodeList — 保留式清单编码（唯一渲染路径，§1.6）
+//
+// 三明治内跑完整虚 onDraw：自身图元（含组件覆写的自定义内容）落本清单，
+// 子级经 iterateChildren → child->draw 把引用挂入本清单（别名引用，
+// 子级后续原地重编自动新鲜）。状态配对：save 快照 → onDraw（drawSelfContent
+// 的 save 由 iterateChildren 尾部 restore 配对，内部自平衡）→ popSink →
+// restore 配对快照（恰好一次，不多不少）。
+// 伤害：lastPaintBounds_（旧）∪ paintBounds()（新）进帧累加器。
 // ============================================================================
-void View::markTreeIntersecting(View &v, const Rect &band) {
-    for (auto &ch : v.children) {
-        if (ch->frame.isEmpty() || ch->drawnElsewhere_ || !ch->props.visible) continue;
-        if (!band.intersects(ch->frame)) continue;
-        ch->subtreeDirty_ = true;
-        bool deeper = false;
-        for (auto &g : ch->children)
-            if (!g->frame.isEmpty() && g->props.visible && band.intersects(g->frame)) { deeper = true; break; }
-        if (deeper) markTreeIntersecting(*ch, band);
-        else ch->dirty_ = true;
+void View::encodeList(Graphics &graphics) {
+    listDirty_ = false;
+    subtreeDirty_ = false;
+    if (!pendingList_) pendingList_ = std::make_unique<DisplayList>();
+    DisplayList &list = *pendingList_;
+    list.clear();    // 重编码前清空（容量复用）——不清空则逐帧追加，清单线性膨胀
+
+    // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画）
+    Rect bounds = paintBounds();
+    if (!lastPaintBounds_.isEmpty()) {
+        graphics.accumulateDirtyRect(lastPaintBounds_.unionRect(bounds));
+    } else {
+        graphics.accumulateDirtyRect(bounds);
     }
+    lastPaintBounds_ = bounds;
+    list.unionBounds(bounds);
+
+    graphics.save();                  // 三明治：快照调用方状态
+    graphics.pushSink(&list);
+    onDraw(graphics);                 // 虚分发：自身图元 + 子级引用挂入
+    graphics.popSink();
+    graphics.restore();               // 配对三明治 save（onDraw 内部已自平衡）
+
+    // 发布：别名指针（清单归本节点所有，原地重编；父级引用自动新鲜）。
+    // 渲染线程经 FrameSubmit 的复合根引用读取——阶段 2 若实测撕裂改双缓冲。
+    publishedList_ = std::shared_ptr<const DisplayList>(pendingList_.get(), [](const DisplayList *) {});
+}
+
+// ============================================================================
+// publishEmptyList — 发布空清单（从合成中摘除本节点）
+// 弹层关闭等场景：复合根仍引用本节点清单，不清空则旧内容（遮罩/弹框）
+// 每帧继续被渲染线程画出（"关不掉/区域不刷新"）。置 listDirty_ 保证
+// 重新激活时强制重编。
+// 伤害：本节点最近绘制区域（lastPaintBounds_∪paintBounds）并入累加器——
+// 摘除后该区域无人重画，必须让渲染线程重放 base 清单填补，否则残留旧像素。
+// ============================================================================
+void View::publishEmptyList(Graphics &graphics) {
+    Rect stale = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
+    if (!stale.isEmpty()) graphics.accumulateDirtyRect(stale);
+    if (!pendingList_) pendingList_ = std::make_unique<DisplayList>();
+    pendingList_->clear();
+    publishedList_ = std::shared_ptr<const DisplayList>(pendingList_.get(), [](const DisplayList *) {});
+    listDirty_ = true;
 }
 
 // ============================================================================
@@ -699,7 +548,7 @@ void View::echoBoundState(const char *name) {
 // markDirty — 标记本控件区域为脏 + 向上冒泡
 // ============================================================================
 void View::markDirty() {
-    dirty_ = true;
+    listDirty_ = true;    // 视觉可能变化：清单待重编（阶段 1 旁路记录，见 §1.6）
     View *p = parent_;
     while (p && !p->subtreeDirty_) {
         p->subtreeDirty_ = true;
@@ -711,8 +560,8 @@ void View::markDirty() {
 // markAllDirty — 递归标记整棵子树为脏 (resize/rebuild 后调用)
 // ============================================================================
 void View::markAllDirty() {
-    dirty_ = true;
     subtreeDirty_ = true;
+    listDirty_ = true;    // 全量重绘 = 全部清单重编
     for (auto &c : children) c->markAllDirty();
     // 向上冒泡
     View *p = parent_;
@@ -729,11 +578,6 @@ void View::markAllDirty() {
 // drawUnderlay 用 underlayColor() 擦除会跳过渐变祖先 → 面板渐变被擦黑。
 // 置 needsLayoutRepaint_ 使父级下一帧整片一次底图+自身背景重绘, 子级只画内容。
 // ============================================================================
-void View::markAllLayoutRepaint() {
-    needsLayoutRepaint_ = true;    // 下一帧父级整片区域一次性重绘
-    for (auto &c : children) c->markAllLayoutRepaint();
-}
-
 // markAllMeasureDirty — 递归标记整棵子树需要重新测量 (rebuild 后强制全量测量)
 void View::markAllMeasureDirty() {
     needsMeasure_ = true;
@@ -741,17 +585,6 @@ void View::markAllMeasureDirty() {
     for (auto &c : children) c->markAllMeasureDirty();
 }
 
-// ============================================================================
-// addDirtyRect — 标记脏 + 扩充脏矩形（菜单/弹出层等画到 frame 外的控件使用）
-// ============================================================================
-void View::addDirtyRect(const Rect &r) {
-    markDirty();
-    if (dirtyRectOverride_.isEmpty()) {
-        dirtyRectOverride_ = r;
-    } else {
-        dirtyRectOverride_ = dirtyRectOverride_.unionRect(r);
-    }
-}
 
 /**
  * @brief 解析 transform 序列化格式（自原字符串解析链平移）

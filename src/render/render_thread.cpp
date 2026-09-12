@@ -237,7 +237,10 @@ bool RenderThread::processCommands(const FrameSubmit &frame) {
 
     if (!backend_->beginFrame(frame.dirtyRect)) return false;   // acquire失败/自愈跳帧 → 保槽重试
 
-    frame.commandBuffer->replay(*backend_);
+    // 清单接线：displayList 存在时走保留式清单回放（KWIK_DISPLAY_LIST=1 填入），
+    // 否则旧命令流（默认路径，行为不变）
+    if (frame.displayList) frame.displayList->replay(*backend_);
+    else frame.commandBuffer->replay(*backend_);
 
     backend_->endFrame();
     bool ok = backend_->present();                       // present失败 → 保槽重试

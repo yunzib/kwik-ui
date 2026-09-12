@@ -20,6 +20,8 @@ import std;
 export struct FrameSubmit {
     uint64_t frameId = 0;             /**< 单调递增帧序号 */
     std::shared_ptr<CommandBuffer> commandBuffer;
+    /**< 保留式清单根（KWIK_DISPLAY_LIST=1 时填，渲染线程优先回放；清单接线阶段） */
+    std::shared_ptr<const DisplayList> displayList;
     Rect dirtyRect = {};              /**< 脏区（物理像素坐标） */
     bool structuralChange = false;    /**< true=结构变化，渲染线程需重置 GPU 状态 */
     bool needsResize = false;

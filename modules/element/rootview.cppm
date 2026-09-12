@@ -23,4 +23,8 @@ public:
     ElementType type() const override { return ElementType::RootView; }
     Size onMeasure(Constraints constraints) override;
     void onLayout() override;
+    /** @brief 页面底色 owner：Root 区域的像素归属者（清单路径下每个像素都要有
+     *  绘制者）。仅在 Root 重编时多一条填充命令（弹层开关/HMR 等罕见事件），
+     *  弹层摘除/视图移走留下的空洞由此填补，替代旧机制的 drawUnderlay */
+    void onDraw(Graphics &g) override;
 };

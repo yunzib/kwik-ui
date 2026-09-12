@@ -1,5 +1,42 @@
 # 更新日志
 
+# 0.0.0 — 2026-09-12
+### 重构（渲染架构：保留式显示清单成为唯一渲染路径）
+- **新增 DisplayList**（command_buffer 模块，与 CommandBuffer 数据同构、生命周期不同）：
+  每 View 持有各自清单，仅视觉变化时重编码（O(变更节点)）；子树嵌套不进 DrawCommand
+  变体（避免「变体→SubtreeCmd→DisplayList→变体」定义循环），以「插入位置→子清单别名
+  引用」双序列存放；回放 = 叶子命令与子树按位合并（CommandBuffer::replay 的 16 种命令
+  分支零改动，16 分支提取为共享 replayLeafCommand 模板）
+- **Graphics sink 栈**：24 处落笔点收口为 appendCmd/appendVerts/appendMeshVerts 三转发，
+  View 编码期间落自身清单、平时落帧命令流
+- **View::draw 新语义**：自身脏 → save/restore 三明治内跑完整虚 onDraw（组件覆写内容
+  全捕获，Text 字形/Button 标签不再漏），发布别名快照 + 伤害累加（lastPaintBounds_∪
+  paintBounds）；仅子树脏 → 复用清单容器只重建引用段；全干净 → 挂引用即返（清单即缓存）
+- **伤害驱动**：伤害写入点收敛为 encodeList/publishEmptyList 两处 → FrameSubmit.dirtyRect
+  → 现有 beginFrame scissor / present 拷贝（GPU 侧零改动）；实测小区域拷贝生效
+- **RootView 页面底色 owner**：填 245 底色（=画布初始化色）——弹层摘除/视图移走留下的
+  空洞有归属者填补，替代旧 drawUnderlay
+- **删除旧增量重绘机制全链**（符号普查清零）：脏门三态机、markTreeIntersecting 晋升
+  反查、drawUnderlay/underlayColor 底图修复、passThrough/noop/beginContent 透传抑制、
+  forceLocalDirty 跨层协调、backdropUsed 玻璃整屏重绘特例、dirty_/dirtyRectOverride_/
+  addDirtyRect/isDirty/clearDirty/needsLayoutRepaint_/markAllLayoutRepaint；
+  iterateChildren 退化为纯 z 序循环；LayerStack::drawAll 简化为 base+弹层两行
+- 净代码量 -58 行（450 增/508 删）；回归 layer/glass/view/car/tabs/scrollview/
+  lazylist/animation/gradient 九示例全绿（64+ FPS 零错误）
+- 设计与 QA 全程记录：docs/当前优化任务清单.md §1（含扩展性压力测试）
+
+### 修复
+- 模态弹框关闭后遮罩区域不刷新、右下弹框关不掉：LayerView::deactivate 原立即注销导致
+  publishEmptyList 永不执行 → 复合根持续回放旧遮罩/弹框清单；改为延迟注销（关闭帧先
+  发布空清单摘除 + 旧区域并入伤害，下帧 draw 内完成注销）
+- JS 动画 x/y 不生效：PropMeta::layoutAffecting 与 AnimationEngine::kLayoutProps 双源
+  登记错位（x/y 标 false）→ 改 true，动画帧正确触发 relayout；两表后续应由 schema 统一
+- 退出时 QuickJS 断言（gc_obj_list 非空）：Application 析构先 AnimationEngine::stopAll()，
+  活跃动画的 animate() Promise 在 JS 上下文存活时 resolve 并释放引用
+- bindings.cpp animate() 文档注释 duration 单位误写毫秒 → 实际为秒（引擎无换算），示例
+  glass 同步修正；task/JSON 之外的 Chart duration 为独立毫秒系统（实现与文档一致，未动）
+
+
 # 0.0.0 — 2026-09-10
 ### 新增
 - 通用液态玻璃 backdrop 模糊：ViewProps 新增 backdropBlur:float（像素；0=off 零路径）。
@@ -41,6 +78,7 @@
   vkCmdClearDepthStencilImage 清一次；捕获盒 ∩ scissor（currentScissor 接线）
 - 正确性策略 v1 落地：Graphics::backdropUsed() 帧标志 + LayerStack::drawAll 尾部判定 →
   全层 markAllDirty，下一帧整屏重绘（玻璃的背板依赖绘制序，增量帧不重录会残影）
+  （注：该策略已随 2026-09-12 清单重构退役——伤害带内全 z 序重放天然覆盖，见 09-12 条目）
 
 已知限制（v1）：祖先真圆角(stencil) clip 的捕获以物理 AABB∩scissor 近似，圆角边缘或有轻微 halo；
 LayerView 背景（lp_）自身无玻璃（stripGenericBackground 关通用背景，玻璃走 drawBackdropStage）。

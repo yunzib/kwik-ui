@@ -60,6 +60,10 @@ public:
     void clear();
     /** 当前图层数 */
     size_t layerCount() const { return layers_.size(); }
+    /** 底→顶遍历各图层（清单接线：Application 组装复合根清单用） */
+    void forEachLayer(const std::function<void(View *)> &fn) {
+        for (auto *l : layers_) fn(l);
+    }
 
     // ── 帧绘制入口（替代 Application::renderFrame 中的 tree_->draw）──
     /**

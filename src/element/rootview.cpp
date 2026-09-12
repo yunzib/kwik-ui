@@ -23,3 +23,13 @@ void RootView::onLayout() {
 //   draw    → View::draw（三态脏标记）
 //   hitTest → View::hitTest
 // 弹层经 LayerStack::drawAll / LayerStack::hitTest 直接处理，不再走 RootView。
+// ============================================================================
+// onDraw — 页面底色 + 标准绘制
+// Root 区域（无任何子级覆盖的部分）的像素归属者：填 underlayColor（=画布
+// 初始化底色 245，不透明 SrcOver 即覆盖残留）。仅 Root 重编时执行（弹层
+// 开关/HMR/主题等罕见事件），日常增量帧不经过此处。
+// ============================================================================
+void RootView::onDraw(Graphics &g) {
+    g.drawRoundedRect(frame, 0, Color{245, 245, 245, 255});    // = 画布初始化底色 0.96
+    View::onDraw(g);
+}

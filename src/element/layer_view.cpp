@@ -46,33 +46,16 @@ void LayerStack::clear() {
 //
 // M1：layers_ 为空，循环不执行，等价 base_->draw(g)。
 // ══════════════════════════════════════════════════════════════
-void LayerStack::drawAll(Graphics &g, Rect *dirtyAccum) {
+void LayerStack::drawAll(Graphics &g, Rect * /*dirtyAccum*/) {
     if (!base_) return;
 
-    // ① base 层绘制
-    //    M1：base_ 为 RootView，其 draw() 仍含 portal 循环（Dialog/Tip 现状不变）。
-    //    M2：RootView 删除 portal 循环，base 仅绘主树（drawnElsewhere 节点被跳过）。
+    // ① base 树：根经 View::draw 按需编码清单（别名引用，子级原地重编自动新鲜）
     base_->draw(g);
 
-    // ② 逐层底→顶绘制 + 跨层脏协调
-    Rect lowerDirty = dirtyAccum ? *dirtyAccum : Rect{};    // 此刻 = base 脏区
-    for (auto *layer : layers_) {
-        // 下层脏区与本层 bounds 相交 → 强制本层重绘（覆盖下层底图擦除）
-        // forceLocalDirty 仅设 dirty_+subtreeDirty_，不冒泡，避免触发额外空帧
-        if (!lowerDirty.isEmpty() && lowerDirty.intersects(layer->paintBounds())) { layer->forceLocalDirty(); }
-        // 标准 View::draw：按脏重录（三态），绘制后 clearDirty → 脏标记不卡死
-        layer->draw(g);
-        // 累入本层脏区，供更上层判定
-        if (dirtyAccum) lowerDirty = *dirtyAccum;
-    }
-
-    // ③ 液态玻璃正确性策略 v1：本帧录制过玻璃命令 → 全层标记脏，下一帧整屏重绘。
-    //    玻璃的背板 = 绘制它之前画布内容；下层内容变化但玻璃自身不脏时，
-    //    增量帧不会重录玻璃 → 残影。接受玻璃存在期间的全量重绘成本，v2 做 per-layer 缓存。
-    if (g.backdropUsed()) {
-        base_->markAllDirty();
-        for (auto *layer : layers_) layer->markAllDirty();
-    }
+    // ② 弹层底→顶：各层经 LayerView::draw（内部 View::draw 同款语义）。
+    //    跨层脏协调（forceLocalDirty）与玻璃整屏重绘特例已随增量重绘机制退役：
+    //    层级遮挡正确性由渲染线程"伤害带内全 z 序重放清单"结构性保证
+    for (auto *layer : layers_) { layer->draw(g); }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -272,10 +255,20 @@ bool LayerView::onEvent(const DispatchEvent &event) {
     return lp_.modal;
 }
 
-// ── 薄重写：关闭态递归清脏（含子树），激活态委托 View::draw ──
+// ── 薄重写：关闭态发布空清单（从合成摘除）+ 完成延迟注销，激活态委托 View::draw ──
 void LayerView::draw(Graphics &g) {
     if (!lp_.active) {
         clearAllDirtySubtree();
+        // 清单路径关键：发布空清单使复合根跳过本层——否则关闭后 publishedList_
+        // 仍持旧内容（遮罩+弹框），渲染线程每帧继续画出。内部把本层最近绘制
+        // 区域并入伤害，base 清单在伤害带内重放填补（模态全屏遮罩→全屏填补）
+        publishEmptyList(g);
+        if (registered_) {
+            // 摘除完成，此刻才真正注销（deactivate 只置状态，见下）
+            LayerStack::instance().unregisterLayerView(this);
+            registered_ = false;
+            drawnElsewhere_ = false;
+        }
         return;
     }
     View::draw(g);
@@ -305,13 +298,13 @@ void LayerView::activate() {
 
 void LayerView::deactivate() {
     if (!registered_) return;
-    LayerStack::instance().unregisterLayerView(this);
-    registered_ = false;
-    drawnElsewhere_ = false;
-    // 对称 activate：弹框遮罩区需 base 重录填补，否则遮罩残留（②态 passThrough
-    // 不画 base 自身背景，残留遮罩色）。对 base 递归 markAllDirty → base 进③态重绘
-    // 背景 + 兄弟脏 → 全屏重画，遮罩区被 base 内容覆盖。
+    // 注销推迟到下一帧 LayerView::draw（inactive 分支）：先经 publishEmptyList
+    // 发布空清单 + 并入伤害区，再真正注销。立即注销会让 drawAll 不再遍历本层 →
+    // publishEmptyList 永不执行 → publishedList_ 残留旧遮罩/弹框，复合根每帧
+    // 继续回放（表现为"弹框关不掉、遮罩区域不刷新"）。
+    // drawnElsewhere_ 保持 true：本帧 base 树仍跳过本层（避免内联双画）。
     if (auto *base = LayerStack::instance().base()) { base->markAllDirty(); }
+    markAllDirty();    // 保证下一帧 draw 被调用以完成摘除
 }
 
 // ── close / fireClose ──

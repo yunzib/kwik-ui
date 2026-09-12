@@ -50,17 +50,54 @@ void Graphics::setCommandBuffer(std::shared_ptr<CommandBuffer> cb) {
 
 void Graphics::beginFrame(bool /*structural*/) {
     recording_ = true;
-    backdropUsed_ = false;
     currentState_ = State{};
     stateStack_.clear();
-    passThrough_ = false;
-    contentDepth_ = 0;
     if (cb_) cb_->reset();    // 帧复用：清空命令流（vector 内存复用）
+    sinkStack_.clear();     // 防异常路径残留：帧首强制回空栈
 }
 
 std::shared_ptr<CommandBuffer> Graphics::endFrame() {
     recording_ = false;
     return cb_;    // 提交给 FrameSubmit.commandBuffer
+}
+
+// ════════════════════════════════════════════
+// 显示清单 sink（清单挂载阶段）
+// 空栈 = 落帧命令流 cb_（普通路径，行为与改造前完全一致）；
+// View 编码自身清单期间 pushSink，命令改落清单。分发逻辑仅此一处。
+// ════════════════════════════════════════════
+
+DisplayList *Graphics::sink() {
+    return sinkStack_.empty() ? nullptr : sinkStack_.back();
+}
+
+void Graphics::pushSink(DisplayList *list) {
+    if (!list) return;
+    sinkStack_.push_back(list);
+}
+
+void Graphics::popSink() {
+    if (!sinkStack_.empty()) sinkStack_.pop_back();
+}
+
+void Graphics::attachList(const std::shared_ptr<const DisplayList> &child) {
+    if (!child) return;
+    if (auto *s = sink()) s->appendSubtree(child);
+}
+
+void Graphics::appendCmd(DrawCommand cmd) {
+    if (auto *s = sink()) s->append(std::move(cmd));
+    else if (cb_) cb_->append(std::move(cmd));
+}
+
+size_t Graphics::appendVerts(const AAVertex *v, size_t n) {
+    if (auto *s = sink()) return s->appendVertices(v, n);
+    return cb_ ? cb_->appendVertices(v, n) : 0;
+}
+
+size_t Graphics::appendMeshVerts(const Vertex3D *v, size_t n) {
+    if (auto *s = sink()) return s->appendMeshVertices(v, n);
+    return cb_ ? cb_->appendMeshVertices(v, n) : 0;
 }
 
 // ════════════════════════════════════════════
@@ -71,18 +108,12 @@ void Graphics::save() {
     stateStack_.push_back(currentState_);
     currentState_.pushes = 0;
     if (!recording_) return;
-    if (passThrough_) {
-        passThrough_ = false;         // 一次性消费透传标志
-        currentState_.noop = true;    // 本域自身绘制抑制（子节点 save 会覆盖为 false）
-    } else {
-        currentState_.noop = false;    // 正常域，恢复录制
-    }
 }
 
 void Graphics::restore() {
     if (recording_) {
         // 清算本域未配对的 clip → 生成 PopClip 命令
-        while (currentState_.pushes-- > 0) cb_->append(PopClipCmd{});
+        while (currentState_.pushes-- > 0) appendCmd(PopClipCmd{});
     }
     if (!stateStack_.empty()) {
         currentState_ = stateStack_.back();
@@ -136,13 +167,13 @@ void Graphics::setOpacity(float opacity) {
 void Graphics::clipRoundedRect(const Rect &rect, float radius) {
     if (!recording_) return;
     // rect(逻辑) + 矩阵(给 stencil 掩码) + transformRect(rect)(物理 AABB, 给 scissor)
-    cb_->append(PushClipCmd{rect, radius, currentState_.m, transformRect(rect)});
+    appendCmd(PushClipCmd{rect, radius, currentState_.m, transformRect(rect)});
     currentState_.pushes++;
 }
 
 void Graphics::resetClip() {
     if (!recording_ || currentState_.pushes <= 0) return;
-    cb_->append(PopClipCmd{});
+    appendCmd(PopClipCmd{});
     currentState_.pushes--;
 }
 
@@ -150,30 +181,19 @@ void Graphics::resetClip() {
 // 内容录制域（View::draw 的 begin/end）
 // ════════════════════════════════════════════
 
-void Graphics::beginContent(bool passThrough) {
-    contentDepth_++;
-    passThrough_ = passThrough;
-    if (!passThrough) { currentState_.noop = false; }    // 重绘域进入即复位
-}
-
-void Graphics::endContent() {
-    contentDepth_--;
-    passThrough_ = false;    // 防御：onDraw 未消费透传标志（未 save）时强制复位
-}
-
 // ════════════════════════════════════════════
 // 清屏
 // ════════════════════════════════════════════
 
 void Graphics::clear(const Color &color) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(ClearCmd{color});
+    if (!recording_) return;
+    appendCmd(ClearCmd{color});
 }
 
 void Graphics::clearRectArea(const Rect &rect) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     // 清除区域须用物理坐标（transformRect AABB）+ 单位矩阵
-    cb_->append(FillRectCmd{transformRect(rect), Color::transparent(), BlendMode::SrcCopy, Transform2D{}});
+    appendCmd(FillRectCmd{transformRect(rect), Color::transparent(), BlendMode::SrcCopy, Transform2D{}});
 }
 
 // ════════════════════════════════════════════
@@ -181,17 +201,17 @@ void Graphics::clearRectArea(const Rect &rect) {
 // ════════════════════════════════════════════
 
 void Graphics::drawRect(const Rect &rect, const Color &color) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRectCmd{rect, applyOpacity(color), BlendMode::SrcOver, currentState_.m});
+    if (!recording_) return;
+    appendCmd(FillRectCmd{rect, applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
 void Graphics::drawRoundedRect(const Rect &rect, float radius, const Color &color) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(color), Gradient{}, currentState_.m});
+    if (!recording_) return;
+    appendCmd(FillRoundedRectCmd{rect, radius, applyOpacity(color), Gradient{}, currentState_.m});
 }
 
 void Graphics::drawRoundedRectGradient(const Rect &rect, float radius, const Gradient &gradient) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     // 把渐变方向/角度换算为相对 rect 左上的具体坐标（本地逻辑坐标）：
     Gradient g = gradient;
     if (g.type == GradientType::Linear) {
@@ -214,33 +234,22 @@ void Graphics::drawRoundedRectGradient(const Rect &rect, float radius, const Gra
     }
     // 两色都烘焙当前 opacity（cmd.color 字段承载 color0，shader 里 fillColor=color0）
     g.color1 = applyOpacity(g.color1);
-    cb_->append(FillRoundedRectCmd{rect, radius, applyOpacity(g.color0), g, currentState_.m});
+    appendCmd(FillRoundedRectCmd{rect, radius, applyOpacity(g.color0), g, currentState_.m});
 }
 
 void Graphics::drawSegment(float ax, float ay, float bx, float by, float halfW, const Color &color) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(DrawSegmentCmd{ax, ay, bx, by, halfW, applyOpacity(color), currentState_.m});
+    if (!recording_) return;
+    appendCmd(DrawSegmentCmd{ax, ay, bx, by, halfW, applyOpacity(color), currentState_.m});
 }
 
 void Graphics::drawRoundedRectStroke(const Rect &rect, float radius, const Color &color, float strokeWidth) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(StrokeRoundedRectCmd{rect, radius, applyOpacity(color), strokeWidth, currentState_.m});
+    if (!recording_) return;
+    appendCmd(StrokeRoundedRectCmd{rect, radius, applyOpacity(color), strokeWidth, currentState_.m});
 }
 
 void Graphics::drawShadow(const Rect &rect, float radius, const Shadow &shadow) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(DrawShadowCmd{rect, radius, shadow, currentState_.m});
-}
-
-void Graphics::drawUnderlay(const Rect &rect, const Color &color) {
-    if (!recording_) return;    // 无视 noop：底图必须在透传域也录制
-    // 底图必须完整盖住内容 quad 的浮点光栅覆盖：transformRect 的四舍五入
-    // 会向内收半像素（107.5→108），第 107 行旧像素无人重写 → 残留 1px 细线
-    // （按钮按下缩放边缘线、导航高亮残留线均此因）。min 向下/max 向上取整。
-    Rect a = transformRectAABB(rect);
-    Rect phys{std::floor(a.x), std::floor(a.y), std::ceil(a.x + a.width) - std::floor(a.x),
-              std::ceil(a.y + a.height) - std::floor(a.y)};
-    cb_->append(FillRectCmd{phys, color, BlendMode::SrcOver, Transform2D{}});
+    if (!recording_) return;
+    appendCmd(DrawShadowCmd{rect, radius, shadow, currentState_.m});
 }
 
 // ════════════════════════════════════════════
@@ -252,7 +261,7 @@ void Graphics::drawText(const std::string &, const std::string &, float, float, 
 }
 
 void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color) {
-    if (glyphs.empty() || !recording_ || currentState_.noop) return;
+    if (glyphs.empty() || !recording_) return;
     for (auto &g : glyphs) {
         DrawGlyphCmd cmd{g.fontId,
                          g.glyphIndex,
@@ -267,7 +276,7 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
                          applyOpacity(color),
                          static_cast<float>(g.pageIndex),
                          currentState_.m};    // 矩阵
-        cb_->append(cmd);
+        appendCmd(cmd);
     }
 }
 
@@ -276,8 +285,8 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 // ════════════════════════════════════════════
 
 void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
-    if (!recording_ || currentState_.noop) return;
-    cb_->append(DrawImageCmd{textureId, rect, opacity, cornerRadius, currentState_.m});
+    if (!recording_) return;
+    appendCmd(DrawImageCmd{textureId, rect, opacity, cornerRadius, currentState_.m});
 }
 
 // ════════════════════════════════════════════
@@ -285,7 +294,7 @@ void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, fl
 // ════════════════════════════════════════════
 
 void Graphics::fillPath(const Path &path, const Color &color) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     auto triangles = triangulateFill(path);
     if (triangles.empty()) return;
 
@@ -311,8 +320,8 @@ void Graphics::fillPath(const Path &path, const Color &color) {
         verts[i++] = {{t.p1.x, t.p1.y}, mask, h0, h1, h2};
         verts[i++] = {{t.p2.x, t.p2.y}, mask, h0, h1, h2};
     }
-    size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(
+    size_t off = appendVerts(verts.data(), verts.size());
+    appendCmd(
         FillTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
@@ -346,16 +355,16 @@ std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
 }
 
 void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     auto verts = strokeVerts(path, lineWidth);
     if (verts.empty()) return;
-    size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
+    size_t off = appendVerts(verts.data(), verts.size());
+    appendCmd(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
 }
 
 void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1, float width, const Color &color0,
                          const Color &color1) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     if (r <= 0.0f || width <= 0.0f) return;
 
     // 单条连续高密度弧：Path::arc 密度 ≈1.5 采样/弧度（r≈80 时弦长 ~0.7px，视觉平滑）
@@ -366,14 +375,14 @@ void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1, float 
 
     // 圆心/角度以本地逻辑坐标传给 shader，随矩阵一起作用于顶点 → 渐变与纯色变换一致
     // 两端颜色均烘焙透明度，渐变中间 alpha 由 shader 插值（lerp 语义）
-    size_t off = cb_->appendVertices(verts.data(), verts.size());
-    cb_->append(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0), cx, cy, a0, a1, applyOpacity(color1),
+    size_t off = appendVerts(verts.data(), verts.size());
+    appendCmd(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0), cx, cy, a0, a1, applyOpacity(color1),
                              currentState_.m});
 }
 
 void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, float a1, const Color &color0,
                         const Color &color1, bool roundCap) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     if (midR <= 0.0f || halfW <= 0.0f) return;
 
     // quad 外扩：覆盖 fragment SDF 的 AA 过渡带（约 2 物理像素，随矩阵缩放折算到本地坐标）
@@ -381,15 +390,15 @@ void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, f
     float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
     float pad = (sc > 1e-6f) ? 2.0f / sc : 2.0f;
 
-    cb_->append(FillRingCmd{cx, cy, midR, halfW, a0, a1, roundCap, pad, applyOpacity(color0), applyOpacity(color1),
+    appendCmd(FillRingCmd{cx, cy, midR, halfW, a0, a1, roundCap, pad, applyOpacity(color0), applyOpacity(color1),
                             currentState_.m});
 }
 
 void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
                         const float lightDir[3], const Rect &viewport) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     if (vertices.empty()) return;
-    size_t off = cb_->appendMeshVertices(vertices.data(), vertices.size());
+    size_t off = appendMeshVerts(vertices.data(), vertices.size());
     DrawMeshCmd cmd{off, static_cast<uint32_t>(vertices.size())};
     std::memcpy(cmd.mvp, mvp, sizeof(cmd.mvp));
     cmd.color = applyOpacity(color);
@@ -397,7 +406,7 @@ void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[1
     cmd.lightDir[1] = lightDir[1];
     cmd.lightDir[2] = lightDir[2];
     cmd.viewport = transformRect(viewport);    // mesh 走对象空间 MVP + 视口，阶段 2 不做 2D rotate
-    cb_->append(cmd);
+    appendCmd(cmd);
 }
 
 // ════════════════════════════════════════════
@@ -447,14 +456,13 @@ Color Graphics::applyOpacity(const Color &color) const {
 
 void Graphics::beginBackdropBlur(const Rect &frame, float radius, float cornerRadius, float refraction,
                                  float specular) {
-    if (!recording_ || currentState_.noop) return;
+    if (!recording_) return;
     // 外扩边距 = ceil(3σ)：blur 核支持域（防边缘截断），同时作为折射采样的余量上限
     float m = std::ceil(radius * 3.0f);
     Rect expanded{frame.x - m, frame.y - m, frame.width + 2.0f * m, frame.height + 2.0f * m};
     const Transform2D &t = currentState_.m;
     float s = std::sqrt(std::abs(t.m00 * t.m11 - t.m01 * t.m10));    // |det|^0.5（等比缩放）
-    backdropUsed_ = true;
-    cb_->append(BackdropBlurCmd{
+    appendCmd(BackdropBlurCmd{
         .rect = frame,
         .captureBox = transformRect(expanded),
         .radius = radius,

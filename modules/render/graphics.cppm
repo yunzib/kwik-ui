@@ -68,13 +68,24 @@ public:
     /** @brief 裁剪出栈（append PopClip） */
     void resetClip();
 
+    // ── 显示清单 sink（清单挂载阶段）──
+    // View 编码自己清单时 pushSink(&list)，绘制命令改落清单而非帧命令流；
+    // 编码完 popSink 恢复。栈底恒为帧命令流 cb_，普通路径行为不变。
+
+    /** @brief 切换落笔目标到指定清单（View::draw 编码期间调用） */
+    void pushSink(DisplayList *list);
+
+    /** @brief 恢复上一落笔目标（View 编码结束调用；须与 pushSink 配对） */
+    void popSink();
+
+    /** @brief 把子树清单引用挂到当前 sink（无 sink 时零操作）——View::draw 挂接用 */
+    void attachList(const std::shared_ptr<const DisplayList> &child);
+
     // ── 绘制命令 ──
 
     void clear(const Color &color);
     void clearRectArea(const Rect &rect);
     void drawRect(const Rect &rect, const Color &color);
-    /** @brief 绘制脏区底图（无视 noop，供 View::draw ③态覆盖残留像素） */
-    void drawUnderlay(const Rect &rect, const Color &color);
     void drawRoundedRect(const Rect &rect, float radius, const Color &color);
     /** @brief 背景渐变圆角矩形（linear/radial），渐变坐标换算为相对 rect 左上 */
     void drawRoundedRectGradient(const Rect &rect, float radius, const Gradient &gradient);
@@ -109,19 +120,10 @@ public:
     void beginBackdropBlur(const Rect &frame, float radius, float cornerRadius, float refraction,
                            float specular);
 
-    /** @brief 本帧是否录制过液态玻璃 backdrop（驱动“玻璃存在 → 整屏重绘”正确性策略） */
-    bool backdropUsed() const { return backdropUsed_; }
-
     // ── 帧控制 ──
     void present();
     void resize(int width, int height);
     void getSize(int *width, int *height) const;
-
-    /** @brief 开启 View 内容录制域（passThrough=true → 透传 noop） */
-    void beginContent(bool passThrough = false);
-
-    /** @brief 关闭 View 内容录制域 */
-    void endContent();
 
     void setDirtyRectAccum(Rect *r) { dirtyRectAccum_ = r; }
     void accumulateDirtyRect(const Rect &r) {
@@ -131,7 +133,17 @@ public:
     void rotate(float angle);
 
 private:
-    std::shared_ptr<CommandBuffer> cb_;    // 当前命令流
+    std::shared_ptr<CommandBuffer> cb_;    // 当前命令流（帧全局；sink 栈底）
+
+    // ── 显示清单 sink 栈 ──
+    // 空栈 = 落笔帧命令流 cb_；View 编码期间 push 自身清单指针。
+    // 三个 append* 转发方法统一收口落笔目标（分发逻辑仅此一处），
+    // Graphics 其余 25 处 cb_-> 调用点全部改走这三个方法。
+    std::vector<DisplayList *> sinkStack_;
+    DisplayList *sink();                   // nullptr = 落 cb_
+    void appendCmd(DrawCommand cmd);
+    size_t appendVerts(const AAVertex *v, size_t n);
+    size_t appendMeshVerts(const Vertex3D *v, size_t n);
 
     /** @brief 折线 path → AA 三角形顶点（含解析 AA 边高，随当前变换矩阵缩放） */
     std::vector<AAVertex> strokeVerts(const Path &path, float lineWidth);
@@ -141,7 +153,6 @@ private:
         Transform2D m;    // 逻辑→物理 变换矩阵（含 dpi + translate/rotate/scale）
         float opacity = 1.0f;
         int pushes = 0;    // 本 save 域未弹出的 clip 数
-        bool noop = false;
     };
     std::vector<State> stateStack_;
     State currentState_;
@@ -151,10 +162,7 @@ private:
     Color applyOpacity(const Color &color) const;
 
     bool recording_ = false;
-    bool backdropUsed_ = false;    // 本帧录制过 BackdropBlurCmd（renderFrame 消费后随 beginFrame 清零）
     int width_ = 0;
     int height_ = 0;
     Rect *dirtyRectAccum_ = nullptr;
-    int contentDepth_ = 0;        // beginContent/endContent 嵌套深度
-    bool passThrough_ = false;    // 透传标志（save 一次性消费）
 };

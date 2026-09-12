@@ -7,6 +7,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.core.props;
 import kwik.render.graphics;
+import kwik.render.command_buffer;    // DisplayList（保留式清单，清单挂载阶段）
 import kwik.element.typed_prop;
 import kwik.event;
 import kwik.core.binding; // StateBinding — State 双向绑定抽象接口
@@ -290,27 +291,9 @@ public:
     /**
      * @brief 递归标记整棵子树为脏 (resize / rebuild 后调用)
      *
-     * 清除所有缓存, 设置 dirty_=subtreeDirty_=true, 确保下一帧全量重录。
+     * 清除所有缓存, 设置 subtreeDirty_=listDirty_=true, 确保下一帧全量重编。
      */
     void markAllDirty();
-
-    /**
-     * @brief 递归标记整棵子树需要"布局位移整带重绘" (resize 后调用)
-     *
-     * resize 时画布重建且 frame 不变 (moved=false), 整带机制不会经 layout() 自动激活;
-     * 若仅 markAllDirty(), 各视图走裸路径③各自 drawUnderlay(underlayColor()),
-     * underlayColor() 会跳过渐变背景祖先 → 渐变面板被根暗色底图擦成黑块。
-     * 置 needsLayoutRepaint_ 强制下一帧父级整片一次底图 + 自身背景重绘,
-     * 子级只画内容 (s_suppressUnderlay), 与启动首帧/HMR 行为一致。
-     */
-    void markAllLayoutRepaint();
-
-    /** @brief 是否脏 */
-    bool isDirty() const { return dirty_; }
-
-    /** @brief 标记自身为脏并追加额外脏矩形（用于 onDraw 画到 frame 外的场景）
-     *  @param r 额外的脏矩形，会在 draw() 中与 frame 联集后累加给 GPU */
-    void addDirtyRect(const Rect &r);
 
     /** @brief 判断子树中是否有脏节点
      *
@@ -319,17 +302,6 @@ public:
      *  renderFrame 中的 draw() 遍历后自动清零。
      */
     bool hasDirtySubtree() const { return subtreeDirty_; }
-
-    /** @brief 强制本节点脏（仅设 dirty_+subtreeDirty_，不冒泡、不递归）
-     *
-     *  跨层脏协调专用：LayerStack 检测到下层脏区与本层 bounds 相交时调用，
-     *  强制本层下一帧重绘，以覆盖下层底图填充造成的像素擦除。
-     *  不冒泡是为了避免向 base 根设 subtreeDirty_ 而触发额外空帧
-     *  （本层绘制后 clearDirty 自行清零，不依赖冒泡链）。 */
-    void forceLocalDirty() {
-        dirty_ = true;
-        subtreeDirty_ = true;
-    }
 
     /** @brief 计算绘制影响区（脏区底图填充 + 脏矩形累积 + 跨层重叠协调用）
      *
@@ -347,9 +319,7 @@ public:
      *  hasDirtySubtree() 恒 true → 主循环永不 idle（旧的 Dialog::draw 重写
      *  不 clearDirty 即犯此病）。关闭态 draw() 路径调此方法彻底清脏 → 恢复 4ms 休眠。 */
     void clearAllDirty() {
-        dirty_ = false;
         subtreeDirty_ = false;
-        dirtyRectOverride_ = {};
     }
 
     /** @brief 递归清空自身及整棵子树脏标记（弹层关闭态用）
@@ -425,9 +395,7 @@ public:
      */
     void drawForced(Graphics &g) {
         if (!props.visible) return;
-        g.beginContent();
-        onDraw(g);
-        g.endContent();    // 画布即缓存：结果已写入层树，不再缓存
+        onDraw(g);    // 强制编码：跳过脏判断，子级经各自 draw 挂引用入当前 sink
     }
 
     /**
@@ -515,13 +483,39 @@ protected:
      *         根 frame 为空但子树坐标仍有效，防止越界绘制泄漏） */
     void iterateChildren(Graphics &graphics);
 
-    void markTreeIntersecting(View &v, const Rect &band);    ///< 冲突晋升预标记: 仅置脏, 不产生任何擦除
-
     /**
      * @brief 绘制回调 (子类重写)
      * @param graphics 绘图上下文
      */
     virtual void onDraw(Graphics &graphics);
+
+    // ── 保留式显示清单（清单挂载阶段，方案见 当前优化任务清单.md §1.6）──
+    //
+    // onDraw 被包装：listDirty_ 时 Graphics 先 pushSink(&pendingList_)，
+    // 现有绘制代码原样跑、命令落入本节点清单；编码完 popSink 并把
+    // 清单快照交给父级（appendSubtree）。干净节点直接复用 publishedList_
+    // 引用（子树剪枝——不重编、不重放编码，仅父级回放时多走一个嵌套）。
+    //
+    // 阶段 1 全画布回放：FrameSubmit 仍走旧命令流，清单回放**未接入
+    // 渲染线程**，本机制只旁路记录（行为与改造前逐字节一致）。
+
+public:
+    /** @brief 渲染线程回放入口：返回当前已发布快照（无则 nullptr）。
+     *  快照在 encodeList 末尾内联发布（无独立 publish pass） */
+    std::shared_ptr<const DisplayList> publishedList() const { return publishedList_; }
+
+    /** @brief 发布空清单：从合成中摘除本节点（弹层关闭、临时隐藏等场景）。
+     *  内部把本节点最近绘制区域并入伤害区（base 清单重放填补），
+     *  同时置 listDirty_，重新可见/激活时强制重编 */
+    void publishEmptyList(Graphics &graphics);
+
+private:
+    /** @brief onDraw 开头的清单编码（三明治 + 虚 onDraw 全捕获 + 内联发布），见 view.cpp */
+    void encodeList(Graphics &graphics);
+
+    std::shared_ptr<const DisplayList> publishedList_;   ///< 已发布快照（render 线程只读）
+    std::unique_ptr<DisplayList> pendingList_;           ///< 编码草稿（UI 线程私有）
+    bool listDirty_ = true;                              ///< 视觉变化后待重编
 
     /**
      * @brief 计算该 View 下面的底图颜色（脏区重绘前填充用）
@@ -531,16 +525,13 @@ protected:
      * （与 Vulkan 画布初值 0.96 一致，见 vulkan_context.cpp 首帧 clear）。
      * 虚化：浮层层节点（MenuView）覆盖为自身底色。
      */
-    Color underlayColor() const;
 
 private:
     View *parent_ = nullptr;        // 父节点 (addChild 自动设置, 裸指针不参与所有权)
-    bool dirty_ = true;             // 新建后默认脏 (首帧必画)
-    bool subtreeDirty_ = true;      // 子树中有脏节点 (首帧全遍历)
+    bool subtreeDirty_ = true;      // 子树中有脏节点 (首帧全遍历; 帧门信号)
     bool needsRelayout_ = false;    // 标记需要 re-layout
     bool subtreeLayout_ = false;    // 子树中有节点请求 re-layout (requestLayout 冒泡)
-    Rect dirtyRectOverride_;        ///< addDirtyRect 累积的额外脏区，draw() 使用后清零
-    Rect lastPaintBounds_;          ///< 上次实际绘制范围（脏区底图覆盖旧范围用，见 draw ③态）
+    Rect lastPaintBounds_;          ///< 上次编码范围（伤害计算 = lastPaintBounds_ ∪ paintBounds）
 
     // ── 增量测量缓存 ──
     Size contentSize_;               ///< 内容测量阶段缓存尺寸
@@ -552,10 +543,6 @@ private:
     static bool sLayoutPhase;        ///< 当前测量相位 (内容/布局)
 
     /** @brief 布局位移标记: 子视图位移导致相邻区域重叠, 下一帧父级做整片区域一次性重绘 */
-    bool needsLayoutRepaint_ = false;
-    /** @brief 区域重绘中: 子视图只重画内容、不做各自底图 (避免相邻底图互洗) */
-    inline static bool s_suppressUnderlay = false;
-
     /**
      * @brief 移动构造后修复所有子节点的 parent_ 指针
      *
@@ -565,11 +552,5 @@ private:
      */
     void fixChildrenParent() {
         for (auto &child : children) { child->parent_ = this; }
-    }
-
-    /** @brief 绘制完成后清脏 (仅 draw() 内部调用) */
-    void clearDirty() {
-        dirty_ = false;
-        dirtyRectOverride_ = {};
     }
 };
