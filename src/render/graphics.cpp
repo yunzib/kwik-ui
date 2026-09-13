@@ -1,6 +1,7 @@
 module;
 
 #include <stdint.h>
+#include <cassert>
 
 module kwik.render.graphics;
 
@@ -17,13 +18,11 @@ import kwik.core.path;
 // 构造 / 析构
 // ════════════════════════════════════════════
 
-Graphics::Graphics(BackendType backend, int width, int height) : width_(width), height_(height) {}
-
 Graphics::~Graphics() = default;
 
 Graphics::Graphics(Graphics &&other) noexcept :
     stateStack_(std::move(other.stateStack_)), currentState_(other.currentState_),
-    recording_(other.recording_), width_(other.width_), height_(other.height_) {
+    recording_(other.recording_) {
     other.recording_ = false;
 }
 
@@ -32,15 +31,13 @@ Graphics &Graphics::operator=(Graphics &&other) noexcept {
         stateStack_ = std::move(other.stateStack_);
         currentState_ = other.currentState_;
         recording_ = other.recording_;
-        width_ = other.width_;
-        height_ = other.height_;
         other.recording_ = false;
     }
     return *this;
 }
 
 // ════════════════════════════════════════════
-// 帧管理
+// 帧管理（显式配对：beginFrame/endFrame）
 // ════════════════════════════════════════════
 
 void Graphics::beginFrame(bool /*structural*/) {
@@ -48,6 +45,14 @@ void Graphics::beginFrame(bool /*structural*/) {
     currentState_ = State{};
     stateStack_.clear();
     sinkStack_.clear();     // 防异常路径残留：帧首强制回空栈
+}
+
+void Graphics::endFrame() {
+    // 平衡校验：帧会话结束时两个栈必须已空——漏配对（save 未 restore /
+    // pushSink 未 popSink）在此当场暴露，不依赖调用纪律
+    assert(stateStack_.empty() && "endFrame：stateStack_ 非空（save/restore 漏配对）");
+    assert(sinkStack_.empty() && "endFrame：sinkStack_ 非空（pushSink/popSink 漏配对）");
+    recording_ = false;
 }
 
 // ════════════════════════════════════════════
@@ -101,7 +106,11 @@ void Graphics::save() {
 void Graphics::restore() {
     if (recording_) {
         // 清算本域未配对的 clip → 生成 PopClip 命令
-        while (currentState_.pushes-- > 0) appendCmd(PopClipCmd{});
+        // （前缀减：后缀版在 pushes==0 时会把计数打到 -1，后续 clip 对漏弹一次 PopClip）
+        while (currentState_.pushes > 0) {
+            appendCmd(PopClipCmd{});
+            --currentState_.pushes;
+        }
     }
     if (!stateStack_.empty()) {
         currentState_ = stateStack_.back();
@@ -398,21 +407,8 @@ void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[1
 }
 
 // ════════════════════════════════════════════
-// 帧控制 / 工具
+// 工具
 // ════════════════════════════════════════════
-
-void Graphics::present() { /* No-op：由 RenderThread 管理 */ }
-
-void Graphics::resize(int width, int height) {
-    if (width_ == width && height_ == height) return;
-    width_ = width;
-    height_ = height;
-}
-
-void Graphics::getSize(int *width, int *height) const {
-    if (width) *width = width_;
-    if (height) *height = height_;
-}
 
 Rect Graphics::transformRectAABB(const Rect &rect) const {
     // 变换矩形 4 角，取 AABB（浮点原始值，不取整）

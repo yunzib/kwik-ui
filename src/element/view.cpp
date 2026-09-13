@@ -235,11 +235,12 @@ void View::draw(Graphics &graphics) {
         encodeList(graphics);
     } else if (subtreeDirty_) {
         subtreeDirty_ = false;
-        graphics.save();
+        graphics.save();                     // 引用段重建域：本分支自平衡
         graphics.pushSink(pendingList_.get());
         pendingList_->clearSubtreeRefs();    // 只重建引用段，自身图元保留
-        iterateChildren(graphics);           // 子级自行编码/挂接；尾部 restore 配对 save
+        iterateChildren(graphics);           // 子级自行编码/挂接
         graphics.popSink();
+        graphics.restore();                  // 配对上面的 save（本分支自平衡）
         // 引用段已变（子级新快照挂入）：快照一经发布只读 → 重拷贝固化
         publishedList_ = std::make_shared<DisplayList>(*pendingList_);
     }
@@ -308,14 +309,12 @@ void View::drawBackdropStage(Graphics &graphics) {
 }
 
 // ============================================================================
-// drawSelfContent — 自身装饰层（原 View::onDraw 前半段拆出）
-// save 后应用变换/透明度/阴影/背景/边框，并按内容区圆角裁剪（子节点继承该裁剪）。
-// 注意：此处 save 不配对 —— 普通路径由 iterateChildren 尾部 restore 收尾，
-// 自定义呈现器（StackIndex 等）须自行配对弹出。
+// drawSelfContent — 自身装饰层（纯装饰应用，零状态操作）
+// 在调用方（onDraw 的装饰域）已设好的状态域内应用变换/透明度/阴影/背景/
+// 边框，并按内容区圆角裁剪（子节点继承该裁剪——该 clip 的 PopClip 由
+// onDraw 末尾的 restore 清算，见 onDraw）。
 // ============================================================================
 void View::drawSelfContent(Graphics &graphics) {
-    graphics.save();
-
     if (props.transform.has_value()) {
         auto &t = *props.transform;
         graphics.translate(t.translateX, t.translateY);
@@ -351,11 +350,10 @@ void View::drawSelfContent(Graphics &graphics) {
 }
 
 // ============================================================================
-// iterateChildren — 子节点清单挂接迭代（唯一渲染路径）
+// iterateChildren — 子节点清单挂接迭代（唯一渲染路径，纯遍历零状态操作）
 // 纯 z 序遍历：每个子级经 View::draw 自行"按需编码 + 挂接引用"，
 // 无脏门/晋升/豁免（带内正确性由渲染线程"伤害带内全 z 序重放清单"保证）。
 // 加固：零面积/借根（drawnElsewhere_）子树跳过（原语义保留）。
-// 末尾 restore 与 drawSelfContent 开头的 save 配对（原语义保留）。
 // ============================================================================
 void View::iterateChildren(Graphics &graphics) {
     auto visit = [&](View *c) {
@@ -375,17 +373,20 @@ void View::iterateChildren(Graphics &graphics) {
     } else {
         for (auto &c : children) visit(c.get());
     }
-    graphics.restore();    // 与 drawSelfContent 的 save 配对
 }
 
 // ============================================================================
-// onDraw — 标准绘制 = 自身装饰 + 脏门子树迭代（行为与拆分前逐字节等价）
-// 清单挂载：listDirty_ 时先落笔自身清单（pushSink），编码完即内联发布；
-// 子树迭代后把各子级已发布清单按 z 序挂到本清单（嵌套结构）。
+// onDraw — 标准绘制 = 装饰域内的（自身装饰 + z 序子级迭代）
+// 自平衡三段式：save 开装饰域（transform/opacity/内容区 clip 对子级生效）
+// → drawSelfContent（纯装饰）→ iterateChildren（纯遍历）→ restore 收口
+// （含内容区 clip 的 PopClip 清算）。配对全部同函数内可见。
+// 组件覆写 onDraw 的心智模型：你 save 的你自己 restore。
 // ============================================================================
 void View::onDraw(Graphics &graphics) {
-    drawSelfContent(graphics);
-    iterateChildren(graphics);
+    graphics.save();                   // 装饰域：本函数自平衡
+    drawSelfContent(graphics);         // 纯装饰应用（零状态操作）
+    iterateChildren(graphics);         // 纯 z 序遍历
+    graphics.restore();                // 收装饰域（含内容区 clip 清算）
 }
 
 // ============================================================================

@@ -31,7 +31,6 @@ export class Graphics {
 public:
     // ── 构造 / 析构 ──
     Graphics() = default;
-    Graphics(BackendType backend, int width, int height);
     ~Graphics();
 
     Graphics(const Graphics &) = delete;
@@ -39,10 +38,16 @@ public:
     Graphics(Graphics &&) noexcept;
     Graphics &operator=(Graphics &&) noexcept;
 
-    // ── 帧管理 ──
+    // ── 帧管理（显式配对：beginFrame/endFrame）──
 
-    /** @brief 开始录制一帧（重置 CPU 状态栈与 sink 栈；structural 参数保留兼容） */
+    /** @brief 开始录制一帧（重置 CPU 状态栈与 sink 栈）。
+     *  与 endFrame 成对调用；structural 参数保留兼容（当前无行为差异） */
     void beginFrame(bool structural = false);
+
+    /** @brief 结束录制一帧：帧会话关闭 + 平衡校验（断言 stateStack_/sinkStack_
+     *  已空——save/restore 或 pushSink/popSink 漏配对在此当场暴露）。
+     *  帧命令流通道已退役，不返回命令流 */
+    void endFrame();
 
     // ── 状态管理 ──
 
@@ -116,11 +121,7 @@ public:
     void beginBackdropBlur(const Rect &frame, float radius, float cornerRadius, float refraction,
                            float specular);
 
-    // ── 帧控制 ──
-    void present();
-    void resize(int width, int height);
-    void getSize(int *width, int *height) const;
-
+    // ── 伤害累加（伤害带写入点：encodeList/publishEmptyList）──
     void setDirtyRectAccum(Rect *r) { dirtyRectAccum_ = r; }
     void accumulateDirtyRect(const Rect &r) {
         if (dirtyRectAccum_) { *dirtyRectAccum_ = dirtyRectAccum_->isEmpty() ? r : dirtyRectAccum_->unionRect(r); }
@@ -155,7 +156,5 @@ private:
     Color applyOpacity(const Color &color) const;
 
     bool recording_ = false;
-    int width_ = 0;
-    int height_ = 0;
     Rect *dirtyRectAccum_ = nullptr;
 };

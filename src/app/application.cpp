@@ -256,6 +256,8 @@ void Application::renderFrame() {
 
     LayerStack::instance().drawAll(canvas, &dirtyRect_);    // 多图层统一绘制（M1：等价 tree_->draw）
 
+    canvas.endFrame();    // 帧会话关闭 + 平衡校验（漏 save/restore、漏 pushSink/popSink 当场断言）
+
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
     if (dr.isEmpty()) {

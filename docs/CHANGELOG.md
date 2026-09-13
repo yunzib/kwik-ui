@@ -13,6 +13,12 @@
 - 属性元数据单表化：PropMeta 补 name/别名/unit/flags 字段，kPropNameMap、
   kLayoutProps 双源表删除并入 meta；名字解析/布局判定/getProperty 改查表；
   单测增布局属性行为锁与全表巡检（反射就绪雏形，见 当前优化任务清单 §三）
+- Graphics 绘制域自平衡：drawSelfContent 退为纯装饰应用（零状态操作），
+  save/restore 配对收拢到 onDraw 同函数内（"谁 save 谁 restore"一屏可见），
+  iterateChildren 退为纯遍历，StackIndex 删跨函数配对 restore；endFrame
+  恢复与 beginFrame 显式配对并承担平衡校验（漏配对当场断言）；删除零调用
+  死 API（present/resize/getSize/参数化构造）；修 restore pushes 后缀自减
+  可打负数漏弹 PopClip
 
 ### 新增（测试门禁）
 - 冒烟测试 smoke.py：37 示例自动退出 + 错误扫描；Vulkan 验证层开关
