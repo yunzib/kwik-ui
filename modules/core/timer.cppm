@@ -42,6 +42,13 @@ public:
         }
     }
 
+    /// 清空全部定时器（树重建/HMR/退出时调用——旧回调可能捕获已析构的 View this）
+    static void stopAll() {
+        auto &inst = instance();
+        inst.pending_.clear();
+        inst.entries_.clear();
+    }
+
     /// 每帧由 Application 调用，触发到期回调
     static void tick() {
         auto &inst = instance();

@@ -74,17 +74,33 @@ Application::Application(PlatformWindow &window, const RunConfig &config) :
                   }),
     jsCtx_{} {}
 
+// ============================================================================
+// teardownJsBoundRuntime — 按契约顺序释放绑定 JS/树 的运行时服务
+// （dtor 与 HMR 共用；此前两处手写序列收拢于此）
+//
+// 顺序契约（唯一权威；调用时机归调用方——dtor 在 renderThread_.stop(true)
+// 后、jsCtx_ 销毁前；HMR 在 tree_.reset() 前）：
+//   ① AnimationEngine::stopAll —— 动画 onComplete 会 resolve JS Promise，
+//      必须先于 JS 上下文销毁（跳过则退出时 gc_obj_list 非空 → quickjs 断言）
+//   ② CoreTimer::stopAll       —— 清场兜底：树重建后旧定时器一律不再触发
+//      （正规防线是组件析构 clear，见 ~Input/~TextArea/~Chart）
+//   ③ LayerStack::clear+setBase(nullptr) —— borrowed View*，先于树析构
+//      （防 Layer 节点 deactivate 访问悬空 base）
+//   ④ Channel::shutdown 由调用方在树处理完成后自行调用（先于 JS_FreeContext）
+// ============================================================================
+void Application::teardownJsBoundRuntime() {
+    AnimationEngine::instance().stopAll();
+    CoreTimer::stopAll();
+    LayerStack::instance().clear();
+    LayerStack::instance().setBase(nullptr);
+}
+
 Application::~Application() {
     // ① 先停渲染线程：防止最后一帧回放与纹理销毁竞态（偶发退出段错误，
     //    image demo 冒烟复现；~RenderThread 要到成员析构阶段才停止，太晚）
     renderThread_.stop(true);
-    // ② 停动画：stopAll 会经 onComplete resolve 各 animate() 的 Promise，
-    //    释放其持有的 JS 函数引用（jsCtx_ 成员在函数体之后才析构，此刻仍有效）；
-    //    跳过则退出时 gc_obj_list 非空 → quickjs.c 断言
-    AnimationEngine::instance().stopAll();
-    // 先清图层（base_ 置空），防树析构时 Layer 节点 deactivate 访问悬空 base
-    LayerStack::instance().clear();
-    LayerStack::instance().setBase(nullptr);
+    // ② 按契约顺序释放 JS/树绑定服务（见 teardownJsBoundRuntime 注释）
+    teardownJsBoundRuntime();
     Channel::shutdown(jsCtx_.getPtr());
     TextureManager::instance().destroyAll();
 }
@@ -516,12 +532,11 @@ void Application::onHotReloadTriggered(const std::string &path) {
 
     // ── 清理旧 JS 引擎的外部引用 ──
 
-    // ① 停止动画，防止动画回调使用即将销毁的 JS 上下文
-    AnimationEngine::instance().stopAll();
+    // ① 按契约顺序停动画/清定时器/清图层（见 teardownJsBoundRuntime 注释；
+    //    定时器清场兜底：树重建后旧回调一律不再触发）
+    teardownJsBoundRuntime();
 
-    // ② 销毁当前 View 树前，清空图层列表（borrowed 指针防悬空）
-    LayerStack::instance().clear();
-    LayerStack::instance().setBase(nullptr);
+    // ② 销毁当前 View 树
     //     View 绑定属性（如 onChange）可能持有 JS 函数引用，
     //     必须在 shutdown 和 reload 之前释放
     tree_.reset();

@@ -41,6 +41,7 @@ public:
     explicit TextArea(ViewProps vp, TextAreaProps tp) : View(std::move(vp)), props_(std::move(tp)) {
         text_ = props_.value;
     }
+    ~TextArea() override;    // 析构清理光标闪烁定时器（实现见 textarea.cpp）
 
     ElementType type() const override {
         return ElementType::TextArea;
