@@ -9,6 +9,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.texture_manager;
+import kwik.render.backend;         // RenderBackend（纹理按本树后端路由）
 
 import std;
 
@@ -81,7 +82,10 @@ Video::Video(ViewProps vp, VideoProps lp) : View(std::move(vp)), video_(std::mov
 
 Video::~Video() {
     if (backend_) backend_->close();
-    if (textureId_ != 0) TextureManager::instance().destroyTexture(textureId_);
+    if (textureId_ != 0) {
+        TextureManager::instance().destroyTexture(
+            static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
+    }
 }
 
 void Video::setBackend(std::unique_ptr<VideoBackend> backend) {
@@ -175,12 +179,13 @@ void Video::onDraw(Graphics &g) {
     VideoFrame f;
     if (backend_ && backend_->grabFrame(f) && f.width > 0 && f.height > 0) {
         // 尺寸变化 → 重建纹理
+        auto *be = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
         if (textureId_ != 0 && (texW_ != f.width || texH_ != f.height)) {
-            TextureManager::instance().destroyTexture(textureId_);
+            TextureManager::instance().destroyTexture(be, textureId_);
             textureId_ = 0;
         }
         if (textureId_ == 0) {
-            textureId_ = TextureManager::instance().createTexture(f.rgba.data(), f.width, f.height);
+            textureId_ = TextureManager::instance().createTexture(be, f.rgba.data(), f.width, f.height);
             texW_ = f.width;
             texH_ = f.height;
         }

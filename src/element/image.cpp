@@ -23,6 +23,8 @@ import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
+import kwik.render.backend;         // RenderBackend（纹理按本树后端路由）
+import kwik.render.texture_manager;
 // ============================================================================
 // 辅助函数 — 扩展名判断
 // ============================================================================
@@ -156,7 +158,8 @@ void Image::onDraw(Graphics &graphics) {
 // ============================================================================
 Image::~Image() {
     if (textureId_ != 0) {
-        TextureManager::instance().destroyTexture(textureId_);
+        TextureManager::instance().destroyTexture(
+            static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
         textureId_ = 0;
     }
 }
@@ -166,7 +169,9 @@ Image::~Image() {
 // ============================================================================
 void Image::uploadTexture() {
     if (textureId_ != 0 || pixels_.empty()) return;
-    textureId_ = TextureManager::instance().createTexture(pixels_.data(), static_cast<uint32_t>(decodedWidth_),
+    textureId_ = TextureManager::instance().createTexture(
+        static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)),
+        pixels_.data(), static_cast<uint32_t>(decodedWidth_),
                                                           static_cast<uint32_t>(decodedHeight_));
     pixels_.clear();
     pixels_.shrink_to_fit();

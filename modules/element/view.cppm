@@ -509,6 +509,22 @@ public:
      *  同时置 listDirty_，重新可见/激活时强制重编 */
     void publishEmptyList(Graphics &graphics);
 
+    // ── 树级服务槽（多呈现，清单 §十四）──
+    // 每棵 UI 树一份的服务（LayerStack/AnimationEngine）经根节点接线，
+    // 组件沿 parent_ 链上行访问。View 基类只存不透明指针——服务类型对
+    // 本模块不可见（LayerStack 依赖 View，反向 import 即循环）；
+    // 类型安全取用见各服务模块的自由函数（如 layer_stack 的 layersOf）。
+    static constexpr int kSvcLayerStack = 0;    // 槽 0：LayerStack*（layersOf 取用）
+    static constexpr int kSvcAnimEngine = 1;   // 槽 1：AnimationEngine*（bridge 侧取用）
+    static constexpr int kSvcRenderBackend = 2; // 槽 2：RenderBackend*（Image 纹理路由用）
+
+    /** @brief 根节点接线（KwikRuntime::init 调用；非根调用无效果） */
+    void setTreeService(int slot, void *svc);
+
+    /** @brief 上行到根取服务槽（根未接线/槽空返回 nullptr；
+     *  组件在树内（parent 链有效）时使用） */
+    void *treeService(int slot) const;
+
 private:
     /** @brief 绘制影响范围 = paintBounds + 特效外延（阴影偏移+模糊、
      *  描边线宽；玻璃 backdropBlur 不外延——合成被 SDF 蒙版限制在元素
@@ -519,6 +535,7 @@ private:
     void encodeList(Graphics &graphics);
 
     std::shared_ptr<const DisplayList> publishedList_;   ///< 已发布快照（render 线程只读）
+    void *treeSvc_[3] = {nullptr, nullptr, nullptr};       ///< 树级服务槽（仅根节点有效，见 setTreeService）
     std::unique_ptr<DisplayList> pendingList_;           ///< 编码草稿（UI 线程私有）
     bool listDirty_ = true;                              ///< 视觉变化后待重编
 

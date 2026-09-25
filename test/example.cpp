@@ -109,7 +109,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "g2d") return "../../test/ui/g2d.js";
         if (arg == "theme") return "../../test/ui/theme.js";
         if (arg == "stackindex") return "../../test/ui/stackindex.js";
-        if (arg == "layer") return "../../test/ui/layer.js";
+        if (arg == "layer" || arg == "dual") return "../../test/ui/layer.js";    // dual=主窗layer+副窗glass
         if (arg == "g3d") return "../../test/ui/g3d.js";
         if (arg == "scrollview") return "../../test/ui/scrollview.js";
         if (arg == "treemenu") return "../../test/ui/treemenu.js";
@@ -145,7 +145,22 @@ int main(int argc, char *argv[]) {
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
     registerG3DElement();
 
-    Application app(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
+    Application app;
+    app.createRuntime(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});
+
+    // ── 双树示例：dual → 第二窗口再跑一棵树（多窗口验证）──
+    // 主窗按参数（默认 layer），副窗固定 glass；两树各自 JS/层树/动画/渲染线程。
+    // 副窗静态持有：main 栈上 app 先于 window 析构，副窗须活到 app 之后
+    if (argc >= 2 && std::string(argv[1]) == "dual") {
+        auto win2 = std::make_unique<PlatformWindowWin32>();
+        if (win2 && win2->Create("KwiK UI Demo 2", 960, 640)) {
+            win2->Show();
+            app.createRuntime(*win2, {.jsPath = "../../test/ui/glass.js", .fontDirs = {"../../resources/fonts"}});
+            static auto keepAlive2 = std::move(win2);    // 静态：存活至 app 析构之后
+        } else {
+            Log::error("[dual] 第二窗口创建失败，退化为单窗口");
+        }
+    }
 
     if (argc >= 2 && std::string(argv[1]) == "channel") { ChannelTest::setup(); }
 

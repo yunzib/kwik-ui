@@ -20,72 +20,28 @@ import std;
 export bool animationPropAffectsLayout(PropId prop);
 
 /**
- * @brief 单属性动画的控制句柄
+ * @brief 单属性动画句柄 — 纯 token（单向依赖：零依赖值类型）
  *
- *  由 AnimationEngine::start() 返回。
- *  持有动画的唯一 ID，所有方法委托给引擎。
- *  Handle 本身是轻量值类型（8 字节），可自由拷贝。
- *
- *  用途：
- *    - 暂停/恢复/停止单个属性的动画
- *    - 跳转到指定进度
- *    - 查询运行状态
+ *  由 AnimationEngine::start() 返回。仅持有动画 ID，不持引擎引用、
+ *  不提供方法——一切操作在 AnimationEngine 上（engine.pause(h.id)）。
+ *  轻量值类型（8 字节），可自由拷贝。同 std::thread::id 模式。
  */
-export class AnimationHandle {
-public:
-    AnimationHandle() = default;
-    explicit AnimationHandle(uint64_t id) : id_(id) {}
-
-    void pause();
-    void resume();
-    void stop();
-    void seek(float progress);
-    void setDirection(AnimDirection dir);
-
-    bool isRunning() const;
-    bool isFinished() const;
-    float progress() const;
-
-private:
-    uint64_t id_ = 0;
-    friend class AnimationEngine;
+export struct AnimationHandle {
+    uint64_t id = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AnimationGroup — 多属性动画组控制句柄
+// AnimationGroup — 多属性动画组句柄（纯 token）
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * @brief 多属性动画组的控制句柄
+ * @brief 多属性动画组句柄 — 纯 token（单向依赖：零依赖值类型）
  *
- *  由 AnimationEngine::startMulti() 返回。
- *  内部持有组 ID，所有方法批量操作组内所有动画。
- *
- *  用途：
- *    - 暂停/恢复/停止整组动画（如 animate() 多属性调用）
- *    - 跳转整组到同一进度
- *    - Promise-like 完成回调
+ *  由 AnimationEngine::startMulti() 返回。仅持有组 ID，
+ *  组操作（暂停/恢复/停止/跳转）经 AnimationEngine 的 *Group 方法。
  */
-export class AnimationGroup {
-public:
-    AnimationGroup() = default;
-    explicit AnimationGroup(uint64_t groupId) : groupId_(groupId) {}
-
-    /// 获取组 ID（引擎内部使用）
-    uint64_t id() const { return groupId_; }
-
-    void pause();
-    void resume();
-    void stop();
-    void seek(float progress);
-
-    bool isRunning() const;
-    bool isFinished() const;
-    float progress() const;
-
-private:
-    uint64_t groupId_ = 0;
-    friend class AnimationEngine;
+export struct AnimationGroup {
+    uint64_t id = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -111,10 +67,9 @@ private:
  */
 export class AnimationEngine {
 public:
-    static AnimationEngine &instance() {
-        static AnimationEngine inst;
-        return inst;
-    }
+    // 多呈现（S2-2）：每棵 UI 树一份（KwikRuntime 成员 animations_），
+    // 组件/bridge 经根节点服务槽 kSvcAnimEngine 上行获取
+    AnimationEngine() = default;
 
     // ────────── 启动 ──────────
 
@@ -159,6 +114,19 @@ public:
      * @brief 停止指定组内所有动画
      */
     void stopAllGroup(uint64_t groupId);
+
+    // ────────── 组操作（AnimationGroup token 的方法面，纯转发）──────────
+
+    /** @brief 暂停整组（组内所有动画） */
+    void pauseGroup(uint64_t groupId);
+    /** @brief 恢复整组 */
+    void resumeGroup(uint64_t groupId);
+    /** @brief 整组跳转到指定进度 */
+    void seekGroup(uint64_t groupId, float progress);
+    /** @brief 组内是否有活跃动画 */
+    bool groupRunning(uint64_t groupId) const;
+    /** @brief 组进度（组内首动画，粗略估计） */
+    float groupProgress(uint64_t groupId);
 
     /**
      * @brief 停止所有动画（rebuildTree 前调用）
@@ -225,10 +193,6 @@ public:
     auto end() { return animations_.end(); }
 
 private:
-    friend class AnimationHandle;
-    friend class AnimationGroup;
-    AnimationEngine() = default;
-
     std::vector<std::unique_ptr<ActiveAnimation>> animations_;
     uint64_t nextId_ = 1;
 

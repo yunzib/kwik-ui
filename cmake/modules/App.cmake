@@ -5,8 +5,10 @@ target_sources(kwik_app
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/app
         FILES
             modules/app/application.cppm
+            modules/app/kwik_runtime.cppm
     PRIVATE
         src/app/application.cpp
+        src/app/kwik_runtime.cpp
 )
 target_link_libraries(kwik_app
     PRIVATE

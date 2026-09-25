@@ -12,6 +12,7 @@ module;
 module kwik.element.keyboard;
 
 import kwik.element.view;
+import kwik.element.layer_stack;
 import kwik.element.layer_view;
 import kwik.core.props;
 import kwik.core.types;
@@ -65,7 +66,7 @@ void Keyboard::activate() {
     if (registered_) return;
     registered_ = true;
     drawnElsewhere_ = true;
-    LayerStack::instance().registerLayerView(this);
+    layersOf(this)->registerLayerView(this);
     props.visible = true;    // ← 同步 ViewProps.visible，否则 View::draw 第 199 行直接退场
     frame = panelRect();
     markAllDirty();
@@ -74,10 +75,10 @@ void Keyboard::activate() {
 void Keyboard::deactivate() {
     if (!registered_) return;
     registered_ = false;
-    LayerStack::instance().unregisterLayerView(this);
+    layersOf(this)->unregisterLayerView(this);
     drawnElsewhere_ = false;
     props.visible = false;    // ← 同步隐蔽态
-    if (auto *base = LayerStack::instance().base()) {
+    if (auto *base = layersOf(this)->base()) {
         View *root = base;
         while (root->parent()) root = root->parent();
         root->markAllDirty();
@@ -167,7 +168,7 @@ float Keyboard::panelHeight() const {
 }
 
 Rect Keyboard::panelRect() const {
-    auto *base = LayerStack::instance().base();
+    auto *base = layersOf(this)->base();
     float w = base ? base->frame.width : 0;
     float h = base ? base->frame.height : 0;
     float ph = panelHeight();

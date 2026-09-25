@@ -77,81 +77,43 @@ bool animationPropAffectsLayout(PropId prop) { return getPropMeta(prop).flags & 
 // AnimationHandle
 // ═══════════════════════════════════════════════════════════════════════════
 
-void AnimationHandle::pause() {
-    AnimationEngine::instance().pause(id_);
-}
-void AnimationHandle::resume() {
-    AnimationEngine::instance().resume(id_);
-}
-void AnimationHandle::stop() {
-    AnimationEngine::instance().stop(id_, true);
-}
-void AnimationHandle::seek(float p) {
-    AnimationEngine::instance().seek(id_, p);
-}
-void AnimationHandle::setDirection(AnimDirection d) {
-    AnimationEngine::instance().setDirection(id_, d);
-}
-bool AnimationHandle::isRunning() const {
-    return AnimationEngine::instance().isActive(id_);
-}
-bool AnimationHandle::isFinished() const {
-    return !AnimationEngine::instance().isActive(id_);
-}
-float AnimationHandle::progress() const {
-    auto &engine = AnimationEngine::instance();
-    auto it = engine.findAnim(id_);
-    if (it != engine.end()) return (*it)->progress();
-    return 0.0f;
-}
+// Handle/Group 已纯 token 化（S2-2 单向依赖修正）：不持引擎引用、无方法。
+// 单动画操作直接用 engine.pause(id)/stop(id)/...（Engine 本有），组操作见下。
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AnimationGroup
 // ═══════════════════════════════════════════════════════════════════════════
 
-void AnimationGroup::pause() {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end()) return;
-    for (auto id : git->second) eng.pause(id);
+// ── 组操作（原 AnimationGroup 方法平移为 Engine 成员，token.id 入参）──
+
+void AnimationEngine::pauseGroup(uint64_t groupId) {
+    auto git = groups_.find(groupId);
+    if (git == groups_.end()) return;
+    for (auto id : git->second) pause(id);
 }
-void AnimationGroup::resume() {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end()) return;
-    for (auto id : git->second) eng.resume(id);
+void AnimationEngine::resumeGroup(uint64_t groupId) {
+    auto git = groups_.find(groupId);
+    if (git == groups_.end()) return;
+    for (auto id : git->second) resume(id);
 }
-void AnimationGroup::stop() {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end()) return;
-    for (auto id : git->second) eng.stop(id, true);
+void AnimationEngine::seekGroup(uint64_t groupId, float p) {
+    auto git = groups_.find(groupId);
+    if (git == groups_.end()) return;
+    for (auto id : git->second) seek(id, p);
 }
-void AnimationGroup::seek(float p) {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end()) return;
-    for (auto id : git->second) eng.seek(id, p);
-}
-bool AnimationGroup::isRunning() const {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end()) return false;
+bool AnimationEngine::groupRunning(uint64_t groupId) const {
+    auto git = groups_.find(groupId);
+    if (git == groups_.end()) return false;
     for (auto id : git->second) {
-        if (eng.isActive(id)) return true;
+        if (isActive(id)) return true;
     }
     return false;
 }
-bool AnimationGroup::isFinished() const {
-    return !isRunning();
-}
-float AnimationGroup::progress() const {
-    auto &eng = AnimationEngine::instance();
-    auto git = eng.groups_.find(groupId_);
-    if (git == eng.groups_.end() || git->second.empty()) return 0.0f;
-    // 返回组内首动画的进度（粗略估计）
-    auto it = eng.findAnim(git->second[0]);
-    if (it != eng.end()) return (*it)->progress();
+float AnimationEngine::groupProgress(uint64_t groupId) {
+    auto git = groups_.find(groupId);
+    if (git == groups_.end() || git->second.empty()) return 0.0f;
+    auto it = findAnim(git->second[0]);
+    if (it != end()) return (*it)->progress();
     return 0.0f;
 }
 
@@ -199,7 +161,7 @@ AnimationHandle AnimationEngine::start(const std::string& viewId, const Animatio
     animations_.push_back(std::move(anim));
 
     Log::debug("[AnimationEngine] start id={} prop={}", id, propName(desc.prop));
-    return AnimationHandle{id};
+    return AnimationHandle{.id = id};
 }
 
 AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete, void* root) {
@@ -208,13 +170,13 @@ AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &des
 
     for (auto &desc : descs) {
         auto handle = start(desc.viewId, desc, root);   // 透传 root
-        animIds.push_back(handle.id_);
+        animIds.push_back(handle.id);
 
         // 将动画绑定到组
-        animToGroup_[handle.id_] = groupId;
+        animToGroup_[handle.id] = groupId;
 
         // 每个动画完成时检查整组是否完成
-        auto *animPtr = findAnim(handle.id_)->get();
+        auto *animPtr = findAnim(handle.id)->get();
         animPtr->onComplete = [this, groupId](const AnimationResult &) {
             notifyGroupComplete(*this, groupId, groups_, groupCallbacks_, animations_);
         };
@@ -224,7 +186,7 @@ AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &des
     if (onComplete) { groupCallbacks_[groupId] = std::move(onComplete); }
 
     Log::debug("[AnimationEngine] startMulti groupId={} count={}", groupId, descs.size());
-    return AnimationGroup{groupId};
+    return AnimationGroup{.id = groupId};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

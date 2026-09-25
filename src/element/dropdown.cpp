@@ -25,6 +25,7 @@ module;
 
 module kwik.element.dropdown;
 import kwik.element.view;
+import kwik.element.layer_stack;
 import kwik.element.layer_view; // LayerStack（菜单层注册）
 import kwik.core.props;
 import kwik.core.types;
@@ -58,7 +59,7 @@ public:
 
     ~MenuView() override {
         // HMR / 树重建兜底：确保不残留悬空层指针
-        if (registered_) LayerStack::instance().unregisterLayerView(this);
+        if (registered_) layersOf(this)->unregisterLayerView(this);
     }
 
     /** @brief 展开菜单：定位到触发区正下方并注册进 LayerStack */
@@ -68,7 +69,7 @@ public:
         scrollOffset_ = 0;
         hoveredIndex_ = -1;
         drawnElsewhere_ = true;    // base 树跳过本节点绘制与命中
-        LayerStack::instance().registerLayerView(this);
+        layersOf(this)->registerLayerView(this);
         registered_ = true;
         markAllDirty();    // 层首帧全量重录（脏标记向上冒泡唤醒主循环）
     }
@@ -76,7 +77,7 @@ public:
     /** @brief 收起菜单：注销 + 复原 base 覆盖区（防 ghost 残留） */
     void close() {
         if (!registered_) return;
-        LayerStack::instance().unregisterLayerView(this);
+        layersOf(this)->unregisterLayerView(this);
         registered_ = false;
         drawnElsewhere_ = false;
         // 关闭后 base 需重录填补菜单覆盖区，否则旧菜单像素残留 ghost。

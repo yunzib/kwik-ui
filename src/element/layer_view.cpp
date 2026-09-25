@@ -6,6 +6,7 @@ module;
 module kwik.element.layer_view;
 
 import kwik.element.view;
+import kwik.element.layer_stack;
 import kwik.event;
 import kwik.core.types;
 import kwik.render.graphics;
@@ -14,64 +15,10 @@ import kwik.core.constraints;
 
 import std;
 
-// ══════════════════════════════════════════════════════════════
-// 图层注册 / 注销 / 清空
-// ══════════════════════════════════════════════════════════════
-void LayerStack::registerLayerView(View *layer) {
-    if (!layer) return;
-    // 去重：避免同一节点重复注册
-    if (std::find(layers_.begin(), layers_.end(), layer) == layers_.end()) {
-        layers_.push_back(layer);    // 后注册 = 上层（z 序 = 注册序）
-    }
-}
+// LayerStack 实现已拆至 kwik.element.layer_stack（layer_stack.cpp）；
+// 本文件只剩 LayerView（统一浮层实现）。
 
-void LayerStack::unregisterLayerView(View *layer) {
-    if (!layer) return;
-    auto it = std::remove(layers_.begin(), layers_.end(), layer);
-    layers_.erase(it, layers_.end());
-}
 
-void LayerStack::clear() {
-    layers_.clear();    // 仅清 borrowed 指针列表，不析构节点（节点归主树所有）
-}
-
-// ══════════════════════════════════════════════════════════════
-// drawAll — base 绘制 + 逐层底→顶 + 跨层脏协调
-//
-// 跨层脏协调的必要性：
-//   后端单帧缓冲 + scissor(dirtyRect) 模型下，下层重绘时底图填充会覆盖
-//   重叠区域的上层像素；若上层未脏则不重绘 → 擦灰 corruption。
-//   故下层脏区 ∩ 上层 bounds 时，强制上层 forceLocalDirty 重绘覆盖。
-//   这是 view.cpp 内子节点 overlaps 重绘逻辑的跨层等价物。
-//
-// M1：layers_ 为空，循环不执行，等价 base_->draw(g)。
-// ══════════════════════════════════════════════════════════════
-void LayerStack::drawAll(Graphics &g, Rect * /*dirtyAccum*/) {
-    if (!base_) return;
-
-    // ① base 树：根经 View::draw 按需编码清单（引用各 View 不可变快照）
-    base_->draw(g);
-
-    // ② 弹层底→顶：各层经 LayerView::draw（内部 View::draw 同款语义）。
-    //    跨层脏协调（forceLocalDirty）与玻璃整屏重绘特例已随增量重绘机制退役：
-    //    层级遮挡正确性由渲染线程"伤害带内全 z 序重放清单"结构性保证
-    for (auto *layer : layers_) { layer->draw(g); }
-}
-
-// ══════════════════════════════════════════════════════════════
-// hitTest — 顶→底遍历 layers，再回退 base
-//
-// 等价原 RootView::hitTest 的 "portal 优先（逆序）再普通树" 语义，泛化为 N 层。
-// modal/穿透的判定由各层（Dialog/LayerView）的 hitTest 自行处理（widget 级）。
-// ══════════════════════════════════════════════════════════════
-EventTarget *LayerStack::hitTest(Point point) {
-    // 顶层优先（逆序 = 后注册在上层）
-    for (auto it = layers_.rbegin(); it != layers_.rend(); ++it) {
-        if (auto *hit = (*it)->hitTest(point)) { return hit; }
-    }
-    // 回退 base 树
-    return base_ ? base_->hitTest(point) : nullptr;
-}
 
 // ══════════════════════════════════════════════════════════════
 // LayerView — 统一浮层实现（替代 Dialog/Tip）
@@ -80,10 +27,10 @@ LayerView::~LayerView() {
     if (registered_) deactivate();
 }
 
-// findTarget：经 LayerStack::instance().base()->findById，不需 RootView 完整类型
+// findTarget：经 layersOf(this)->base()->findById，不需 RootView 完整类型
 View *LayerView::findTarget() {
     if (lp_.anchor.empty()) return nullptr;
-    if (auto *base = LayerStack::instance().base()) return base->findById(lp_.anchor);
+    if (auto *base = layersOf(this)->base()) return base->findById(lp_.anchor);
     return nullptr;
 }
 
@@ -131,14 +78,14 @@ Rect LayerView::calcAnchorRect(float cw, float ch) {
 //    无视挂载点父约束，保证 Layer 挂任何节点下测量结果一致）；关闭→{0,0} ──
 Size LayerView::onMeasure(Constraints) {
     if (!lp_.active) return {0, 0};
-    if (auto *base = LayerStack::instance().base()) { return {base->frame.width, base->frame.height}; }
+    if (auto *base = layersOf(this)->base()) { return {base->frame.width, base->frame.height}; }
     return {0, 0};
 }
 
 // ── onLayout：双模式 ──
 void LayerView::onLayout() {
     if (!lp_.active) return;
-    auto *base = LayerStack::instance().base();    // View* 即可，frame public
+    auto *base = layersOf(this)->base();    // View* 即可，frame public
     if (!base) return;
     Rect rf = base->frame;
     frame = rf;    // 层始终全屏（mask 用）
@@ -265,7 +212,7 @@ void LayerView::draw(Graphics &g) {
         publishEmptyList(g);
         if (registered_) {
             // 摘除完成，此刻才真正注销（deactivate 只置状态，见下）
-            LayerStack::instance().unregisterLayerView(this);
+            layersOf(this)->unregisterLayerView(this);
             registered_ = false;
             drawnElsewhere_ = false;
         }
@@ -274,14 +221,14 @@ void LayerView::draw(Graphics &g) {
     View::draw(g);
 }
 
-// ── activate / deactivate（经 LayerStack::instance()，不依赖 RootView）──
+// ── activate / deactivate（经 layersOf 上行本树层树，不依赖 RootView）──
 void LayerView::activate() {
     if (registered_) return;
-    auto &ls = LayerStack::instance();
-    ls.registerLayerView(this);
+    auto *ls = layersOf(this);
+    ls->registerLayerView(this);
     registered_ = true;
     drawnElsewhere_ = true;
-    if (auto *base = ls.base()) {
+    if (auto *base = ls->base()) {
         Constraints c = {0, base->frame.width, 0, base->frame.height};
         measure(c);
         layout(base->frame);
@@ -303,7 +250,7 @@ void LayerView::deactivate() {
     // publishEmptyList 永不执行 → publishedList_ 残留旧遮罩/弹框，复合根每帧
     // 继续回放（表现为"弹框关不掉、遮罩区域不刷新"）。
     // drawnElsewhere_ 保持 true：本帧 base 树仍跳过本层（避免内联双画）。
-    if (auto *base = LayerStack::instance().base()) { base->markAllDirty(); }
+    if (auto *base = layersOf(this)->base()) { base->markAllDirty(); }
     markAllDirty();    // 保证下一帧 draw 被调用以完成摘除
 }
 

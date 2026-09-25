@@ -144,7 +144,7 @@ static bool tryStartTransition(View *view, const std::string &name, const TypedP
     desc.to       = to;
     desc.duration = view->props.transitionDuration;
     desc.easing   = {};                          // 默认 Ease（平滑减速）
-    AnimationEngine::instance().start(desc.viewId, desc, root);
+    static_cast<AnimationEngine *>(root->treeService(View::kSvcAnimEngine))->start(desc.viewId, desc, root);
     return true;
 }
 

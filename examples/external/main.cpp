@@ -84,13 +84,15 @@ int main(int argc, char *argv[]) {
     window->Show();
 
 #if IS_DEV_BUILD
-    Application app(*window, {
+    Application app;
+    app.createRuntime(*window, {
         .jsPath = "../../../test/ui/test.js",
         .enableHotReload = true,
         .fontDirs = {"../../../resources/fonts"}
     });
 #else
-    Application app(*window, {
+    Application app;
+    app.createRuntime(*window, {
         .enableHotReload = false,
         .fontDirs = {"../../../resources/fonts"}
     });

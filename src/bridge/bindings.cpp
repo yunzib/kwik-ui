@@ -830,7 +830,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     state->reject = JS_DupValue(ctx, resolvingFuncs[1]);
 
     // 启动所有动画
-    AnimationGroup group = AnimationEngine::instance().startMulti(
+    AnimationGroup group = static_cast<AnimationEngine *>(root->treeService(View::kSvcAnimEngine))->startMulti(
         descs,
         // onComplete: 所有动画完成后 resolve Promise
         [state](const AnimationResult &result) {
@@ -851,10 +851,10 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     // ════════════════════════════════════════════════════════
 
     // 将 groupId 编码为 double 捕获到 JS 闭包
-    uint64_t groupId = group.id();
+    uint64_t groupId = group.id;
     // ⚠ 上面这行 hack：AnimationGroup 只有 groupId_ 一个成员，
     // 可以直接用 reinterpret_cast 小 class → uint64_t 提取内部字段
-    // 正确做法：AnimationGroup 提供 .id() 方法
+    // AnimationGroup 已纯 token 化：.id 为公开成员
     // 简化实现：通过 engine 间接操作
     // 实际实现中，从 engine 提供的 groups_ 映射中间接
 
@@ -876,14 +876,18 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 static JSValue js_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc < 1) return JS_ThrowTypeError(ctx, "stop: 至少需要 target 参数");
 
+    auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    View *root = static_cast<View *>(qctx->getUserPointer());
+    auto *engine = static_cast<AnimationEngine *>(root->treeService(View::kSvcAnimEngine));
+
     const char *id = JS_ToCString(ctx, argv[0]);
     if (argc >= 2) {
         const char *prop = JS_ToCString(ctx, argv[1]);
         PropId pid = propIdFromName(prop);
         JS_FreeCString(ctx, prop);
-        AnimationEngine::instance().stopByViewAndProp(id, pid);
+        engine->stopByViewAndProp(id, pid);
     } else {
-        AnimationEngine::instance().stopByView(id);
+        engine->stopByView(id);
     }
     JS_FreeCString(ctx, id);
 

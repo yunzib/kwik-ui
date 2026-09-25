@@ -28,6 +28,7 @@ module;
 
 module kwik.element.datepicker;
 import kwik.element.view;
+import kwik.element.layer_stack;
 import kwik.element.layer_view; // LayerStack
 import kwik.core.props;
 import kwik.core.types;
@@ -128,7 +129,7 @@ public:
 
     ~CalendarView() override {
         // HMR / 树重建兜底：确保不残留悬空层指针
-        if (registered_) LayerStack::instance().unregisterLayerView(this);
+        if (registered_) layersOf(this)->unregisterLayerView(this);
     }
 
     /** @brief 展开：定位到触发区正下方并注册进 LayerStack */
@@ -142,7 +143,7 @@ public:
         hourScroll_ = owner_.pendingHas() ? (float)owner_.pendingH() * itemH : 0.0f;
         minuteScroll_ = owner_.pendingHas() ? (float)owner_.pendingMi() * itemH : 0.0f;
         drawnElsewhere_ = true;    // base 树跳过本节点绘制与命中
-        LayerStack::instance().registerLayerView(this);
+        layersOf(this)->registerLayerView(this);
         registered_ = true;
         markAllDirty();    // 层首帧全量重录
     }
@@ -150,7 +151,7 @@ public:
     /** @brief 收起：注销 + 复原 base 覆盖区（防 ghost 残留） */
     void close() {
         if (!registered_) return;
-        LayerStack::instance().unregisterLayerView(this);
+        layersOf(this)->unregisterLayerView(this);
         registered_ = false;
         drawnElsewhere_ = false;
         View *root = this;

@@ -32,6 +32,7 @@ target_sources(kwik_element
             modules/element/theme_provider.cppm
             modules/element/table_data_source.cppm
             modules/element/stack_index.cppm
+            modules/element/layer_stack.cppm
             modules/element/layer_view.cppm
             modules/element/scroll_view.cppm
             modules/element/tree_menu.cppm
@@ -82,6 +83,7 @@ target_sources(kwik_element
         src/element/g2d.cpp
         src/element/theme_provider.cpp
         src/element/stack_index.cpp
+        src/element/layer_stack.cpp
         src/element/layer_view.cpp
         src/element/scroll_view.cpp
         src/element/tree_menu.cpp
