@@ -35,24 +35,24 @@ bool VulkanBackend::initialize(void *native) {
     };
     auto t1 = std::chrono::steady_clock::now();
 
-    if (!rect_.create(ctx_.device(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
+    if (!rect_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         ctx_.shutdown();
         return false;
     }
-    if (!glyph_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.commandPool(), ctx_.graphicsQueue(),
+    if (!glyph_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.commandPool(), ctx_.graphicsQueue(),
                        ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer())) {
         rect_.destroy();
         ctx_.shutdown();
         return false;
     }
-    if (!image_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+    if (!image_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
                        ctx_.indexBuffer())) {
         glyph_.destroy();
         rect_.destroy();
         ctx_.shutdown();
         return false;
     }
-    if (!triangle_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+    if (!triangle_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
                           ctx_.indexBuffer())) {
         Log::error("TriangleRenderer init failed");
         glyph_.destroy();
@@ -60,7 +60,7 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
-    if (!mesh_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
+    if (!mesh_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
                       ctx_.indexBuffer())) {
         Log::error("MeshRenderer init failed");
         glyph_.destroy();
@@ -68,7 +68,7 @@ bool VulkanBackend::initialize(void *native) {
         ctx_.shutdown();
         return false;
     }
-    backdrop_.create(ctx_.device(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer());
+    backdrop_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(), ctx_.indexBuffer());
     Log::info("[startup] pipeline_create = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count());
 
@@ -254,6 +254,12 @@ void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
 }
 
 
+// ================================================================
+// backdropBlur — 液态玻璃 effect 的 Vulkan 实现（语义契约见 RenderBackend）。
+// 手段：中断主 pass（canvas → TRANSFER_SRC）→ 捕获/离屏模糊 → 恢复主 pass
+// （LOAD_OP_LOAD 保留画布+模板）→ 合成。软件/GL 后端可用各自手段等价实现，
+// 上层只见语义命令（§四 收口）。
+// ================================================================
 void VulkanBackend::backdropBlur(const BackdropBlurCmd &cmd) {
     if (!currentToken_) return;
     drawCalls_++;

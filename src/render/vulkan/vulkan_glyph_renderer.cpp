@@ -6,6 +6,7 @@ module;
 #include "glyph_shaders.h"
 module kwik.render.vulkan.glyph_renderer;
 import kwik.render.vulkan.context;
+import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.render.command;
 import kwik.core.types;
 import kwik.render.text.types;
@@ -54,6 +55,7 @@ void GlyphRenderer::destroy() {
         glyphClipPipeline_ = VK_NULL_HANDLE;
     }
     if (glyphPipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device_, glyphClipPipelineLayout_, nullptr);
         vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
         glyphPipelineLayout_ = VK_NULL_HANDLE;
     }
@@ -62,152 +64,43 @@ void GlyphRenderer::destroy() {
 // ================================================================
 // create — glyph 管线 + 1024x1024 R8G8B8A8_UNORM 图集
 // ================================================================
-bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkCommandPool cmdPool, VkQueue queue,
+bool GlyphRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkCommandPool cmdPool, VkQueue queue,
                            VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
     device_ = device;
     vertexBuffer_ = vertexBuffer;
     indexBuffer_ = indexBuffer;
-    VkShaderModule glyphVert =
-        VulkanContext::createShaderModule(device_, kwik::shader::kGlyphVert, kwik::shader::kGlyphVertSize);
-    VkShaderModule glyphFrag =
-        VulkanContext::createShaderModule(device_, kwik::shader::kGlyphFrag, kwik::shader::kGlyphFragSize);
-    if (!glyphVert || !glyphFrag) return false;
-    // Descriptor set layout
-    VkDescriptorSetLayoutBinding samplerBinding{};
-    samplerBinding.binding = 0;
-    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerBinding.descriptorCount = 1;
-    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    VkDescriptorSetLayoutCreateInfo dsl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    dsl.bindingCount = 1;
-    dsl.pBindings = &samplerBinding;
-    if (vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &glyphDescSetLayout_) != VK_SUCCESS) {
-        vkDestroyShaderModule(device_, glyphFrag, nullptr);
-        vkDestroyShaderModule(device_, glyphVert, nullptr);
-        return false;
-    }
-    // Pipeline layout
-    VkPushConstantRange pcRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                sizeof(GlyphPushConstants)};
-    VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pl.setLayoutCount = 1;
-    pl.pSetLayouts = &glyphDescSetLayout_;
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &pcRange;
-    if (vkCreatePipelineLayout(device_, &pl, nullptr, &glyphPipelineLayout_) != VK_SUCCESS) {
-        vkDestroyDescriptorSetLayout(device_, glyphDescSetLayout_, nullptr);
-        vkDestroyShaderModule(device_, glyphFrag, nullptr);
-        vkDestroyShaderModule(device_, glyphVert, nullptr);
-        return false;
-    }
-    // 管线 stages / 输入 / 视口 / 光栅化 / 混合
-    VkPipelineShaderStageCreateInfo stages[] = {
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, glyphVert,
-         "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, glyphFrag,
-         "main"},
-    };
-    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
-    VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vtxIn.vertexBindingDescriptionCount = 1;
-    vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 1;
-    vtxIn.pVertexAttributeDescriptions = &vtxAttr;
-    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-    vp.viewportCount = 1;
-    vp.scissorCount = 1;
-    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-    rs.lineWidth = 1.0f;
-    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    // standard src_alpha blending: src * srcAlpha + dst * (1 - srcAlpha)
-    VkPipelineColorBlendAttachmentState ba{};
-    ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.alphaBlendOp = VK_BLEND_OP_ADD;
-    ba.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1;
-    blend.pAttachments = &ba;
-    VkDynamicState dynStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-    };
-    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 5;
-    dyn.pDynamicStates = dynStates;
-    VkStencilOpState stencilNoWrite{};
-    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
-    stencilNoWrite.compareMask = 0xFF;
-    stencilNoWrite.writeMask = 0x00;
-    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    ds.stencilTestEnable = VK_TRUE;
-    ds.front = stencilNoWrite;
-    ds.back = stencilNoWrite;
-    VkGraphicsPipelineCreateInfo pipeInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    pipeInfo.stageCount = 2;
-    pipeInfo.pStages = stages;
-    pipeInfo.pVertexInputState = &vtxIn;
-    pipeInfo.pInputAssemblyState = &ia;
-    pipeInfo.pViewportState = &vp;
-    pipeInfo.pRasterizationState = &rs;
-    pipeInfo.pMultisampleState = &ms;
-    pipeInfo.pColorBlendState = &blend;
-    pipeInfo.pDynamicState = &dyn;
-    pipeInfo.layout = glyphPipelineLayout_;
-    pipeInfo.renderPass = renderPass;
-    pipeInfo.subpass = 0;
-    pipeInfo.pDepthStencilState = &ds;
-    bool ok = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphPipeline_) == VK_SUCCESS;
-    if (!ok) {
-        vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
-        vkDestroyShaderModule(device_, glyphFrag, nullptr);
-        vkDestroyShaderModule(device_, glyphVert, nullptr);
-        return false;
-    }
-    // ── Stencil 测试变体管线 ─────────────────────────────
-    {
-        VkDynamicState clipDynStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-            VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-        };
-        VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-        clipDyn.dynamicStateCount = 5;
-        clipDyn.pDynamicStates = clipDynStates;
-        VkStencilOpState stencilTest{};
-        stencilTest.failOp = VK_STENCIL_OP_KEEP;
-        stencilTest.passOp = VK_STENCIL_OP_KEEP;
-        stencilTest.depthFailOp = VK_STENCIL_OP_KEEP;
-        stencilTest.compareOp = VK_COMPARE_OP_EQUAL;
-        stencilTest.compareMask = 0xFF;
-        stencilTest.writeMask = 0x00;
-        VkPipelineDepthStencilStateCreateInfo dsClip{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        dsClip.stencilTestEnable = VK_TRUE;
-        dsClip.front = stencilTest;
-        dsClip.back = stencilTest;
-        pipeInfo.pDynamicState = &clipDyn;
-        pipeInfo.pDepthStencilState = &dsClip;
-        vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &glyphClipPipeline_);
-    }
-    vkDestroyShaderModule(device_, glyphFrag, nullptr);
-    vkDestroyShaderModule(device_, glyphVert, nullptr);
-    if (!ok) {
-        vkDestroyPipelineLayout(device_, glyphPipelineLayout_, nullptr);
-        return false;
-    }
+    // ── 管线经工厂创建（清单 §四）。手写版主/clip 两份 depth-stencil 逐值相同
+    //    （EQUAL 不写 + 5 动态态），统一为 StencilTestEqual——逐值迁移，像素不变。
+    //    clip 变体复用 setLayout；pipelineLayout 工厂各建一份等价对象，行为一致。
+    static const VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    static const VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    static const VkDescriptorSetLayoutBinding dslBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                                          VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    PipeDesc pd;
+    pd.vertSpv = kwik::shader::kGlyphVert;  pd.vertSize = kwik::shader::kGlyphVertSize;
+    pd.fragSpv = kwik::shader::kGlyphFrag;  pd.fragSize = kwik::shader::kGlyphFragSize;
+    pd.bindings = {&vtxBind, 1};
+    pd.attrs = {&vtxAttr, 1};
+    pd.pushSize = sizeof(GlyphPushConstants);
+    pd.blend = PipeDesc::Blend::SrcOver;
+    pd.depthStencil = PipeDesc::DS::StencilTestEqual;
+    pd.stencilDynStates = true;
+    pd.descBindings = {&dslBinding, 1};
+    pd.renderPass = renderPass;
+
+    auto mainPipe = makePipeline(device_, cache, pd);
+    if (mainPipe.pipeline == VK_NULL_HANDLE) return false;
+    glyphPipeline_ = mainPipe.pipeline;
+    glyphPipelineLayout_ = mainPipe.layout;
+    glyphDescSetLayout_ = mainPipe.setLayout;
+
+    pd.externalSetLayout = glyphDescSetLayout_;    // clip 变体复用 setLayout
+    auto clipPipe = makePipeline(device_, cache, pd);
+    if (clipPipe.pipeline == VK_NULL_HANDLE) return false;
+    glyphClipPipeline_ = clipPipe.pipeline;
+    glyphClipPipelineLayout_ = clipPipe.layout;
+
+
     // ── Glyph atlas 1024x1024 R8G8B8A8_UNORM (FreeType LCD 子像素 RGBA 位图) ───────────
     uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -238,16 +131,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
     vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0);
 
     // ── 初始 layout 过渡: UNDEFINED → SHADER_READ_ONLY_OPTIMAL ──
-    {
-        VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-        cai.commandPool = cmdPool;
-        cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        cai.commandBufferCount = 1;
-        VkCommandBuffer cmd;
-        vkAllocateCommandBuffers(device_, &cai, &cmd);
-        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(cmd, &bi);
+    VulkanContext::runOneOff(device_, cmdPool, queue, [this](VkCommandBuffer cmd) {
         VkImageMemoryBarrier initBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         initBarrier.image = glyphAtlasImage_;
         initBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -259,14 +143,7 @@ bool GlyphRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkComma
         initBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                              nullptr, 0, nullptr, 1, &initBarrier);
-        vkEndCommandBuffer(cmd);
-        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        si.commandBufferCount = 1;
-        si.pCommandBuffers = &cmd;
-        vkQueueSubmit(queue, 1, &si, VK_NULL_HANDLE);
-        vkQueueWaitIdle(queue);
-        vkFreeCommandBuffers(device_, cmdPool, 1, &cmd);
-    }
+    });
     atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -366,32 +243,8 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     auto jobs = TextRenderPipeline::instance().consumeUploads();
     if (jobs.empty()) return;
 
-    VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    cai.commandPool = dc.commandPool;
-    cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cai.commandBufferCount = 1;
-    VkCommandBuffer cmd;
-    vkAllocateCommandBuffers(dc.device, &cai, &cmd);
-    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cmd, &bi);
-
-    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    barrier.image = glyphAtlasImage_;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-    barrier.oldLayout = atlasLayout_;
-    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcAccessMask =
-        (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ? VK_ACCESS_SHADER_READ_BIT : VkAccessFlags(0);
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    VkPipelineStageFlags srcStage = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ?
-                                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT :
-                                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    // 计算总大小并分配单个 staging buffer
+    // 计算总大小并分配单个 staging buffer（前置：空批次/分配失败不触碰命令缓冲，
+    // 旧实现 begin 后早退会遗留已录制未提交的命令缓冲）
     VkDeviceSize totalSize = 0;
     for (auto &job : jobs) {
         if (!job.pixels.empty()) totalSize += job.pixels.size();
@@ -432,27 +285,36 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     }
     vkUnmapMemory(dc.device, stagingMem);
 
-    vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           (uint32_t)regions.size(), regions.data());
+    // atlas 过渡 + 拷贝 + 回过渡，一次性命令缓冲（§四收口）
+    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    barrier.image = glyphAtlasImage_;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    barrier.oldLayout = atlasLayout_;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcAccessMask =
+        (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ? VK_ACCESS_SHADER_READ_BIT : VkAccessFlags(0);
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    VkPipelineStageFlags srcStage = (atlasLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ?
+                                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT :
+                                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrier);
+    VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
+        vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               (uint32_t)regions.size(), regions.data());
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &barrier);
+    });
     atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkEndCommandBuffer(cmd);
-
-    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    si.commandBufferCount = 1;
-    si.pCommandBuffers = &cmd;
-    vkQueueSubmit(dc.queue, 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(dc.queue);
 
     vkDestroyBuffer(dc.device, staging, nullptr);
     vkFreeMemory(dc.device, stagingMem, nullptr);
-    vkFreeCommandBuffers(dc.device, dc.commandPool, 1, &cmd);
 }
 
 // ================================================================

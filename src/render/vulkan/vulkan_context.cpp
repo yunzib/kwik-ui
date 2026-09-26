@@ -66,6 +66,10 @@ void VulkanContext::shutdown() {
         vkFreeMemory(vkDevice_, vertexBufferMemory_, nullptr);
     }
     if (renderPass_ != VK_NULL_HANDLE) vkDestroyRenderPass(vkDevice_, renderPass_, nullptr);
+    if (pipelineCache_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineCache(vkDevice_, pipelineCache_, nullptr);
+        pipelineCache_ = VK_NULL_HANDLE;
+    }
 
     cleanupSwapchain();
     if (vkSurface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(vkInstance_, vkSurface_, nullptr);
@@ -100,6 +104,13 @@ bool VulkanContext::initialize(void *nativeHandle) {
     Log::info("[startup] ctx.createLogicalDevice = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t2).count());
     vkGetDeviceQueue(vkDevice_, queueFamilyIndex_, 0, &vkQueue_);
+
+    // ── 管线缓存（§四）：14 条管线工厂共用，加速同源派生（blurH/blurV 等）；
+    //    进程内生效，磁盘持久化留作后续 ──
+    VkPipelineCacheCreateInfo pcci{VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
+    if (vkCreatePipelineCache(vkDevice_, &pcci, nullptr, &pipelineCache_) != VK_SUCCESS) {
+        pipelineCache_ = VK_NULL_HANDLE;    // 可选加速，失败降级为无缓存继续
+    }
 
     auto t3 = std::chrono::steady_clock::now();
     if (!createSwapchain()) {
@@ -952,23 +963,32 @@ bool VulkanContext::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     return createBuffer(vkDevice_, vkPhysicalDevice_, size, usage, props, buffer, memory);
 }
 bool VulkanContext::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
-    VkCommandBufferAllocateInfo ai{};
-    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool = commandPool_;
-    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    ai.commandBufferCount = 1;
+    return runOneOff(vkDevice_, commandPool_, vkQueue_, [&](VkCommandBuffer cmd) {
+        VkBufferCopy region{0, 0, size};
+        vkCmdCopyBuffer(cmd, src, dst, 1, &region);
+    });
+}
+// ================================================================
+// runOneOff — 一次性命令缓冲骨架（§四收口）：
+// alloc→begin→record→end→submit→wait→free。调用方只写录制体。
+// ================================================================
+bool VulkanContext::runOneOff(VkDevice device, VkCommandPool pool, VkQueue queue,
+                              const std::function<void(VkCommandBuffer)> &record) {
+    VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, pool,
+                                   VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1};
     VkCommandBuffer cmd;
-    if (vkAllocateCommandBuffers(vkDevice_, &ai, &cmd) != VK_SUCCESS) return false;
-    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr,
-                                VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
+    if (vkAllocateCommandBuffers(device, &ai, &cmd) != VK_SUCCESS) return false;
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr, 0, nullptr};
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
-    VkBufferCopy region{0, 0, size};
-    vkCmdCopyBuffer(cmd, src, dst, 1, &region);
+    record(cmd);
     vkEndCommandBuffer(cmd);
-    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 0, nullptr, nullptr, 1, &cmd};
-    vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(vkQueue_);
-    vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &cmd);
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    vkQueueSubmit(queue, 1, &si, VK_NULL_HANDLE);
+    vkQueueWaitIdle(queue);
+    vkFreeCommandBuffers(device, pool, 1, &cmd);
     return true;
 }
 VkShaderModule VulkanContext::createShaderModule(VkDevice device, const std::uint8_t *spv, std::size_t size) {
@@ -1039,14 +1059,7 @@ bool VulkanContext::createCanvasImage() {
     if (vkCreateImageView(vkDevice_, &sView, nullptr, &canvasStencilView_) != VK_SUCCESS) return false;
 
     // ── 首帧初始化：vkCmdClearColorImage 清除 canvas ──
-    {
-        VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, commandPool_,
-                                         VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1};
-        VkCommandBuffer initCb;
-        vkAllocateCommandBuffers(vkDevice_, &cbai, &initCb);
-        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(initCb, &bi);
-
+    runOneOff(vkDevice_, commandPool_, vkQueue_, [this](VkCommandBuffer initCb) {
         VkImageMemoryBarrier bar{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         bar.srcAccessMask = 0;
         bar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1079,21 +1092,13 @@ bool VulkanContext::createCanvasImage() {
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
         stencilBar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         stencilBar.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        stencilBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        stencilBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        stencilBar.srcQueueFamilyIndex = stencilBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         stencilBar.image = canvasStencilImage_;
         stencilBar.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
-        vkCmdPipelineBarrier(initCb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0,
+        vkCmdPipelineBarrier(initCb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0,
                              0, nullptr, 0, nullptr, 1, &stencilBar);
-
-        vkEndCommandBuffer(initCb);
-        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        si.commandBufferCount = 1;
-        si.pCommandBuffers = &initCb;
-        vkQueueSubmit(vkQueue_, 1, &si, VK_NULL_HANDLE);
-        vkQueueWaitIdle(vkQueue_);
-        vkFreeCommandBuffers(vkDevice_, commandPool_, 1, &initCb);
-    }
+    });
     return true;
 }
 // ================================================================
@@ -1144,6 +1149,9 @@ VkRenderPass VulkanContext::renderPass() const {
 }
 VkPhysicalDevice VulkanContext::physicalDevice() const {
     return vkPhysicalDevice_;
+}
+VkPipelineCache VulkanContext::pipelineCache() const {
+    return pipelineCache_;
 }
 VkBuffer VulkanContext::vertexBuffer() const {
     return vertexBuffer_;

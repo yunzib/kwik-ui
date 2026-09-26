@@ -10,6 +10,7 @@ module;
 #endif
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 export module kwik.render.vulkan.context;
 import kwik.core.types;
@@ -80,6 +81,7 @@ public:
     VkCommandPool commandPool() const;
     VkRenderPass renderPass() const;
     VkPhysicalDevice physicalDevice() const;
+    VkPipelineCache pipelineCache() const;    // 管线工厂共用（§四）
     VkBuffer vertexBuffer() const;    // 仅初始化时用
     VkBuffer indexBuffer() const;     // 仅初始化时用
 
@@ -89,6 +91,10 @@ public:
                              VkMemoryPropertyFlags props, VkBuffer &buffer, VkDeviceMemory &memory);
     bool copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
     static VkShaderModule createShaderModule(VkDevice device, const uint8_t *spv, size_t size);
+    /** @brief 一次性命令缓冲骨架：alloc→begin→record→end→submit→wait→free。
+     *         清单 §四样板收口（原 5 处手写：纹理上传/图集过渡/画布初始清屏等）。 */
+    static bool runOneOff(VkDevice device, VkCommandPool pool, VkQueue queue,
+                          const std::function<void(VkCommandBuffer)> &record);
     // ── 便捷版（使用内部 device/physicalDevice） ──
     bool createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkBuffer &buffer,
                       VkDeviceMemory &memory);
@@ -126,6 +132,7 @@ private:
     std::vector<VkImageView> swapchainImageViews_;
     VkRenderPass renderPass_ = VK_NULL_HANDLE;
     VkCommandPool commandPool_ = VK_NULL_HANDLE;
+    VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;    ///< 管线工厂共用（§四；进程内加速派生管线创建）
     std::vector<VkCommandBuffer> commandBuffers_;
     VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
     VkDeviceMemory vertexBufferMemory_ = VK_NULL_HANDLE;

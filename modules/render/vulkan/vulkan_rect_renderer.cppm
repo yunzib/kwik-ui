@@ -7,7 +7,7 @@ export class RectRenderer {
 public:
     RectRenderer() = default;
     ~RectRenderer();
-    bool create(VkDevice device, VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer);
+    bool create(VkDevice device, VkPipelineCache cache, VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
 
     void clear(VkCommandBuffer cmd, VkExtent2D extent, const Color &color);

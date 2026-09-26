@@ -17,9 +17,8 @@ module kwik.render.render_thread;
 import kwik.core.types;
 import kwik.platform.window;
 import kwik.render.backend;
+import kwik.render.backend_factory;    // §四：后端选择收口，渲染线程只面向抽象
 import kwik.render.command_queue;
-// import kwik.render.software_backend;
-import kwik.render.vulkan_backend;
 import kwik.core.log;
 import kwik.core.path; // Vec2 — 三角形网格顶点
 import kwik.render.command_buffer;
@@ -189,15 +188,11 @@ void RenderThread::threadMain() {
 
 bool RenderThread::initBackend() {
     try {
-        // 创建后端实例
-        switch (config_.backendType) {
-        case BackendType::Vulkan: backend_ = std::make_unique<VulkanBackend>(); break;
-        // case BackendType::Software: backend_ = std::make_unique<SoftwareBackend>(); break;
-        default:
-            // 回退到软件渲染
-            // backend_ = std::make_unique<SoftwareBackend>();
-            // config_.backendType = BackendType::Software;
-            break;
+        // 创建后端实例（具体类型选择集中在 backend_factory，§四）
+        backend_ = createBackend(config_.backendType);
+        if (!backend_) {
+            lastError_ = "unsupported backend type";
+            return false;
         }
 
         // 初始化后端
@@ -267,7 +262,7 @@ bool RenderThread::processCommands(const FrameSubmit &frame) {
  */
 void RenderThread::resetRendererCache() {
     if (!backend_) return;
-    if (auto *vk = dynamic_cast<VulkanBackend *>(backend_.get())) { vk->resetFrameCache(); }
+    backend_->invalidateCaches();    // §四：语义化结构变化通知，不穿透具体后端
 }
 
 void RenderThread::updateFrameStats(std::chrono::high_resolution_clock::time_point frameStartTime) {

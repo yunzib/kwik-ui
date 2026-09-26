@@ -62,8 +62,9 @@ public:
 
     void backdropBlur(const BackdropBlurCmd &cmd) override;
 
-    /** @brief 重置帧内 GPU 状态缓存（当前 no-op，保留接口） */
-    void resetFrameCache() {}
+    /** @brief 结构变化→弃跨帧缓存（RenderBackend::invalidateCaches，§四；
+     *        当前无跨帧缓存，保留接点）。原 resetFrameCache 经 dynamic_cast 调用已收口为虚方法。 */
+    void invalidateCaches() override {}
 
 private:
     VulkanContext ctx_;

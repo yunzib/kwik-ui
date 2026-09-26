@@ -45,7 +45,7 @@ public:
      * @param indexBuffer  预分配的索引缓冲区（暂不使用）
      * @return 成功返回 true
      */
-    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
+    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
                 VkBuffer indexBuffer);
 
     /** @brief 销毁 pipeline、layout 和 host-visible 顶点缓存 */

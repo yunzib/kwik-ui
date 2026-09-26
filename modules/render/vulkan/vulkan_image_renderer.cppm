@@ -10,7 +10,7 @@ export class ImageRenderer {
 public:
     ImageRenderer() = default;
     ~ImageRenderer();
-    bool create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass,
+    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass,
                 VkBuffer vertexBuffer, VkBuffer indexBuffer);
     void destroy();
 
@@ -27,6 +27,7 @@ private:
     VkPipeline imagePipeline_ = VK_NULL_HANDLE;
     VkPipeline imageClipPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
+    VkPipelineLayout imageClipPipelineLayout_ = VK_NULL_HANDLE;    // clip 变体（工厂各建等价 layout）
     VkDescriptorSetLayout imageDescSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool imageDescPool_ = VK_NULL_HANDLE;
     struct TextureData {

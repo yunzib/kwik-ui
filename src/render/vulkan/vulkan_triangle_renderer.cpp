@@ -12,6 +12,7 @@ module;
 module kwik.render.vulkan.triangle_renderer;
 
 import kwik.render.vulkan.context;
+import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.core.types;
 import kwik.core.path;
 import kwik.render.command;
@@ -84,132 +85,39 @@ void TriangleRenderer::destroy() {
     pendingStaging_.clear();
 }
 
-bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
+bool TriangleRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
                 VkBuffer indexBuffer) {
     device_ = device;
     physDevice_ = physDevice;
     vertexBuffer_ = vertexBuffer;
     indexBuffer_ = indexBuffer;
 
-    // ── 加载 shader ──
-    VkShaderModule vert =
-        VulkanContext::createShaderModule(device_, kwik::shader::kTriangleVert, kwik::shader::kTriangleVertSize);
-    VkShaderModule frag =
-        VulkanContext::createShaderModule(device_, kwik::shader::kTriangleFrag, kwik::shader::kTriangleFragSize);
-    if (!vert || !frag) return false;
-
-    VkPipelineShaderStageCreateInfo stages[] = {
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vert, "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, frag, "main"},
-    };
-
-    // ── 顶点输入: 位置 float2 + 重心坐标 float2 + 三条边高 float3 + edgeMask float ──
-    VkVertexInputBindingDescription vtxBind{0, sizeof(GpuVertex), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttrs[4] = {
+    // ── 管线经工厂创建（清单 §四）。手写版：DS 全关但声明 5 动态态（stencil 三项
+    //    防绑定失效——本管线不读写 stencil，声明动态态避免之前设置的
+    //    compareMask/writeMask/reference 被失效化引发验证报错），SrcOver 混合，
+    //    纯 push constant 无描述符——逐值迁移，像素不变。
+    static const VkVertexInputBindingDescription vtxBind{0, sizeof(GpuVertex), VK_VERTEX_INPUT_RATE_VERTEX};
+    static const VkVertexInputAttributeDescription vtxAttrs[4] = {
         {0, 0, VK_FORMAT_R32G32_SFLOAT, 0},                     // 位置
         {1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float)},     // 重心坐标 (u,v)
         {2, 0, VK_FORMAT_R32G32B32_SFLOAT, 4 * sizeof(float)},  // 三条边的高 h0/h1/h2
         {3, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},        // edgeMask
     };
-    VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vtxIn.vertexBindingDescriptionCount = 1;
-    vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 4;
-    vtxIn.pVertexAttributeDescriptions = vtxAttrs;
+    PipeDesc pd;
+    pd.vertSpv = kwik::shader::kTriangleVert;  pd.vertSize = kwik::shader::kTriangleVertSize;
+    pd.fragSpv = kwik::shader::kTriangleFrag;  pd.fragSize = kwik::shader::kTriangleFragSize;
+    pd.bindings = {&vtxBind, 1};
+    pd.attrs = {vtxAttrs, 4};
+    pd.pushSize = sizeof(PushConstants);
+    pd.blend = PipeDesc::Blend::SrcOver;
+    pd.depthStencil = PipeDesc::DS::Off;
+    pd.stencilDynStates = true;
+    pd.renderPass = renderPass;
 
-    // ── 图元: 三角形列表 ──
-    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-
-    VkPipelineViewportStateCreateInfo vp{
-        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, nullptr, 0, 1, nullptr, 1, nullptr};
-
-    // ── 光栅化 ──
-    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                                              nullptr,
-                                              0,
-                                              VK_FALSE,
-                                              VK_FALSE,
-                                              VK_POLYGON_MODE_FILL,
-                                              VK_CULL_MODE_NONE,
-                                              VK_FRONT_FACE_CLOCKWISE,
-                                              VK_FALSE,
-                                              0.0f,
-                                              0.0f,
-                                              0.0f,
-                                              1.0f};
-
-    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    ds.depthTestEnable = VK_FALSE;
-    ds.depthWriteEnable = VK_FALSE;
-
-    // ── 混合: 预乘 Alpha ──
-    VkPipelineColorBlendAttachmentState ba{};
-    ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.alphaBlendOp = VK_BLEND_OP_ADD;
-    ba.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1;
-    blend.pAttachments = &ba;
-
-    // ── 动态状态 ──
-    // 声明 stencil 动态状态以保持与矩形渲染器的一致性。
-    // 三角形管线自身 stencilTestEnable = VK_FALSE（不读写 stencil），
-    // 但声明这些动态状态可防止绑定三角形管线后失效化之前设置的
-    // stencil compareMask / writeMask / reference 值，
-    // 从而避免后续矩形绘制时因状态失效而产生验证报错。
-    VkDynamicState dynStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,    // ← 新增
-        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,       // ← 新增
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,        // ← 新增
-    };
-    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 5;                     // 2 → 5
-    dyn.pDynamicStates = dynStates;
-
-    // ── Push constants ──
-    VkPushConstantRange pcRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants)};
-    VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &pcRange;
-
-    if (vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_) != VK_SUCCESS) {
-        vkDestroyShaderModule(device_, vert, nullptr);
-        vkDestroyShaderModule(device_, frag, nullptr);
-        return false;
-    }
-
-    // ── 创建 pipeline ──
-    VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    pi.stageCount = 2;
-    pi.pStages = stages;
-    pi.pVertexInputState = &vtxIn;
-    pi.pInputAssemblyState = &ia;
-    pi.pViewportState = &vp;
-    pi.pRasterizationState = &rs;
-    pi.pMultisampleState = &ms;
-    pi.pColorBlendState = &blend;
-    pi.pDynamicState = &dyn;
-    pi.layout = pipelineLayout_;
-    pi.renderPass = renderPass;
-    pi.pDepthStencilState = &ds;
-
-    VkPipelineCache cache = VK_NULL_HANDLE;
-    VkResult res = vkCreateGraphicsPipelines(device_, cache, 1, &pi, nullptr, &pipeline_);
-    vkDestroyShaderModule(device_, vert, nullptr);
-    vkDestroyShaderModule(device_, frag, nullptr);
+    auto b = makePipeline(device_, cache, pd);
+    if (b.pipeline == VK_NULL_HANDLE) return false;
+    pipeline_ = b.pipeline;
+    pipelineLayout_ = b.layout;
 
     // ── 创建 host-visible 顶点缓冲 ──
     // 用于在 render pass 内通过 memcpy 上传三角形顶点数据
@@ -222,7 +130,7 @@ bool TriangleRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRe
     }
     vkMapMemory(device_, stagingMemory_, 0, bufferCapacity_, 0, &mappedData_);
 
-    return res == VK_SUCCESS;
+    return true;
 }
 
 /**

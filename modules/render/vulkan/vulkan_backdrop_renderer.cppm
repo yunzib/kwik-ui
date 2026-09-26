@@ -50,7 +50,7 @@ public:
     BackdropRenderer() = default;
     ~BackdropRenderer();
 
-    bool create(VkDevice device, VkPhysicalDevice phys, VkRenderPass mainPass, VkBuffer vertexBuffer,
+    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice phys, VkRenderPass mainPass, VkBuffer vertexBuffer,
                 VkBuffer indexBuffer);
     void destroy();
 

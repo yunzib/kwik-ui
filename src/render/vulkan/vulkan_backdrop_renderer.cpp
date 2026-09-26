@@ -6,6 +6,7 @@ module;
 #include "backdrop_quad_shaders.h"
 module kwik.render.vulkan.backdrop_renderer;
 import kwik.render.vulkan.context;
+import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.render.command;
 import kwik.core.types;
 import std;
@@ -13,9 +14,9 @@ import std;
 BackdropRenderer::~BackdropRenderer() { destroy(); }
 
 // ================================================================
-// create — 离屏 renderpass + 描述符 + 4 条管线（blurH/blurV/composite±clip）
+// create — 离屏 renderpass + 4 条管线经工厂创建（blurH/blurV/composite±clip）
 // ================================================================
-bool BackdropRenderer::create(VkDevice device, VkPhysicalDevice phys, VkRenderPass mainPass,
+bool BackdropRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice phys, VkRenderPass mainPass,
                               VkBuffer vertexBuffer, VkBuffer indexBuffer) {
     device_ = device;
     vertexBuffer_ = vertexBuffer;
@@ -24,110 +25,66 @@ bool BackdropRenderer::create(VkDevice device, VkPhysicalDevice phys, VkRenderPa
     offscreenPass_ = createOffscreenPass(offscreenFormat_);
     if (offscreenPass_ == VK_NULL_HANDLE) return false;
 
-    VkShaderModule blurVert = VulkanContext::createShaderModule(device_, kwik::shader::kBackdropVert, kwik::shader::kBackdropVertSize);
-    VkShaderModule blurFrag = VulkanContext::createShaderModule(device_, kwik::shader::kBackdropFrag, kwik::shader::kBackdropFragSize);
-    VkShaderModule quadVert = VulkanContext::createShaderModule(device_, kwik::shader::kBackdropQuadVert, kwik::shader::kBackdropQuadVertSize);
-    VkShaderModule quadFrag = VulkanContext::createShaderModule(device_, kwik::shader::kBackdropQuadFrag, kwik::shader::kBackdropQuadFragSize);
-    if (!blurVert || !blurFrag || !quadVert || !quadFrag) return false;
-
-    // binding0 = 模糊/源图（blur 与 composite 共用）；binding1 = 原始捕获图（composite 折射采样）。
-    // blur shader 仅声明 binding0，binding1 静态未使用（合法），统一布局省一套 descSetLayout。
-    VkDescriptorSetLayoutBinding sbs[] = {{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                                          {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
-    VkDescriptorSetLayoutCreateInfo dsl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    dsl.bindingCount = 2; dsl.pBindings = sbs;
-    vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descSetLayout_);
-
-    VkPushConstantRange bpc{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlurPushConstants)};
-    VkPipelineLayoutCreateInfo bpl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    bpl.setLayoutCount = 1; bpl.pSetLayouts = &descSetLayout_;
-    bpl.pushConstantRangeCount = 1; bpl.pPushConstantRanges = &bpc;
-    vkCreatePipelineLayout(device_, &bpl, nullptr, &blurLayout_);
-
-    VkPushConstantRange qpc{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(QuadPushConstants)};
-    VkPipelineLayoutCreateInfo qpl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    qpl.setLayoutCount = 1; qpl.pSetLayouts = &descSetLayout_;
-    qpl.pushConstantRangeCount = 1; qpl.pPushConstantRanges = &qpc;
-    vkCreatePipelineLayout(device_, &qpl, nullptr, &quadLayout_);
-
-    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
-    VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vtxIn.vertexBindingDescriptionCount = 1; vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 1; vtxIn.pVertexAttributeDescriptions = &vtxAttr;
-    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-    vp.viewportCount = 1; vp.scissorCount = 1;
-    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-    rs.lineWidth = 1.0f;
-    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    // blendEnable/blending 因子在 make 内按管线类型设置（blur 不混合，composite SrcOver）
-    VkPipelineColorBlendAttachmentState ba{};
-    ba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
-                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
-    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1; blend.pAttachments = &ba;
-    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 2; dyn.pDynamicStates = dynStates;
-
-    auto make = [&](VkPipelineLayout layout, VkRenderPass pass, VkShaderModule v, VkShaderModule f,
-                    bool depthStencil, bool blending, VkPipeline *out) -> bool {
-        VkPipelineShaderStageCreateInfo stages[] = {
-            {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0,
-             VK_SHADER_STAGE_VERTEX_BIT, v, "main"},
-            {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0,
-             VK_SHADER_STAGE_FRAGMENT_BIT, f, "main"},
-        };
-        VkPipelineDepthStencilStateCreateInfo ds{};
-        ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        ds.depthTestEnable = VK_FALSE;
-        ds.depthWriteEnable = VK_FALSE;
-        ds.stencilTestEnable = VK_FALSE;
-        if (depthStencil) {
-            // clip 变体：pass-only 模板比较（ref 经 vkCmdSetStencilReference 动态设置）
-            VkStencilOpState so{};
-            so.failOp = VK_STENCIL_OP_KEEP; so.passOp = VK_STENCIL_OP_KEEP;
-            so.depthFailOp = VK_STENCIL_OP_KEEP; so.compareOp = VK_COMPARE_OP_EQUAL;
-            so.compareMask = 0xFF; so.writeMask = 0x00;
-            ds.stencilTestEnable = VK_TRUE; ds.front = so; ds.back = so;
-        }
-        // 主 pass 子通道带 DS 附件，pDepthStencilState 禁止为 NULL（禁用态也须提供）；
-        // 离屏 pass 无 DS 附件，禁用态合法。
-        VkPipelineDepthStencilStateCreateInfo *pds = &ds;
-        // blur 全屏覆盖无需混合；composite 需 SrcOver（与 rect/image/glyph 管线同款直 alpha）
-        ba.blendEnable = blending ? VK_TRUE : VK_FALSE;
-        if (blending) {
-            ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-            ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            ba.colorBlendOp = VK_BLEND_OP_ADD;
-            ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            ba.alphaBlendOp = VK_BLEND_OP_ADD;
-        }
-        VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-        pi.stageCount = 2; pi.pStages = stages;
-        pi.pVertexInputState = &vtxIn; pi.pInputAssemblyState = &ia;
-        pi.pViewportState = &vp; pi.pRasterizationState = &rs;
-        pi.pMultisampleState = &ms; pi.pColorBlendState = &blend;
-        pi.pDynamicState = &dyn; pi.layout = layout;
-        pi.renderPass = pass; pi.subpass = 0; pi.pDepthStencilState = pds;
-        return vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, out) == VK_SUCCESS;
+    // ── 管线经工厂创建（清单 §四）。binding0 = 模糊/源图（blur 与 composite
+    //    共用）；binding1 = 原始捕获图（composite 折射采样）。blur shader 仅声明
+    //    binding0，binding1 静态未使用（合法），统一布局省一套 descSetLayout。
+    //    blur 全屏覆盖无需混合（Blend::Write 全通道直写）；composite SrcOver。
+    //    四条均为 2 动态态（viewport/scissor）。逐值迁移，像素不变（clip 变体
+    //    静态 ref 修正除外，见下）。
+    static const VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    static const VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    static const VkDescriptorSetLayoutBinding sbs[2] = {
+        {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
     };
+    PipeDesc pd;
+    pd.vertSpv = kwik::shader::kBackdropVert;  pd.vertSize = kwik::shader::kBackdropVertSize;
+    pd.fragSpv = kwik::shader::kBackdropFrag;  pd.fragSize = kwik::shader::kBackdropFragSize;
+    pd.bindings = {&vtxBind, 1};
+    pd.attrs = {&vtxAttr, 1};
+    pd.pushSize = sizeof(BlurPushConstants);
+    pd.blend = PipeDesc::Blend::Write;
+    pd.depthStencil = PipeDesc::DS::Off;
+    pd.stencilDynStates = false;
+    pd.descBindings = {sbs, 2};
+    pd.renderPass = offscreenPass_;
 
-    bool ok = true;
-    ok = make(blurLayout_, offscreenPass_, blurVert, blurFrag, false, false, &blurHPipeline_) && ok;
-    ok = make(blurLayout_, offscreenPass_, blurVert, blurFrag, false, false, &blurVPipeline_) && ok;
-    ok = make(quadLayout_, mainPass, quadVert, quadFrag, false, true, &compositePipeline_) && ok;
-    ok = make(quadLayout_, mainPass, quadVert, quadFrag, true, true, &compositeClipPipeline_) && ok;
+    auto bh = makePipeline(device_, cache, pd);
+    if (bh.pipeline == VK_NULL_HANDLE) return false;
+    blurHPipeline_ = bh.pipeline;
+    blurLayout_ = bh.layout;
+    descSetLayout_ = bh.setLayout;
 
-    vkDestroyShaderModule(device_, blurVert, nullptr);
-    vkDestroyShaderModule(device_, blurFrag, nullptr);
-    vkDestroyShaderModule(device_, quadVert, nullptr);
-    vkDestroyShaderModule(device_, quadFrag, nullptr);
-    return ok;
+    pd.externalSetLayout = descSetLayout_;    // blurV 同参复用 setLayout/layout
+    pd.externalLayout = blurLayout_;
+    auto bv = makePipeline(device_, cache, pd);
+    if (bv.pipeline == VK_NULL_HANDLE) return false;
+    blurVPipeline_ = bv.pipeline;
+
+    // composite：主 pass + QuadPushConstants（push 尺寸不同，layout 自建一份）
+    pd.vertSpv = kwik::shader::kBackdropQuadVert;  pd.vertSize = kwik::shader::kBackdropQuadVertSize;
+    pd.fragSpv = kwik::shader::kBackdropQuadFrag;  pd.fragSize = kwik::shader::kBackdropQuadFragSize;
+    pd.pushSize = sizeof(QuadPushConstants);
+    pd.blend = PipeDesc::Blend::SrcOver;
+    pd.renderPass = mainPass;
+    pd.externalLayout = VK_NULL_HANDLE;
+    auto bc = makePipeline(device_, cache, pd);
+    if (bc.pipeline == VK_NULL_HANDLE) return false;
+    compositePipeline_ = bc.pipeline;
+    quadLayout_ = bc.layout;
+
+    // clip 变体：StencilTestEqual，静态 ref=1（掩码写 1，EQUAL 即"裁剪内通过"）。
+    //    修正存量 bug：手写版 VkStencilOpState{} 零初始化致静态 ref=0，语义反转
+    //    （裁剪内丢弃/裁剪外通过）；本管线未声明 stencil 动态态，运行时
+    //    vkCmdSetStencilReference 对它无效——与 rect/glyph/image clip 变体实际的
+    //    ref=1 对齐。glass.js ⑤"裁剪内玻璃"场景目视验证。
+    pd.depthStencil = PipeDesc::DS::StencilTestEqual;
+    pd.externalLayout = quadLayout_;    // 与 composite 同 layout
+    auto bk = makePipeline(device_, cache, pd);
+    if (bk.pipeline == VK_NULL_HANDLE) return false;
+    compositeClipPipeline_ = bk.pipeline;
+
+    return true;
 }
 
 // ================================================================

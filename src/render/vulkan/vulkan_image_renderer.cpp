@@ -6,6 +6,7 @@ module;
 #include "image_shaders.h"
 module kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.context;
+import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.render.command;
 import kwik.core.types;
 import std;
@@ -37,6 +38,10 @@ void ImageRenderer::destroy() {
         vkDestroyPipeline(device_, imageClipPipeline_, nullptr);
         imageClipPipeline_ = VK_NULL_HANDLE;
     }
+    if (imageClipPipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device_, imageClipPipelineLayout_, nullptr);
+        imageClipPipelineLayout_ = VK_NULL_HANDLE;
+    }
     if (imagePipelineLayout_ != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device_, imagePipelineLayout_, nullptr);
         imagePipelineLayout_ = VK_NULL_HANDLE;
@@ -49,140 +54,42 @@ void ImageRenderer::destroy() {
 // ================================================================
 // create — 管线 + descriptor set layout
 // ================================================================
-bool ImageRenderer::create(VkDevice device, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
+bool ImageRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
                            VkBuffer indexBuffer) {
     device_ = device;
     vertexBuffer_ = vertexBuffer;
     indexBuffer_ = indexBuffer;
-    VkShaderModule vertMod =
-        VulkanContext::createShaderModule(device_, kwik::shader::kImageVert, kwik::shader::kImageVertSize);
-    VkShaderModule fragMod =
-        VulkanContext::createShaderModule(device_, kwik::shader::kImageFrag, kwik::shader::kImageFragSize);
-    if (!vertMod || !fragMod) return false;
-    VkDescriptorSetLayoutBinding sb{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT};
-    VkDescriptorSetLayoutCreateInfo dsl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    dsl.bindingCount = 1;
-    dsl.pBindings = &sb;
-    if (vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &imageDescSetLayout_) != VK_SUCCESS) {
-        vkDestroyShaderModule(device_, fragMod, nullptr);
-        vkDestroyShaderModule(device_, vertMod, nullptr);
-        return false;
-    }
-    VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ImagePushConstants)};
-    VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pl.setLayoutCount = 1;
-    pl.pSetLayouts = &imageDescSetLayout_;
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &pcr;
-    if (vkCreatePipelineLayout(device_, &pl, nullptr, &imagePipelineLayout_) != VK_SUCCESS) {
-        vkDestroyDescriptorSetLayout(device_, imageDescSetLayout_, nullptr);
-        vkDestroyShaderModule(device_, fragMod, nullptr);
-        vkDestroyShaderModule(device_, vertMod, nullptr);
-        return false;
-    }
-    VkPipelineShaderStageCreateInfo stages[] = {
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vertMod, "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragMod,
-         "main"},
-    };
-    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
-    VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vtxIn.vertexBindingDescriptionCount = 1;
-    vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 1;
-    vtxIn.pVertexAttributeDescriptions = &vtxAttr;
-    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-    vp.viewportCount = 1;
-    vp.scissorCount = 1;
-    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-    rs.lineWidth = 1.0f;
-    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkPipelineColorBlendAttachmentState ba{};
-    ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.alphaBlendOp = VK_BLEND_OP_ADD;
-    ba.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1;
-    blend.pAttachments = &ba;
-    VkDynamicState dynStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-    };
-    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 5;
-    dyn.pDynamicStates = dynStates;
-    VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    pi.stageCount = 2;
-    pi.pStages = stages;
-    pi.pVertexInputState = &vtxIn;
-    pi.pInputAssemblyState = &ia;
-    pi.pViewportState = &vp;
-    pi.pRasterizationState = &rs;
-    pi.pMultisampleState = &ms;
-    pi.pColorBlendState = &blend;
-    pi.pDynamicState = &dyn;
-    pi.layout = imagePipelineLayout_;
-    pi.renderPass = renderPass;
-    pi.subpass = 0;
+    // ── 管线经工厂创建（清单 §四）。主/clip 手写版 depth-stencil 逐值相同，
+    //    统一 StencilTestEqual，逐值迁移像素不变。clip 复用 setLayout。
+    static const VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    static const VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    static const VkDescriptorSetLayoutBinding dslBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                                          VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    PipeDesc pd;
+    pd.vertSpv = kwik::shader::kImageVert;  pd.vertSize = kwik::shader::kImageVertSize;
+    pd.fragSpv = kwik::shader::kImageFrag;  pd.fragSize = kwik::shader::kImageFragSize;
+    pd.bindings = {&vtxBind, 1};
+    pd.attrs = {&vtxAttr, 1};
+    pd.pushSize = sizeof(ImagePushConstants);
+    pd.blend = PipeDesc::Blend::SrcOver;
+    pd.depthStencil = PipeDesc::DS::StencilTestEqual;
+    pd.stencilDynStates = true;
+    pd.descBindings = {&dslBinding, 1};
+    pd.renderPass = renderPass;
 
-    VkStencilOpState stencilNoWrite{};
-    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
-    stencilNoWrite.compareMask = 0xFF;
-    stencilNoWrite.writeMask = 0x00;
-    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    ds.stencilTestEnable = VK_TRUE;
-    ds.front = stencilNoWrite;
-    ds.back = stencilNoWrite;
-    pi.pDepthStencilState = &ds;
+    auto mainPipe = makePipeline(device_, cache, pd);
+    if (mainPipe.pipeline == VK_NULL_HANDLE) return false;
+    imagePipeline_ = mainPipe.pipeline;
+    imagePipelineLayout_ = mainPipe.layout;
+    imageDescSetLayout_ = mainPipe.setLayout;
 
-    VkResult r = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &imagePipeline_);
-    if (r != VK_SUCCESS) {
-        vkDestroyShaderModule(device_, fragMod, nullptr);
-        vkDestroyShaderModule(device_, vertMod, nullptr);
-        return false;
-    }
-    // ── Stencil 测试变体管线 ─────────────────────────────
-    {
-        VkDynamicState clipDynStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-            VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-        };
-        VkPipelineDynamicStateCreateInfo clipDyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-        clipDyn.dynamicStateCount = 5;
-        clipDyn.pDynamicStates = clipDynStates;
-        VkStencilOpState stencilTest{};
-        stencilTest.failOp = VK_STENCIL_OP_KEEP;
-        stencilTest.passOp = VK_STENCIL_OP_KEEP;
-        stencilTest.depthFailOp = VK_STENCIL_OP_KEEP;
-        stencilTest.compareOp = VK_COMPARE_OP_EQUAL;
-        stencilTest.compareMask = 0xFF;
-        stencilTest.writeMask = 0x00;
-        VkPipelineDepthStencilStateCreateInfo dsClip{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        dsClip.stencilTestEnable = VK_TRUE;
-        dsClip.front = stencilTest;
-        dsClip.back = stencilTest;
-        pi.pDynamicState = &clipDyn;
-        pi.pDepthStencilState = &dsClip;
-        vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &imageClipPipeline_);
-    }
-    vkDestroyShaderModule(device_, fragMod, nullptr);
-    vkDestroyShaderModule(device_, vertMod, nullptr);
-    return r == VK_SUCCESS;
+    pd.externalSetLayout = imageDescSetLayout_;    // clip 变体复用 setLayout
+    auto clipPipe = makePipeline(device_, cache, pd);
+    if (clipPipe.pipeline == VK_NULL_HANDLE) return false;
+    imageClipPipeline_ = clipPipe.pipeline;
+    imageClipPipelineLayout_ = clipPipe.layout;
+
+    return true;
 }
 // ================================================================
 // createTexture — 上传 RGBA + mipmap 生成
@@ -236,97 +143,83 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc, const uint8_t *rg
         return 0;
     }
     vkBindImageMemory(dc.device, tex.image, tex.memory, 0);
-    // ── 一次性命令 — copy + mipmap ──
-    VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    cai.commandPool = dc.commandPool;
-    cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cai.commandBufferCount = 1;
-    VkCommandBuffer cmd;
-    vkAllocateCommandBuffers(dc.device, &cai, &cmd);
-    VkCommandBufferBeginInfo cbi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    cbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cmd, &cbi);
-    // UNDEFINED → TRANSFER_DST (level 0)
-    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = tex.image;
-    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &barrier);
-    // Copy staging → image (level 0)
-    VkBufferImageCopy region{};
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageExtent = {width, height, 1};
-    vkCmdCopyBufferToImage(cmd, staging, tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    if (mipLevels > 1) {
-        VkImageMemoryBarrier preBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        preBarrier.srcAccessMask = 0;
-        preBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        preBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        preBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        preBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        preBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        preBarrier.image = tex.image;
-        preBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 1, mipLevels - 1, 0, 1};
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                             nullptr, 1, &preBarrier);
-        barrier.subresourceRange.levelCount = 1;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+    // ── 一次性命令 — copy + mipmap（§四收口） ──
+    VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
+        // UNDEFINED → TRANSFER_DST (level 0)
+        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = tex.image;
+        barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                              nullptr, 1, &barrier);
-        int32_t mipW = (int32_t)width, mipH = (int32_t)height;
-        for (uint32_t i = 1; i < mipLevels; i++) {
-            VkImageBlit blit{};
-            blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 0, 1};
-            blit.srcOffsets[1] = {mipW, mipH, 1};
-            blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i, 0, 1};
-            blit.dstOffsets[1] = {mipW > 1 ? mipW / 2 : 1, mipH > 1 ? mipH / 2 : 1, 1};
-            vkCmdBlitImage(cmd, tex.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex.image,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-            VkImageMemoryBarrier mb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            mb.image = tex.image;
-            mb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1};
-            mb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            mb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            mb.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        // Copy staging → image (level 0)
+        VkBufferImageCopy region{};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = {width, height, 1};
+        vkCmdCopyBufferToImage(cmd, staging, tex.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        if (mipLevels > 1) {
+            VkImageMemoryBarrier preBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            preBarrier.srcAccessMask = 0;
+            preBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            preBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            preBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            preBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            preBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            preBarrier.image = tex.image;
+            preBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 1, mipLevels - 1, 0, 1};
             vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                                 nullptr, 1, &mb);
-            if (mipW > 1) mipW /= 2;
-            if (mipH > 1) mipH /= 2;
+                                 nullptr, 1, &preBarrier);
+            barrier.subresourceRange.levelCount = 1;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                                 nullptr, 1, &barrier);
+            int32_t mipW = (int32_t)width, mipH = (int32_t)height;
+            for (uint32_t i = 1; i < mipLevels; i++) {
+                VkImageBlit blit{};
+                blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 0, 1};
+                blit.srcOffsets[1] = {mipW, mipH, 1};
+                blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i, 0, 1};
+                blit.dstOffsets[1] = {mipW > 1 ? mipW / 2 : 1, mipH > 1 ? mipH / 2 : 1, 1};
+                vkCmdBlitImage(cmd, tex.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex.image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+                VkImageMemoryBarrier mb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+                mb.image = tex.image;
+                mb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1};
+                mb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                mb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                mb.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr,
+                                     0, nullptr, 1, &mb);
+                if (mipW > 1) mipW /= 2;
+                if (mipH > 1) mipH /= 2;
+            }
+            VkImageMemoryBarrier tb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            tb.image = tex.image;
+            tb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevels, 0, 1};
+            tb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            tb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            tb.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            tb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                                 nullptr, 0, nullptr, 1, &tb);
+        } else {
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                                 nullptr, 0, nullptr, 1, &barrier);
         }
-        VkImageMemoryBarrier tb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        tb.image = tex.image;
-        tb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevels, 0, 1};
-        tb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        tb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        tb.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        tb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                             0, nullptr, 1, &tb);
-    } else {
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                             0, nullptr, 1, &barrier);
-    }
-    vkEndCommandBuffer(cmd);
-    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    si.commandBufferCount = 1;
-    si.pCommandBuffers = &cmd;
-    vkQueueSubmit(dc.queue, 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(dc.queue);
-    vkFreeCommandBuffers(dc.device, dc.commandPool, 1, &cmd);
+    });
     vkDestroyBuffer(dc.device, staging, nullptr);
     vkFreeMemory(dc.device, stagingMem, nullptr);
     // ── ImageView ──

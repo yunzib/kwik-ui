@@ -44,7 +44,9 @@ set(RENDER_COMPILE_DEFINITIONS
 # 条件添加Vulkan后端
 if(KWIK_RENDER_VULKAN)
     list(APPEND RENDER_PUBLIC_MODULES
+        modules/render/backend_factory.cppm
         modules/render/vulkan/vulkan_context.cppm
+        modules/render/vulkan/pipeline_factory.cppm
         modules/render/vulkan/vulkan_rect_renderer.cppm
         modules/render/vulkan/vulkan_glyph_renderer.cppm
         modules/render/vulkan/vulkan_image_renderer.cppm
@@ -55,7 +57,9 @@ if(KWIK_RENDER_VULKAN)
         modules/render/vulkan/vulkan_backdrop_renderer.cppm
     )
     list(APPEND RENDER_PRIVATE_SOURCES
+        src/render/backend_factory.cpp
         src/render/vulkan/vulkan_context.cpp
+        src/render/vulkan/pipeline_factory.cpp
         src/render/vulkan/vulkan_rect_renderer.cpp
         src/render/vulkan/vulkan_glyph_renderer.cpp
         src/render/vulkan/vulkan_image_renderer.cpp

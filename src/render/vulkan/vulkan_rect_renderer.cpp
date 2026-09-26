@@ -6,6 +6,7 @@ module;
 
 module kwik.render.vulkan.rect_renderer;
 import kwik.render.vulkan.context;
+import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.core.types;
 import std;
 // ── PushConstants (96 byte, 必须与 rect.vert/rect.frag 对齐) ──────
@@ -45,152 +46,46 @@ void RectRenderer::destroy() {
 // ================================================================
 // create — 创建 fill / stroke / shadow / stencil 四条管线
 // ================================================================
-bool RectRenderer::create(VkDevice device, VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
+bool RectRenderer::create(VkDevice device, VkPipelineCache cache, VkRenderPass renderPass, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
     device_ = device;
     vertexBuffer_ = vertexBuffer;
     indexBuffer_ = indexBuffer;
-    // ── 着色器 ───────────────────────────────────────────
-    VkShaderModule vert =
-        VulkanContext::createShaderModule(device_, kwik::shader::kRectVert, kwik::shader::kRectVertSize);
-    VkShaderModule frag =
-        VulkanContext::createShaderModule(device_, kwik::shader::kRectFrag, kwik::shader::kRectFragSize);
-    if (!vert || !frag) return false;
-    VkPipelineShaderStageCreateInfo stages[] = {
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vert, "main"},
-        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, frag, "main"},
-    };
-    VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
-    VkPipelineVertexInputStateCreateInfo vtxIn{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vtxIn.vertexBindingDescriptionCount = 1;
-    vtxIn.pVertexBindingDescriptions = &vtxBind;
-    vtxIn.vertexAttributeDescriptionCount = 1;
-    vtxIn.pVertexAttributeDescriptions = &vtxAttr;
-    VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0,
-                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    VkPipelineViewportStateCreateInfo vp{
-        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, nullptr, 0, 1, nullptr, 1, nullptr};
-    VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                                              nullptr,
-                                              0,
-                                              VK_FALSE,
-                                              VK_FALSE,
-                                              VK_POLYGON_MODE_FILL,
-                                              VK_CULL_MODE_NONE,
-                                              VK_FRONT_FACE_CLOCKWISE,
-                                              VK_FALSE,
-                                              0.0f,
-                                              0.0f,
-                                              0.0f,
-                                              1.0f};
-    VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    // ── 颜色混合 ──────────────────────────────────────────
-    VkPipelineColorBlendAttachmentState ba{};
-    ba.blendEnable = VK_TRUE;
-    ba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    ba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.colorBlendOp = VK_BLEND_OP_ADD;
-    ba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    ba.alphaBlendOp = VK_BLEND_OP_ADD;
-    ba.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1;
-    blend.pAttachments = &ba;
-    // ── Dynamic states ────────────────────────────────────
-    VkDynamicState dynStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,  VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-    };
-    VkPipelineDynamicStateCreateInfo dyn{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn.dynamicStateCount = 5;
-    dyn.pDynamicStates = dynStates;
-    // ── Depth / Stencil ────────────────────────────────────
-    VkStencilOpState stencilNoWrite{};
-    stencilNoWrite.failOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.passOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.depthFailOp = VK_STENCIL_OP_KEEP;
-    stencilNoWrite.compareOp = VK_COMPARE_OP_EQUAL;
-    stencilNoWrite.compareMask = 0xFF;
-    stencilNoWrite.writeMask = 0x00;
-    VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    ds.depthTestEnable = VK_FALSE;
-    ds.depthWriteEnable = VK_FALSE;
-    ds.stencilTestEnable = VK_TRUE;
-    ds.front = stencilNoWrite;
-    ds.back = stencilNoWrite;
-    // ── Push constant range ────────────────────────────────
-    VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants)};
-    VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &pcr;
-    if (vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_) != VK_SUCCESS) goto fail;
-    // ── 创建 fill / stroke / shadow 管线 ─────────────────
-    {
-        VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-        pi.stageCount = 2;
-        pi.pStages = stages;
-        pi.pVertexInputState = &vtxIn;
-        pi.pInputAssemblyState = &ia;
-        pi.pViewportState = &vp;
-        pi.pRasterizationState = &rs;
-        pi.pMultisampleState = &ms;
-        pi.pColorBlendState = &blend;
-        pi.pDynamicState = &dyn;
-        pi.layout = pipelineLayout_;
-        pi.renderPass = renderPass;
-        pi.subpass = 0;
-        pi.pDepthStencilState = &ds;
-        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &fillPipeline_) != VK_SUCCESS
-            || vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &strokePipeline_) != VK_SUCCESS
-            || vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &shadowPipeline_) != VK_SUCCESS)
-            goto fail;
-    }
-    // ── 创建 stencil mask 管线 ────────────────────────────
-    {
-        VkPipelineColorBlendAttachmentState sba{};
-        VkPipelineColorBlendStateCreateInfo sBlend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-        sBlend.attachmentCount = 1;
-        sBlend.pAttachments = &sba;
-        VkStencilOpState stencilWrite{};
-        stencilWrite.failOp = VK_STENCIL_OP_KEEP;
-        stencilWrite.passOp = VK_STENCIL_OP_REPLACE;
-        stencilWrite.depthFailOp = VK_STENCIL_OP_KEEP;
-        stencilWrite.compareOp = VK_COMPARE_OP_ALWAYS;
-        stencilWrite.compareMask = 0xFF;
-        stencilWrite.writeMask = 0xFF;
-        VkPipelineDepthStencilStateCreateInfo sDs{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        sDs.stencilTestEnable = VK_TRUE;
-        sDs.front = stencilWrite;
-        sDs.back = stencilWrite;
-        VkGraphicsPipelineCreateInfo pi{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-        pi.stageCount = 2;
-        pi.pStages = stages;
-        pi.pVertexInputState = &vtxIn;
-        pi.pInputAssemblyState = &ia;
-        pi.pViewportState = &vp;
-        pi.pRasterizationState = &rs;
-        pi.pMultisampleState = &ms;
-        pi.pColorBlendState = &sBlend;
-        pi.pDynamicState = &dyn;
-        pi.layout = pipelineLayout_;
-        pi.renderPass = renderPass;
-        pi.subpass = 0;
-        pi.pDepthStencilState = &sDs;
-        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pi, nullptr, &stencilPipeline_) != VK_SUCCESS)
-            goto fail;
-    }
-    vkDestroyShaderModule(device_, vert, nullptr);
-    vkDestroyShaderModule(device_, frag, nullptr);
+    // ── 管线经工厂创建（清单 §四）：fill/stroke/shadow 同参三份（drawMode 在
+    //    push constant 区分）+ stencil 掩码写入变体（不混合 + passOp=REPLACE）。
+    //    四条共用一份 pipelineLayout（首建复用）。
+    static const VkVertexInputBindingDescription vtxBind{0, 2 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    static const VkVertexInputAttributeDescription vtxAttr{0, 0, VK_FORMAT_R32G32_SFLOAT, 0};
+    PipeDesc pd;
+    pd.vertSpv = kwik::shader::kRectVert;  pd.vertSize = kwik::shader::kRectVertSize;
+    pd.fragSpv = kwik::shader::kRectFrag;  pd.fragSize = kwik::shader::kRectFragSize;
+    pd.bindings = {&vtxBind, 1};
+    pd.attrs = {&vtxAttr, 1};
+    pd.pushSize = sizeof(PushConstants);
+    pd.blend = PipeDesc::Blend::SrcOver;
+    pd.depthStencil = PipeDesc::DS::StencilTestEqual;
+    pd.stencilDynStates = true;
+    pd.renderPass = renderPass;
+
+    auto b0 = makePipeline(device_, cache, pd);
+    if (b0.pipeline == VK_NULL_HANDLE) { destroy(); return false; }
+    fillPipeline_ = b0.pipeline;
+    pipelineLayout_ = b0.layout;
+
+    pd.externalLayout = pipelineLayout_;    // 后三条复用
+    auto bs = makePipeline(device_, cache, pd);
+    auto bh = makePipeline(device_, cache, pd);
+    if (bs.pipeline == VK_NULL_HANDLE || bh.pipeline == VK_NULL_HANDLE) { destroy(); return false; }
+    strokePipeline_ = bs.pipeline;
+    shadowPipeline_ = bh.pipeline;
+
+    // stencil 掩码写入：不写颜色 + StencilWrite
+    pd.blend = PipeDesc::Blend::MaskOnly;
+    pd.depthStencil = PipeDesc::DS::StencilWrite;
+    auto bn = makePipeline(device_, cache, pd);
+    if (bn.pipeline == VK_NULL_HANDLE) { destroy(); return false; }
+    stencilPipeline_ = bn.pipeline;
+
     return true;
-fail:
-    vkDestroyShaderModule(device_, vert, nullptr);
-    vkDestroyShaderModule(device_, frag, nullptr);
-    destroy();
-    return false;
 }
 // ================================================================
 // 绘制方法

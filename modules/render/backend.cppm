@@ -92,8 +92,23 @@ public:
     /** @brief 绘制 3D 网格（对象空间 MVP，无 2D 矩阵） */
     virtual void drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) = 0;
 
-    /** @brief 液态玻璃 backdrop：中断主 pass 捕获 rect∩scissor → 降采样 → 高斯 → 以底色合成恢复 */
+    /**
+     * @brief 液态玻璃 backdrop 特效（多 pass effect 的语义接口，§四）
+     *
+     * 对 captureBox 内【已绘制内容】整体施加高斯模糊（σ = radius × scale 屏幕像素），
+     * 连同可选折射/高光按 rect + cornerRadius 圆角合成回画布。
+     * 契约：按命令流顺序生效——此前绘制的内容参与捕获，此后绘制叠加其上；
+     * 实现手段（GPU 中断渲染 pass 离屏模糊 / CPU 直读画布卷积）由后端自决，
+     * 对上层不可见。半径换算、伤害带扩展等录制期语义见 BackdropBlurCmd。
+     */
     virtual void backdropBlur(const BackdropBlurCmd &cmd) = 0;
+
+    /**
+     * @brief 结构变化通知（§四 effect 抽象收口）：UI 树结构重建后由渲染线程调用，
+     *        后端应丢弃任何跨帧/基于内容指纹的缓存（其后所有命令按新内容处理）。
+     *        默认无操作——无跨帧缓存的后端无需实现。
+     */
+    virtual void invalidateCaches() {}
 
     virtual uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) = 0;
     virtual void destroyImageTexture(uint32_t id) = 0;

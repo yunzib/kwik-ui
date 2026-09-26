@@ -12,7 +12,7 @@ export class GlyphRenderer {
 public:
     GlyphRenderer() = default;
     ~GlyphRenderer();
-    bool create(VkDevice device, VkPhysicalDevice physDevice,
+    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice,
             VkCommandPool cmdPool, VkQueue queue,
             VkRenderPass renderPass,
             VkBuffer vertexBuffer, VkBuffer indexBuffer);
@@ -31,6 +31,7 @@ private:
     VkPipeline glyphPipeline_ = VK_NULL_HANDLE;
     VkPipeline glyphClipPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout glyphPipelineLayout_ = VK_NULL_HANDLE;
+    VkPipelineLayout glyphClipPipelineLayout_ = VK_NULL_HANDLE;    // clip 变体（工厂各建等价 layout）
     VkDescriptorSetLayout glyphDescSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool glyphDescPool_ = VK_NULL_HANDLE;
     VkDescriptorSet glyphDescSet_ = VK_NULL_HANDLE;

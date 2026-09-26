@@ -1,5 +1,32 @@
 # 更新日志
 
+# 0.0.0 — 2026-09-26
+### 重构（渲染后端：Pipeline 工厂 + effect 契约，清单 §四）
+- 14 条图形管线全量经 pipeline_factory 创建（rect 4/glyph 2/image 2/
+  triangle 1/3d 1/backdrop 4），子渲染器只声明 PipeDesc 差异；工厂补
+  Blend 三态（SrcOver/Write/MaskOnly——原 bool 无法表达 blur 管线
+  "不混合但写颜色"形态）；backdrop blurV/composite 经 external 通道复用
+  setLayout/layout
+- VkPipelineCache 于 VulkanContext 创建并穿透 6 家渲染器（原 11 处创建
+  全 VK_NULL_HANDLE）；一次性命令缓冲 5 处收口为
+  VulkanContext::runOneOff（copyBuffer/画布初始清屏/glyph 图集过渡与上传/
+  image 纹理上传）
+- effect 契约语义化（轻量定案，正式 Effect 层评估后放弃）：backdropBlur
+  接口注释改语义契约（按命令流顺序生效、实现手段后端自决）；structuralChange
+  改经 RenderBackend::invalidateCaches 虚方法（删 dynamic_cast）；后端选择
+  收口 backend_factory 模块（render_thread 只面向 RenderBackend 抽象）
+### 修复
+- glyph 渲染器迁移残留泄漏：旧手写 setLayout/pipelineLayout 创建后立即被
+  工厂返回值覆盖，旧对象（含 shader module）泄漏
+- backdrop clip 合成管线静态 stencil reference=0 语义反转：手写版
+  VkStencilOpState{} 零初始化且未声明 stencil 动态态，EQUAL 测试对裁剪
+  掩码取反（裁剪内玻璃不可见、裁剪外反而通过）；随工厂迁移以静态 ref=1
+  修正，glass.js ⑤ 场景复验通过
+- render_thread 后端 switch 配置非 Vulkan 类型时空指针解引用（backend_factory
+  返回空时报错退出）
+- glyph uploadPendingGlyphs 空批次早退遗留已录制未提交命令缓冲（totalSize
+  检查前置修复）
+
 # 0.0.0 — 2026-09-25
 ### 重构（多窗口/多呈现目标支持）
 - 新增 KwikRuntime：一个窗口一棵 UI 树的全部运行状态（渲染线程/JS 上下文/
