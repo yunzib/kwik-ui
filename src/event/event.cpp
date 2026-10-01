@@ -304,9 +304,37 @@ void KeyboardHandler::process(const RawEvent &raw, std::vector<DispatchEvent> &o
         break;
     }
     case RawEvent::Action::TextInput: {
+        // 代理对重组: 增补平面字符由平台拆成高/低代理两条事件送入，相邻
+        // (高,低) 合并为完整码点一次下发，避免组件层把半代理编码成非法 UTF-8
+        uint32_t cp = raw.charCode;
+        if (pendingHighSurrogate_ != 0) {
+            uint32_t high = pendingHighSurrogate_;
+            pendingHighSurrogate_ = 0;
+            if (cp >= 0xDC00 && cp <= 0xDFFF) {
+                DispatchEvent charEvt;
+                charEvt.type = DispatchEvent::Type::CharInput;
+                charEvt.charCode = 0x10000 + ((high - 0xD800) << 10) + (cp - 0xDC00);
+                charEvt.timestamp = ts;
+                out.push_back(charEvt);
+                break;
+            }
+            // 悬空高代理后跟非低代理: 原样冲刷（保数据），当前码点走常规路径
+            DispatchEvent flushEvt;
+            flushEvt.type = DispatchEvent::Type::CharInput;
+            flushEvt.charCode = high;
+            flushEvt.timestamp = ts;
+            out.push_back(flushEvt);
+        }
+        if (cp >= 0xD800 && cp <= 0xDBFF) {
+            pendingHighSurrogate_ = cp;    // 低代理未到，寄存等待
+            break;
+        }
+        if (cp >= 0xDC00 && cp <= 0xDFFF) {
+            break;    // 无前置高代理的孤立低代理 = 残缺输入，丢弃避免产出非法 UTF-8
+        }
         DispatchEvent charEvt;
         charEvt.type = DispatchEvent::Type::CharInput;
-        charEvt.charCode = raw.charCode;
+        charEvt.charCode = cp;
         charEvt.timestamp = ts;
         out.push_back(charEvt);
         break;
@@ -520,6 +548,7 @@ void EventRouter::poll() {
 void EventRouter::reset() {
     pointerTracker_.reset();
     gestureRecognizer_.reset();
+    keyboardHandler_.reset();    // 清代理对重组寄存器（树重建后不残留悬空半代理）
     focusManager_.reset();
 }
 

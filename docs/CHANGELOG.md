@@ -15,6 +15,18 @@
   全绿；修复过程新立清单条目"多窗口字形上传误路由"（全局队列无后端
   标记，先 drain 的渲染线程拿走别窗 job → 各窗图集字形子集不全）
 
+### 修复（路线图第 1 项：WM_CHAR 代理对重组）
+- emoji/增补平面字符损坏：Windows 每条 WM_CHAR 只携带一个 UTF-16 码元，
+  高/低代理此前被当独立码点各编码成非法 UTF-8。定案事件层重组——
+  KeyboardHandler 增代理对寄存器（每树一份，多窗隔离），TextInput 分支
+  状态机：相邻(高,低)合成完整码点一次下发、悬空高代理原样冲刷、孤立低
+  代理丢弃；EventRouter::reset 接入清态（树重建防残留）
+- 组件层零改动：重组后 Input/TextArea 既有 4 字节 UTF-8 分支成为活代码；
+  emoji 渲染仍依赖字体含字形（字体回退死代码另列 §十二）
+- 行为锁：core_tests 新增 test_surrogate_recombine（合并/悬空冲刷/孤立
+  丢弃/BMP 直通/reset 清态），断言 130→138；测试目标补链 kwik_event
+- 门禁：构建零新增警告 + ctest 通过 + smoke 37/37 双模式全绿
+
 # 0.0.0 — 2026-09-26
 ### 重构（渲染后端：Pipeline 工厂 + effect 契约，清单 §四）
 - 14 条图形管线全量经 pipeline_factory 创建（rect 4/glyph 2/image 2/

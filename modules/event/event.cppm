@@ -363,6 +363,15 @@ public:
      * @param out 输出事件列表
      */
     void process(const RawEvent &raw, std::vector<DispatchEvent> &out);
+
+    /** @brief 清空内部状态（树重建后调用），当前仅代理对重组寄存器 */
+    void reset() { pendingHighSurrogate_ = 0; }
+
+private:
+    // 代理对重组寄存器: 平台每条 WM_CHAR 只携带一个 UTF-16 码元，增补平面
+    // 字符（emoji）被拆成高/低代理两条事件送入；高代理先寄存，低代理到达
+    // 时合并为完整码点一次下发（EventRouter 每树一份，多窗状态互不串扰）
+    uint32_t pendingHighSurrogate_ = 0;
 };
 
 // ============================================================================

@@ -8,6 +8,7 @@ import kwik.core.prop_meta;
 import kwik.animation.engine;
 import kwik.render.command;
 import kwik.render.command_buffer;
+import kwik.event;
 
 import std;
 
@@ -108,10 +109,57 @@ static void test_display_list() {
     CHECK(list.cmdCount() == 0 && list.bounds().isEmpty());
 }
 
+// ── 行为锁: WM_CHAR 代理对重组（路线图第 1 项 emoji 损坏修复的回归防线）──
+static void test_surrogate_recombine() {
+    KeyboardHandler kh;
+    std::vector<DispatchEvent> out;
+    auto feed = [&kh, &out](uint32_t cp) {
+        RawEvent raw{};
+        raw.action = RawEvent::Action::TextInput;
+        raw.charCode = cp;
+        kh.process(raw, out);
+    };
+
+    // 😀 = U+1F600 = UTF-16 D83D DE00: 高代理先到 → 寄存不下发
+    feed(0xD83D);
+    CHECK(out.empty());
+
+    // 低代理到达 → 合成完整码点一次下发
+    feed(0xDE00);
+    CHECK(out.size() == 1);
+    CHECK(out[0].type == DispatchEvent::Type::CharInput);
+    CHECK(out[0].charCode == 0x1F600);
+
+    // 悬空高代理后跟普通字符: 先原样冲刷高代理，再下发普通字符（共 2 条）
+    out.clear();
+    feed(0xD83D);
+    feed('A');
+    CHECK(out.size() == 2);
+    CHECK(out[0].charCode == 0xD83D && out[1].charCode == 'A');
+
+    // 孤立低代理 = 残缺输入: 丢弃（避免组件层编码出非法 UTF-8）
+    out.clear();
+    feed(0xDE00);
+    CHECK(out.empty());
+
+    // BMP 汉字不受影响: 单条直通
+    out.clear();
+    feed(0x4F60);    // 你
+    CHECK(out.size() == 1 && out[0].charCode == 0x4F60);
+
+    // reset 清寄存器: 高代理后 reset，后续普通字符只下发 1 条
+    out.clear();
+    feed(0xD83D);
+    kh.reset();
+    feed('B');
+    CHECK(out.size() == 1 && out[0].charCode == 'B');
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
     test_display_list();
+    test_surrogate_recombine();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }
