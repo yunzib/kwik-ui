@@ -83,7 +83,9 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandle(nullptr);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    // 背景刷置空：窗口内容由 GPU present 经 DWM 合成，GDI 背景刷只会在
+    // resize 空窗期擦出黑边（配合 WM_ERASEBKGND 返回 1 双保险）
+    wc.hbrBackground = nullptr;
     wc.lpszClassName = L"KwikUIWindowClass";
     RegisterClassExW(&wc);
     // 窗口尺寸含装饰
@@ -319,8 +321,8 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     // 鼠标移动
     case WM_MOUSEMOVE:
         e.type = Event::Type::MouseMove;
-        e.x = static_cast<int>(LOWORD(lParam));
-        e.y = static_cast<int>(HIWORD(lParam));
+        e.x = (int)(short)LOWORD(lParam);
+        e.y = (int)(short)HIWORD(lParam);
         if (wParam & MK_LBUTTON)
             e.button = Event::MouseButton::Left;
         else if (wParam & MK_RBUTTON)
@@ -331,29 +333,38 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
             e.button = Event::MouseButton::None;
         break;
 
-    // 鼠标按键
+    // 鼠标按键（左键按下/抬起：捕获期负客户坐标符号化提取，否则 ~65500 回绕）
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
         e.type = (msg == WM_LBUTTONDOWN) ? Event::Type::MouseDown : Event::Type::MouseUp;
         e.button = Event::MouseButton::Left;
-        e.x = static_cast<int>(LOWORD(lParam));
-        e.y = static_cast<int>(HIWORD(lParam));
+        e.x = (int)(short)LOWORD(lParam);
+        e.y = (int)(short)HIWORD(lParam);
+        // 左键捕获：拖拽语义全在左键——按下期间持续收流外鼠标消息（拖出窗口
+        // 不丢事件），组件 Pan/Slider 拖到窗口外仍能跟踪
+        if (msg == WM_LBUTTONDOWN) {
+            SetCapture(hwnd_);
+            captured_ = true;
+        } else {
+            captured_ = false;    // 先清标志：自愿释放不按"被夺"合成 Cancel
+            ReleaseCapture();
+        }
         break;
 
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
         e.type = (msg == WM_RBUTTONDOWN) ? Event::Type::MouseDown : Event::Type::MouseUp;
         e.button = Event::MouseButton::Right;
-        e.x = static_cast<int>(LOWORD(lParam));
-        e.y = static_cast<int>(HIWORD(lParam));
+        e.x = (int)(short)LOWORD(lParam);
+        e.y = (int)(short)HIWORD(lParam);
         break;
 
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
         e.type = (msg == WM_MBUTTONDOWN) ? Event::Type::MouseDown : Event::Type::MouseUp;
         e.button = Event::MouseButton::Middle;
-        e.x = static_cast<int>(LOWORD(lParam));
-        e.y = static_cast<int>(HIWORD(lParam));
+        e.x = (int)(short)LOWORD(lParam);
+        e.y = (int)(short)HIWORD(lParam);
         break;
 
     // 鼠标滚轮
@@ -419,8 +430,26 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         Destroy();
         return 0;
 
+    // 捕获被夺（系统弹菜单/开对话框/他窗夺走）→ 合成指针取消，事件层
+    // PointerCancel 终止组件拖拽（否则拖拽状态悬空到下次按下）。
+    // 自愿释放（WM_LBUTTONUP 先清 captured_）不进此分支
+    case WM_CAPTURECHANGED:
+        if (captured_) {
+            captured_ = false;
+            RawEvent raw;
+            raw.device = RawEvent::Device::Mouse;
+            raw.action = RawEvent::Action::Cancel;
+            raw.pointerId = 0;
+            raw.timestamp = GetTickCount64();
+            if (rawCallback_) rawCallback_(raw);
+        }
+        return 0;
+
     // 窗口绘制
     case WM_PAINT: ValidateRect(hwnd_, nullptr); return 0;
+    // 不擦背景：GPU present 的内容由 DWM 合成管理，resize 露出的新区域若经
+    // 类背景刷擦底会出现黑边/黑闪（黑刷擦掉旧帧且无新帧可补）
+    case WM_ERASEBKGND: return 1;
     // 跨缩放率屏幕拖动：系统通知到达即重算。仅采纳建议位置（保持跟手），
     // 尺寸统一交既有 RefitToNearestMonitor() 重算（含夹紧与装饰补偿，逻辑零改动）
     case WM_DPICHANGED: {
@@ -497,12 +526,52 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         grabRelX_ = std::max(0.0f, std::min(1.0f, grabRelX_));
         grabRelY_ = std::max(0.0f, std::min(1.0f, grabRelY_));
         inMoveLoop_ = true;
+        lastSizingTick_ = 0;    // 放大限速基准重置：新拖动会话从当前尺寸起算
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
-    // 拖边缘缩放：系统语义是"对边固定"，与光标钉定语义冲突，撤销纠偏
-    case WM_SIZING:
+    // 拖边缘缩放：撤销纠偏（系统语义是"对边固定"）+ 放大方向限速——
+    // 黑边 = 窗口领先最后呈现画面的部分（呈现面锚定映射，长出区域无像素
+    // 来源），把窗口放大速率钳到渲染吞吐量级（~1200px/s），快拖时领先量
+    // 封顶在一帧增量内（黑边近不可见）；慢拖低于此速率完全无感。
+    // 缩小方向不限（画面被裁剪不产生黑边）
+    case WM_SIZING: {
         inMoveLoop_ = false;
-        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+        RECT *r = reinterpret_cast<RECT *>(lParam);
+        if (!r) return DefWindowProcW(hwnd_, msg, wParam, lParam);
+        ULONGLONG nowTick = GetTickCount64();
+        if (lastSizingTick_ == 0) {
+            lastSizingTick_ = nowTick;
+            lastSizingW_ = r->right - r->left;
+            lastSizingH_ = r->bottom - r->top;
+            return DefWindowProcW(hwnd_, msg, wParam, lParam);
+        }
+        constexpr float kMaxGrowPxPerMs = 1.2f;    // ≈1200px/s
+        const int step = std::max(1, int(kMaxGrowPxPerMs * float(nowTick - lastSizingTick_)));
+        const int maxW = lastSizingW_ + step;
+        const int maxH = lastSizingH_ + step;
+        const int w = r->right - r->left;
+        const int h = r->bottom - r->top;
+        bool modified = false;
+        if (w > maxW) {
+            // 按拖动边修正：动右缘改 right（左缘固定），动左缘改 left（右缘固定）
+            switch (wParam) {
+            case WMSZ_LEFT: case WMSZ_TOPLEFT: case WMSZ_BOTTOMLEFT: r->left = r->right - maxW; break;
+            default: r->right = r->left + maxW; break;
+            }
+            modified = true;
+        }
+        if (h > maxH) {
+            switch (wParam) {
+            case WMSZ_TOP: case WMSZ_TOPLEFT: case WMSZ_TOPRIGHT: r->top = r->bottom - maxH; break;
+            default: r->bottom = r->top + maxH; break;
+            }
+            modified = true;
+        }
+        lastSizingTick_ = nowTick;
+        lastSizingW_ = r->right - r->left;
+        lastSizingH_ = r->bottom - r->top;
+        return modified ? TRUE : DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
     case WM_EXITSIZEMOVE: {
         // 本次循环中尺寸未变 ⇒ 纯位置拖动 → 交由 Refit 跨屏重算占屏；
         // 尺寸被用户改变 ⇒ 手动缩放结果，完全尊重，不回弹

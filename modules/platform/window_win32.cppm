@@ -70,6 +70,10 @@ private:
     bool moveCrossed_ = false;           // 本轮拖动曾跨越屏幕边界
     HMONITOR refitMon_ = nullptr;        // 最近一次 Refit 归属屏（WM_MOVE 翻转检测：跨屏即时重设窗口）
     bool inMoveLoop_ = false;            // 移动模态循环中（WM_SIZING 到达即撤销——缩放循环不纠偏）
+    bool captured_ = false;              // 左键捕获持有中（区分自愿释放/被夺，防误发 Cancel）
+    ULONGLONG lastSizingTick_ = 0;       // 上条 WM_SIZING 时刻（放大限速时间基准；0=本会话未初始化）
+    int lastSizingW_ = 0;                // 上条 WM_SIZING 后的窗口尺寸（限速基准）
+    int lastSizingH_ = 0;
 };
 
 #endif    // _WIN32

@@ -113,6 +113,9 @@ private:
     bool treeStructureChanged_ = true;   // 结构变化标志，renderFrame 消费后清空
     uint64_t frameId_ = 0;               // 单调递增帧序号（FrameSubmit.frameId）
     int resizeBurstFrames_ = 0;
+    int pendingResizeW_ = 0;              // 待渲染帧携带的 resize 尺寸（>0 时 renderFrame 装配 needsResize，
+    int pendingResizeH_ = 0;              //  resize 与内容帧合并，杜绝只重建交换链不呈现的空窗）
+    std::chrono::steady_clock::time_point lastResizeRender_{};    // 上次同步完整帧时刻（WM_SIZE 风暴节流基准）
     Rect dirtyRect_;                     // 脏矩形累加器（每帧被 Graphics 写入）
     bool needsRedraw_ = true;            // 首帧要画
     bool closeRequested_ = false;

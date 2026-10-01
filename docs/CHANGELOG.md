@@ -1,5 +1,24 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-02
+### 修复（路线图第 3 项：resize 黑屏 + 鼠标捕获）
+- 拖动/缩放窗口黑屏（模态循环停摆 + 黑刷擦底 + 窗口领先画面）：窗口层
+  三件组合，渲染侧零改动——①WM_SIZE 同步驱动完整帧（resize 尺寸并入
+  内容帧，重建+回放+present 单帧完成，无需定时器保活）；②WM_SIZE 风暴
+  节流合并（10ms 内只处理最新尺寸，松手 tick 补最终帧）；③WM_SIZING
+  放大方向限速 ~1200px/s（黑边=窗口领先最后呈现画面的量，呈现面锚定
+  映射无 scaling 控制，限速使领先封顶一帧增量；缩小不限）。连带
+  hbrBackground 置 null + WM_ERASEBKGND 返回 1
+- 鼠标捕获防粘滞：左键按下 SetCapture/松开 ReleaseCapture（captured_
+  标志防自愿释放误发），被夺时 WM_CAPTURECHANGED 合成 Cancel 经事件层
+  PointerCancel 终止组件拖拽；4 处指针坐标 (int)(short) 符号化（捕获期
+  负客户坐标不再回绕 ~65500）
+- 留档已证伪路线（详见任务清单 §十三）：SetTimer 保活泵帧（曾退回）、
+  canvas 拉伸 blit 过渡帧（present 前 DWM 不可见 canvas，纯增开销）、
+  队列等待/旧链退役替代 deviceWaitIdle（实测跨屏引入新黑）。浏览器级
+  零黑边需 DXGI/DComp 拉伸兜底（Vulkan WSI 不可达），记入远期池
+- 门禁：构建零新增警告 + ctest + smoke 38/38 双模式全绿 + 真机拖动复验
+
 # 0.0.0 — 2026-10-01
 ### 修复（跨屏拖动窗口：光标相对位置偏移）
 - 1K↔2K 双屏互拖，落屏后光标相对窗口偏移（左→右偏左、右→左偏右）。

@@ -324,7 +324,14 @@ void KwikRuntime::renderFrame() {
     frame.dirtyRect = {dr.x * S, dr.y * S, dr.width * S, dr.height * S};
     frame.dirtyRectLogical = dr;    // 清单 bounds 同为逻辑坐标（回放剔除用）
     frame.structuralChange = structural;
-    frame.needsResize = false;
+    // resize 与内容同帧：handleResize 挂起的尺寸在此装配（重建+回放+present
+    // 一次完成）；无挂起时清残留，防槽位复用误触发重建
+    frame.needsResize = pendingResizeW_ > 0;
+    if (frame.needsResize) {
+        frame.resizeWidth = pendingResizeW_;
+        frame.resizeHeight = pendingResizeH_;
+        pendingResizeW_ = pendingResizeH_ = 0;
+    }
 
     // ── 复合根清单（唯一渲染路径的回放源）──
     // base 树 + 各弹层（与 drawAll 同序）。引用各 View 的不可变快照。
@@ -365,15 +372,11 @@ void KwikRuntime::relayoutTree(Size sz) {
 // handleResize — 窗口大小变化处理
 // ============================================================================
 void KwikRuntime::handleResize(int width, int height) {
-    auto &frame = renderThread_.commandQueue().currentFrame();
-    frame.frameId = ++frameId_;
-    frame.displayList = nullptr;    // resize-only 帧：槽位复用，防回放陈旧清单
-    frame.needsResize = true;
-    frame.resizeWidth = width;
-    frame.resizeHeight = height;
-    frame.dirtyRect = {0, 0, static_cast<float>(width), static_cast<float>(height)};
-    frame.structuralChange = true;
-    renderThread_.commandQueue().submit();
+    // resize 尺寸挂到 pending，由下一次 renderFrame 装配进同一内容帧：
+    // 渲染线程单帧内完成 重建 swapchain → 回放 → present，不产生
+    // "只重建不呈现"的黑屏空窗
+    pendingResizeW_ = width;
+    pendingResizeH_ = height;
 
     treeStructureChanged_ = true;
 
@@ -390,6 +393,18 @@ void KwikRuntime::handleResize(int width, int height) {
 
     needsRedraw_ = true;
     resizeBurstFrames_ = 10;
+
+    // WM_SIZE 风暴节流：距上次完整帧 <10ms 只保留挂起状态（布局/脏标记已是
+    // 最新，pending 待下次 renderFrame 装配），跳过编码+提交——中间尺寸帧
+    // 是无效功（下一帧即被覆盖）。松手模态循环结束，主循环 tick 见
+    // needsRedraw_ 自动补最终精确帧，无丢帧窗口
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastResizeRender_ < std::chrono::milliseconds(10)) return;
+    lastResizeRender_ = now;
+
+    // 同步驱动完整帧：WM_SIZE 在移动/缩放模态循环内照常分发（模态循环只
+    // 吞主循环 tick），这里直接渲染即可让拖动全程有画面——无需定时器泵帧
+    renderFrame();
 }
 
 // ============================================================================
