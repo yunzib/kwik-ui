@@ -62,12 +62,14 @@ private:
     int designHeight_ = 600;        // Create() 传入的原始逻辑高度（缩放前）
     WindowDecoration decoration_ = WindowDecoration::Normal;
     RawEventCallback rawCallback_ = nullptr;
-    float grabRelX_ = 0.5f;   // 抓取点在窗口内的归一化位置（0~1）
-    float grabRelY_ = 0.5f;
+    float grabRelX_ = 0.5f;   // 抓取点在窗口内的归一化位置（0~1）：ENTERSIZEMOVE 时记录，
+    float grabRelY_ = 0.5f;   // 拖动全程钉住——跨屏尺寸变化后 WM_MOVE 持续纠偏的基准
     RECT enterRect_{};    // 进入模态循环时的窗口矩形（判别 移动 vs 手动缩放）
     HMONITOR enterMon_ = nullptr;    // 进入模态循环时所在屏（判别是否跨屏）
     HMONITOR moveTrackMon_ = nullptr;    // 拖动中最近一次所在屏（WM_MOVE 更新）
     bool moveCrossed_ = false;           // 本轮拖动曾跨越屏幕边界
+    HMONITOR refitMon_ = nullptr;        // 最近一次 Refit 归属屏（WM_MOVE 翻转检测：跨屏即时重设窗口）
+    bool inMoveLoop_ = false;            // 移动模态循环中（WM_SIZING 到达即撤销——缩放循环不纠偏）
 };
 
 #endif    // _WIN32

@@ -441,12 +441,67 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         HMONITOR m = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
         if (moveTrackMon_ && m != moveTrackMon_) moveCrossed_ = true;
         moveTrackMon_ = m;
+        // 首条 WM_MOVE 认领当前屏：启动期不做 Refit（Create 已按主屏定尺寸）
+        if (!refitMon_) { refitMon_ = m; return DefWindowProcW(hwnd_, msg, wParam, lParam); }
+        // 拖动跨屏即时 Refit（相邻屏分辨率不同但 DPI 相同时无 WM_DPICHANGED）：
+        // 显示器翻转立刻按新屏系数重设，尺寸变化在拖动中跟手衔接，而不是堆到
+        // 松手（EXITSIZEMOVE）那一刻整体突变（1K↔2K 宽差数百 px 的可见滑移）
+        if (m != refitMon_) {
+            RECT now{}, ent = enterRect_;
+            GetWindowRect(hwnd_, &now);
+            // 仅纯拖动（尺寸与进入模态循环时一致）才即时重设；手动缩放中尊重
+            // 用户尺寸（策略同 EXITSIZEMOVE 的 sizeKept 判定），仅刷新归属屏
+            bool sizing = std::abs(int(now.right - now.left) - int(ent.right - ent.left)) > 1
+                          || std::abs(int(now.bottom - now.top) - int(ent.bottom - ent.top)) > 1;
+            if (!sizing) {
+                RefitToNearestMonitor();
+                // 本轮系统已介入改窗（尺寸随新屏系数变化）：同步基线，防后续
+                // 往返拖动被误判为手动缩放、以及 EXITSIZEMOVE 的 sizeKept 失真
+                GetWindowRect(hwnd_, &enterRect_);
+            } else {
+                refitMon_ = m;
+            }
+        }
+        // 持续纠偏（闭环）：目标位 = 光标 − f×当前尺寸。系统模态循环只保证
+        // "窗口左上角 + 按下时的物理 grabOffset"，跨屏尺寸变化后该偏移对应的
+        // 比例已漂移；每条 WM_MOVE 用按下时记录的 f 把窗口钉回光标下——无论
+        // 中间谁动过窗口（系统 drag rect / DPICHANGED suggested / 我们的
+        // Refit），稳态必收敛。纠偏触发的嵌套 WM_MOVE 位置已到位（差≤1px），
+        // 自然不再触发，无递归。忠实跟手不做夹紧（模态循环本就允许骑跨）
+        if (inMoveLoop_) {
+            POINT cp{};
+            GetCursorPos(&cp);
+            RECT wr{};
+            GetWindowRect(hwnd_, &wr);
+            int tgtX = int(cp.x - grabRelX_ * float(wr.right - wr.left));
+            int tgtY = int(cp.y - grabRelY_ * float(wr.bottom - wr.top));
+            if (std::abs(wr.left - tgtX) > 1 || std::abs(wr.top - tgtY) > 1) {
+                SetWindowPos(hwnd_, NULL, tgtX, tgtY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+        }
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
-    case WM_ENTERSIZEMOVE:
+    case WM_ENTERSIZEMOVE: {
         GetWindowRect(hwnd_, &enterRect_);    // 记录进入模态循环时的窗口尺寸
         moveTrackMon_ = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
         moveCrossed_ = false;
+        // 记录抓取比例：此刻窗口与光标跟手，是 f 唯一可信的采样时机。
+        // 跨屏尺寸变化后系统仍按按下时的物理 grabOffset 摆位（比例随尺寸漂移），
+        // WM_MOVE 持续纠偏以此 f 为基准把窗口钉回光标下
+        POINT gp{};
+        GetCursorPos(&gp);
+        grabRelX_ = (enterRect_.right > enterRect_.left)
+                        ? float(gp.x - enterRect_.left) / float(enterRect_.right - enterRect_.left) : 0.5f;
+        grabRelY_ = (enterRect_.bottom > enterRect_.top)
+                        ? float(gp.y - enterRect_.top) / float(enterRect_.bottom - enterRect_.top) : 0.5f;
+        grabRelX_ = std::max(0.0f, std::min(1.0f, grabRelX_));
+        grabRelY_ = std::max(0.0f, std::min(1.0f, grabRelY_));
+        inMoveLoop_ = true;
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+    // 拖边缘缩放：系统语义是"对边固定"，与光标钉定语义冲突，撤销纠偏
+    case WM_SIZING:
+        inMoveLoop_ = false;
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     case WM_EXITSIZEMOVE: {
         // 本次循环中尺寸未变 ⇒ 纯位置拖动 → 交由 Refit 跨屏重算占屏；
@@ -459,6 +514,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         if (sizeKept && movedAcross) RefitToNearestMonitor();    // 仅跨屏迁移才重算
         moveCrossed_ = false;
         moveTrackMon_ = nullptr;
+        inMoveLoop_ = false;
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
     default: return DefWindowProcW(hwnd_, msg, wParam, lParam);
@@ -690,16 +746,41 @@ void PlatformWindowWin32::RefitToNearestMonitor() {
     RECT rc{0, 0, tgtW, tgtH};
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
 
-    // 锚定松手处，夹进目标屏工作区
+    // 尺寸已匹配则仅刷新归属屏：跨屏拖动的即时 Refit 随 WM_MOVE 触发，
+    // 同 S0 屏间往返或重复触发时不重设窗口（幂等防线）
+    RECT cli{};
+    GetClientRect(hwnd_, &cli);
+    if (cli.right - cli.left == tgtW && cli.bottom - cli.top == tgtH) {
+        refitMon_ = hMon;
+        return;
+    }
+
+    // 锚定落位（仅拖动中）：保持按下时的抓取比例 f 跨 Refit 不变。f 用
+    // ENTERSIZEMOVE 的记录值而非现算——跨屏瞬间窗口可能已被系统按旧
+    // grabOffset 或 DPICHANGED suggested 摆过，现算比例 ≠ 用户抓取比例，
+    // 错误将被锚定固化（此前残余偏移根因之一）。非拖动场景保持左上角
     RECT now{};
     GetWindowRect(hwnd_, &now);
-    const int waL = int(mi.rcWork.left), waR = int(mi.rcWork.right);
-    const int waT = int(mi.rcWork.top), waB = int(mi.rcWork.bottom);
     const int winW = rc.right - rc.left, winH = rc.bottom - rc.top;
 
-    int x = std::max(waL, std::min(int(now.left), waR - winW));
-    int y = std::max(waT, std::min(int(now.top), waB - winH));
-    SetWindowPos(hwnd_, NULL, x, y, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    int x = now.left, y = now.top;
+    if (inMoveLoop_) {
+        POINT cur{};
+        GetCursorPos(&cur);
+        x = int(cur.x - grabRelX_ * winW);
+        y = int(cur.y - grabRelY_ * winH);
+    }
+    // 夹进虚拟桌面并集而非目标屏工作区：跨屏落位瞬间窗口通常骑跨边界，
+    // 按目标屏夹紧会把窗口整体推挤（1K→2K 推向右、2K→1K 拉向左），光标
+    // 相对位置随之漂移。并集只兜底窗口完全拖出桌面边缘的场景
+    const int vdL = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    const int vdT = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    const int vdR = vdL + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    const int vdB = vdT + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    x = std::max(vdL, std::min(x, vdR - winW));
+    y = std::max(vdT, std::min(y, vdB - winH));
+    SetWindowPos(hwnd_, NULL, x, y, winW, winH, SWP_NOZORDER | SWP_NOACTIVATE);
+    refitMon_ = hMon;    // 归属屏记账：WM_MOVE 翻转检测的基准（早退路径同样刷新）
 
     // 二次校正：PMv2 下非客户区按目标屏实际缩放，实测客户区增量补偿装饰误差
     for (int i = 0; i < 2; ++i) {
