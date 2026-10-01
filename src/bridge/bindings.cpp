@@ -12,6 +12,7 @@ module kwik.bridge.bindings;
 import kwik.core.log;
 import kwik.engine.context; //  访问 QuickJSContext::getUserPointer
 import kwik.engine.channel;
+import kwik.engine.js_value;    // JSValueRef（定时器/rAF 回调托管）
 import kwik.animation.engine;
 import kwik.engine.vm_callbacks;
 import kwik.element.view;       // View
@@ -1136,6 +1137,79 @@ static JSValue js_spinbox(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     return makeElement(ctx, "SpinBox", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 宿主定时器 / rAF（路线图第 2 项）
+// 后端: setTimeout/setInterval → Channel（帧驱动 flush 消费，HMR 随
+// Channel::shutdown 清场）；rAF → QuickJSContext 队列（每树一份）。
+// 回调 JSValue 一律 shared_ptr<JSValueRef> 托管，触发或清场时释放。
+// ═══════════════════════════════════════════════════════════════════════════
+
+// 统一: 校验 argv[0] 是函数并 Dup 为共享持有器，否则抛 TypeError 返回空
+static std::shared_ptr<JSValueRef> takeTimerCallback(JSContext *ctx, int argc, JSValueConst *argv,
+                                                     const char *api) {
+    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
+        JS_ThrowTypeError(ctx, "%s: 第一个参数必须是函数", api);
+        return nullptr;
+    }
+    return std::make_shared<JSValueRef>(ctx, JS_DupValue(ctx, argv[0]));
+}
+
+// 统一: 无参回调执行 + 异常记录（与 event_adapter 同款契约）
+static void invokeTimerCallback(JSContext *ctx, const std::shared_ptr<JSValueRef> &h, const char *tag) {
+    JSValue ret = JS_Call(ctx, h->raw(), JS_UNDEFINED, 0, nullptr);
+    if (JS_IsException(ret)) {
+        JSValue exc = JS_GetException(ctx);
+        const char *s = JS_ToCString(ctx, exc);
+        Log::error("[{}] callback error: {}", tag, s ? s : "unknown");
+        JS_FreeCString(ctx, s);
+        JS_FreeValue(ctx, exc);
+    }
+    JS_FreeValue(ctx, ret);
+}
+
+static JSValue js_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto h = takeTimerCallback(ctx, argc, argv, "setTimeout");
+    if (!h) return JS_EXCEPTION;
+    int32_t ms = 0;
+    if (argc >= 2) JS_ToInt32(ctx, &ms, argv[1]);
+    // 注意: 帧驱动语义——flush 时消费，setTimeout(fn,0) 实际为下一帧
+    uint64_t id = Channel::setTimeout(ms > 0 ? (uint32_t)ms : 0, [ctx, h] { invokeTimerCallback(ctx, h, "setTimeout"); });
+    return JS_NewInt64(ctx, (int64_t)id);
+}
+
+static JSValue js_setInterval(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto h = takeTimerCallback(ctx, argc, argv, "setInterval");
+    if (!h) return JS_EXCEPTION;
+    int32_t ms = 100;
+    if (argc >= 2) JS_ToInt32(ctx, &ms, argv[1]);
+    uint64_t id = Channel::setInterval(ms > 0 ? (uint32_t)ms : 1, [ctx, h] { invokeTimerCallback(ctx, h, "setInterval"); });
+    return JS_NewInt64(ctx, (int64_t)id);
+}
+
+static JSValue js_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int64_t id = 0;
+    if (argc >= 1 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0]) && JS_ToInt64(ctx, &id, argv[0]) == 0)
+        Channel::clearTimeout((Channel::TimerId)id);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_requestAnimationFrame(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto h = takeTimerCallback(ctx, argc, argv, "requestAnimationFrame");
+    if (!h) return JS_EXCEPTION;
+    auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    uint64_t id = qctx->scheduleAnimationFrame(std::move(h));
+    return JS_NewInt64(ctx, (int64_t)id);
+}
+
+static JSValue js_cancelAnimationFrame(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    int64_t id = 0;
+    if (argc >= 1 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0]) && JS_ToInt64(ctx, &id, argv[0]) == 0) {
+        auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+        qctx->cancelAnimationFrame((uint64_t)id);
+    }
+    return JS_UNDEFINED;
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
 
@@ -1190,6 +1264,12 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("Chart", 2, js_chart),
         JS_CFUNC_DEF("ProgressRing", 2, js_progressring),
         JS_CFUNC_DEF("SpinBox", 1, js_spinbox),
+        JS_CFUNC_DEF("setTimeout", 2, js_setTimeout),
+        JS_CFUNC_DEF("clearTimeout", 1, js_clearTimeout),
+        JS_CFUNC_DEF("setInterval", 2, js_setInterval),
+        JS_CFUNC_DEF("clearInterval", 1, js_clearTimeout),    // 同一 id 空间，复用清除逻辑
+        JS_CFUNC_DEF("requestAnimationFrame", 1, js_requestAnimationFrame),
+        JS_CFUNC_DEF("cancelAnimationFrame", 1, js_cancelAnimationFrame),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

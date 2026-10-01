@@ -11,6 +11,7 @@ module;
 module kwik.engine.context;
 
 import kwik.engine.runtime;
+import kwik.engine.js_value;    // JSValueRef（rAF 回调队列）
 import kwik.core.log;
 import kwik.engine.vm_callbacks;
 
@@ -521,8 +522,47 @@ JSModuleDef *QuickJSContext::moduleLoader(JSContext *ctx, const char *module_nam
 //   ④ 创建新 context + 注册加载器 + console + 渲染回调
 //   ⑤ 重置所有状态变量
 // ══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// requestAnimationFrame — 每帧回调（KwikRuntime::tick 在 flush 后驱动）
+// ═══════════════════════════════════════════════════════════════════════════
+uint64_t QuickJSContext::scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb) {
+    rafQueue_.emplace_back(nextRafId_, std::move(cb));
+    return nextRafId_++;
+}
+
+void QuickJSContext::cancelAnimationFrame(uint64_t id) {
+    std::erase_if(rafQueue_, [id](const auto &p) { return p.first == id; });
+}
+
+bool QuickJSContext::runAnimationFrameCallbacks() {
+    if (rafQueue_.empty()) return false;
+    // swap 出本帧队列再执行: 回调内再次 rAF 进的是新队列，天然下一帧触发
+    auto pending = std::move(rafQueue_);
+    rafQueue_.clear();
+    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
+    JSValue ts = JS_NewFloat64(context, static_cast<double>(nowMs));
+    for (auto &[id, cb] : pending) {
+        JSValue ret = JS_Call(context, cb->raw(), JS_UNDEFINED, 1, &ts);
+        if (JS_IsException(ret)) {
+            JSValue exc = JS_GetException(context);
+            const char *s = JS_ToCString(context, exc);
+            Log::error("[rAF] callback error: {}", s ? s : "unknown");
+            JS_FreeCString(context, s);
+            JS_FreeValue(context, exc);
+        }
+        JS_FreeValue(context, ret);
+    }
+    JS_FreeValue(context, ts);
+    return true;
+}
+
 void QuickJSContext::reload() {
     if (context) {
+        // rAF 回调持旧 context 的 JSValue，必须在销毁旧 context 前释放
+        rafQueue_.clear();
+
         // 先释放 kwikuiModule_ 引用（QuickJS 内部管理的 JSModuleDef*）
         kwikuiModule_ = nullptr;
 

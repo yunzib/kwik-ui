@@ -739,6 +739,26 @@ void ElementParser::rebindHandlers(View *view, const JSValueRef &propsVal) {
  *    - 无可用旧节点 → parseNode 新建
  * ③ 剩余未被认领的旧节点 → 解绑 BindingRegistry → 析构
  */
+// ── 生命周期通知 (onMount / onUnmount) ──────────────────────────────────────
+namespace {
+// 卸载通知: 后序遍历（子先于父，镜像 React cleanup 顺序），必须在 unbind 之后、
+// unique_ptr 析构之前调用——此时 View 与 JS ctx 均存活。
+// HMR 整树重建不走此路径（JS 侧清理依赖 ctx 销毁自动回收）。
+void notifyUnmountRecursive(View *v) {
+    if (!v) return;
+    for (auto &c : v->children) notifyUnmountRecursive(c.get());
+    if (v->isMounted() && v->handlers.onUnmount) v->handlers.onUnmount();
+}
+}    // namespace
+
+// 挂载通知: 前序遍历（父先于子，父 onMount 内可安全访问子树），仅对新建节点
+// (consumePendingMount 命中) 触发；由 KwikRuntime 在树构建完成后调用
+void ElementParser::firePendingMounts(View *root) {
+    if (!root) return;
+    if (root->consumePendingMount() && root->handlers.onMount) root->handlers.onMount();
+    for (auto &c : root->children) firePendingMounts(c.get());
+}
+
 void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVal,
                                       std::vector<std::unique_ptr<View>> &oldChildren) {
     if (!childrenVal.isArray()) return;
@@ -807,6 +827,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
     for (size_t i = 0; i < oldN; ++i) {
         if (!claimed[i] && oldChildren[i]) {
             if (reg) reg->unbind(oldChildren[i].get());
+            notifyUnmountRecursive(oldChildren[i].get());    // 卸载通知: 析构前 this/ctx 均有效
             // unique_ptr 在此析构 → 递归 ~View()
         }
     }
@@ -838,6 +859,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // ── 类型不一致 → 销毁旧 View，创建新 View ──
     if (newType != oldType) {
         if (auto *reg = getRegisteredRegistry()) reg->unbind(oldView.get());
+        notifyUnmountRecursive(oldView.get());    // 类型切换 = 旧组件卸载，析构前通知
         return parseNode(jsVal);
     }
 
@@ -875,6 +897,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         if (propsVal.hasProperty("header") && propsVal.getProperty("header").isObject()) {
             if (auto old = ll->takeHeader()) {
                 if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+                notifyUnmountRecursive(old.get());    // header 重建: 旧节点卸载通知
             }
             auto hdr = propsVal.getProperty("header");
             JSValueRef node(hdr.context(), JS_DupValue(hdr.context(), hdr.raw()));
@@ -883,6 +906,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         if (propsVal.hasProperty("footer") && propsVal.getProperty("footer").isObject()) {
             if (auto old = ll->takeFooter()) {
                 if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+                notifyUnmountRecursive(old.get());    // footer 重建: 旧节点卸载通知
             }
             auto ftr = propsVal.getProperty("footer");
             JSValueRef node(ftr.context(), JS_DupValue(ftr.context(), ftr.raw()));

@@ -55,6 +55,19 @@ bool callJs1(JSContext *ctx, const JsHandler &h, JSValue arg, const char *tag) {
     return true;
 }
 
+/** @brief callJs1 的无参版本（onClose/onMount/onUnmount 共用形态） */
+void callJs0(JSContext *ctx, const JsHandler &h, const char *tag) {
+    JSValue ret = JS_Call(ctx, h->raw(), JS_UNDEFINED, 0, nullptr);
+    if (JS_IsException(ret)) {
+        JSValue exc = JS_GetException(ctx);
+        const char *s = JS_ToCString(ctx, exc);
+        Log::error("[{}] event callback error: {}", tag, s ? s : "unknown");
+        JS_FreeCString(ctx, s);
+        JS_FreeValue(ctx, exc);
+    }
+    JS_FreeValue(ctx, ret);
+}
+
 /** @brief 构造指针事件对象 { x, y } */
 JSValue makePointerEvent(JSContext *ctx, const PointerArgs &a) {
     JSValue obj = JS_NewObject(ctx);
@@ -254,6 +267,17 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
             }
             JS_FreeValue(ctx, ret);
         };
+    }
+
+    // ── onMount / onUnmount (通用生命周期, 无参) ──
+    // onMount: 树构建完成后由 ElementParser::firePendingMounts 触发（仅新建节点）
+    // onUnmount: reconcile 拆除路径在析构前触发；HMR 整树重建不触发
+    // （JS 侧清理依赖 ctx 销毁自动回收）
+    if (auto h = dupHandler(ctx, props, "onMount")) {
+        view.handlers.onMount = [ctx, h]() { callJs0(ctx, h, "onMount"); };
+    }
+    if (auto h = dupHandler(ctx, props, "onUnmount")) {
+        view.handlers.onUnmount = [ctx, h]() { callJs0(ctx, h, "onUnmount"); };
     }
 
     // ── onRowClick (Table): 行对象现场从数据源拉取 ──

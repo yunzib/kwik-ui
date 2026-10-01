@@ -27,6 +27,25 @@
   丢弃/BMP 直通/reset 清态），断言 130→138；测试目标补链 kwik_event
 - 门禁：构建零新增警告 + ctest 通过 + smoke 37/37 双模式全绿
 
+### 功能（路线图第 2 项：JS 宿主定时器 + 组件生命周期钩子）
+- 宿主定时器六 API 经 kwikui 模块导出（评审定案：仅模块导出不挂
+  globalThis）：setTimeout/setInterval/clearTimeout/clearInterval/
+  requestAnimationFrame/cancelAnimationFrame；后端统一 Channel——
+  setInterval 为 Channel 补 repeating 支持（TimerEntry.intervalMs，flush
+  消费后重排，推迟不堆积，与 setTimeout 同 id 空间）；rAF 队列入
+  QuickJSContext（每树一份），KwikRuntime::tick 在 flush 后/微任务前
+  drain，回调改 State 当帧生效，pending 时 tick/needsFrame 防休眠；
+  帧驱动语义差异（setTimeout(fn,0)≈下一帧等）记录于清单 §十五
+- 组件生命周期钩子 onMount/onUnmount（与定时器配套 = setInterval 清理
+  锚点）：View handlers 增两槽位（element 层零 JS 类型）+ mounted_/
+  pendingMount_ 标记（随 View 生死零泄漏）；event_adapter 通用绑定；
+  firePendingMounts 前序遍历（init/rebuildTree/HMR 三处树构建完成后，
+  仅新建节点，父先于子）；onUnmount 于 reconcile 三处拆除点析构前
+  后序触发（子先于父，this 与 JS ctx 均存活）；HMR 整树重建不触发
+  （JS 清理依赖 ctx 销毁）；reload 前清 rAF 队列（JSValue 悬垂防线）
+- 新增 test/ui/timer.js 进 smoke（DEMOS 37→38）；门禁：构建零新增警告 +
+  ctest + smoke 38/38 双模式（普通/验证层）全绿
+
 # 0.0.0 — 2026-09-26
 ### 重构（渲染后端：Pipeline 工厂 + effect 契约，清单 §四）
 - 14 条图形管线全量经 pipeline_factory 创建（rect 4/glyph 2/image 2/

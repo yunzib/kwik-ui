@@ -9,6 +9,7 @@ module;
 
 export module kwik.engine.context;
 import kwik.engine.runtime;
+import kwik.engine.js_value;    // JSValueRef（rAF 回调队列的共享持有器）
 import std;
 
 /**
@@ -89,6 +90,21 @@ public:
     bool isRenderNeeded() const { return needRender; }
     void clearRenderFlag() { needRender = false; }
 
+    // ── requestAnimationFrame ─────────────────────────────────────
+    /**
+     * @brief 注册下一帧回调（返回取消用 id）
+     *
+     * 回调由 KwikRuntime::tick 每帧驱动（flush 后、微任务前），
+     * 回调内改 State 经 isRenderNeeded 当帧消费。
+     */
+    uint64_t scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb);
+    /** @brief 取消尚未触发的 rAF 回调 */
+    void cancelAnimationFrame(uint64_t id);
+    /** @brief 触发本帧全部 rAF 回调（参数为毫秒时间戳）；返回是否执行了回调 */
+    bool runAnimationFrameCallbacks();
+    /** @brief 是否有待触发的 rAF 回调（主循环防休眠判定用） */
+    bool hasPendingAnimationFrame() const { return !rafQueue_.empty(); }
+
     /**
      * @brief 判断 JS 值是否可调用 (函数)
      */
@@ -139,6 +155,12 @@ private:
     JSModuleDef *kwikuiModule_ = nullptr;
     void *userPtr_ = nullptr;          // 用户自定义指针 (由 Application 注入树根)
     JSValue expandedRoot = JS_NULL;    ///< 展开后的对象树 (每次 rebuild 更新)
+
+    // ── rAF 队列 ─────────────────────────────────────────────────
+    // 每树一份随 ctx 生死；reload() 必须在销毁旧 runtime 前清空
+    // （JSValueRef 析构 JS_FreeValue 需旧 context 存活）
+    uint64_t nextRafId_ = 1;
+    std::vector<std::pair<uint64_t, std::shared_ptr<JSValueRef>>> rafQueue_;
 
     /// bytecode 映射: 模块名 → {data, size}
     std::unordered_map<std::string, std::pair<const uint8_t *, int>> bytecodeMap_;

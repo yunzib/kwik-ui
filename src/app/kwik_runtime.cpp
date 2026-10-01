@@ -191,6 +191,9 @@ bool KwikRuntime::init() {
     eventRouter_.setRootTarget(&layers_);    // 事件路由根：LayerStack
     eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
 
+    // 生命周期: 首树挂载通知（前序遍历，仅新建节点触发 handlers.onMount）
+    ElementParser::firePendingMounts(tree_.get());
+
     // ⑨ Channel（绑本树 ctx；taskQueue 由 Application 注入的进程级队列）
     Channel::init(
         jsCtx_.getPtr(),
@@ -208,6 +211,9 @@ bool KwikRuntime::init() {
 bool KwikRuntime::tick(bool /*hotReloadEnabled*/) {
     // ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）
     Channel::flush(jsCtx_.getPtr());
+    // rAF: 每帧回调（flush 后、微任务前——回调内改 State 经下方 isRenderNeeded
+    // 当帧消费；产生的 Promise 续体由下方 processMicrotasks 同帧消化）
+    bool rafRan = jsCtx_.runAnimationFrameCallbacks();
     // ③ 微任务（Promise.then / async 恢复）——必须在 rebuildTree 前消费
     jsCtx_.processMicrotasks();
 
@@ -244,11 +250,13 @@ bool KwikRuntime::tick(bool /*hotReloadEnabled*/) {
         renderFrame();
         return true;
     }
+    // rAF 本帧有回调执行或仍待触发 → 保持帧节奏（调用方勿休眠）
+    if (rafRan || jsCtx_.hasPendingAnimationFrame()) return true;
     return false;
 }
 
 bool KwikRuntime::needsFrame() const {
-    return needsRedraw_ || (tree_ && tree_->hasDirtySubtree());
+    return needsRedraw_ || (tree_ && tree_->hasDirtySubtree()) || jsCtx_.hasPendingAnimationFrame();
 }
 
 // ============================================================================
@@ -278,6 +286,8 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->markAllDirty();
     jsCtx_.setUserPointer(tree_.get());
     treeStructureChanged_ = true;
+    // 生命周期: reconcile 新建节点挂载通知（复用节点无 pending 标记，不重触发）
+    if (tree_) ElementParser::firePendingMounts(tree_.get());
 }
 
 // ============================================================================
@@ -464,6 +474,9 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     eventRouter_.reset();
 
     relayoutTree(layoutSize());    // 重新布局
+
+    // 生命周期: 新树全量挂载通知（HMR 重建 = 全部节点视为新建）
+    ElementParser::firePendingMounts(tree_.get());
 
     // 刷新文件时间戳缓存
     fileWatchCache_.clear();

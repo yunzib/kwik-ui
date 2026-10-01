@@ -130,6 +130,14 @@ public:
      */
     static std::unique_ptr<View> reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot);
 
+    /**
+     * @brief 挂载通知：前序遍历整树，对本轮新建节点触发 handlers.onMount
+     *
+     * 由 KwikRuntime 在树构建完成后调用（init/rebuildTree/HMR 三处）；
+     * 复用节点 pending 标记已消费，不会重复触发。父先于子（父回调内可安全访问子树）。
+     */
+    static void firePendingMounts(View *root);
+
 private:
     // ==================== 内部实现 ====================
     /**

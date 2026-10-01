@@ -180,6 +180,8 @@ public:
     // ═══════════════════════════════════════════════════════════
 
     static TimerId setTimeout(uint32_t ms, std::function<void()> task);
+    /** @brief 周期定时器：每 ms 重复触发（帧驱动，flush 时消费）；与 setTimeout 同 id 空间，clearTimeout 取消 */
+    static TimerId setInterval(uint32_t ms, std::function<void()> task);
     static void clearTimeout(TimerId id);
 
     // ═══════════════════════════════════════════════════════════
@@ -272,6 +274,7 @@ private:
         uint64_t id;
         uint64_t fireTimeMs;
         std::function<void()> task;
+        uint32_t intervalMs = 0;    // >0 = 周期定时器（setInterval）：执行后按此间隔重排
         bool operator>(const TimerEntry &o) const { return fireTimeMs > o.fireTimeMs; }
     };
     std::mutex timerMutex_;

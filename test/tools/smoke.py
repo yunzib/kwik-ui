@@ -21,7 +21,7 @@ DEMOS = [
     "input", "textarea", "dropdown", "radiobutton", "checkbox", "slider",
     "progress", "switch", "line", "spinner", "tabs", "table", "textview",
     "theme", "layer", "animation", "transition", "rotate", "scrollview",
-    "lazylist", "gauge", "progressring", "spinbox", "glass",
+    "lazylist", "gauge", "progressring", "spinbox", "glass", "timer",
     "chart", "datepicker", "car", "g2d", "example",
 ]
 # 已知不稳定(退出段错误,非确定性): image —— 退出竞态待查(可用 llvm-mingw 的 lldb 取栈),

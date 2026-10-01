@@ -86,6 +86,8 @@ export struct ViewEventHandlers {
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击
     std::function<void(const KeyArgs &)> onKey;               ///< 虚拟键盘按键（旁路通知，不干预注入）
+    std::function<void()> onMount;                            ///< 挂载后回调（树构建完成，仅本轮新建节点触发）
+    std::function<void()> onUnmount;                          ///< 卸载前回调（reconcile 拆除、析构前；HMR 整树重建不触发）
 
     /**
      * @brief 根据事件码分发到对应的指针事件处理器
@@ -122,6 +124,19 @@ public:
     ViewEventHandlers handlers;                     // 事件处理器
     TypedPropMap propMeta;                          // 属性类型元数据
 
+    // ── 生命周期状态（onMount / onUnmount）───────────────────────
+    bool isMounted() const { return mounted_; }
+    /**
+     * @brief 消费挂载通知标记：pending 置为已挂载
+     * @return true=本轮新建节点（调用方应触发 handlers.onMount）
+     */
+    bool consumePendingMount() {
+        if (!pendingMount_) return false;
+        pendingMount_ = false;
+        mounted_ = true;
+        return true;
+    }
+
     View() = default;
     virtual ~View() = default;
     /**
@@ -151,7 +166,8 @@ public:
      */
     View(View &&other) noexcept :
         props(std::move(other.props)), children(std::move(other.children)), frame(other.frame),
-        handlers(std::move(other.handlers)), propMeta(std::move(other.propMeta)), parent_(other.parent_) {
+        handlers(std::move(other.handlers)), propMeta(std::move(other.propMeta)), parent_(other.parent_),
+        mounted_(other.mounted_), pendingMount_(other.pendingMount_) {
         fixChildrenParent();
         other.parent_ = nullptr;
     }
@@ -562,6 +578,8 @@ private:
     Constraints lastLayoutC_;        ///< 布局阶段上次约束
     bool needsMeasure_ = true;       ///< 自身内容需重新测量 (新建默认 true → 首帧全量)
     bool subtreeMeasure_ = false;    ///< 子树中有节点需重新测量 (requestLayout 冒泡)
+    bool mounted_ = false;           ///< 生命周期: 已挂树（firePendingMounts 置位）
+    bool pendingMount_ = true;       ///< 生命周期: 新建待挂载通知（构造即 true，fire 或拆除后消亡）
     static bool sLayoutPhase;        ///< 当前测量相位 (内容/布局)
 
     /** @brief 布局位移标记: 子视图位移导致相邻区域重叠, 下一帧父级做整片区域一次性重绘 */

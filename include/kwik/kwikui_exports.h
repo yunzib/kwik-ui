@@ -28,6 +28,9 @@ constexpr const char* exports[] = {
     /* ── 工具函数 ── */
     "getProp", "setProp", "ref", "animate", "stop", "isAnimating",
     "theme", "ThemeProvider",
+    /* ── 宿主定时器 / rAF ── */
+    "setTimeout", "clearTimeout", "setInterval", "clearInterval",
+    "requestAnimationFrame", "cancelAnimationFrame",
     /* ── 特殊导出（非工厂函数）── */
     "State", "channel",
     /* ── 外部扩展 ── */

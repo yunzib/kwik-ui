@@ -102,17 +102,33 @@ void Channel::flush(JSContext *ctx) {
     // ── 3. 触发到期定时器 ──
 check_timers:
     uint64_t now = ch.currentMs();
-    std::vector<std::function<void()>> fired;
+    // 周期定时器执行后需重排，fired 须携带 id 与间隔（一次性项 intervalMs=0）
+    struct FiredTimer {
+        std::function<void()> task;
+        uint64_t id;
+        uint32_t intervalMs;
+    };
+    std::vector<FiredTimer> fired;
     {
         std::lock_guard lock(ch.timerMutex_);
         while (!ch.timers_.empty() && ch.timers_.top().fireTimeMs <= now) {
             auto &top = const_cast<TimerEntry &>(ch.timers_.top());
-            if (ch.cancelledTimers_.erase(top.id) == 0) { fired.push_back(std::move(top.task)); }
+            if (ch.cancelledTimers_.erase(top.id) == 0) {
+                fired.push_back({std::move(top.task), top.id, top.intervalMs});
+            }
             ch.timers_.pop();
         }
     }
-    for (auto &task : fired) {
-        if (task) task();
+    for (auto &t : fired) {
+        if (t.task) t.task();
+        // 周期定时器: 执行后重排至下一周期（推迟不堆积）；执行期间被
+        // clearTimeout 取消则丢弃——cancelledTimers_ 惰性集合同样覆盖重排前窗口
+        if (t.intervalMs > 0) {
+            std::lock_guard lock(ch.timerMutex_);
+            if (ch.cancelledTimers_.erase(t.id) == 0) {
+                ch.timers_.push({t.id, ch.currentMs() + t.intervalMs, std::move(t.task), t.intervalMs});
+            }
+        }
     }
 }
 
@@ -180,6 +196,14 @@ Channel::TimerId Channel::setTimeout(uint32_t ms, std::function<void()> task) {
     std::lock_guard lock(ch.timerMutex_);
     TimerId id = ch.nextTimerId_++;
     ch.timers_.push({id, ch.currentMs() + ms, std::move(task)});
+    return id;
+}
+
+Channel::TimerId Channel::setInterval(uint32_t ms, std::function<void()> task) {
+    auto &ch = inst();
+    std::lock_guard lock(ch.timerMutex_);
+    TimerId id = ch.nextTimerId_++;
+    ch.timers_.push({id, ch.currentMs() + ms, std::move(task), ms});
     return id;
 }
 
