@@ -228,8 +228,15 @@ void Keyboard::injectKey(const KeyDef &key) {
         raw.action = RawEvent::Action::TextInput;
         raw.charCode = cp;
     } else if (key.keyCode != 0) {
-        raw.action = RawEvent::Action::KeyDown;
-        raw.keyCode = key.keyCode;
+        // Enter 特例: KeyAction 无 VK_RETURN 消费方, 统一改发 TextInput '\n'
+        // (Input→blur 提交, TextArea→插入换行), 与物理键盘归一化后行为一致
+        if (key.keyCode == VK_ENTER) {
+            raw.action = RawEvent::Action::TextInput;
+            raw.charCode = '\n';
+        } else {
+            raw.action = RawEvent::Action::KeyDown;
+            raw.keyCode = key.keyCode;
+        }
     }
     inj(raw);    // → Application 注册的 eventRouter_.feedRawEvent
 }

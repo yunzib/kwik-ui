@@ -1,5 +1,20 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-01
+### 修复（路线图第 0 项：正确性最前排两件）
+- Windows 回车全路径失效归一化：平台层 WM_CHAR/WM_IME_CHAR 将
+  '\r'→'\n'（TranslateMessage 把 VK_RETURN 翻成 '\r'，组件层
+  cp<0x20 && cp!='\n' 过滤只放行 '\n'——Input 回车提交/TextArea 换行
+  此前永不触发）；软键盘 Keyboard::injectKey 对 VK_ENTER 改发
+  TextInput '\n'（KeyAction 无 VK_RETURN 消费方，与物理键盘行为一致）
+- TextCache 跨线程数据竞争（UB）：新增 uploadsMutex_ 保护上传队列
+  （packGlyph 在 UI 线程生产 / consumeUploads 在渲染线程消费，多窗口时
+  为多个渲染线程），消费端改 swap 替代 std::move 返回；frameCounter_
+  改 std::atomic<uint64_t>（兼 LRU 时钟）
+- 门禁：构建零新增警告 + ctest 通过 + smoke 37/37 双模式（普通/验证层）
+  全绿；修复过程新立清单条目"多窗口字形上传误路由"（全局队列无后端
+  标记，先 drain 的渲染线程拿走别窗 job → 各窗图集字形子集不全）
+
 # 0.0.0 — 2026-09-26
 ### 重构（渲染后端：Pipeline 工厂 + effect 契约，清单 §四）
 - 14 条图形管线全量经 pipeline_factory 创建（rect 4/glyph 2/image 2/

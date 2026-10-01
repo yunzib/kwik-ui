@@ -374,6 +374,10 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     case WM_IME_CHAR:
         e.type = Event::Type::TextInput;
         e.charCode = static_cast<uint32_t>(wParam);
+        // 回车归一化: TranslateMessage 把 VK_RETURN 翻成 '\r'(0x0D), 组件层
+        // 过滤 cp<0x20 && cp!='\n'(input/textarea), 不归一化则 Input 回车提交
+        // 与 TextArea 换行全路径失效
+        if (e.charCode == '\r') e.charCode = '\n';
         break;
 
     // 键盘事件

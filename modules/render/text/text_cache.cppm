@@ -37,7 +37,7 @@ public:
     // 图集上传
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /** @brief 消费待上传队列（Vulkan 后端每帧调用） */
+    /** @brief 消费待上传队列（Vulkan 后端每帧调用；与 UI 线程 packGlyph 并发，内部互斥） */
     auto consumeUploads() -> std::vector<UploadJob>;
 
     /** @brief 图集尺寸（512² = 1MB/页，上限 16MB） */
@@ -118,8 +118,13 @@ private:
 
     std::vector<AtlasPage> pages_;
     uint32_t pageCount_ = 0;
-    uint64_t frameCounter_ = 0;
+    // 帧时钟: UI 线程录制期读（tryPack 记 lastFrameUsed），渲染线程
+    // consumeUploads 写 — atomic 防跨线程撕裂
+    std::atomic<uint64_t> frameCounter_{0};
     uint32_t atlasGeneration_ = 0;
+    // 上传队列: UI 线程 packGlyph 生产 / 渲染线程 consumeUploads 消费，
+    // 多窗口时为多个渲染线程 — 互斥保护
+    std::mutex uploadsMutex_;
     std::vector<UploadJob> uploads_;
     /** @brief 当前 DPI 缩放比例，默认 1.0 */
     float dpiScale_ = 1.0f;

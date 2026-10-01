@@ -139,7 +139,7 @@ auto TextCache::tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optiona
     int newTop = bestTop + height;
     for (int j = bestX; j < bestX + width; j++) { page.skyline[j] = newTop; }
 
-    page.lastFrameUsed = frameCounter_;
+    page.lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
     return PackResult{.x = static_cast<uint32_t>(bestX), .y = static_cast<uint32_t>(bestTop)};
 }
 
@@ -166,7 +166,7 @@ void TextCache::packGlyph(CachedGlyph &entry) {
         if (pageCount_ < kMaxPages) {
             AtlasPage newPage;
             newPage.skyline.assign(kAtlasSize, 0);
-            newPage.lastFrameUsed = frameCounter_;
+            newPage.lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
             pages_.push_back(std::move(newPage));
             pageCount_++;
             pr = tryPack(pages_[pageCount_ - 1], padW, padH);
@@ -186,7 +186,7 @@ void TextCache::packGlyph(CachedGlyph &entry) {
                 return pair.second.packed && pair.second.pageIndex == lruPage;
             });
             pages_[lruPage].skyline.assign(kAtlasSize, 0);
-            pages_[lruPage].lastFrameUsed = frameCounter_;
+            pages_[lruPage].lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
             pr = tryPack(pages_[lruPage], padW, padH);
             foundPage = lruPage;
         }
@@ -203,7 +203,7 @@ void TextCache::packGlyph(CachedGlyph &entry) {
     entry.packed = true;
     entry.atlasGeneration = atlasGeneration_;
 
-    // 加入上传队列
+    // 加入上传队列（互斥: 本函数在 UI 线程执行, consumeUploads 在渲染线程并发消费）
     UploadJob job;
     job.dstX = pr->x;
     job.dstY = pr->y;
@@ -211,7 +211,10 @@ void TextCache::packGlyph(CachedGlyph &entry) {
     job.h = padH;
     job.pageIndex = foundPage;
     job.pixels = std::move(entry.info.pixelData);
-    uploads_.push_back(std::move(job));
+    {
+        std::lock_guard<std::mutex> lock(uploadsMutex_);
+        uploads_.push_back(std::move(job));
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -219,6 +222,13 @@ void TextCache::packGlyph(CachedGlyph &entry) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 auto TextCache::consumeUploads() -> std::vector<UploadJob> {
-    frameCounter_++;
-    return std::move(uploads_);
+    // 帧时钟 relaxed 递增即可（仅作 LRU 时钟，无同步语义）
+    frameCounter_.fetch_add(1, std::memory_order_relaxed);
+    // swap 而非 move 返回: 避免把 uploads_ 置于 moved-from 态后仍被生产端并发 push
+    std::vector<UploadJob> out;
+    {
+        std::lock_guard<std::mutex> lock(uploadsMutex_);
+        out.swap(uploads_);
+    }
+    return out;
 }
