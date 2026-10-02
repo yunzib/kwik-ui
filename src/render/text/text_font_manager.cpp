@@ -44,12 +44,22 @@ FontManager::~FontManager() {
 // 字体注册与查询
 // ═══════════════════════════════════════════════════════════════════════════
 FontId FontManager::loadFont(const std::string &path, int faceIndex) {
+    // 名字→id 记忆化：loadFont 被每个文本元素每帧调用，未命中缓存时
+    // resolveFontPath 的探测性文件开关（直接名 1 次 + 每 fontDir×4 扩展名）
+    // 是纯磁盘 IO 开销；命中即免探测。失败不缓存（保留重试，如字体文件
+    // 后到位的场景）
+    const std::string nameKey = path + "#" + std::to_string(faceIndex);
+    if (auto nit = nameToId_.find(nameKey); nit != nameToId_.end()) return nit->second;
+
     std::string resolved = resolveFontPath(path);
     if (resolved.empty()) return kInvalidFontId;
 
     std::string key = resolved + "#" + std::to_string(faceIndex);
     auto it = pathToId_.find(key);
-    if (it != pathToId_.end()) return it->second;
+    if (it != pathToId_.end()) {
+        nameToId_[nameKey] = it->second;
+        return it->second;
+    }
 
     auto face = std::make_unique<FreeTypeTextFace>(ftLib_, resolved, faceIndex);
     if (!face->harfbuzzFont()) return kInvalidFontId;
@@ -57,6 +67,7 @@ FontId FontManager::loadFont(const std::string &path, int faceIndex) {
     FontId id = nextId_++;
     faces_.push_back(std::move(face));
     pathToId_[key] = id;
+    nameToId_[nameKey] = id;
     if (activeFont_ == kInvalidFontId) activeFont_ = id;
     return id;
 }

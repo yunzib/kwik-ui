@@ -642,6 +642,9 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             }
         }
         JS_FreeValue(ctx, jsVal);
+        // 空 values 整属性跳过（如纯数值 color 被"跳过"后 vector 仍为空）——
+        // 留空条目会让下游单段模式 values[0] 越界读
+        if (ap.values.empty()) continue;
         animProps.push_back(std::move(ap));
     }
     Log::debug("[js_animate] animProps count={}", animProps.size());

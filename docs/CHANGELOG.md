@@ -13,6 +13,12 @@
   时 UI 线程全 GPU 停顿：改资源通道——UI 线程只入队（像素拷贝 + id 预
   分配，Image/Video 调用方零改动），渲染线程帧首批量上传；销毁延迟 3 帧
   释放（在飞帧引用安全）；全仓 GPU 队列提交现仅在渲染线程
+- js_animate 空 values 越界读（UB）：纯数值 color / 空数组属性留下空
+  条目，单段模式 values[0] 越界——空 values 属性整体跳过
+- HMR/退出后绑定注册表残留悬空 View 指针（State 地址复用时 notify 直写
+  已释放内存）：树销毁共用点补 bindingRegistry_.clear()
+- loadFont 每文本每帧磁盘探测（resolveFontPath 试探性文件开关）：
+  名字→id 记忆化，命中免探测
 - 门禁：构建零新增警告 + ctest + smoke 38/38 双模式全绿 + 真机复验
 
 # 0.0.0 — 2026-10-01

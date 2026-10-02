@@ -69,6 +69,7 @@ export {
         FT_Library ftLib_ = nullptr;
 
         std::vector<std::unique_ptr<FreeTypeTextFace>> faces_;
+        std::unordered_map<std::string, FontId> nameToId_;      // 名字→id 记忆化（命中免磁盘探测）
         std::unordered_map<std::string, FontId> pathToId_;
         std::unordered_map<FontId, FontId> fallbackChain_;
         FontId nextId_ = 1;

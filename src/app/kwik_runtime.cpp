@@ -104,6 +104,10 @@ void KwikRuntime::teardownJsBoundRuntime() {
     animations_.stopAll();
     layers_.clear();
     layers_.setBase(nullptr);
+    // 整树即将重建/销毁：绑定注册表的 View* 条目全部随之悬空，必须清空
+    // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
+    // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）
+    bindingRegistry_.clear();
 }
 
 // ============================================================================
