@@ -97,6 +97,9 @@ public:
     explicit TextView(ViewProps vp, TextViewProps tvp);
     ~TextView() override = default;
 
+    /** @brief reconcile 属性覆盖（rich 文本属性整体重解析，渲染期活读取） */
+    void applyTextViewProps(TextViewProps tvp) { tvp_ = std::move(tvp); }
+
     ElementType type() const override { return ElementType::TextView; }
     const TextViewProps &textViewProps() const { return tvp_; }
 

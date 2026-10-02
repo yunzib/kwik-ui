@@ -51,6 +51,9 @@ public:
     explicit RadioGroup(ViewProps vp, RadioGroupProps rp)
         : View(std::move(vp)), group_(std::move(rp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applyRadioGroupProps(RadioGroupProps rp) { group_ = std::move(rp); }
+
     ElementType type() const override { return ElementType::RadioGroup; }
     const RadioGroupProps &groupProps() const { return group_; }
 

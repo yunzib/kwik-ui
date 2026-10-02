@@ -46,6 +46,9 @@ public:
      */
     explicit Slider(ViewProps vp, SliderProps sp) : View(std::move(vp)), sp_(std::move(sp)) {}
 
+    /** @brief reconcile 属性覆盖（min/max/step 等整体重解析） */
+    void applySliderProps(SliderProps sp) { sp_ = std::move(sp); }
+
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;

@@ -34,6 +34,9 @@ public:
 
     explicit Line(ViewProps vp, LineProps lp) : View(std::move(vp)), lp_(std::move(lp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applyLineProps(LineProps lp) { lp_ = std::move(lp); }
+
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
 

@@ -50,6 +50,9 @@ public:
     explicit Switch(ViewProps vp, SwitchProps sp)
         : View(std::move(vp)), sp_(std::move(sp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applySwitchProps(SwitchProps sp) { sp_ = std::move(sp); }
+
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char* name, const TypedProp& value) override;

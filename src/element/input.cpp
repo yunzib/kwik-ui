@@ -43,6 +43,15 @@ Input::Input(ViewProps vp, InputProps ip) : View(std::move(vp)), input_(std::mov
     if (props.borderRadius == 0) props.borderRadius = 4.0f;
 }
 // ============================================================================
+// applyInputProps — reconcile 属性覆盖：value 变更才同步内部文本
+// （用户正在输入时外部 value 未变则不打扰光标/组合状态）
+// ============================================================================
+void Input::applyInputProps(InputProps ip) {
+    bool valueChanged = ip.value != input_.value;
+    input_ = std::move(ip);
+    if (valueChanged) text_ = input_.value;
+}
+// ============================================================================
 // onMeasure — 尺寸测量 (TextRenderPipeline 排版)
 // ============================================================================
 Size Input::onMeasure(Constraints constraints) {

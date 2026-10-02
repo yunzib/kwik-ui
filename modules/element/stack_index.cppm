@@ -40,6 +40,9 @@ public:
      */
     explicit StackIndex(ViewProps vp, StackIndexProps sp) : View(std::move(vp)), sp_(std::move(sp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，布局期活读取） */
+    void applyStackIndexProps(StackIndexProps sp) { sp_ = std::move(sp); }
+
     ElementType type() const override { return ElementType::StackIndex; }
 
     /**

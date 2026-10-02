@@ -43,6 +43,9 @@ public:
      */
     explicit Tabs(ViewProps vp, TabsProps tp) : View(std::move(vp)), tp_(std::move(tp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applyTabsProps(TabsProps tp) { tp_ = std::move(tp); }
+
     // ─── 属性读写 (PropBus 支持) ───────────────────────
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;

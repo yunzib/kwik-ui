@@ -39,6 +39,9 @@ public:
     explicit Spinner(ViewProps vp, SpinnerProps sp)
         : View(std::move(vp)), sp_(std::move(sp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applySpinnerProps(SpinnerProps sp) { sp_ = std::move(sp); }
+
     // ─── 查询 ─────────────────────────────────────────
     ElementType type() const override { return ElementType::Spinner; }
     const SpinnerProps &spinnerProps() const { return sp_; }

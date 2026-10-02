@@ -54,6 +54,9 @@ public:
 
 	~Table() override = default;    // 数据源随 unique_ptr 自动释放, 无手工 JS 清理
 
+	/** @brief reconcile 属性覆盖（columns 等整体重解析，渲染期活读取） */
+	void applyTableProps(TableProps tp) { tp_ = std::move(tp); }
+
 	// ─── 属性读写 ─────────────────────────────────────
 	std::string getProperty(const char *name) const override;
 

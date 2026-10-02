@@ -946,6 +946,59 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         break;
     case ElementType::SpinBox: static_cast<SpinBox *>(oldView.get())->applySpinBoxProps(parseSpinBoxProps(ex)); break;
 
+    // ── 其余内置组件专有属性重解析（此前缺失 → 非绑定路径下属性静默丢失）──
+    case ElementType::Image:
+        static_cast<Image *>(oldView.get())->applyImageProps(parseImageProps(ex));
+        break;
+    case ElementType::Input:
+        static_cast<Input *>(oldView.get())->applyInputProps(parseInputProps(ex));
+        break;
+    case ElementType::Checkbox:
+        static_cast<Checkbox *>(oldView.get())->applyCheckboxProps(parseTextContent(ex), parseCheckboxProps(ex));
+        break;
+    case ElementType::Dropdown:
+        static_cast<Dropdown *>(oldView.get())->applyDropdownProps(parseDropdownProps(ex));
+        break;
+    case ElementType::Slider:
+        static_cast<Slider *>(oldView.get())->applySliderProps(parseSliderProps(ex));
+        break;
+    case ElementType::Switch:
+        static_cast<Switch *>(oldView.get())->applySwitchProps(parseSwitchProps(ex));
+        break;
+    case ElementType::Table: {
+        auto *t = static_cast<Table *>(oldView.get());
+        t->applyTableProps(parseTableProps(ex));
+        // data 变更 → 数据源重建（与创建路径同源；Table 渲染活读取 columns）
+        if (propsVal.hasProperty("data") && propsVal.getProperty("data").isArray()) {
+            auto dataVal = propsVal.getProperty("data");
+            t->setData(createJsTableDataSource(dataVal.context(), dataVal.raw()));
+        }
+        break;
+    }
+    case ElementType::Tabs:
+        static_cast<Tabs *>(oldView.get())->applyTabsProps(parseTabsProps(ex));
+        break;
+    case ElementType::TextView:
+        static_cast<TextView *>(oldView.get())->applyTextViewProps(parseTextViewProps(ex));
+        break;
+    case ElementType::Line: static_cast<Line *>(oldView.get())->applyLineProps(parseLineProps(ex)); break;
+    case ElementType::Spinner: static_cast<Spinner *>(oldView.get())->applySpinnerProps(parseSpinnerProps(ex)); break;
+    case ElementType::ProgressBar:
+        static_cast<ProgressBar *>(oldView.get())->applyProgressBarProps(parseProgressBarProps(ex));
+        break;
+    case ElementType::ProgressRing:
+        static_cast<ProgressRing *>(oldView.get())->applyProgressRingProps(parseProgressRingProps(ex));
+        break;
+    case ElementType::StackIndex:
+        static_cast<StackIndex *>(oldView.get())->applyStackIndexProps(parseStackIndexProps(ex));
+        break;
+    case ElementType::RadioButton:
+        static_cast<RadioButton *>(oldView.get())->applyRadioButtonProps(parseTextContent(ex), parseRadioButtonProps(ex));
+        break;
+    case ElementType::RadioGroup:
+        static_cast<RadioGroup *>(oldView.get())->applyRadioGroupProps(parseRadioGroupProps(ex));
+        break;
+
     default: break;
     }
 

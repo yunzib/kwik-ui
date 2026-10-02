@@ -48,6 +48,9 @@ public:
      */
     explicit ProgressBar(ViewProps vp, ProgressBarProps pp) : View(std::move(vp)), pp_(std::move(pp)) {}
 
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
+    void applyProgressBarProps(ProgressBarProps pp) { pp_ = std::move(pp); }
+
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;

@@ -46,6 +46,28 @@ void Image::loadImage() {
     }
 }
 // ============================================================================
+// applyImageProps — reconcile 属性覆盖：内容标识变更才重新加载解码
+// （reconcile 随每次 State 变更触发，无条件重载会对每张图反复磁盘解码）
+// ============================================================================
+void Image::applyImageProps(ImageProps ip) {
+    bool reload;
+    if (ip.source != imageProps_.source) {
+        reload = true;
+    } else {
+        switch (ip.source) {
+        case ImageSource::File: reload = ip.src != imageProps_.src; break;
+        case ImageSource::Buffer:
+            reload = ip.bufferWidth != imageProps_.bufferWidth || ip.bufferHeight != imageProps_.bufferHeight
+                     || ip.data != imageProps_.data;
+            break;
+        case ImageSource::Url: reload = ip.src != imageProps_.src; break;
+        default: reload = false; break;
+        }
+    }
+    imageProps_ = std::move(ip);
+    if (reload) loadImage();
+}
+// ============================================================================
 // loadFromFile — 扩展名分派: .svg → nanosvg, 其余 → stb_image
 // ============================================================================
 void Image::loadFromFile(const std::string &path) {

@@ -44,6 +44,12 @@ public:
     explicit RadioButton(ViewProps vp, TextContent tc, RadioButtonProps rp)
         : View(std::move(vp)), text_(std::move(tc)), radio_(std::move(rp)) {}
 
+    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析） */
+    void applyRadioButtonProps(TextContent tc, RadioButtonProps rp) {
+        text_ = std::move(tc);
+        radio_ = std::move(rp);
+    }
+
     ElementType type() const override { return ElementType::RadioButton; }
 
     /// Radio 专属属性访问器

@@ -43,6 +43,10 @@ export class Input : public View {
 public:
     Input();
     explicit Input(ViewProps vp, InputProps ip = {});
+
+    /** @brief reconcile 属性覆盖：value 变更才同步内部文本（不扰动正在输入的内容） */
+    void applyInputProps(InputProps ip);
+
     ~Input() override {
         if (blinkTimerId_ != 0) CoreTimer::clear(blinkTimerId_);
     }

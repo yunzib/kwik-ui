@@ -27,6 +27,9 @@ public:
     explicit Image(ViewProps vp, ImageProps ip = {}) : View(std::move(vp)), imageProps_(std::move(ip)) { loadImage(); }
     ~Image() override;
 
+    /** @brief reconcile 属性覆盖：src/data 变更才重新加载解码（避免整树重建触发重复解码） */
+    void applyImageProps(ImageProps ip);
+
     ElementType type() const override { return ElementType::Image; }
 
     const ImageProps &imageProps() const { return imageProps_; }

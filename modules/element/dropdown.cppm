@@ -48,6 +48,9 @@ public:
     explicit Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
     }
 
+    /** @brief reconcile 属性覆盖（options/value 等整体重解析，渲染期活读取） */
+    void applyDropdownProps(DropdownProps dp) { dp_ = std::move(dp); }
+
     ElementType type() const override {
         return ElementType::Dropdown;
     }

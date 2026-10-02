@@ -27,6 +27,10 @@
   （Segoe UI Emoji → 系统默认），码点级回退查找改链式逐级
 - 图集整页淘汰引发全局字形重打包雪崩：失效粒度改每页版本号，
   单页淘汰只作废本页
+- 树重建（reconcile）时约 16 个组件的专有属性静默丢失（Image src/fit、
+  Dropdown options、Slider min/max/step、Checkbox label 等）：补齐全类型
+  reconcile 分支整体重解析；Image 按 src/data 变更才重载解码，Input 仅
+  value 变更同步文本（不打扰输入中光标），Table data 变更重建数据源
 - 门禁：构建零新增警告 + ctest + smoke 38/38 双模式全绿 + 真机复验
 
 # 0.0.0 — 2026-10-01

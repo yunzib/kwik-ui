@@ -49,6 +49,12 @@ public:
     explicit Checkbox(ViewProps vp, TextContent tc, CheckboxProps cp) :
         View(std::move(vp)), text_(std::move(tc)), check_(std::move(cp)) {}
 
+    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析） */
+    void applyCheckboxProps(TextContent tc, CheckboxProps cp) {
+        text_ = std::move(tc);
+        check_ = std::move(cp);
+    }
+
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
