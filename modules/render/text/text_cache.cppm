@@ -46,9 +46,6 @@ public:
     /** @brief 最大图集页数 */
     static constexpr uint32_t kMaxPages = 16;
 
-    /** @brief 当前图集版本号（淘汰时递增） */
-    uint32_t atlasGeneration() const { return atlasGeneration_; }
-
     /**
      * @brief 设置当前 DPI 缩放比例，字形将在 rasterize 时按此比例缩放
      * @param dpi DPI 比例 (96 DPI = 1.0, 192 DPI = 2.0)
@@ -56,7 +53,9 @@ public:
     void setDpiScale(float dpi) {
         if (dpiScale_ != dpi) {
             dpiScale_ = dpi;
-            atlasGeneration_++;    // DPI 变 → 图集代际 +1，缓存条目据其重打包
+            // DPI 变 → 全部页代际 +1：缓存条目按所属页版本判旧并重栅格化
+            // （栅格化尺寸随 DPI 变化，属合法全量失效，非淘汰泄漏）
+            for (auto &p : pages_) p.generation++;
         }
     }
 
@@ -85,7 +84,7 @@ private:
         }
     };
 
-    /** @brief 缓存条目: 字形度量 + 图集坐标 + 版本 */
+    /** @brief 缓存条目: 字形度量 + 图集坐标 + 所属页版本 */
     struct CachedGlyph {
         GlyphInfo info;
         uint32_t pageIndex = 0;
@@ -94,7 +93,7 @@ private:
         uint32_t packedW = 0;
         uint32_t packedH = 0;
         bool packed = false;
-        uint32_t atlasGeneration = 0;
+        uint32_t pageGeneration = 0;    // 打包时所属页的版本（页被淘汰时该页版本递增）
     };
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
@@ -114,6 +113,7 @@ private:
         uint32_t height = kAtlasSize;
         std::vector<int> skyline;
         uint64_t lastFrameUsed = 0;
+        uint32_t generation = 0;    // 页版本：仅本页被淘汰/需失效时递增（其余页条目不受牵连）
     };
 
     std::vector<AtlasPage> pages_;
@@ -121,7 +121,6 @@ private:
     // 帧时钟: UI 线程录制期读（tryPack 记 lastFrameUsed），渲染线程
     // consumeUploads 写 — atomic 防跨线程撕裂
     std::atomic<uint64_t> frameCounter_{0};
-    uint32_t atlasGeneration_ = 0;
     // 上传队列: UI 线程 packGlyph 生产 / 渲染线程 consumeUploads 消费，
     // 多窗口时为多个渲染线程 — 互斥保护
     std::mutex uploadsMutex_;

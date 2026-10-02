@@ -245,6 +245,7 @@ bool QuickJSContext::extractDefaultExport(JSValue namespaceObj) {
 //       确保热重载时文件列表准确且无重复积累。
 // ══════════════════════════════════════════════════════════════
 bool QuickJSContext::evalFile(const std::string &filename) {
+    runtime->resetWatchdog(10000);    // 加载+解析+全树工厂调用属重入口，放宽看门狗
     // ① 读取文件
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -396,6 +397,7 @@ void QuickJSContext::registerBytecodeModules(const BytecodeModule *modules, int 
 }
 
 bool QuickJSContext::evalBytecodeModule(const char *module_name) {
+    runtime->resetWatchdog(10000);    // 同 evalFile：重入口放宽看门狗
     auto it = bytecodeMap_.find(module_name);
     if (it == bytecodeMap_.end()) {
         auto name = std::filesystem::path(module_name).filename();

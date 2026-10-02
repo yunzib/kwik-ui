@@ -40,13 +40,15 @@ private:
     VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout imageClipPipelineLayout_ = VK_NULL_HANDLE;    // clip 变体（工厂各建等价 layout）
     VkDescriptorSetLayout imageDescSetLayout_ = VK_NULL_HANDLE;
-    VkDescriptorPool imageDescPool_ = VK_NULL_HANDLE;
+    std::vector<VkDescriptorPool> descPools_;    // 描述符池（首池 256，池满扩容新池倍增——
+                                                 // 旧池上已分配 descSet 全部保持有效）
     struct TextureData {
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;
         VkImageView view = VK_NULL_HANDLE;
         VkSampler sampler = VK_NULL_HANDLE;
         VkDescriptorSet descSet = VK_NULL_HANDLE;
+        VkDescriptorPool pool = VK_NULL_HANDLE;    // descSet 所属池（逐 set 释放路由）
         uint32_t width = 0;
         uint32_t height = 0;
     };

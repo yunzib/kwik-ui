@@ -84,6 +84,7 @@ int Application::run() {
                 }
             }
             // 其余事件走统一管线（本树路由）
+            rtPtr->jsContext().resetExecWatchdog();    // 事件回调 JS 共享 1s 预算（防死循环冻结）
             rtPtr->eventRouter().feedRawEvent(rawEvent);
         });
     }

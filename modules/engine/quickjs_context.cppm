@@ -136,6 +136,9 @@ public:
     /// 从 bytecode 加载并执行入口模块，成功返回 true
     bool evalBytecodeModule(const char *module_name);
 
+    /** @brief 重置 JS 执行看门狗预算（宿主入口调用，见 QuickJSRuntime::resetWatchdog） */
+    void resetExecWatchdog(uint32_t budgetMs = 1000) { runtime->resetWatchdog(budgetMs); }
+
     const std::vector<std::string> &loadedModuleFiles() const { return loadedModuleFiles_; }
 
     /// 销毁并重建 JS 引擎（绕过 QuickJS 模块缓存，用于 Debug 热重载）

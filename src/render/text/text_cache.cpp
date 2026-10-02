@@ -17,7 +17,6 @@ TextCache::~TextCache() = default;
 // ═══════════════════════════════════════════════════════════════════════════
 void TextCache::ensureGlyphs(TextLayoutResult &result) {
     float atlasSize = static_cast<float>(kAtlasSize);
-    uint32_t currentGen = atlasGeneration_;
 
     for (auto &g : result.glyphs) {
         if (g.isNewline) continue;
@@ -28,14 +27,14 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
             CachedGlyph entry;
             rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
             packGlyph(entry);
-            entry.atlasGeneration = atlasGeneration_;
             it = glyphCache_.insert({key, std::move(entry)}).first;
         } else {
             auto &entry = it->second;
-            if (!entry.packed || entry.atlasGeneration != currentGen) {
+            // 陈旧判定按所属页版本：仅该页被淘汰（版本递增）时重打包——
+            // 其他页的条目不受牵连（原全局代际一页淘汰即全缓存重打包抖动）
+            if (!entry.packed || entry.pageGeneration != pages_[entry.pageIndex].generation) {
                 if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
                 packGlyph(entry);
-                entry.atlasGeneration = currentGen;
             }
         }
 
@@ -172,8 +171,8 @@ void TextCache::packGlyph(CachedGlyph &entry) {
             pr = tryPack(pages_[pageCount_ - 1], padW, padH);
             foundPage = pageCount_ - 1;
         } else {
-            // LRU 整页淘汰
-            atlasGeneration_++;
+            // LRU 整页淘汰：选最久未用页 → 只作废本页（版本递增 + 清本页
+            // 缓存条目），其余页条目版本依旧有效，不触发全缓存重打包
             uint32_t lruPage = 0;
             uint64_t oldest = UINT64_MAX;
             for (uint32_t pi = 0; pi < pageCount_; pi++) {
@@ -182,8 +181,10 @@ void TextCache::packGlyph(CachedGlyph &entry) {
                     lruPage = pi;
                 }
             }
-            std::erase_if(glyphCache_, [lruPage](const auto &pair) {
-                return pair.second.packed && pair.second.pageIndex == lruPage;
+            pages_[lruPage].generation++;
+            uint32_t lruPageIdx = lruPage;
+            std::erase_if(glyphCache_, [lruPageIdx](const auto &pair) {
+                return pair.second.packed && pair.second.pageIndex == lruPageIdx;
             });
             pages_[lruPage].skyline.assign(kAtlasSize, 0);
             pages_[lruPage].lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
@@ -201,7 +202,7 @@ void TextCache::packGlyph(CachedGlyph &entry) {
     entry.atlasY = pr->y;
     entry.pageIndex = foundPage;
     entry.packed = true;
-    entry.atlasGeneration = atlasGeneration_;
+    entry.pageGeneration = pages_[foundPage].generation;
 
     // 加入上传队列（互斥: 本函数在 UI 线程执行, consumeUploads 在渲染线程并发消费）
     UploadJob job;

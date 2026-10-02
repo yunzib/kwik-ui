@@ -117,14 +117,42 @@ void FontManager::setFallback(FontId primary, FontId fallback) {
 }
 
 FontId FontManager::resolveForCodepoint(FontId primary, uint32_t codepoint) const {
-    auto face = getFace(primary);
-    if (face && face->hasGlyph(codepoint)) return primary;
-    auto it = fallbackChain_.find(primary);
-    if (it != fallbackChain_.end()) {
-        auto fb = getFace(it->second);
-        if (fb && fb->hasGlyph(codepoint)) return it->second;
+    // 链式回退：主字体无该字形 → 逐级找首个含字形的字体（hop 上限防环）
+    FontId cur = primary;
+    for (int hop = 0; hop < 8 && cur != kInvalidFontId; ++hop) {
+        auto *face = getFace(cur);
+        if (face && face->hasGlyph(codepoint)) return cur;
+        auto it = fallbackChain_.find(cur);
+        if (it == fallbackChain_.end()) break;
+        cur = it->second;
     }
     return primary;
+}
+
+void FontManager::registerSystemFallbacks(FontId primary) {
+    if (primary == kInvalidFontId) return;
+    // 系统回退链：emoji → 系统默认。候选缺失（平台无该字体）静默跳过，
+    // 链为空时 shaper 行为同旧（无回退）
+    FontId emoji = kInvalidFontId;
+#if defined(_WIN32)
+    for (const char *p : {"C:/Windows/Fonts/seguiemj.ttf", "C:/Windows/Fonts/seguiemj.ttc"}) {
+        emoji = loadFont(p);
+        if (emoji != kInvalidFontId) break;
+    }
+#endif
+    if (emoji != kInvalidFontId && emoji != primary) setFallback(primary, emoji);
+
+    std::string sysPath = systemDefaultFont();
+    if (!sysPath.empty()) {
+        FontId sysId = loadFont(sysPath);
+        if (sysId != kInvalidFontId && sysId != primary) {
+            if (emoji != kInvalidFontId && emoji != sysId) {
+                setFallback(emoji, sysId);          // 主 → emoji → 系统默认
+            } else if (emoji == kInvalidFontId) {
+                setFallback(primary, sysId);        // 主 → 系统默认
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -31,10 +31,9 @@ void ImageRenderer::destroy() {
     retired_.clear();
     for (auto &[id, t] : textures_) freeTexture(t);
     textures_.clear();
-    if (imageDescPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device_, imageDescPool_, nullptr);
-        imageDescPool_ = VK_NULL_HANDLE;
-    }
+    for (auto p : descPools_)
+        if (p != VK_NULL_HANDLE) vkDestroyDescriptorPool(device_, p, nullptr);
+    descPools_.clear();
     if (imagePipeline_ != VK_NULL_HANDLE) {
         vkDestroyPipeline(device_, imagePipeline_, nullptr);
         imagePipeline_ = VK_NULL_HANDLE;
@@ -249,8 +248,8 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     vkCreateSampler(dc.device, &samplerInfo, nullptr, &tex.sampler);
-    // ── Descriptor pool (lazy) ──
-    if (imageDescPool_ == VK_NULL_HANDLE) {
+    // ── Descriptor pool（懒建 + 扩容）──
+    if (descPools_.empty()) {
         VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256};
         VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         // destroyTexture 走 vkFreeDescriptorSets 逐个释放，池必须带 FREE 标志
@@ -259,18 +258,43 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
         pi.poolSizeCount = 1;
         pi.pPoolSizes = &ps;
         pi.maxSets = 256;
-        vkCreateDescriptorPool(dc.device, &pi, nullptr, &imageDescPool_);
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        if (vkCreateDescriptorPool(dc.device, &pi, nullptr, &pool) != VK_SUCCESS) {
+            vkDestroySampler(dc.device, tex.sampler, nullptr);
+            vkDestroyImageView(dc.device, tex.view, nullptr);
+            vkDestroyImage(dc.device, tex.image, nullptr);
+            vkFreeMemory(dc.device, tex.memory, nullptr);
+            return 0;
+        }
+        descPools_.push_back(pool);
     }
-    // ── Descriptor set ──
+    // ── Descriptor set：优先当前池；失败则复用旧池空位（视频逐帧销毁后
+    //    释放的 set），仍失败才扩容新池——绝不允许 reset（会把全部存活
+    //    纹理的 descSet 一并作废且无重建路径，整页图片 UB）──
     VkDescriptorSetAllocateInfo sa{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    sa.descriptorPool = imageDescPool_;
     sa.descriptorSetCount = 1;
     sa.pSetLayouts = &imageDescSetLayout_;
-    VkResult dsr = vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
-    if (dsr == VK_ERROR_OUT_OF_POOL_MEMORY) {
-        vkResetDescriptorPool(dc.device, imageDescPool_, 0);
-        dsr = vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
+    auto tryAlloc = [&](VkDescriptorPool pool) {
+        sa.descriptorPool = pool;
+        return vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
+    };
+    VkResult dsr = tryAlloc(descPools_.back());
+    for (size_t i = 0; dsr != VK_SUCCESS && i + 1 < descPools_.size(); ++i) dsr = tryAlloc(descPools_[i]);
+    if (dsr != VK_SUCCESS) {
+        uint32_t cap = std::min<uint32_t>(256u << (descPools_.size() - 1), 4096);
+        VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cap};
+        VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        pi.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        pi.poolSizeCount = 1;
+        pi.pPoolSizes = &ps;
+        pi.maxSets = cap;
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        if (vkCreateDescriptorPool(dc.device, &pi, nullptr, &pool) == VK_SUCCESS) {
+            descPools_.push_back(pool);
+            dsr = tryAlloc(pool);
+        }
     }
+    tex.pool = sa.descriptorPool;
     if (dsr != VK_SUCCESS) {
         vkDestroySampler(dc.device, tex.sampler, nullptr);
         vkDestroyImageView(dc.device, tex.view, nullptr);
@@ -345,7 +369,8 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
 }
 
 void ImageRenderer::freeTexture(const TextureData &t) {
-    if (t.descSet != VK_NULL_HANDLE) vkFreeDescriptorSets(device_, imageDescPool_, 1, &t.descSet);
+    if (t.descSet != VK_NULL_HANDLE && t.pool != VK_NULL_HANDLE)
+        vkFreeDescriptorSets(device_, t.pool, 1, &t.descSet);
     vkDestroySampler(device_, t.sampler, nullptr);
     vkDestroyImageView(device_, t.view, nullptr);
     vkDestroyImage(device_, t.image, nullptr);

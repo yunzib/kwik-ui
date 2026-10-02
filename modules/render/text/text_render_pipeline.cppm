@@ -42,6 +42,12 @@ public:
     FontId loadFont(const std::string &path, int faceIndex = 0);
 
     /**
+     * @brief 注册系统级字体回退链（emoji → 系统默认），主字体缺字形时
+     *        塑形按码点回退选字体；候选缺失时静默跳过
+     */
+    void registerSystemFallbacks(FontId primary) { fontManager_.registerSystemFallbacks(primary); }
+
+    /**
      * @brief 添加字体搜索目录
      */
     void addFontDir(const std::string &dir);

@@ -137,6 +137,9 @@ bool KwikRuntime::init() {
     Log::info("[startup] font_load = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tFont).count());
     if (mainFont == kInvalidFontId) { Log::error("字体加载失败: NotoSansSC-Regular.otf"); }
+    // 系统回退链：主字体缺字形（emoji 等）时塑形按码点逐级回退，
+    // 激活 FontManager 的回退查找（此前 setFallback 全仓零调用 = 死代码）
+    TextRenderPipeline::instance().registerSystemFallbacks(mainFont);
 
     // ③ 注册 kwikui C 模块（在 evalFile 之前，确保 JS import 'kwikui' 能找到）
     if (!register_kwikui_module(jsCtx_)) {
@@ -213,6 +216,7 @@ bool KwikRuntime::init() {
 // 返回值：true=本帧渲染了（调用方勿休眠）；false=静止（可短休眠）
 // ============================================================================
 bool KwikRuntime::tick(bool /*hotReloadEnabled*/) {
+    jsCtx_.resetExecWatchdog();    // 本帧全部 JS（dispatch/rAF/微任务/工厂）共享 1s 预算，防死循环冻结
     // ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）
     Channel::flush(jsCtx_.getPtr());
     // rAF: 每帧回调（flush 后、微任务前——回调内改 State 经下方 isRenderNeeded

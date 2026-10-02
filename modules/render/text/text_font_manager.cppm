@@ -58,6 +58,9 @@ export {
 
         void setFallback(FontId primary, FontId fallback);
         FontId resolveForCodepoint(FontId primary, uint32_t codepoint) const;
+        /** @brief 注册系统级回退链（主字体缺字形如 emoji 时逐级回退）。
+         *         候选字体缺失时静默跳过（链为空则行为同无回退） */
+        void registerSystemFallbacks(FontId primary);
 
         // ═══════════════════════════════════════════════════════════
         // 字体度量
