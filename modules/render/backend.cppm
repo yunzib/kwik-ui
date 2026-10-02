@@ -110,7 +110,16 @@ public:
      */
     virtual void invalidateCaches() {}
 
+    /**
+     * @brief 创建图像纹理（资源通道）：id 同步返回、可立即用于绘制引用；
+     *         实际 GPU 上传由后端在渲染线程帧首批量执行（同帧录制同帧可用，
+     *         未就绪 id 的绘制命令当帧跳过）。调用返回不代表上传完成
+     */
     virtual uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) = 0;
+    /**
+     * @brief 销毁图像纹理（资源通道）：id 即失效（后续绘制不再命中）；
+     *         实际释放由后端延迟到在飞帧引用全部结束后，调用方线程不阻塞
+     */
     virtual void destroyImageTexture(uint32_t id) = 0;
 
     /**

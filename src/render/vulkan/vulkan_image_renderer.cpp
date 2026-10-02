@@ -19,12 +19,17 @@ ImageRenderer::~ImageRenderer() {
 // ================================================================
 void ImageRenderer::destroy() {
     if (device_ == VK_NULL_HANDLE) return;
-    for (auto &[id, t] : textures_) {
-        vkDestroySampler(device_, t.sampler, nullptr);
-        vkDestroyImageView(device_, t.view, nullptr);
-        vkDestroyImage(device_, t.image, nullptr);
-        vkFreeMemory(device_, t.memory, nullptr);
+    // 通道清理（teardown：渲染线程已停，无并发）。挂起作业直接丢弃——
+    // id 从未落地 textures_，无设备资源可泄；retire 队列与活跃纹理当场释放
+    // （shutdown/dtor 路径均有 deviceWaitIdle 或渲染线程 join 兜底）
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        pendingCreates_.clear();
+        pendingDestroys_.clear();
     }
+    for (auto &r : retired_) freeTexture(r.tex);
+    retired_.clear();
+    for (auto &[id, t] : textures_) freeTexture(t);
     textures_.clear();
     if (imageDescPool_ != VK_NULL_HANDLE) {
         vkDestroyDescriptorPool(device_, imageDescPool_, nullptr);
@@ -94,7 +99,8 @@ bool ImageRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
 // ================================================================
 // createTexture — 上传 RGBA + mipmap 生成
 // ================================================================
-uint32_t ImageRenderer::createTexture(const DeviceContext &dc, const uint8_t *rgba, uint32_t width, uint32_t height) {
+uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id, const uint8_t *rgba,
+                                            uint32_t width, uint32_t height) {
     if (!rgba || width == 0 || height == 0) return 0;
     VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
     // ── Staging buffer ──
@@ -284,26 +290,66 @@ uint32_t ImageRenderer::createTexture(const DeviceContext &dc, const uint8_t *rg
     w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.pImageInfo = &di;
     vkUpdateDescriptorSets(dc.device, 1, &w, 0, nullptr);
-    uint32_t id = nextId_++;
     textures_[id] = tex;
     return id;
 }
 // ================================================================
-// destroyTexture
+// 资源通道 — UI 线程入队 / 渲染线程帧首消费
 // ================================================================
-void ImageRenderer::destroyTexture(uint32_t id) {
-    auto it = textures_.find(id);
-    if (it == textures_.end()) return;
-    auto &t = it->second;
-    // 纹理销毁为低频路径（image 重载/树重建/shutdown）：等 GPU 排空再释放，
-    // 否则最多 3 个在途帧的命令缓冲仍绑定该描述符集/采样器 → 规格违规
-    vkDeviceWaitIdle(device_);
-    vkFreeDescriptorSets(device_, imageDescPool_, 1, &t.descSet);
+uint32_t ImageRenderer::enqueueTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
+    if (!rgba || w == 0 || h == 0) return 0;
+    uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        const size_t bytes = size_t(w) * h * 4;
+        pendingCreates_.push_back({{rgba, rgba + bytes}, id, w, h});
+    }
+    return id;
+}
+
+void ImageRenderer::enqueueDestroy(uint32_t id) {
+    if (id == 0) return;
+    std::lock_guard<std::mutex> lock(jobsMutex_);
+    pendingDestroys_.push_back(id);
+}
+
+void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
+    // ① 交接挂起作业（锁内只做 swap，执行段无锁）
+    std::vector<PendingCreate> creates;
+    std::vector<uint32_t> destroys;
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        creates.swap(pendingCreates_);
+        destroys.swap(pendingDestroys_);
+    }
+    // ② 执行创建：设备上传（渲染线程串行，队列不再与 UI 线程并发）
+    for (auto &c : creates) {
+        createTextureWithId(dc, c.id, c.pixels.data(), c.width, c.height);    // 失败：id 不落地，draw 跳过
+    }
+    // ③ 执行销毁：移入 retire 队列——被销毁纹理的 descSet/sampler 可能仍被
+    //    在飞帧（≤ frameNo-1）的命令缓冲引用，立即释放违规；退役纹理在
+    //    frameNo+kMaxFramesInFlight 的 drain 回收（该帧 beginFrame 的 fence
+    //    等待已保证 ≤ frameNo-1 帧全部完成，帧距 3 留一帧裕量）
+    for (uint32_t id : destroys) {
+        auto it = textures_.find(id);
+        if (it == textures_.end()) continue;
+        retired_.push_back({it->second, frameNo});
+        textures_.erase(it);
+    }
+    // ④ 回收帧距已满的退役纹理（deque 头部帧号最小）
+    while (!retired_.empty()
+           && frameNo - retired_.front().frameNo >= VulkanContext::kMaxFramesInFlight) {
+        freeTexture(retired_.front().tex);
+        retired_.pop_front();
+    }
+}
+
+void ImageRenderer::freeTexture(const TextureData &t) {
+    if (t.descSet != VK_NULL_HANDLE) vkFreeDescriptorSets(device_, imageDescPool_, 1, &t.descSet);
     vkDestroySampler(device_, t.sampler, nullptr);
     vkDestroyImageView(device_, t.view, nullptr);
     vkDestroyImage(device_, t.image, nullptr);
     vkFreeMemory(device_, t.memory, nullptr);
-    textures_.erase(it);
 }
 // ================================================================
 // drawImage

@@ -1,82 +1,43 @@
 # 更新日志
 
 # 0.0.0 — 2026-10-02
-### 修复（路线图第 3 项：resize 黑屏 + 鼠标捕获）
-- 拖动/缩放窗口黑屏（模态循环停摆 + 黑刷擦底 + 窗口领先画面）：窗口层
-  三件组合，渲染侧零改动——①WM_SIZE 同步驱动完整帧（resize 尺寸并入
-  内容帧，重建+回放+present 单帧完成，无需定时器保活）；②WM_SIZE 风暴
-  节流合并（10ms 内只处理最新尺寸，松手 tick 补最终帧）；③WM_SIZING
-  放大方向限速 ~1200px/s（黑边=窗口领先最后呈现画面的量，呈现面锚定
-  映射无 scaling 控制，限速使领先封顶一帧增量；缩小不限）。连带
-  hbrBackground 置 null + WM_ERASEBKGND 返回 1
-- 鼠标捕获防粘滞：左键按下 SetCapture/松开 ReleaseCapture（captured_
-  标志防自愿释放误发），被夺时 WM_CAPTURECHANGED 合成 Cancel 经事件层
-  PointerCancel 终止组件拖拽；4 处指针坐标 (int)(short) 符号化（捕获期
-  负客户坐标不再回绕 ~65500）
-- 留档已证伪路线（详见任务清单 §十三）：SetTimer 保活泵帧（曾退回）、
-  canvas 拉伸 blit 过渡帧（present 前 DWM 不可见 canvas，纯增开销）、
-  队列等待/旧链退役替代 deviceWaitIdle（实测跨屏引入新黑）。浏览器级
-  零黑边需 DXGI/DComp 拉伸兜底（Vulkan WSI 不可达），记入远期池
-- 门禁：构建零新增警告 + ctest + smoke 38/38 双模式全绿 + 真机拖动复验
+### 修复
+- 拖动/缩放窗口黑屏：WM_SIZE 同步驱动完整帧（resize 并入内容帧，重建+
+  回放+present 单帧完成）+ WM_SIZE 风暴节流合并（10ms 内只处理最新尺寸，
+  松手补最终帧）+ WM_SIZING 放大方向限速 ~1200px/s（窗口领先画面量即
+  黑边宽度，限速封顶一帧增量）；背景刷置 null + WM_ERASEBKGND 返回 1
+- 鼠标捕获防粘滞：左键按下 SetCapture/松开 ReleaseCapture，被夺时
+  WM_CAPTURECHANGED 合成 Cancel 终止组件拖拽；4 处指针坐标符号化提取
+  （捕获期负客户坐标不再回绕）
+- Image 纹理与渲染线程并发共用 VkQueue（UB）+ textures_ 数据竞争 + 销毁
+  时 UI 线程全 GPU 停顿：改资源通道——UI 线程只入队（像素拷贝 + id 预
+  分配，Image/Video 调用方零改动），渲染线程帧首批量上传；销毁延迟 3 帧
+  释放（在飞帧引用安全）；全仓 GPU 队列提交现仅在渲染线程
+- 门禁：构建零新增警告 + ctest + smoke 38/38 双模式全绿 + 真机复验
 
 # 0.0.0 — 2026-10-01
-### 修复（跨屏拖动窗口：光标相对位置偏移）
-- 1K↔2K 双屏互拖，落屏后光标相对窗口偏移（左→右偏左、右→左偏右）。
-  根因：Refit 跨屏重设尺寸时左上角锚定（抓取点随缩放比滑动）+ 工作区
-  夹紧推挤骑跨窗口 + 系统模态循环按旧 grabOffset 摆位与锚定互相覆盖
-- 定案闭环纠偏：WM_ENTERSIZEMOVE 采样抓取比例 f（grabRelX_/Y_ 死成员
-  复活），WM_MOVE 持续把窗口钉回"光标−f×当前尺寸"，稳态收敛、不与
-  系统争夺摆位权；Refit 改用 f 落位 + 虚拟桌面并集夹紧 + 显示器翻转
-  即时 Refit（尺寸匹配幂等早退）；WM_SIZING 撤销纠偏；非拖动场景
-  回左上角锚定
-- 教训留档：模态循环期间系统独占窗口位置控制权，拖动中跳过
-  DPICHANGED suggested 会被系统按陈旧认知回摆、来回拉扯（中间版已退回）
-- 门禁：构建零新增警告 + ctest + smoke 38/38 双模式 + 双屏真机复验
+### 修复
+- 跨屏拖动窗口光标相对位置偏移（1K↔2K 互拖，左→右偏左、右→左偏右）：
+  闭环纠偏——ENTERSIZEMOVE 采样抓取比例 f，WM_MOVE 持续把窗口钉回
+  "光标−f×当前尺寸"（稳态收敛，不与系统争夺摆位权）；Refit 改用 f 落位 +
+  虚拟桌面并集夹紧 + 显示器翻转即时重设（尺寸匹配幂等早退）
+- Windows 回车全路径失效：平台层 WM_CHAR/WM_IME_CHAR 将 '\r'→'\n'；
+  软键盘 VK_ENTER 改发 TextInput '\n'（Input 回车提交/TextArea 换行恢复）
+- TextCache 跨线程数据竞争（UB）：互斥锁保护上传队列（UI 线程生产/
+  渲染线程消费），消费端 swap 取走；帧计数改 atomic
+- WM_CHAR 代理对损坏（emoji/增补平面字符变乱码）：KeyboardHandler 增
+  代理对寄存器，TextInput 状态机合并相邻(高,低)代理、悬空冲刷、孤立
+  丢弃；行为锁 test_surrogate_recombine
+- 门禁：构建零新增警告 + ctest + smoke 双模式全绿 + 双屏真机复验
 
-### 修复（路线图第 0 项：正确性最前排两件）
-- Windows 回车全路径失效归一化：平台层 WM_CHAR/WM_IME_CHAR 将
-  '\r'→'\n'（TranslateMessage 把 VK_RETURN 翻成 '\r'，组件层
-  cp<0x20 && cp!='\n' 过滤只放行 '\n'——Input 回车提交/TextArea 换行
-  此前永不触发）；软键盘 Keyboard::injectKey 对 VK_ENTER 改发
-  TextInput '\n'（KeyAction 无 VK_RETURN 消费方，与物理键盘行为一致）
-- TextCache 跨线程数据竞争（UB）：新增 uploadsMutex_ 保护上传队列
-  （packGlyph 在 UI 线程生产 / consumeUploads 在渲染线程消费，多窗口时
-  为多个渲染线程），消费端改 swap 替代 std::move 返回；frameCounter_
-  改 std::atomic<uint64_t>（兼 LRU 时钟）
-- 门禁：构建零新增警告 + ctest 通过 + smoke 37/37 双模式（普通/验证层）
-  全绿；修复过程新立清单条目"多窗口字形上传误路由"（全局队列无后端
-  标记，先 drain 的渲染线程拿走别窗 job → 各窗图集字形子集不全）
-
-### 修复（路线图第 1 项：WM_CHAR 代理对重组）
-- emoji/增补平面字符损坏：Windows 每条 WM_CHAR 只携带一个 UTF-16 码元，
-  高/低代理此前被当独立码点各编码成非法 UTF-8。定案事件层重组——
-  KeyboardHandler 增代理对寄存器（每树一份，多窗隔离），TextInput 分支
-  状态机：相邻(高,低)合成完整码点一次下发、悬空高代理原样冲刷、孤立低
-  代理丢弃；EventRouter::reset 接入清态（树重建防残留）
-- 组件层零改动：重组后 Input/TextArea 既有 4 字节 UTF-8 分支成为活代码；
-  emoji 渲染仍依赖字体含字形（字体回退死代码另列 §十二）
-- 行为锁：core_tests 新增 test_surrogate_recombine（合并/悬空冲刷/孤立
-  丢弃/BMP 直通/reset 清态），断言 130→138；测试目标补链 kwik_event
-- 门禁：构建零新增警告 + ctest 通过 + smoke 37/37 双模式全绿
-
-### 功能（路线图第 2 项：JS 宿主定时器 + 组件生命周期钩子）
-- 宿主定时器六 API 经 kwikui 模块导出（评审定案：仅模块导出不挂
-  globalThis）：setTimeout/setInterval/clearTimeout/clearInterval/
-  requestAnimationFrame/cancelAnimationFrame；后端统一 Channel——
-  setInterval 为 Channel 补 repeating 支持（TimerEntry.intervalMs，flush
-  消费后重排，推迟不堆积，与 setTimeout 同 id 空间）；rAF 队列入
-  QuickJSContext（每树一份），KwikRuntime::tick 在 flush 后/微任务前
-  drain，回调改 State 当帧生效，pending 时 tick/needsFrame 防休眠；
-  帧驱动语义差异（setTimeout(fn,0)≈下一帧等）记录于清单 §十五
-- 组件生命周期钩子 onMount/onUnmount（与定时器配套 = setInterval 清理
-  锚点）：View handlers 增两槽位（element 层零 JS 类型）+ mounted_/
-  pendingMount_ 标记（随 View 生死零泄漏）；event_adapter 通用绑定；
-  firePendingMounts 前序遍历（init/rebuildTree/HMR 三处树构建完成后，
-  仅新建节点，父先于子）；onUnmount 于 reconcile 三处拆除点析构前
-  后序触发（子先于父，this 与 JS ctx 均存活）；HMR 整树重建不触发
-  （JS 清理依赖 ctx 销毁）；reload 前清 rAF 队列（JSValue 悬垂防线）
-- 新增 test/ui/timer.js 进 smoke（DEMOS 37→38）；门禁：构建零新增警告 +
-  ctest + smoke 38/38 双模式（普通/验证层）全绿
+### 功能
+- 宿主定时器六 API 经 kwikui 模块导出：setTimeout/setInterval/
+  clearTimeout/clearInterval/requestAnimationFrame/cancelAnimationFrame
+  （后端统一 Channel，setInterval 补 repeating 支持）；rAF 队列随 JS
+  上下文，tick 驱动当帧生效
+- 组件生命周期钩子 onMount/onUnmount：树构建完成后前序触发（仅新建
+  节点，父先于子），reconcile 拆除点析构前后序触发；HMR 整树重建不触发
+- 新增 test/ui/timer.js 进 smoke（37→38）
 
 # 0.0.0 — 2026-09-26
 ### 重构（渲染后端：Pipeline 工厂 + effect 契约，清单 §四）

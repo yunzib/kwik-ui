@@ -17,7 +17,7 @@ import kwik.core.log;
 namespace {
 const float kQuadVertices[] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
 const uint16_t kQuadIndices[] = {0, 1, 2, 0, 2, 3};
-constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+constexpr uint32_t MAX_FRAMES_IN_FLIGHT = VulkanContext::kMaxFramesInFlight;    // 别名到导出常量（唯一事实源）
 }    // namespace
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,

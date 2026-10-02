@@ -84,4 +84,5 @@ private:
     std::vector<PushKind> pushKinds_;
 
     uint32_t drawCalls_ = 0;    ///< 临时探针：本帧绘制调用计数
+    uint64_t resourceFrame_ = 0;    ///< 资源通道帧号（drainResources 的 retire 帧距基准）
 };

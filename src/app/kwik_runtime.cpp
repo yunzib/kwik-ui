@@ -183,8 +183,8 @@ bool KwikRuntime::init() {
     // ⑦ measure 循环 + layout
     relayoutTree(layoutSize());
 
-    // 预创建所有 Image 纹理 — 在渲染循环启动前完成, 避免
-    // createImageTexture() 与渲染线程的 present() 并发提交 vkQueue
+    // 预创建所有 Image 纹理：首屏图片当帧就绪（资源通道入队线程安全，
+    // 渲染线程帧首批量上传，无 UI 线程 GPU 提交）
     preloadImageTextures(tree_.get());
 
     // ⑧ 事件系统

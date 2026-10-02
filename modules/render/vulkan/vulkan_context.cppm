@@ -64,6 +64,9 @@ public:
     VulkanContext() = default;
     ~VulkanContext();
 
+    /** @brief 在飞帧上限（三缓冲槽位数）；延迟释放类队列的安全帧距以此为准 */
+    static constexpr uint32_t kMaxFramesInFlight = 3;
+
     // ── 生命周期 ──
     bool initialize(void *nativeHandle);
     void shutdown();

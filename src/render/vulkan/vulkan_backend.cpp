@@ -96,6 +96,10 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     if (!token) return false;
     currentToken_ = std::move(token);
 
+    // 纹理资源通道消费：此刻 fence 等待刚完成——retire 回收的安全性前提成立
+    // （在飞帧命令缓冲已结束），且本帧回放前新纹理已就绪（同帧入队同帧可用）
+    image_.drainResources(deviceCtx_, ++resourceFrame_);
+
     int32_t sx = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.x)));
     int32_t sy = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.y)));
     uint32_t sw =
@@ -204,11 +208,11 @@ void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
 }
 
 uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
-    return image_.createTexture(deviceCtx_, rgba, w, h);
+    return image_.enqueueTexture(rgba, w, h);    // 通道入队，渲染线程帧首上传
 }
 
 void VulkanBackend::destroyImageTexture(uint32_t id) {
-    image_.destroyTexture(id);
+    image_.enqueueDestroy(id);    // 通道入队，渲染线程延迟释放（不阻塞 UI 线程）
 }
 
 void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad, const Transform2D &t, const Rect &clipRect) {
