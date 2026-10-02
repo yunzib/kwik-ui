@@ -17,7 +17,7 @@
 
 # 2. 开发环境
 - IDE: VSCODE
-    - 插件： clangd, CMake, CMake Tools, opencode
+    - 插件： clangd, CMake, CMake Tools
 - 操作系统： Windows11
 - 编译器： llvm-mingw-20260421-ucrt-x86_64
 - 构建系统： cmake 4.3.2

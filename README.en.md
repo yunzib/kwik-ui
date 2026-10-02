@@ -17,7 +17,7 @@
 
 # 2. Development Environment
 - IDE: VSCode
-    - Plugins: clangd, CMake, CMake Tools, opencode
+    - Plugins: clangd, CMake, CMake Tools
 - OS: Windows 11
 - Compiler: llvm-mingw-20260421-ucrt-x86_64
 - Build system: CMake 4.3.2
