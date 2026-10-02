@@ -1,6 +1,6 @@
 <div align="center">
-<h1>kwik-ui(c++ 声明式UI库)</h1>
-<p>简体中文 | <a href="README.en.md">English</a></p>
+<h1>kwik-ui (C++ Declarative UI Library)</h1>
+<p>English | <a href="README.md">简体中文</a></p>
 </div>
 
 <p align="center">
@@ -9,22 +9,22 @@
 <img alt="" src="https://img.shields.io/badge/js engine-quickjs ng-brightgreen" style="display: inline-block;" />
 </p>
 
-# 1. 项目描述
-- 基于 C++26 Modules、QuickJS 与 Vulkan 的声明式跨平台 UI 框架。Vulkan GPU 硬件加速渲染，QuickJS 驱动 JS 声明组件树，实现高性能、低延迟的原生 UI 体验。低开销 C++ 内核 + 灵活 JS 逻辑，适用于嵌入式 Linux 及跨平台应用开发。
-- 支持Debug和Release模式， 通过enableHotReload 配置启用
-    - Debug： 支持ui文件热重载，实时预览
-    - Release: ui文件直接编译为字节码嵌入可执行程序，单可执行程序发布，无运行时文件解析, 性能和原生C++持平。
+# 1. Project Description
+- A declarative cross-platform UI framework built on C++26 Modules, QuickJS, and Vulkan. Vulkan provides GPU hardware-accelerated rendering while QuickJS drives a JS-declared component tree, delivering a high-performance, low-latency native UI experience. A low-overhead C++ core combined with flexible JS logic — suited for embedded Linux and cross-platform application development.
+- Both Debug and Release modes are supported, selected via the `enableHotReload` configuration:
+    - Debug: hot reload of UI files with live preview
+    - Release: UI files are compiled to bytecode and embedded in the executable — a single-executable distribution with no runtime file parsing, performance on par with native C++.
 
-# 2. 开发环境
-- IDE: VSCODE
-    - 插件： clangd, CMake, CMake Tools, opencode
-- 操作系统： Windows11
-- 编译器： llvm-mingw-20260421-ucrt-x86_64
-- 构建系统： cmake 4.3.2
-- 构建工具： ninja 1.13.2
+# 2. Development Environment
+- IDE: VSCode
+    - Plugins: clangd, CMake, CMake Tools, opencode
+- OS: Windows 11
+- Compiler: llvm-mingw-20260421-ucrt-x86_64
+- Build system: CMake 4.3.2
+- Build tool: Ninja 1.13.2
 
-# 3. 项目效果展示
-## 3.1 代码示例
+# 3. Showcase
+## 3.1 Code Example
 ```
 import { View, Text, Button, Input, TextArea, Checkbox, Flex, State, Root, ref, getProp, setProp } from 'kwikui';
 
@@ -113,84 +113,85 @@ export default () => Root(
     ])
 );
 ```
-## 3.2 效果示例
+
+## 3.2 Screenshots
 
 <table>
   <tr>
-    <td><img src="docs/image/button1.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/input1.png" alt="图片描述2" width="100%"></td>
+    <td><img src="docs/image/button1.png" alt="Button demo" width="100%"></td>
+    <td><img src="docs/image/input1.png" alt="Input demo" width="100%"></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="docs/image/nav.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/music.png" alt="图片描述2" width="100%"></td>
+    <td><img src="docs/image/nav.png" alt="Navigation demo" width="100%"></td>
+    <td><img src="docs/image/music.png" alt="Music app demo" width="100%"></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="docs/image/climate.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/car.png" alt="图片描述2" width="100%"></td>
+    <td><img src="docs/image/climate.png" alt="Climate demo" width="100%"></td>
+    <td><img src="docs/image/car.png" alt="Car HMI demo" width="100%"></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="docs/image/phone.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/setting.png" alt="图片描述2" width="100%"></td>
+    <td><img src="docs/image/phone.png" alt="Phone demo" width="100%"></td>
+    <td><img src="docs/image/setting.png" alt="Settings demo" width="100%"></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="docs/image/glass.png" alt="图片描述1" width="100%"></td>
-    <td><img src="docs/image/chart.png" alt="图表组件" width="100%"></td>
+    <td><img src="docs/image/glass.png" alt="Liquid glass demo" width="100%"></td>
+    <td><img src="docs/image/chart.png" alt="Chart components" width="100%"></td>
   </tr>
 </table>
 
-- 更多示例可参考:  examples/
-- 更多组件相关参考:  [docs/1.kwik-ui 组件.md](docs/1.kwik-ui%20组件.md)
+- More examples: [examples/](examples/)
+- Component reference: [docs/1.kwik-ui 组件.md](docs/1.kwik-ui%20组件.md) (Chinese)
 
-## 3.3 Channel 通信示例
+## 3.3 Channel Communication Example
 
-Channel 提供 JS 与 C++ 之间的双向通信，支持单向通知和请求-响应两种模式（详见 [docs/2. State和channel.md](docs/2.%20State和channel.md)）。
+Channel provides bidirectional communication between JS and C++, supporting both one-way notifications and request-response patterns (see [docs/2. State和channel.md](docs/2.%20State和channel.md), Chinese).
 
-**JS 端：**
+**JS side:**
 ```js
 import { channel } from 'kwikui';
 
-// ① 通知 C++（发后即忘，无返回值）
+// ① Notify C++ (fire-and-forget, no return value)
 channel.send('button_click', { id: Date.now() });
 
-// ② 接收 C++ 通知
+// ② Receive notifications from C++
 channel.on('sensor:temp', function(data) {
-    console.log('温度传感器:', data);
+    console.log('temperature sensor:', data);
 });
 
-// ③ 调用 C++ handler（返回 Promise）
+// ③ Call a C++ handler (returns a Promise)
 const result = await channel.call('get_config', { key: 'theme' });
-console.log('配置:', result);  // "dark_theme"
+console.log('config:', result);  // "dark_theme"
 ```
-**C++ 端（examples/example.cpp）：**
+**C++ side (examples/example.cpp):**
 ```c++
-// 发送通知到 JS（线程安全）
+// Send a notification to JS (thread-safe)
 Channel::send("sensor:temp", "temp:25.3,humidity:68.5");
 
-// ── ① 通知: JS → C++ ──
+// ── ① Notification: JS → C++ ──
 Channel::on("button_click",
-            [](const Channel::Data &d) { Log::info("[通知] JS → C++ send 'button_click': {}", d.asString()); });
+            [](const Channel::Data &d) { Log::info("[notify] JS → C++ send 'button_click': {}", d.asString()); });
 
-// ── ② 同步调用 ──
+// ── ② Synchronous call ──
 Channel::handle("get_config", [](const Channel::Data &d) -> Channel::Data {
-    Log::info("[同步] JS → C++ call 'get_config': {}", d.asString());
+    Log::info("[sync] JS → C++ call 'get_config': {}", d.asString());
     return Channel::Data("dark_theme");
 });
 
-// ── ③ 异步线程调用 ──
+// ── ③ Async call on a worker thread ──
 Channel::handle("start_download", [](const Channel::Data &d, auto respond) {
-    Log::info("[异步线程] JS → C++ call 'start_download': {}", d.asString());
+    Log::info("[worker thread] JS → C++ call 'start_download': {}", d.asString());
     std::thread([d, respond] {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         Channel::getMainThreadQueue().post(
@@ -198,10 +199,10 @@ Channel::handle("start_download", [](const Channel::Data &d, auto respond) {
     }).detach();
 });
 
-// ── ④ 异步协程调用 ──
+// ── ④ Async coroutine call ──
 Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask {
-    Log::info("[协程] JS → C++ call 'process_file': {}", d.asString());
-    Channel::Data dataCopy = d;    // ← 在 co_await 之前复制，协程帧拥有此副本
+    Log::info("[coroutine] JS → C++ call 'process_file': {}", d.asString());
+    Channel::Data dataCopy = d;    // ← copy before co_await; the coroutine frame owns this copy
     co_await Channel::thread_pool();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     std::string content = "Processed: " + std::string(dataCopy.asString());
@@ -210,17 +211,17 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 });
 ```
 
-# 4. 运行和安装
-## 4.1 前置依赖
+# 4. Build & Install
+## 4.1 Prerequisites
 
-| 依赖 | 最低版本 |
+| Dependency | Minimum Version |
 |---|---|
 | CMake | 4.3.2 |
 | Ninja | 1.13 |
-| 编译器 | llvm-mingw-20260421-ucrt-x86_64 (或 Clang ≥ 18，需支持 C++ Modules) |
-| Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
+| Toolchain | llvm-mingw-20260421-ucrt-x86_64 (or Clang ≥ 18, with C++ Modules support) |
+| Vulkan SDK | 1.3 (optional; a stub target is created if not found) |
 
-## 4.2 工程编译
+## 4.2 Building the Project
 ```
 cmake -DCMAKE_BUILD_TYPE:STRING=Debug 
 -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE 
@@ -232,33 +233,34 @@ cmake -DCMAKE_BUILD_TYPE:STRING=Debug
 -G Ninja 
 && cmake --build build --config Debug --target all
 ```
-## 4.3 安装 SDK
+## 4.3 Installing the SDK
 ```
 cmake --install build --prefix build/install
 ```
-## 4.4 新建工程
+## 4.4 Creating a New Project
 
 ```bash
-工程参考：examples\external\
-构建： examples\external\build.bat
+Reference project: examples\external\
+Build:             examples\external\build.bat
 ```
 
-## 4.5 测试
+## 4.5 Testing
 
 ```bash
-# 单元测试（纯逻辑，不依赖窗口/GPU；等价 cd build && ctest）
+# Unit tests (pure logic, no window/GPU required; equivalent to cd build && ctest)
 ./test/kwik_unit_tests
 
-# 冒烟测试（在 build/test 目录运行）：遍历示例逐个跑 N 帧自动退出 + 扫描错误输出
+# Smoke tests (run from the build/test directory): runs each example for N frames,
+# auto-exits, and scans the output for errors
 cd build/test
-python ../../test/tools/smoke.py                    # 全部 38 示例，默认 40 帧
-python ../../test/tools/smoke.py glass layer car    # 只跑指定示例
-python ../../test/tools/smoke.py --frames 400       # 加长帧数（动画路径压测）
-python ../../test/tools/smoke.py --validation       # 开 Vulkan 验证层抓规格违规
+python ../../test/tools/smoke.py                    # all 38 examples, 40 frames each by default
+python ../../test/tools/smoke.py glass layer car    # only the named examples
+python ../../test/tools/smoke.py --frames 400       # longer runs (stress-tests animation paths)
+python ../../test/tools/smoke.py --validation       # enable Vulkan validation layers to catch spec violations
 
-# 手动运行单个示例（正常窗口，目视检查）
+# Manually run a single example (normal window, for visual inspection)
 ./example.exe glass
 ```
 
-- 通过判定：退出码 0（冒烟模式下等于 Log 错误计数）且输出无 `[Error]` / `Assertion` / `DEVICE_LOST`
-- 环境变量 `KWIK_VALIDATION=1/0` 可强制开/关验证层（`--validation` 即封装此项）
+- Pass criteria: exit code 0 (in smoke mode this equals the Log error count) and no `[Error]` / `Assertion` / `DEVICE_LOST` in the output
+- The environment variable `KWIK_VALIDATION=1/0` force-enables/disables the validation layers (`--validation` is a wrapper around this)
