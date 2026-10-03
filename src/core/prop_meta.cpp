@@ -142,6 +142,9 @@ static const PropMeta kPropMetas[] = {
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
             p.width = static_cast<float>(std::get<double>(v));
+            p.widthPct.reset();    // px 写入清除百分比：resolveEffectiveSize 中 pct
+                                   // 无条件压过 px——不清则运行期改宽被 parse 期
+                                   // 遗留的 widthPct 静默覆盖
         },
     },
     [static_cast<int>(PropId::height)] = {
@@ -151,6 +154,7 @@ static const PropMeta kPropMetas[] = {
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
             p.height = static_cast<float>(std::get<double>(v));
+            p.heightPct.reset();    // 同 width：px 写入清除遗留百分比
         },
     },
 
@@ -199,7 +203,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absTop)] = {
-        PropId::absTop, "absTop", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absTop, "absTop", "top", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absTop);
         },
@@ -208,7 +212,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absLeft)] = {
-        PropId::absLeft, "absLeft", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absLeft, "absLeft", "left", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absLeft);
         },
@@ -217,7 +221,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absRight)] = {
-        PropId::absRight, "absRight", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absRight, "absRight", "right", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absRight);
         },
@@ -226,7 +230,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absBottom)] = {
-        PropId::absBottom, "absBottom", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absBottom, "absBottom", "bottom", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absBottom);
         },

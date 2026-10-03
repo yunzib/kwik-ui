@@ -31,7 +31,11 @@
 - setProperty('shadow') 无效果（writer 空桩）：字符串形 "x y blur color"
   经 parseShadow 解析——自 bridge 迁 core color_parser，与 parse 期同源、
   分层合规
-- 门禁：构建 + ctest（断言 176→179）+ smoke 38/38 双模式全绿
+- 运行期 setProp("width"/"height") 被 parse 期遗留的百分比静默覆盖
+  （resolveEffectiveSize 中 widthPct 无条件压过 px）：px 写入清除对应
+  pct 字段；top/left/right/bottom 四个位置短名补进属性总线别名表
+  （与 parse 期映射对称，双名 API 维持）
+- 门禁：构建 + ctest（断言 179→185）+ smoke 38/38 双模式全绿
 
 # 0.0.0 — 2026-10-02
 ### 修复

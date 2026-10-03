@@ -384,6 +384,30 @@ static void test_animation_frame_and_shadow_write() {
     CHECK(t.text_.fontSize == 30.0f);
 }
 
+// ── 行为锁: widthPct 压制修复 + 位置短名入总线（B2a 回归防线）──
+// ① resolveEffectiveSize 中 widthPct 无条件压过 width（注释却写"px 优先"，
+//    代码相反）——px 写入不清 pct 则运行期 setProp("width") 被 parse 期
+//    遗留值静默覆盖。② parse 期认 top/left/right/bottom 短名（→abs*），
+//    总线原不认——读写不对称；别名补进单表后双名均可反查。
+static void test_b2_width_pct_and_aliases() {
+    // ① px 写入清除遗留 pct（width/height 同修）
+    ViewProps wp;
+    wp.widthPct = 0.5f;
+    getPropMeta(PropId::width).writer(wp, TypedProp{300.0});
+    CHECK(wp.width == 300.0f && !wp.widthPct.has_value());
+    ViewProps hp;
+    hp.heightPct = 0.5f;
+    getPropMeta(PropId::height).writer(hp, TypedProp{200.0});
+    CHECK(hp.height == 200.0f && !hp.heightPct.has_value());
+
+    // ② 四个位置短名总线反查（与 parse 期映射同目标；flex 待 B2b 建
+    //    flexGrow 条目后一并登记）
+    CHECK(propIdFromName("top") == PropId::absTop);
+    CHECK(propIdFromName("left") == PropId::absLeft);
+    CHECK(propIdFromName("right") == PropId::absRight);
+    CHECK(propIdFromName("bottom") == PropId::absBottom);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -394,6 +418,7 @@ int main() {
     test_texture_manager_domain_isolation();
     test_text_cache_unfittable_glyph_no_storm();
     test_animation_frame_and_shadow_write();
+    test_b2_width_pct_and_aliases();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }
