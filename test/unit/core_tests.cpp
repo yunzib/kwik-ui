@@ -155,11 +155,78 @@ static void test_surrogate_recombine() {
     CHECK(out.size() == 1 && out[0].charCode == 'B');
 }
 
+// ── 行为锁: FocusManager 遍历中追加焦点事件（A1 UB 修复的回归防线）──
+// 扩容致迭代器悬空本身无法在纯逻辑测试中断言（无 ASan），本锁钉住修复
+// 后的派发语义：原始事件不动、焦点事件全按序落在队尾、先 blur 后 focus
+namespace {
+struct StubTarget : EventTarget {
+    bool focusable = false;
+    EventTarget *parentTarget = nullptr;
+    bool onEvent(const DispatchEvent &) override { return false; }
+    EventTarget *parent() const override { return parentTarget; }
+    EventTarget *hitTest(Point) override { return this; }
+    bool acceptsFocus() const override { return focusable; }
+};
+}    // namespace
+
+static void test_focus_process_append() {
+    StubTarget blank;        // 不可聚焦容器（点击空白用）
+    StubTarget inputA;       // 可聚焦控件 A
+    StubTarget inputB;       // 可聚焦控件 B
+    inputA.focusable = inputB.focusable = true;
+
+    auto pointerDown = [](EventTarget &t) {
+        DispatchEvent d{};
+        d.type = DispatchEvent::Type::PointerDown;
+        d.presetTarget = &t;
+        return d;
+    };
+
+    FocusManager fm;
+
+    // ① 首次聚焦: 原 PointerDown 不动，队尾只追加一条 FocusGained
+    std::vector<DispatchEvent> events{pointerDown(inputA)};
+    fm.process(events);
+    CHECK(events.size() == 2);
+    CHECK(events[0].type == DispatchEvent::Type::PointerDown);
+    CHECK(events[1].type == DispatchEvent::Type::FocusGained && events[1].presetTarget == &inputA);
+
+    // ② 焦点切换: 队尾先 FocusLost(旧) 后 FocusGained(新)
+    events.clear();
+    events.push_back(pointerDown(inputB));
+    fm.process(events);
+    CHECK(events.size() == 3);
+    CHECK(events[1].type == DispatchEvent::Type::FocusLost && events[1].presetTarget == &inputA);
+    CHECK(events[2].type == DispatchEvent::Type::FocusGained && events[2].presetTarget == &inputB);
+
+    // ③ 点击不可聚焦空白: 仅失焦（FocusLost），无 FocusGained
+    events.clear();
+    events.push_back(pointerDown(blank));
+    fm.process(events);
+    CHECK(events.size() == 2);
+    CHECK(events[1].type == DispatchEvent::Type::FocusLost && events[1].presetTarget == &inputB);
+
+    // ④ 同批多次切换（原 UB 触发形态）: 每次切换一对事件，全序落队尾
+    //    起始无焦点 → 首次聚焦 1 条 + 之后 5 次切换各 2 条 = 追加 11 条
+    events.clear();
+    for (int i = 0; i < 6; ++i) { events.push_back(pointerDown(i % 2 == 0 ? inputA : inputB)); }
+    fm.process(events);
+    CHECK(events.size() == 6 + 11);
+    CHECK(events[6].type == DispatchEvent::Type::FocusGained && events[6].presetTarget == &inputA);
+    for (int k = 0; k < 5; ++k) {
+        CHECK(events[7 + k * 2].type == DispatchEvent::Type::FocusLost);
+        CHECK(events[8 + k * 2].type == DispatchEvent::Type::FocusGained);
+    }
+    CHECK(events[7].presetTarget == &inputA && events[8].presetTarget == &inputB);
+    CHECK(events[15].presetTarget == &inputA && events[16].presetTarget == &inputB);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
     test_display_list();
     test_surrogate_recombine();
+    test_focus_process_append();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

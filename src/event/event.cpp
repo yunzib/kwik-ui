@@ -347,6 +347,10 @@ void KeyboardHandler::process(const RawEvent &raw, std::vector<DispatchEvent> &o
 // FocusManager
 // ============================================================================
 void FocusManager::process(std::vector<DispatchEvent> &events) {
+    // 焦点事件先收集、循环后追加：遍历途中 push_back 会触发 vector 扩容，
+    // 使 range-for 在进循环时捕获的 begin/end 迭代器悬空（首次点击 Input
+    // 的常规路径 size==capacity 必扩容即触发 UB）
+    std::vector<DispatchEvent> pending;
     for (auto &evt : events) {
         if (evt.type != DispatchEvent::Type::PointerDown && evt.type != DispatchEvent::Type::Tap) { continue; }
 
@@ -370,7 +374,7 @@ void FocusManager::process(std::vector<DispatchEvent> &events) {
                 DispatchEvent blurEvt;
                 blurEvt.type = DispatchEvent::Type::FocusLost;
                 blurEvt.presetTarget = focused_;
-                events.push_back(blurEvt);
+                pending.push_back(blurEvt);
             }
             // 新焦点聚焦
             if (focusTarget) {
@@ -378,7 +382,7 @@ void FocusManager::process(std::vector<DispatchEvent> &events) {
                 DispatchEvent focusEvt;
                 focusEvt.type = DispatchEvent::Type::FocusGained;
                 focusEvt.presetTarget = focusTarget;
-                events.push_back(focusEvt);
+                pending.push_back(focusEvt);
             } else {
                 focused_ = nullptr;
             }
@@ -387,6 +391,9 @@ void FocusManager::process(std::vector<DispatchEvent> &events) {
             if (const auto &hk = focusChangeHook()) hk(focusTarget);
         }
     }
+    // 统一追加队尾：仍由 process 之后的分发器派发（与原 range-for 进循环
+    // 时捕获 end、追加项不进本轮遍历的语义一致）
+    for (auto &e : pending) { events.push_back(std::move(e)); }
 }
 
 void FocusManager::focus(EventTarget *target) {
