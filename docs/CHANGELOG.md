@@ -35,7 +35,11 @@
   （resolveEffectiveSize 中 widthPct 无条件压过 px）：px 写入清除对应
   pct 字段；top/left/right/bottom 四个位置短名补进属性总线别名表
   （与 parse 期映射对称，双名 API 维持）
-- 门禁：构建 + ctest（断言 179→185）+ smoke 38/38 双模式全绿
+- flex 布局参数与隐式过渡时长入属性总线（flexGrow[flex 别名]/flexShrink/
+  flexBasis/transitionDuration 原无 PropId 条目，运行期 setProp/绑定/动画
+  查表落空）：PropId 枚举 + 表条目补齐，Layout 行为锁 10→13；
+  rowGap/columnGap 在 ContainerProps 需容器路由，未入本批（记档）
+- 门禁：构建 + ctest（断言 185→204）+ smoke 38/38 双模式全绿
 
 # 0.0.0 — 2026-10-02
 ### 修复

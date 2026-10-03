@@ -57,10 +57,12 @@ static void test_prop_meta_consistency() {
     CHECK(propIdFromName("w") == PropId::width);
     CHECK(propIdFromName("__nonexistent__") == PropId::COUNT);
 
-    // ② 布局属性行为锁：Layout 标志必须恰好钉在这 10 个属性上
-    //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线）
+    // ② 布局属性行为锁：Layout 标志必须恰好钉在这 13 个属性上
+    //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线；
+    //    B2b 增 flex 三项——FlexLayout 直接消费其值）
     const char *kLayoutNames[] = {"width", "height", "padding", "margin",
-                                  "x", "y", "absTop", "absLeft", "absRight", "absBottom"};
+                                  "x", "y", "absTop", "absLeft", "absRight", "absBottom",
+                                  "flexGrow", "flexShrink", "flexBasis"};
     for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
         auto id = static_cast<PropId>(pi);
         bool isLayout = getPropMeta(id).flags & PropFlags::Layout;
@@ -408,6 +410,23 @@ static void test_b2_width_pct_and_aliases() {
     CHECK(propIdFromName("bottom") == PropId::absBottom);
 }
 
+// ── 行为锁: 数字类缺条目入总线（B2b 回归防线）──
+// flexGrow/flexShrink/flexBasis/transitionDuration 原无 PropId 条目，JS 声明
+// 有效（parse 直填字段）但运行期 setProp/绑定/动画查表落空静默无效。
+// 锁住：flex 别名反查 + 四条目写入落字段（消费方：FlexLayout/binding_
+// registry）。rowGap/columnGap 在 ContainerProps（容器私有）——PropMeta
+// writer 写不到，需容器路由（同 TextContent 模式），未入本批。
+static void test_b2b_numeric_entries() {
+    CHECK(propIdFromName("flex") == PropId::flexGrow);
+    ViewProps p;
+    getPropMeta(PropId::flexGrow).writer(p, TypedProp{2.0});
+    getPropMeta(PropId::flexShrink).writer(p, TypedProp{1.0});
+    getPropMeta(PropId::flexBasis).writer(p, TypedProp{120.0});
+    getPropMeta(PropId::transitionDuration).writer(p, TypedProp{0.3});
+    CHECK(p.flexGrow == 2.0f && p.flexShrink == 1.0f && p.flexBasis == 120.0f);
+    CHECK(p.transitionDuration == 0.3f);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -419,6 +438,7 @@ int main() {
     test_text_cache_unfittable_glyph_no_storm();
     test_animation_frame_and_shadow_write();
     test_b2_width_pct_and_aliases();
+    test_b2b_numeric_entries();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

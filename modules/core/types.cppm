@@ -375,6 +375,13 @@ export enum class PropId : uint8_t {
     backdropRefraction,     // double → float
     backdropSpecular,       // double → float
 
+    // ── flex 布局参数 — 变化后触发 re-layout（FlexLayout 消费）──
+    flexGrow,               // double → float（别名 "flex"）
+    flexShrink,             // double → float
+    flexBasis,              // double → float（-1 = 自动）
+    // ── 交互 ──
+    transitionDuration,     // double → float（隐式过渡时长，秒，binding_registry 消费）
+
     /// sentinel — 用作数组长度，不可作为实际属性值
     COUNT,
 };

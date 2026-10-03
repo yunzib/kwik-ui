@@ -287,6 +287,45 @@ static const PropMeta kPropMetas[] = {
             p.backdropSpecular = static_cast<float>(std::get<double>(v));
         },
     },
+
+    // ── flex 布局参数（FlexLayout 消费；Layout 标志触发 re-layout）──
+    [static_cast<int>(PropId::flexGrow)] = {
+        PropId::flexGrow, "flexGrow", "flex", PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.flexGrow);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.flexGrow = static_cast<float>(std::get<double>(v));
+        },
+    },
+    [static_cast<int>(PropId::flexShrink)] = {
+        PropId::flexShrink, "flexShrink", nullptr, PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.flexShrink);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.flexShrink = static_cast<float>(std::get<double>(v));
+        },
+    },
+    [static_cast<int>(PropId::flexBasis)] = {
+        PropId::flexBasis, "flexBasis", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.flexBasis);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.flexBasis = static_cast<float>(std::get<double>(v));
+        },
+    },
+    // ── 交互（binding_registry 隐式过渡读取；不参与布局/插值故无标志）──
+    [static_cast<int>(PropId::transitionDuration)] = {
+        PropId::transitionDuration, "transitionDuration", nullptr, PropUnit::None, PropFlags::None, false,
+        /*reader*/ [](const ViewProps& p) -> TypedProp {
+            return static_cast<double>(p.transitionDuration);
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            p.transitionDuration = static_cast<float>(std::get<double>(v));
+        },
+    },
 };
 
 // sentinel 校验
