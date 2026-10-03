@@ -4,6 +4,7 @@ module kwik.core.prop_meta;
 
 import kwik.core.types;
 import kwik.core.props;
+import kwik.core.color_parser;    // parseShadow — shadow writer 与 parse 期同源解析
 
 import std;
 
@@ -80,11 +81,13 @@ static const PropMeta kPropMetas[] = {
     [static_cast<int>(PropId::shadow)] = {
         PropId::shadow, "shadow", nullptr, PropUnit::Px, PropFlags::None, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
-            // 仅支持 flip（t >= 0.5 切换），不支持 tween
+            // Shadow 不在 TypedProp variant 内——读回不可表达，恒 monostate
             return std::monostate{};
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
-            // shadow 暂不通过动画驱动
+            // setProperty/State 绑定均以 "offsetX offsetY blurRadius color"
+            // 字符串传入——经 core 层 parseShadow 与 parse 期同源解析
+            if (auto *s = std::get_if<std::string>(&v)) { p.shadow = parseShadow(*s); }
         },
     },
 

@@ -22,13 +22,6 @@ import std;
  */
 export EdgeInsets parseEdgeInsets(const JSValueRef &value);
 /**
- * @brief 解析阴影字符串
- *
- * 格式："offsetX offsetY blurRadius color"
- * 示例："0 2px 8px rgba(0,0,0,0.1)"
- */
-export Shadow parseShadow(const std::string &str);
-/**
  * @brief 解析边框样式
  */
 export BorderStyle parseBorderStyle(const std::string &str);
@@ -276,7 +269,6 @@ private:
  */
 export EdgeInsets parseEdgeInsets(const JSValueRef &value);
 
-export Shadow parseShadow(const std::string &str);
 export BorderStyle parseBorderStyle(const std::string &str);
 
 export ViewProps parseViewProps(PropsExtractor &ex);

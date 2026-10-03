@@ -24,7 +24,14 @@
   标记 unfittable 短路径——不建页不淘汰、命中帧跳过、像素释放仅留度量，
   超大字形以零面积渲染替代越界采样；行为锁以自带 NotoSansSC 真字体合成
   1200px 字形验证上传风暴消失
-- 门禁：构建零新增警告 + ctest（断言 173→176）+ smoke 38/38 双模式全绿
+- textColor/fontSize 动画逐帧走空桩静默无效（两属性属 TextContent 不在
+  ViewProps，PropMeta writer 拿 ViewProps& 写不到）：Text 覆写
+  applyAnimationFrame 路由到组件分支（基类补 virtual），动画与隐式
+  transition 写路径打通
+- setProperty('shadow') 无效果（writer 空桩）：字符串形 "x y blur color"
+  经 parseShadow 解析——自 bridge 迁 core color_parser，与 parse 期同源、
+  分层合规
+- 门禁：构建 + ctest（断言 176→179）+ smoke 38/38 双模式全绿
 
 # 0.0.0 — 2026-10-02
 ### 修复

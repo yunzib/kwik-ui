@@ -2,6 +2,9 @@ module;
 
 #include <stdint.h>
 #include <ctype.h>
+#include <string>
+#include <sstream>
+#include <vector>
 
 module kwik.core.color_parser;
 
@@ -84,4 +87,32 @@ Color parseColor(const std::string &str) {
     }
 
     return Color::transparent();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseShadow — "offsetX offsetY blurRadius color" 字符串解析
+// ═══════════════════════════════════════════════════════════════════════════
+Shadow parseShadow(const std::string &str) {
+    if (str.empty()) return Shadow{};
+    Shadow shadow;
+    std::istringstream iss(str);
+    std::string token;
+    std::vector<std::string> parts;
+    while (iss >> token) { parts.push_back(token); }
+    if (parts.size() >= 2) {
+        shadow.offsetX = std::stof(parts[0]);
+        shadow.offsetY = std::stof(parts[1]);
+    }
+    if (parts.size() >= 3) {
+        std::string blurStr = parts[2];
+        if (blurStr.size() > 2 && blurStr.substr(blurStr.size() - 2) == "px")
+            blurStr = blurStr.substr(0, blurStr.size() - 2);
+        shadow.blurRadius = std::stof(blurStr);
+    }
+    if (parts.size() >= 4) {
+        std::string colorStr;
+        for (size_t i = 3; i < parts.size(); i++) colorStr += parts[i];
+        shadow.color = parseColor(colorStr);
+    }
+    return shadow;
 }

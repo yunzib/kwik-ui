@@ -15,6 +15,7 @@ import kwik.render.texture_manager;
 import kwik.render.text.types;
 import kwik.render.text.font.manager;
 import kwik.render.text.cache;
+import kwik.element.text;
 import kwik.event;
 
 import std;
@@ -364,6 +365,25 @@ static void test_text_cache_unfittable_glyph_no_storm() {
     CHECK(cache.consumeUploads().empty());
 }
 
+// ── 行为锁: 动画帧路由与 shadow 总线写入（B1 修复回归防线）──
+// ① textColor/fontSize 属 TextContent 不在 ViewProps，PropMeta writer 空
+//    桩 → 基类动画帧路径静默无效；Text::applyAnimationFrame 覆写后帧值
+//    必须真实落到组件字段。② shadow writer 原为空桩 → setProperty('shadow')
+//    无效果；现经 core 层 parseShadow 与 parse 期同源解析。
+static void test_animation_frame_and_shadow_write() {
+    // ① shadow 字符串形写入（PropMeta 层，与 parse 期同源解析）
+    ViewProps sp;
+    getPropMeta(PropId::shadow).writer(sp, TypedProp{std::string("0 6px 18px rgba(0,0,0,0.5)")});
+    CHECK(sp.shadow.has_value() && sp.shadow->blurRadius == 18.0f && sp.shadow->offsetX == 0.0f);
+
+    // ② Text 动画帧：textColor 变色、fontSize 变号（排版缓存由路由分支废止）
+    Text t;
+    t.applyAnimationFrame(PropId::textColor, TypedProp{Color{255, 0, 0, 255}});
+    CHECK(t.text_.textColor.r == 255 && t.text_.textColor.g == 0);
+    t.applyAnimationFrame(PropId::fontSize, TypedProp{30.0});
+    CHECK(t.text_.fontSize == 30.0f);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -373,6 +393,7 @@ int main() {
     test_xy_writer_sets_explicit_flag();
     test_texture_manager_domain_isolation();
     test_text_cache_unfittable_glyph_no_storm();
+    test_animation_frame_and_shadow_write();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

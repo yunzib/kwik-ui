@@ -9,6 +9,7 @@ export module kwik.element.text;
 import kwik.element.view;
 import kwik.core.props;
 import kwik.core.types;
+import kwik.core.prop_meta;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.text.types;
@@ -41,6 +42,16 @@ public:
 
     /** @brief 获取文本内容 */
     const TextContent &textContent() const { return text_; }
+
+    /**
+     * @brief 动画帧写入（覆写）
+     *
+     * textColor/fontSize 属 TextContent 不在 ViewProps，基类 PropMeta
+     * writer 是空桩（拿到的 ViewProps& 写不到组件字段）——基类动画路径
+     * 对本组件静默无效。路由到本组件 typed 分支：textColor 直接变色；
+     * fontSize 废止排版缓存并触发 re-layout。其余属性走基类。
+     */
+    void applyAnimationFrame(PropId prop, const TypedProp &value) override;
 
 protected:
     std::string displayedText_;    ///< 实际排版文本（maxLines 截断后含省略号，缓存匹配基准）

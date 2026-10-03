@@ -370,8 +370,10 @@ public:
      *    此方法额外调用 markDirty() 和必要时 requestLayout()，
      *    保证动画帧一定被渲染。
      *  引擎调用此方法而非 writeProperty，避免遗漏脏标记。
+     *  组件专有属性不在 ViewProps 时（如 Text 的 textColor/fontSize）
+     *  覆写本方法路由到组件自身处理。
      */
-    void applyAnimationFrame(PropId prop, const TypedProp &value);
+    virtual void applyAnimationFrame(PropId prop, const TypedProp &value);
 
     /**
      * @brief 请求重新布局（带 Layout 标志的属性变更后调用）

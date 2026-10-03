@@ -8,6 +8,7 @@ module kwik.element.text;
 import kwik.element.view;
 import kwik.core.props;
 import kwik.core.types;
+import kwik.core.prop_meta;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.text.types;
@@ -292,6 +293,22 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         return false;
     }
     return View::setPropertyTyped(name, value);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Text::applyAnimationFrame — 动画帧写入（覆写）
+//
+// textColor/fontSize 属 TextContent 不在 ViewProps，PropMeta 基类 writer
+// 是空桩 → 基类动画路径对本组件静默无效。动画帧路由到本组件 typed 分支：
+// textColor 直接变色；fontSize 废止排版缓存并随 Layout 标志触发
+// re-layout（字号动画逐帧重排）。其余属性走基类。
+// ════════════════════════════════════════════════════════════════════════
+void Text::applyAnimationFrame(PropId prop, const TypedProp &value) {
+    if (prop == PropId::textColor || prop == PropId::fontSize) {
+        setPropertyTyped(propName(prop), value);
+        return;
+    }
+    View::applyAnimationFrame(prop, value);
 }
 
 // ════════════════════════════════════════════════════════════════════════

@@ -29,3 +29,12 @@ export inline uint8_t parseHex(char c) {
  * - 颜色名称（transparent, black, white等）
  */
 export Color parseColor(const std::string &str);
+
+/**
+ * @brief 解析阴影字符串
+ *
+ * 格式："offsetX offsetY blurRadius color"
+ * 示例："0 2px 8px rgba(0,0,0,0.1)"
+ * core 层单处实现：bridge 属性解析与 PropMeta shadow writer 共用
+ */
+export Shadow parseShadow(const std::string &str);
