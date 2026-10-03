@@ -7,7 +7,13 @@
   常规路径（容量 1→2 必扩容）即触发，靠已释放内存仍可读侥幸不崩——
   改先收集后追加，焦点事件统一在循环后入队（派发顺序语义不变）；
   行为锁 test_focus_process_append 防回归
-- 门禁：构建零新增警告 + ctest（断言 130→160）+ smoke 38/38 双模式全绿
+- 属性总线写 x/y 静默无效（setProp/State 绑定/动画三条运行期通道汇入的
+  writer 只写坐标、不置 hasExplicitX/Y 显式定位标志，布局定位门不开 →
+  新值被流式布局丢弃且返回成功）：writer 镜像 parse 期语义补置标志，
+  x/y 成为声明期与运行期行为一致的完整属性；生效范围 View 基类容器/
+  StackLayout；行为锁 test_xy_writer_sets_explicit_flag（含轴独立断言）
+- 门禁：构建零新增警告 + ctest（断言 160→164）+ smoke 38/38 双模式全绿
+  （38 示例行为变化排查：仅 glass-ball 动画 x 且已 parse 声明，零变化）
 
 # 0.0.0 — 2026-10-02
 ### 修复

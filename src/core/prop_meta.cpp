@@ -181,6 +181,8 @@ static const PropMeta kPropMetas[] = {
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
             p.x = static_cast<float>(std::get<double>(v));
+            p.hasExplicitX = true;    // 总线写 x 视同 parse 期显式定位（镜像 props_parser）——
+                                      // 不置标志则布局定位门不开，新值被流式布局静默忽略
         },
     },
     [static_cast<int>(PropId::y)] = {
@@ -190,6 +192,7 @@ static const PropMeta kPropMetas[] = {
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
             p.y = static_cast<float>(std::get<double>(v));
+            p.hasExplicitY = true;    // 同 x：镜像 parse 期语义，否则定位门不开
         },
     },
     [static_cast<int>(PropId::absTop)] = {

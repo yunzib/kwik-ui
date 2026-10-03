@@ -5,6 +5,7 @@
 
 import kwik.core.types;
 import kwik.core.prop_meta;
+import kwik.core.props;
 import kwik.animation.engine;
 import kwik.render.command;
 import kwik.render.command_buffer;
@@ -221,12 +222,33 @@ static void test_focus_process_append() {
     CHECK(events[15].presetTarget == &inputA && events[16].presetTarget == &inputB);
 }
 
+// ── 行为锁: 属性总线写 x/y 必须置显式定位标志（A2 修复回归防线）──
+// 布局定位门（view.cpp:194 / stack_layout.cpp:65）只认 hasExplicitX/Y
+// 标志、不认坐标值；parse 期写 x/y 即置位（props_parser.cpp:252/256），
+// 总线 writer 原先只写坐标不置标志 → setProp("x")/绑定/动画对未声明过
+// x 的子级静默无效。锁住 writer 镜像 parse 语义（含按轴独立置位）。
+static void test_xy_writer_sets_explicit_flag() {
+    ViewProps p;
+    getPropMeta(PropId::x).writer(p, TypedProp{50.0});
+    CHECK(p.x == 50.0f && p.hasExplicitX);
+    getPropMeta(PropId::y).writer(p, TypedProp{30.0});
+    CHECK(p.y == 30.0f && p.hasExplicitY);
+
+    // 轴不牵连：写 x 不得置 hasExplicitY（镜像 parse 期按轴独立置位）
+    ViewProps q;
+    getPropMeta(PropId::x).writer(q, TypedProp{10.0});
+    CHECK(q.hasExplicitX && !q.hasExplicitY);
+    getPropMeta(PropId::y).writer(q, TypedProp{20.0});
+    CHECK(q.hasExplicitY);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
     test_display_list();
     test_surrogate_recombine();
     test_focus_process_append();
+    test_xy_writer_sets_explicit_flag();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }
