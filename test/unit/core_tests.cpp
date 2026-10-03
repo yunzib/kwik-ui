@@ -12,6 +12,9 @@ import kwik.render.command;
 import kwik.render.command_buffer;
 import kwik.render.backend;
 import kwik.render.texture_manager;
+import kwik.render.text.types;
+import kwik.render.text.font.manager;
+import kwik.render.text.cache;
 import kwik.event;
 
 import std;
@@ -321,6 +324,46 @@ static void test_texture_manager_domain_isolation() {
     CHECK(backendC.destroyed.empty());
 }
 
+// ── 行为锁: 超大字形不触发图集整页淘汰风暴（A5 修复回归防线）──
+// packedW/H > kAtlasSize(512) 的字形永远装不进图集：原实现每帧新建页直至
+// 打满、之后每帧 LRU 整页淘汰——同页正常字形被反复作废重栅格化重上传，
+// consumeUploads 每帧都有新任务即风暴签名。锁住：修复后仅首帧一次上传，
+// 后续帧上传队列为空。触发需 fontSize≥~510，38 示例无覆盖——本锁用仓库
+// 自带字体（NotoSansSC）合成 1200px .notdef 字形直接驱动 TextCache。
+static void test_text_cache_unfittable_glyph_no_storm() {
+    FontManager fm;    // 独立实例，与 TextRenderPipeline 单例的字体表互不影响
+    FontId fid = fm.loadFont("../../resources/fonts/NotoSansSC-Regular.otf");
+    if (fid == kInvalidFontId) {
+        // 非常规工作目录（字体文件找不到）：本锁无法驱动栅格化，显式跳过
+        std::println("[tests] skip unfittable-glyph lock: font not found");
+        return;
+    }
+    TextCache cache(fm);
+
+    TextLayoutResult result;
+    ShapedGlyph normal{};
+    normal.fontId = fid;
+    normal.glyphIndex = 0;    // .notdef：任何字体必存在，免 FT 头依赖
+    normal.fontSize = 16.0f;
+    result.glyphs.push_back(normal);
+    ShapedGlyph huge = normal;
+    huge.fontSize = 1200.0f;    // .notdef ink 高约 0.7em ≈ 840px > 512，必然装不下
+    result.glyphs.push_back(huge);
+
+    // 帧 1：仅正常字形产生一次上传；超大字形不可打包、零上传
+    cache.ensureGlyphs(result);
+    auto jobs1 = cache.consumeUploads();
+    CHECK(jobs1.size() == 1);
+
+    // 帧 2（原风暴场景）：正常字形不重上传，超大字形零动作
+    cache.ensureGlyphs(result);
+    CHECK(cache.consumeUploads().empty());
+
+    // 帧 3：稳态确认（无逐帧页淘汰引发的重复上传）
+    cache.ensureGlyphs(result);
+    CHECK(cache.consumeUploads().empty());
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -329,6 +372,7 @@ int main() {
     test_focus_process_append();
     test_xy_writer_sets_explicit_flag();
     test_texture_manager_domain_isolation();
+    test_text_cache_unfittable_glyph_no_storm();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

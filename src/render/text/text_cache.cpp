@@ -30,6 +30,13 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
             it = glyphCache_.insert({key, std::move(entry)}).first;
         } else {
             auto &entry = it->second;
+            // 装不下图集的超大字形：不重栅格化不重打包（整页淘汰风暴源），
+            // 宽高置 0 → 零面积不采样（替代原未打包时的越界垃圾 UV）
+            if (entry.unfittable) {
+                g.width = 0;
+                g.height = 0;
+                continue;
+            }
             // 陈旧判定按所属页版本：仅该页被淘汰（版本递增）时重打包——
             // 其他页的条目不受牵连（原全局代际一页淘汰即全缓存重打包抖动）
             if (!entry.packed || entry.pageGeneration != pages_[entry.pageIndex].generation) {
@@ -147,6 +154,18 @@ auto TextCache::tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optiona
 // ═══════════════════════════════════════════════════════════════════════════
 void TextCache::packGlyph(CachedGlyph &entry) {
     if (entry.info.pixelData.empty()) return;
+
+    // 超过单页尺寸的字形永远装不进任何图集页（tryPack 的 x <= pageW-width
+    // 恒无解）——原实现每帧新建页直至打满 16 页、之后每帧 LRU 整页淘汰
+    // （该页全部字形下一帧重栅格化重上传，风暴循环），且失败条目像素
+    // 永驻缓存。短路径：标记 unfittable + 释放像素（度量保留），命中帧
+    // 由 ensureGlyphs 直接跳过
+    if (entry.packedW > kAtlasSize || entry.packedH > kAtlasSize) {
+        entry.unfittable = true;
+        entry.info.pixelData.clear();
+        entry.info.pixelData.shrink_to_fit();
+        return;
+    }
 
     uint32_t padW = entry.packedW;
     uint32_t padH = entry.packedH;

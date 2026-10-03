@@ -47,6 +47,17 @@ void Text::ensureLayout(float maxW) {
     // 缓存命中：以实际排版文本为基准（首次/未截断 = text_.text）
     if (layoutResult_ && layoutResult_->matchesKey(displayedText_, fid, text_.fontSize, cfg)) return;
 
+    // 截断串稳态快路径：带省略号时上轮结果以 cutCfg(maxLines=0) 构建（见
+    // 下方截断分支）——不在此兼试则稳态恒 miss，每帧先对原始全文 layoutText
+    // （塑形+断行全做）再在截断分支命中旧 cut 结果丢弃，纯浪费每帧一遍。
+    // 必须与截断分支同条件门控：ellipsis 关闭后不得命中截断缓存，否则
+    // displayedText_ 永远停留为截断串、恢复全文不生效
+    if (text_.maxLines > 0 && text_.ellipsis) {
+        auto cutCfg = cfg;
+        cutCfg.maxLines = 0;
+        if (layoutResult_ && layoutResult_->matchesKey(displayedText_, fid, text_.fontSize, cutCfg)) return;
+    }
+
     auto full = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
 
     // 超行 + 省略号 → 截断重排

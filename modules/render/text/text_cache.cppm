@@ -56,6 +56,9 @@ public:
             // DPI 变 → 全部页代际 +1：缓存条目按所属页版本判旧并重栅格化
             // （栅格化尺寸随 DPI 变化，属合法全量失效，非淘汰泄漏）
             for (auto &p : pages_) p.generation++;
+            // DPI 变可能让原"装不下图集"的超大字形变得可打包——unfittable
+            // 条目不参与页代际失效机制，整条剔除后按新 DPI 重栅格化重判
+            std::erase_if(glyphCache_, [](const auto &pair) { return pair.second.unfittable; });
         }
     }
 
@@ -93,6 +96,8 @@ private:
         uint32_t packedW = 0;
         uint32_t packedH = 0;
         bool packed = false;
+        bool unfittable = false;    // 尺寸超单页（>kAtlasSize）永远装不下：跳过重打包尝试
+                                    // 与整页淘汰风暴（A5），pixelData 已释放、仅保留度量
         uint32_t pageGeneration = 0;    // 打包时所属页的版本（页被淘汰时该页版本递增）
     };
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
