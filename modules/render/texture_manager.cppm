@@ -17,7 +17,8 @@ import std;
  *   KwikRuntime::init() → instance().registerBackend(rt.backend());
  *   Image::uploadTexture() → instance().createTexture(backend, rgba, w, h);
  *   Image::~Image()      → instance().destroyTexture(backend, id);
- *   KwikRuntime::teardown() → instance().destroyAll();   // 遍历全部域
+ *   KwikRuntime::teardown() → instance().destroyBackend(rt.backend());
+ *                           // 只清本树域并摘键（渲染线程已先停止）
  */
 export class TextureManager {
 public:
@@ -61,12 +62,20 @@ public:
     }
 
     /**
-     * @brief 销毁所有域的全部纹理（进程退出时调用）
+     * @brief 销毁指定域的全部纹理并摘除该域（每棵 UI 树 teardown 时调用）
+     *
+     * 只清本树域：原 destroyAll 遍历全部域，多树下会静默销毁他树活跃
+     * 纹理（别窗 Image 的 textureId_ 仍非零，绘制 find 落空整页丢图），
+     * 且从本树 UI 线程直接触碰他树仍在运行的渲染线程；域键以裸 backend
+     * 指针为键，不摘则后关闭的树 teardown 再遍历到悬空键域。
+     * @param backend 本树渲染后端。前置：本树渲染线程已 stop（teardown ①
+     *                先停线程）——直接销毁无在飞帧引用风险
      */
-    void destroyAll() {
-        for (auto &[backend, ids] : domains_) {
-            for (uint32_t id : ids) backend->destroyImageTexture(id);
-            ids.clear();
+    void destroyBackend(RenderBackend *backend) {
+        if (!backend) return;
+        if (auto it = domains_.find(backend); it != domains_.end()) {
+            for (uint32_t id : it->second) backend->destroyImageTexture(id);
+            domains_.erase(it);    // 连键带纹理清场：悬空键域不再可能残留
         }
     }
 private:

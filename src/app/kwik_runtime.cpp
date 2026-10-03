@@ -84,9 +84,11 @@ void KwikRuntime::teardown() {
     // ② 按契约顺序释放 JS/树绑定服务
     teardownJsBoundRuntime();
     Channel::shutdown(jsCtx_.getPtr());
-    // ③ 纹理销毁：单树等价原 dtor；多树按域清属 S2-4（当前 destroyAll 为
-    //    全局语义，多树下为已知限制）
-    TextureManager::instance().destroyAll();
+    // ③ 纹理销毁：只清本树域并摘除域键（① 已停本树渲染线程，直接销毁
+    //    无在飞帧风险）。原 destroyAll 遍历全部域——多树下会静默销毁他树
+    //    活跃纹理（别窗 Image drawImage find 落空整页丢图），且从本树
+    //    UI 线程直接触碰他树仍在运行的渲染线程
+    TextureManager::instance().destroyBackend(renderThread_.backend());
     // 注：CoreTimer 全局不清场（多树防误杀，防线为组件析构 clear）；
     //     stopAll 仅 Application 进程退出时调用一次
 }

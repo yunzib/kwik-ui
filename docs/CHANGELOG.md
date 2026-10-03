@@ -12,8 +12,12 @@
   新值被流式布局丢弃且返回成功）：writer 镜像 parse 期语义补置标志，
   x/y 成为声明期与运行期行为一致的完整属性；生效范围 View 基类容器/
   StackLayout；行为锁 test_xy_writer_sets_explicit_flag（含轴独立断言）
-- 门禁：构建零新增警告 + ctest（断言 160→164）+ smoke 38/38 双模式全绿
-  （38 示例行为变化排查：仅 glass-ball 动画 x 且已 parse 声明，零变化）
+- 多窗口任一窗口关闭即销毁其他窗口全部活跃纹理（TextureManager 域表
+  destroyAll 全局语义，别窗图片静默消失）+ 域表裸指针键永不摘除（后关闭
+  的树遍历悬空键域）：teardown 改 destroyBackend 只清本树域并连键摘除
+  （本树渲染线程先停后销毁，无在飞帧风险）；行为锁
+  test_texture_manager_domain_isolation（计数桩验证域隔离/摘键/防御）
+- 门禁：构建零新增警告 + ctest（断言 164→173）+ smoke 38/38 双模式全绿
 
 # 0.0.0 — 2026-10-02
 ### 修复

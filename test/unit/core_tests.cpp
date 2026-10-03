@@ -6,9 +6,12 @@
 import kwik.core.types;
 import kwik.core.prop_meta;
 import kwik.core.props;
+import kwik.core.path;    // AAVertex / SweepGrad（fillTriangles 桩签名需要）
 import kwik.animation.engine;
 import kwik.render.command;
 import kwik.render.command_buffer;
+import kwik.render.backend;
+import kwik.render.texture_manager;
 import kwik.event;
 
 import std;
@@ -242,6 +245,82 @@ static void test_xy_writer_sets_explicit_flag() {
     CHECK(q.hasExplicitY);
 }
 
+// ── 行为锁: TextureManager 按域隔离销毁（A3 多窗跨域销毁修复回归防线）──
+// 原 destroyAll 遍历全部域：任一窗口 teardown 即静默销毁他树活跃纹理
+// （别窗丢图），且 domains_ 裸指针键永不摘除（后关闭的树遍历悬空键域）。
+// 锁住域隔离 + 摘键 + 未注册域防御三项语义。
+namespace {
+struct CountingBackend : RenderBackend {
+    std::vector<uint32_t> created;
+    std::vector<uint32_t> destroyed;
+    uint32_t nextId = 100;
+    bool initialize(void *) override { return true; }
+    void shutdown() override {}
+    bool resize(int, int) override { return true; }
+    bool beginFrame(const Rect &) override { return true; }
+    void endFrame() override {}
+    bool present() override { return true; }
+    void drawGlyph(const DrawGlyphCmd &) override {}
+    void clear(const Color &) override {}
+    void fillRect(const Rect &, const Color &, BlendMode, const Transform2D &) override {}
+    void fillRoundedRect(const Rect &, float, const Color &, const Gradient &, const Transform2D &) override {}
+    void drawSegment(const DrawSegmentCmd &) override {}
+    void strokeRoundedRect(const Rect &, float, const Color &, float, const Transform2D &) override {}
+    void drawShadow(const Rect &, float, const Shadow &, const Transform2D &) override {}
+    void drawImage(const DrawImageCmd &) override {}
+    void fillTriangles(const FillTrianglesCmd &, const AAVertex *, const SweepGrad *) override {}
+    void fillRing(const FillRingCmd &) override {}
+    void drawMesh(const DrawMeshCmd &, const Vertex3D *) override {}
+    void backdropBlur(const BackdropBlurCmd &) override {}
+    uint32_t createImageTexture(const uint8_t *, uint32_t, uint32_t) override {
+        created.push_back(nextId);
+        return nextId++;
+    }
+    void destroyImageTexture(uint32_t id) override { destroyed.push_back(id); }
+    void pushClipRoundedRect(const Rect &, float, const Transform2D &, const Rect &) override {}
+    void popState() override {}
+    BackendType getType() const override { return BackendType::Vulkan; }
+    int getWidth() const override { return 0; }
+    int getHeight() const override { return 0; }
+};
+}    // namespace
+
+static void test_texture_manager_domain_isolation() {
+    CountingBackend backendA;
+    CountingBackend backendB;
+    backendB.nextId = 200;    // 两桩 id 空间错开，否则 idA == idB 断言无意义
+    auto &mgr = TextureManager::instance();
+
+    mgr.registerBackend(&backendA);
+    mgr.registerBackend(&backendA);    // 重复注册幂等
+    mgr.registerBackend(&backendB);
+
+    uint8_t px[16] = {};
+    uint32_t idA = mgr.createTexture(&backendA, px, 2, 2);
+    uint32_t idB = mgr.createTexture(&backendB, px, 2, 2);
+    CHECK(idA != 0 && idB != 0 && idA != idB);
+    CHECK(backendA.created.size() == 1 && backendB.created.size() == 1);
+
+    // 域隔离：销毁 A 域只销毁 A 的纹理，B 域原样不受牵连
+    mgr.destroyBackend(&backendA);
+    CHECK(backendA.destroyed == std::vector<uint32_t>{idA});
+    CHECK(backendB.destroyed.empty());
+
+    // 域键已摘除：A 域再建纹理走未注册防御路径返回 0，不产生新建
+    CHECK(mgr.createTexture(&backendA, px, 2, 2) == 0);
+    CHECK(backendA.created.size() == 1);
+
+    // B 域继续可用；收尾摘键，不留悬空域
+    CHECK(mgr.createTexture(&backendB, px, 2, 2) != 0);
+    mgr.destroyBackend(&backendB);
+    CHECK(backendB.destroyed.size() == 2);
+
+    // 未注册 backend 的 destroyBackend：无副作用
+    CountingBackend backendC;
+    mgr.destroyBackend(&backendC);
+    CHECK(backendC.destroyed.empty());
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -249,6 +328,7 @@ int main() {
     test_surrogate_recombine();
     test_focus_process_append();
     test_xy_writer_sets_explicit_flag();
+    test_texture_manager_domain_isolation();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }
