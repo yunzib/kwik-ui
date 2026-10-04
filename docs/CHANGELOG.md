@@ -1,5 +1,16 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-04
+### 修复
+- align/borderStyle/gradient 入属性总线（值类型不在 TypedProp，reader 恒
+  monostate 时基类字符串转换链直接拒绝——字符串到不了 writer，B1 的
+  shadow 同病）：三 parse 函数自 bridge 迁 core color_parser（与 parse 期
+  同源），基类 monostate 分支改字符串原样透传给 writer 自解析
+- isAnimating() 存根替换真实现：引擎 hasActiveAnimation(viewId[, prop])
+  查询早已存在，仅 JS 绑定层接线（恒 return false 的 TODO 死代码段）；
+  glass.js 弃状态标志绕行改用真 API
+- 门禁：构建 + ctest（断言 204→224）+ smoke 38/38 双模式全绿
+
 # 0.0.0 — 2026-10-03
 ### 修复
 - FocusManager::process 遍历事件列表途中追加焦点事件（未定义行为）：
@@ -39,11 +50,7 @@
   flexBasis/transitionDuration 原无 PropId 条目，运行期 setProp/绑定/动画
   查表落空）：PropId 枚举 + 表条目补齐，Layout 行为锁 10→13；
   rowGap/columnGap 在 ContainerProps 需容器路由，未入本批（记档）
-- align/borderStyle/gradient 入属性总线（值类型不在 TypedProp，reader 恒
-  monostate 时基类字符串转换链直接拒绝——字符串到不了 writer，B1 的
-  shadow 同病）：三 parse 函数自 bridge 迁 core color_parser（与 parse 期
-  同源），基类 monostate 分支改字符串原样透传给 writer 自解析
-- 门禁：构建 + ctest（断言 204→224）+ smoke 38/38 双模式全绿
+- 门禁：构建 + ctest + smoke 38/38 双模式全绿（单测断言累计至 204）
 
 # 0.0.0 — 2026-10-02
 ### 修复

@@ -8,7 +8,7 @@
 //   ⑥ 下层动画实时折射  — 小球在玻璃后往复运动，玻璃每帧重捕获
 //   ⑦ 属性动画          — backdropBlur 补间
 // 运行：example glass
-import { Root, View, Text, Button, animate, stop } from 'kwikui';
+import { Root, View, Text, Button, animate, stop, isAnimating } from 'kwikui';
 
 const $ = globalThis.__glassState ??= {};
 
@@ -80,11 +80,10 @@ export default Root(View({ width: 1280, height: 800 }, [
         Button({ text: '启动/停止小球动画',
                  background: '#2196F3', color: '#FFFFFF', width: 220, height: 40,
                  borderRadius: 8, fontSize: 14, margin: [16, 0, 0, 0],
-                 // 注：isAnimating() 为存根恒 false，此处用状态标志切换
                  onClick: () => {
-                     if ($.ballOn) { stop('glass-ball'); $.ballOn = false; }
+                     if (isAnimating('glass-ball')) { stop('glass-ball'); }
                      else { animate('glass-ball', { x: 500 }, { duration: 3.5, easing: 'easeInOut',
-                                                                loop: true, direction: 'alternate' }); $.ballOn = true; }
+                                                            loop: true, direction: 'alternate' }); }
                  } }),
         Button({ text: '模糊 18 ↔ 42 补间', background: '#FF5722', color: '#FFFFFF',
                  width: 220, height: 40, borderRadius: 8, fontSize: 14, margin: [10, 0, 0, 0],

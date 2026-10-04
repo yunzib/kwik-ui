@@ -911,20 +911,24 @@ static JSValue js_isAnimating(JSContext *ctx, JSValueConst this_val, int argc, J
 
     auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
     View *root = static_cast<View *>(qctx->getUserPointer());
+    if (!root) return JS_FALSE;    // 树未建：无动画可查
+
+    auto *engine = static_cast<AnimationEngine *>(root->treeService(View::kSvcAnimEngine));
+    if (!engine) return JS_FALSE;
+
     const char *id = JS_ToCString(ctx, argv[0]);
-    View *target = root ? root->findById(id) : nullptr;
-    JS_FreeCString(ctx, id);
-
-    if (!target) return JS_FALSE;
-
+    bool animating = false;
     if (argc >= 2) {
+        // 带属性：按 viewId + PropId 查（propIdFromName 识别别名如 flex）
         const char *prop = JS_ToCString(ctx, argv[1]);
         PropId pid = propIdFromName(prop);
         JS_FreeCString(ctx, prop);
-        return JS_FALSE;
+        if (pid != PropId::COUNT) { animating = engine->hasActiveAnimation(id, pid); }
+    } else {
+        animating = engine->hasActiveAnimation(id);
     }
-
-    return JS_FALSE;    // TODO: 按 viewId 查询动画状态
+    JS_FreeCString(ctx, id);
+    return animating ? JS_TRUE : JS_FALSE;
 }
 
 static JSValue register_state_class(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
