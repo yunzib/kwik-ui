@@ -5,10 +5,12 @@ module;
 #include <string>
 #include <sstream>
 #include <vector>
+#include <unordered_map>
 
 module kwik.core.color_parser;
 
 import kwik.core.types;
+import kwik.core.props;    // Align
 
 Color parseColor(const std::string &str) {
     std::string s = str;
@@ -115,4 +117,55 @@ Shadow parseShadow(const std::string &str) {
         shadow.color = parseColor(colorStr);
     }
     return shadow;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseAlign — 对齐枚举字符串解析（未知值回退 Align::Default）
+// ═══════════════════════════════════════════════════════════════════════════
+Align parseAlign(const std::string &str) {
+    static const std::unordered_map<std::string, Align> kAlignMap = {
+        {"topLeft", Align::TopLeft},         {"topCenter", Align::TopCenter},
+        {"topRight", Align::TopRight},       {"centerLeft", Align::CenterLeft},
+        {"center", Align::Center},           {"centerRight", Align::CenterRight},
+        {"bottomLeft", Align::BottomLeft},   {"bottomCenter", Align::BottomCenter},
+        {"bottomRight", Align::BottomRight},
+    };
+    auto it = kAlignMap.find(str);
+    return it != kAlignMap.end() ? it->second : Align::Default;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseBorderStyle — 边框样式字符串解析（未知值回退 None）
+// ═══════════════════════════════════════════════════════════════════════════
+BorderStyle parseBorderStyle(const std::string &str) {
+    if (str == "solid") return BorderStyle::Solid;
+    if (str == "dashed") return BorderStyle::Dashed;
+    return BorderStyle::None;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// parseGradient — "linear <角度> <色0> <色1>" → Linear；"radial <色0> <色1>" → Radial
+// ═══════════════════════════════════════════════════════════════════════════
+Gradient parseGradient(const std::string &str) {
+    Gradient g;
+    if (str.empty()) return g;
+    std::istringstream iss(str);
+    std::vector<std::string> parts;
+    std::string token;
+    while (iss >> token) parts.push_back(token);
+    if (parts.empty()) return g;
+
+    if (parts[0] == "linear" && parts.size() >= 4) {
+        g.type = GradientType::Linear;
+        try {
+            g.angleDeg = std::stof(parts[1]);
+        } catch (...) { g.angleDeg = 180.0f; }
+        g.color0 = parseColor(parts[2]);
+        g.color1 = parseColor(parts[3]);
+    } else if (parts[0] == "radial" && parts.size() >= 3) {
+        g.type = GradientType::Radial;
+        g.color0 = parseColor(parts[1]);
+        g.color1 = parseColor(parts[2]);
+    }
+    return g;
 }

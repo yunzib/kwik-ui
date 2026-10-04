@@ -728,6 +728,9 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 			Transform t;
 			if (!parseTransformString(*s, t)) { return false; }
 			v = t;
+		} else if (std::holds_alternative<std::monostate>(expect)) {
+			// reader 不可表达的属性（shadow/align/borderStyle/gradient 等）：
+			// 字符串原样透传给 writer 自解析（parse 同源函数在 core 层）
 		} else {
 			return false;                           // EdgeInsets 等：不支持字符串形态
 		}

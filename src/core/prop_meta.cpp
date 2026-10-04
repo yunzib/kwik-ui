@@ -326,6 +326,36 @@ static const PropMeta kPropMetas[] = {
             p.transitionDuration = static_cast<float>(std::get<double>(v));
         },
     },
+
+    // ── 布局枚举/装饰：值类型不在 TypedProp 内——reader 恒 monostate，
+    //    总线字符串形态原样透传给 writer，经 core 同源 parse 函数解析 ──
+    [static_cast<int>(PropId::align)] = {
+        PropId::align, "align", nullptr, PropUnit::None, PropFlags::Layout, false,
+        /*reader*/ [](const ViewProps&) -> TypedProp {
+            return std::monostate{};
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            if (auto *s = std::get_if<std::string>(&v)) { p.align = parseAlign(*s); }
+        },
+    },
+    [static_cast<int>(PropId::borderStyle)] = {
+        PropId::borderStyle, "borderStyle", nullptr, PropUnit::None, PropFlags::None, false,
+        /*reader*/ [](const ViewProps&) -> TypedProp {
+            return std::monostate{};
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            if (auto *s = std::get_if<std::string>(&v)) { p.borderStyle = parseBorderStyle(*s); }
+        },
+    },
+    [static_cast<int>(PropId::gradient)] = {
+        PropId::gradient, "gradient", nullptr, PropUnit::None, PropFlags::None, false,
+        /*reader*/ [](const ViewProps&) -> TypedProp {
+            return std::monostate{};
+        },
+        /*writer*/ [](ViewProps& p, const TypedProp& v) {
+            if (auto *s = std::get_if<std::string>(&v)) { p.gradient = parseGradient(*s); }
+        },
+    },
 };
 
 // sentinel 校验

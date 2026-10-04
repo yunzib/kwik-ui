@@ -39,7 +39,11 @@
   flexBasis/transitionDuration 原无 PropId 条目，运行期 setProp/绑定/动画
   查表落空）：PropId 枚举 + 表条目补齐，Layout 行为锁 10→13；
   rowGap/columnGap 在 ContainerProps 需容器路由，未入本批（记档）
-- 门禁：构建 + ctest（断言 185→204）+ smoke 38/38 双模式全绿
+- align/borderStyle/gradient 入属性总线（值类型不在 TypedProp，reader 恒
+  monostate 时基类字符串转换链直接拒绝——字符串到不了 writer，B1 的
+  shadow 同病）：三 parse 函数自 bridge 迁 core color_parser（与 parse 期
+  同源），基类 monostate 分支改字符串原样透传给 writer 自解析
+- 门禁：构建 + ctest（断言 204→224）+ smoke 38/38 双模式全绿
 
 # 0.0.0 — 2026-10-02
 ### 修复

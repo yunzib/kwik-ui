@@ -15,6 +15,7 @@ import kwik.render.texture_manager;
 import kwik.render.text.types;
 import kwik.render.text.font.manager;
 import kwik.render.text.cache;
+import kwik.element.view;
 import kwik.element.text;
 import kwik.event;
 
@@ -57,12 +58,13 @@ static void test_prop_meta_consistency() {
     CHECK(propIdFromName("w") == PropId::width);
     CHECK(propIdFromName("__nonexistent__") == PropId::COUNT);
 
-    // ② 布局属性行为锁：Layout 标志必须恰好钉在这 13 个属性上
+    // ② 布局属性行为锁：Layout 标志必须恰好钉在这 14 个属性上
     //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线；
-    //    B2b 增 flex 三项——FlexLayout 直接消费其值）
+    //    B2b 增 flex 三项——FlexLayout 直接消费其值；B2c 增 align——
+    //    定位门 align≠Default 脱流，布局语义）
     const char *kLayoutNames[] = {"width", "height", "padding", "margin",
                                   "x", "y", "absTop", "absLeft", "absRight", "absBottom",
-                                  "flexGrow", "flexShrink", "flexBasis"};
+                                  "flexGrow", "flexShrink", "flexBasis", "align"};
     for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
         auto id = static_cast<PropId>(pi);
         bool isLayout = getPropMeta(id).flags & PropFlags::Layout;
@@ -427,6 +429,26 @@ static void test_b2b_numeric_entries() {
     CHECK(p.transitionDuration == 0.3f);
 }
 
+// ── 行为锁: 字符串枚举/装饰入总线（B2c 回归防线）+ shadow 总线路径收口 ──
+// align/borderStyle/gradient 值类型不在 TypedProp 内：reader 恒 monostate，
+// 基类字符串转换链原在 monostate 分支直接 return false（到不了 writer）——
+// 现改为原样透传给 writer 自解析。shadow 同路径（B1 行为锁只验了 writer
+// 直调，本锁补总线端到端）。
+static void test_b2c_string_enum_entries() {
+    View v;
+    CHECK(v.setProperty("align", "center"));
+    CHECK(v.props.align == Align::Center);
+    CHECK(v.setProperty("borderStyle", "dashed"));
+    CHECK(v.props.borderStyle == BorderStyle::Dashed);
+    CHECK(v.setProperty("gradient", "linear 90 #ff0000 #0000ff"));
+    CHECK(v.props.gradient.has_value() && v.props.gradient->type == GradientType::Linear);
+
+    // shadow 经总线字符串形态写入（B1 writer 直调锁的端到端补全）
+    View s;
+    CHECK(s.setProperty("shadow", "0 6px 18px rgba(0,0,0,0.5)"));
+    CHECK(s.props.shadow.has_value() && s.props.shadow->blurRadius == 18.0f);
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -439,6 +461,7 @@ int main() {
     test_animation_frame_and_shadow_write();
     test_b2_width_pct_and_aliases();
     test_b2b_numeric_entries();
+    test_b2c_string_enum_entries();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

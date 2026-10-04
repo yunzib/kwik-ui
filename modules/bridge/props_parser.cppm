@@ -21,10 +21,6 @@ import std;
  * - 对象：{left, top, right, bottom}
  */
 export EdgeInsets parseEdgeInsets(const JSValueRef &value);
-/**
- * @brief 解析边框样式
- */
-export BorderStyle parseBorderStyle(const std::string &str);
 
 /**
  * @brief 解析框架级属性 (display + child layout)
@@ -269,7 +265,6 @@ private:
  */
 export EdgeInsets parseEdgeInsets(const JSValueRef &value);
 
-export BorderStyle parseBorderStyle(const std::string &str);
 
 export ViewProps parseViewProps(PropsExtractor &ex);
 export TextContent parseTextContent(PropsExtractor &ex);

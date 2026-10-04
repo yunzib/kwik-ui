@@ -381,6 +381,10 @@ export enum class PropId : uint8_t {
     flexBasis,              // double → float（-1 = 自动）
     // ── 交互 ──
     transitionDuration,     // double → float（隐式过渡时长，秒，binding_registry 消费）
+    // ── 布局枚举/装饰（字符串形——writer 自解析，parse 同源函数在 core）──
+    align,                  // string → Align（"center" 等 9 值）
+    borderStyle,            // string → BorderStyle（solid/dashed）
+    gradient,               // string → Gradient（"linear 90 #a #b" / "radial #a #b"）
 
     /// sentinel — 用作数组长度，不可作为实际属性值
     COUNT,

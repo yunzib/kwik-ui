@@ -6,6 +6,7 @@ module;
 export module kwik.core.color_parser;
 
 import kwik.core.types;
+import kwik.core.props;    // Align
 import std;
 
 /**
@@ -38,3 +39,23 @@ export Color parseColor(const std::string &str);
  * core 层单处实现：bridge 属性解析与 PropMeta shadow writer 共用
  */
 export Shadow parseShadow(const std::string &str);
+
+/**
+ * @brief 解析对齐枚举字符串（view 定位门/容器子级摆放用）
+ *
+ * topLeft/topCenter/topRight/centerLeft/center/centerRight/
+ * bottomLeft/bottomCenter/bottomRight；未知值回退 Align::Default
+ */
+export Align parseAlign(const std::string &str);
+
+/**
+ * @brief 解析边框样式字符串：solid/dashed；未知值回退 None
+ */
+export BorderStyle parseBorderStyle(const std::string &str);
+
+/**
+ * @brief 解析渐变字符串："linear <角度> <色0> <色1>" / "radial <色0> <色1>"
+ *
+ * core 层单处实现：bridge 属性解析与 PropMeta gradient writer 共用
+ */
+export Gradient parseGradient(const std::string &str);
