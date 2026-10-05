@@ -116,6 +116,9 @@ public:
      */
     static std::unique_ptr<View> parseNode(const JSValueRef &jsVal);
 
+    /// parseNode 的实现体（parseNode 在边界做异常收场后转调）
+    static std::unique_ptr<View> parseNodeImpl(const JSValueRef &jsVal);
+
     /**
      * @brief 带旧树复用的解析（增量 reconcile）
      *

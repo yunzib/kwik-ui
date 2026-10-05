@@ -706,7 +706,11 @@ void View::setBinding(std::unique_ptr<StateBinding> binding,
 // ============================================================================
 bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 	PropId prop = propIdFromName(name);
-	if (prop == PropId::COUNT) { return false; }    // 未知属性
+	if (prop == PropId::COUNT) {
+		// 未知名或组件未实现运行时写入（parse-only 键）：dev 告警替代静默
+		Log::warn("属性 '{}' 未被 {} 接受（未知名或未实现运行时写入）", name, to_string(type()));
+		return false;
+	}
 
 	TypedProp v = value;
 	if (auto *s = std::get_if<std::string>(&v)) {   // string 形态 → 按期望类型反推转换
@@ -716,7 +720,9 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 		if (std::get_if<double>(&expect)) {
 			char *end = nullptr;
 			double d = std::strtod(s->c_str(), &end);
-			if (end == s->c_str() || *end != '\0') { return false; }    // 全量消耗才算数值
+			// 全量消耗且有限才算数值："nan"/"inf" 串 strtod 能解析、"1e999"
+			// 产生 ±Inf——均拒绝（NaN 沿布局链传播会致子树消失）
+			if (end == s->c_str() || *end != '\0' || !std::isfinite(d)) { return false; }
 			v = d;
 		} else if (std::get_if<Color>(&expect)) {
 			v = parseColor(*s);
@@ -781,6 +787,11 @@ void View::writeProperty(PropId prop, const TypedProp &value) {
 void View::applyAnimationFrame(PropId prop, const TypedProp &value) {
     const auto &meta = getPropMeta(prop);
     if (!meta.writer) return;
+    // 动画帧数值 NaN/±Inf 拒绝（插值残留/JS NaN 注入）：写入会沿布局传播
+    if (auto *d = std::get_if<double>(&value); d && !std::isfinite(*d)) {
+        Log::warn("动画帧属性 '{}' 非有限数值已跳过", meta.name);
+        return;
+    }
     meta.writer(props, value);
     markDirty();    // ← 替换 inline 的三行
     if (meta.flags & PropFlags::Layout) { requestLayout(); }

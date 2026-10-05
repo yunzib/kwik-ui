@@ -2,6 +2,20 @@
 
 # 0.0.0 — 2026-10-05
 ### 修复
+- 非法属性输入导致进程终止：组件工厂与 reconcile 公共入口 parseNode、
+  setProp、State.update 批量写入段三处 C++ 异常入口统一收场（错误日志；
+  前两者转 JS 异常可被 JS try/catch 捕获），非法数值串沿 stof 链的抛出
+  不再穿 QuickJS C 栈；channel 协程 unhandled_exception 去 std::terminate
+  改日志收场
+- 非有限数值（NaN/±Inf）注入收口：PropsExtractor 数值提取、width/height
+  百分比/字符串/数值三路、transform 整体校验、setPropertyTyped 字符串
+  strtod 后校验、动画帧 double 跳过——NaN 沿 measure/layout 传播致子树
+  消失的注入面关闭（"nan"/"1e999" 串 strtod 均可解析为非有限值）
+- setProp 未知名与组件未实现运行时写入的键（parse-only 键）增加 dev
+  告警，替代静默 return false——state/slider 两个重度 setProp demo
+  实测零误报
+- 门禁：构建零新增警告 + ctest（core_tests 233→241 + js_tests 7→9）+
+  smoke 38/38 双模式全绿
 - State.update() 批量回写从未工作（JS_GetOwnPropertyNames 漏
   JS_GPN_STRING_MASK → 恒 0 条属性，批量写入/逐键增量/全量判定三段
   全部跳过——textview/slider/ui_demo 的 form.update 全部静默无效）：

@@ -4,6 +4,7 @@ module;
 module kwik.bridge.prop_bus;
 import kwik.engine.context;
 import kwik.element.view;
+import kwik.core.log;
 import std;
 // ── js_getProp ────────────────────────────────────────────────
 static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -48,7 +49,24 @@ static JSValue js_setProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         View *root = static_cast<View *>(qctx->getUserPointer());
         if (root) {
             View *target = root->findById(id);
-            if (target) target->setProperty(prop, val);
+            // 属性写入链（解析/转换函数）可能抛 C++ 异常——非法数值串的
+            // stof 链。C 回调边界统一收场：错误日志 + 转 JS 异常，防异常
+            // 穿 QuickJS C 栈
+            try {
+                if (target) target->setProperty(prop, val);
+            } catch (const std::exception &e) {
+                JS_FreeCString(ctx, id);
+                JS_FreeCString(ctx, prop);
+                JS_FreeCString(ctx, val);
+                Log::error("setProp '{}' '{}' 异常收场: {}", id, prop, e.what());
+                return JS_ThrowTypeError(ctx, "setProp: 属性写入失败（详见日志）");
+            } catch (...) {
+                JS_FreeCString(ctx, id);
+                JS_FreeCString(ctx, prop);
+                JS_FreeCString(ctx, val);
+                Log::error("setProp '{}' '{}' 异常收场: 未知异常", id, prop);
+                return JS_ThrowTypeError(ctx, "setProp: 属性写入失败（详见日志）");
+            }
         }
     }
     JS_FreeCString(ctx, id);

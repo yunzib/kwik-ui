@@ -397,34 +397,46 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
     // （quickjs 按 kind 过滤属性）——同文件 resolveRefProp :140 有正确写法对照
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return JS_UNDEFINED;
 
-    // ── 阶段 ①：批量写入 JS 数据层 ──
-    for (uint32_t i = 0; i < len; ++i) {
-        JSAtom atom = tab[i].atom;
-        JSValue val = JS_GetProperty(ctx, props, atom);
-        JS_SetProperty(ctx, sd->data, atom, val);
-    }
-
-    // ── 阶段 ②：逐键尝试增量更新 ──
-    auto incCb = get_incremental_callback();
+    // ── 阶段 ①②：批量写入与逐键增量（属性写入链可能抛 C++ 异常——非法
+    //    数值串沿 stof/strtod 链传播；入口统一收场防穿 QuickJS C 栈）──
     bool allHandled = true;
-    if (incCb) {
-        for (uint32_t i = 0; i < len && allHandled; ++i) {
-            const char *key = JS_AtomToCString(ctx, tab[i].atom);
-            if (key) {
-                // 从 sd->data 读回已写入的新值
-                JSAtom atom = tab[i].atom;
-                JSValue newVal = JS_GetProperty(ctx, sd->data, atom);
-                bool handled = incCb(JS_VALUE_GET_PTR(this_val), key, ctx, newVal);
-                JS_FreeValue(ctx, newVal);
-                if (!handled) allHandled = false;
-                JS_FreeCString(ctx, key);
+    bool threw = false;
+    try {
+        for (uint32_t i = 0; i < len; ++i) {
+            JSAtom atom = tab[i].atom;
+            JSValue val = JS_GetProperty(ctx, props, atom);
+            JS_SetProperty(ctx, sd->data, atom, val);
+        }
+
+        auto incCb = get_incremental_callback();
+        if (incCb) {
+            for (uint32_t i = 0; i < len && allHandled; ++i) {
+                const char *key = JS_AtomToCString(ctx, tab[i].atom);
+                if (key) {
+                    // 从 sd->data 读回已写入的新值
+                    JSAtom atom = tab[i].atom;
+                    JSValue newVal = JS_GetProperty(ctx, sd->data, atom);
+                    bool handled = incCb(JS_VALUE_GET_PTR(this_val), key, ctx, newVal);
+                    JS_FreeValue(ctx, newVal);
+                    if (!handled) allHandled = false;
+                    JS_FreeCString(ctx, key);
+                }
             }
         }
+    } catch (const std::exception &e) {
+        Log::error("state.update 属性写入异常收场: {}", e.what());
+        threw = true;
+    } catch (...) {
+        Log::error("state.update 属性写入异常收场: 未知异常");
+        threw = true;
     }
 
     // 收尾：统一释放 atoms（tab 元素所有权归调用方）
     for (uint32_t i = 0; i < len; ++i) JS_FreeAtom(ctx, tab[i].atom);
     js_free(ctx, tab);
+
+    // 异常收场：转为 JS 异常（调用方可捕获），不再继续
+    if (threw) return JS_ThrowTypeError(ctx, "state.update: 属性写入失败（详见日志）");
 
     // ── 阶段 ③：全部增量命中 → 跳过重建；有未命中 → 全量兜底 ──
     if (!allHandled) {

@@ -34,6 +34,7 @@ export module kwik.engine.channel;
 import kwik.core.scheduler;
 import kwik.core.task_queue;
 import kwik.core.thread_pool;
+import kwik.core.log;
 
 // ────────────────────────────────────────────────────────────────
 // TimeoutAwaitable — 在 Channel 类之前定义，供 timeout() 返回
@@ -118,7 +119,17 @@ public:
 
             FinalAwaiter final_suspend() noexcept { return {}; }
             void return_value(Data v) { result_ = std::move(v); }
-            void unhandled_exception() { std::terminate(); }
+            // 协程体内异常统一收场（错误日志），不再终止进程；
+            // 异常吞掉后协程正常完结，等待方视作完成
+            void unhandled_exception() {
+                try {
+                    throw;
+                } catch (const std::exception &e) {
+                    Log::error("channel 协程异常收场: {}", e.what());
+                } catch (...) {
+                    Log::error("channel 协程异常收场: 未知异常");
+                }
+            }
 
             void setResponder(Responder r) { respond_ = std::move(r); }
         };

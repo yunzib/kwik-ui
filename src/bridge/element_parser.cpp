@@ -649,6 +649,20 @@ static std::string_view canonicalTypeName(std::string_view jsType) {
 //   - children 非数组  → 跳过子节点解析（视为叶子节点）
 // ============================================================================
 std::unique_ptr<View> ElementParser::parseNode(const JSValueRef &jsVal) {
+    // 解析层可能抛 C++ 异常（非法数值串沿 stof/strtod 链传播）。本函数是
+    // JS 组件工厂与 reconcile 两条调用路径的公共入口——在边界统一收场
+    // （错误日志 + 空节点），防止异常穿 QuickJS C 栈或主循环
+    try {
+        return parseNodeImpl(jsVal);
+    } catch (const std::exception &e) {
+        Log::error("组件解析异常收场: {}", e.what());
+    } catch (...) {
+        Log::error("组件解析异常收场: 未知异常");
+    }
+    return nullptr;
+}
+
+std::unique_ptr<View> ElementParser::parseNodeImpl(const JSValueRef &jsVal) {
     // 条件渲染兜底：children 数组中的 null/false/undefined 节点 → 静默跳过
     // （React 同款语义；car demo 状态栏冒烟复现）
     if (jsVal.isNull() || jsVal.isUndefined()) return nullptr;

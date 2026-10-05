@@ -58,27 +58,35 @@ ViewProps parseViewProps(PropsExtractor &ex) {
             auto v = ex.raw().getProperty("width");
             if (v.isString()) {
                 std::string s = v.toString();
-                if (s.size() > 1 && s.back() == '%')
-                    result.widthPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;    // "50%" → 0.5
-                else
-                    result.width = std::stof(s);    // 非百分比字符串按 px 数字解析
+                if (s.size() > 1 && s.back() == '%') {
+                    float pct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;    // "50%" → 0.5
+                    if (std::isfinite(pct)) result.widthPct = pct;    // "nan%" 串拒绝
+                } else {
+                    float px = std::stof(s);    // 非百分比字符串按 px 数字解析
+                    if (std::isfinite(px)) result.width = px;    // "nan"/"inf" 串拒绝
+                }
             } else if (v.isNumber()) {
-                result.width = v.toFloat();
+                float f = v.toFloat();
+                if (std::isfinite(f)) result.width = f;    // JS 0/0 等 NaN 源拒绝
             }
         }
     }
     {
-        // height 百分比同上（isString 拦截，避免 NaN 污染）
+        // height 同 width：百分比/字符串/数值三路均做有限性拒绝
         if (ex.has("height")) {
             auto v = ex.raw().getProperty("height");
             if (v.isString()) {
                 std::string s = v.toString();
-                if (s.size() > 1 && s.back() == '%')
-                    result.heightPct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;    // "50%" → 0.5
-                else
-                    result.height = std::stof(s);
+                if (s.size() > 1 && s.back() == '%') {
+                    float pct = std::stof(s.substr(0, s.size() - 1)) / 100.0f;
+                    if (std::isfinite(pct)) result.heightPct = pct;
+                } else {
+                    float px = std::stof(s);
+                    if (std::isfinite(px)) result.height = px;
+                }
             } else if (v.isNumber()) {
-                result.height = v.toFloat();
+                float f = v.toFloat();
+                if (std::isfinite(f)) result.height = f;
             }
         }
     }
@@ -140,7 +148,10 @@ ViewProps parseViewProps(PropsExtractor &ex) {
                 }
             }
         }
-        result.transform = t;
+        // NaN/±Inf 拒绝（"nan" 串可被 stof 正常解析）：transform 会进
+        // AABB/命中数学，非有限值沿图形链传播
+        if (std::isfinite(t.translateX) && std::isfinite(t.translateY) && std::isfinite(t.rotate) && std::isfinite(t.scale))
+            result.transform = t;
     }
 
     if (ex.has("shadow")) result.shadow = parseShadow(ex.raw().getProperty("shadow").toString());

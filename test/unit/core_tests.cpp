@@ -546,6 +546,26 @@ static void test_input_control_chars_and_home_end() {
     CHECK(fires == 3 && last == "Xab");    // Home 后插入落在行首
 }
 
+// ── 行为锁: 非有限数值拒绝（NaN/±Inf 不入属性字段）──
+// "nan"/"inf" 串 strtod 能正常解析、"1e999" 产生 ±Inf——字符串写入路径
+// 必须拒绝；动画帧 NaN 必须跳过写入（保留旧值）。NaN 沿 measure/layout
+// 传播会让 std::clamp 直通、子树消失。
+static void test_l1_isfinite_rejection() {
+    View v;
+    CHECK(v.setPropertyTyped("width", TypedProp{std::string("nan")}) == false);
+    CHECK(v.setPropertyTyped("width", TypedProp{std::string("inf")}) == false);
+    CHECK(v.setPropertyTyped("width", TypedProp{std::string("1e999")}) == false);
+    CHECK(!v.props.width.has_value());    // 字段保持默认
+
+    CHECK(v.setPropertyTyped("width", TypedProp{std::string("120")}));
+    CHECK(v.props.width.has_value() && *v.props.width == 120.0f);    // 合法值不受影响
+
+    v.applyAnimationFrame(PropId::width, TypedProp{std::numeric_limits<double>::quiet_NaN()});
+    CHECK(v.props.width.has_value() && *v.props.width == 120.0f);    // NaN 帧跳过
+    v.applyAnimationFrame(PropId::width, TypedProp{200.0});
+    CHECK(v.props.width.has_value() && *v.props.width == 200.0f);    // 正常帧仍生效
+}
+
 int main() {
     test_rect();
     test_prop_meta_consistency();
@@ -562,6 +582,7 @@ int main() {
     test_lazy_list_sizes_growth();
     test_radiobutton_no_untoggle();
     test_input_control_chars_and_home_end();
+    test_l1_isfinite_rejection();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

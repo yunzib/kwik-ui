@@ -7,6 +7,7 @@ import kwik.core.props;
 import kwik.element.typed_prop;
 import kwik.engine.js_value;
 import kwik.element.view;
+import kwik.core.log;
 
 import std;
 
@@ -180,6 +181,15 @@ public:
             }
         }
         out = convertTo<T>(val);
+        // 非有限数值（NaN/±Inf）拒绝：JS 侧 0/0、动画残留等注入源——
+        // 拒绝后走字段默认值，防 NaN 沿 measure/layout 传播（std::clamp 对
+        // NaN 直通，最终子树消失）
+        if constexpr (std::is_same_v<T, float>) {
+            if (!std::isfinite(out)) {
+                Log::warn("属性 '{}' 非有限数值已拒绝: {}", name, val.toString());
+                return false;
+            }
+        }
         return true;
     }
 
