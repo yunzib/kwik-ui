@@ -217,8 +217,10 @@ bool KwikRuntime::init() {
 // tick — 一帧的树内处理（原 Application::run 主循环树内段平移）
 // 返回值：true=本帧渲染了（调用方勿休眠）；false=静止（可短休眠）
 // ============================================================================
-bool KwikRuntime::tick(bool /*hotReloadEnabled*/) {
+bool KwikRuntime::tick(bool hotReloadEnabled) {
     jsCtx_.resetExecWatchdog();    // 本帧全部 JS（dispatch/rAF/微任务/工厂）共享 1s 预算，防死循环冻结
+    // Debug 热重载：JS 文件轮询（内部 300ms 节流；此前从未接线，HMR 不可达）
+    if (hotReloadEnabled) pollHotReload();
     // ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）
     Channel::flush(jsCtx_.getPtr());
     // rAF: 每帧回调（flush 后、微任务前——回调内改 State 经下方 isRenderNeeded
@@ -447,6 +449,11 @@ void KwikRuntime::pollHotReload() {
 // ══════════════════════════════════════════════════════════════
 void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     Log::info("[HMR] 文件变更: {} — 重新加载 UI", path);
+
+    // ── 前置：排空跨线程任务队列 ──
+    // 在途 responder 捕获旧 ctx 裸指针，dataToJS 在任务体首行求值——ctx
+    // 销毁后执行即悬垂解引用。此刻 ctx 仍存活，就地执行即安全
+    if (taskQueue_) taskQueue_->flush();
 
     // ── 清理旧 JS 引擎的外部引用 ──
     // 按契约顺序停动画/清图层（见 teardownJsBoundRuntime 注释）

@@ -14,6 +14,7 @@ import kwik.event;
 import kwik.core.log;
 import kwik.core.scheduler;
 import kwik.core.timer;
+import kwik.app.crash_reporter;
 
 import std;
 
@@ -50,6 +51,10 @@ KwikRuntime &Application::createRuntime(PlatformWindow &window, const RunConfig 
 // ============================================================================
 int Application::run() {
     if (runtimes_.empty()) { Log::error("run(): 未创建任何运行时（先 createRuntime）"); return -1; }
+
+    // ⓪ 进程级崩溃报告：未处理异常 → minidump 落盘（幂等；受控自检见
+    //    KWIK_CRASH_TEST 环境变量说明）
+    install_crash_reporter();
 
     // ① 初始化全部运行时（渲染线程/JS/树/布局/Channel——见 KwikRuntime::init）
     for (auto &rt : runtimes_) {

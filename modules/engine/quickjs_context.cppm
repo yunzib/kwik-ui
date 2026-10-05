@@ -10,7 +10,13 @@ module;
 export module kwik.engine.context;
 import kwik.engine.runtime;
 import kwik.engine.js_value;    // JSValueRef（rAF 回调队列的共享持有器）
+import kwik.core.log;
+
 import std;
+
+// 微任务单次消费预算（条数/墙钟）——防自 requeue Promise 链无限循环
+constexpr int kMaxMicrotaskJobs = 100000;
+constexpr int kMicrotaskBudgetMs = 500;
 
 /**
  * @brief QuickJS 执行上下文
@@ -126,8 +132,21 @@ public:
     void processMicrotasks() {
         JSRuntime *rt = JS_GetRuntime(context);
         JSContext *pctx;
-        // 循环执行所有待处理微任务，直到队列清空或出错
-        while (JS_ExecutePendingJob(rt, &pctx) > 0);
+        // 微任务预算：自 requeue 的 Promise 链（then 回调里再 then）会让
+        // pending job 永不枯竭，本循环自身无界——看门狗只覆盖单个 job 的
+        // 执行时长，盖不住无限多的 job。条数 + 墙钟双上限，超出记错误
+        // 退出，剩余 job 由宿主下一帧继续消费
+        int jobs = 0;
+        auto start = std::chrono::steady_clock::now();
+        while (JS_ExecutePendingJob(rt, &pctx) > 0) {
+            ++jobs;
+            if (jobs % 256 == 0 &&
+                (jobs > kMaxMicrotaskJobs ||
+                 std::chrono::steady_clock::now() - start > std::chrono::milliseconds(kMicrotaskBudgetMs))) {
+                Log::error("微任务预算超限（{} jobs）——疑似自 requeue 链，剩余延后消费", jobs);
+                break;
+            }
+        }
     }
 
     /// 注册嵌入式 bytecode 模块表

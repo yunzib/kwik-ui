@@ -20,6 +20,7 @@ export class QuickJSRuntime {
         void resetWatchdog(uint32_t budgetMs) {
             execBudgetMs_ = budgetMs;
             watchdogArmed_ = false;
+            watchdogOverruns_ = 0;    // 新宿主入口：超时中断计数清零
         }
 
     private:
@@ -28,6 +29,7 @@ export class QuickJSRuntime {
         JSRuntime* runtime;
         uint32_t execBudgetMs_ = 100;                 // 默认单段预算
         bool watchdogArmed_ = false;                  // 当前 JS 段计时中
+        int watchdogOverruns_ = 0;                    // 本入口内超时中断次数（宿主入口重置）
         std::chrono::steady_clock::time_point watchdogStart_{};
         static int watchdogCb(JSRuntime *rt, void *opaque);
 };

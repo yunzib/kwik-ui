@@ -2,6 +2,23 @@
 
 # 0.0.0 — 2026-10-05
 ### 修复
+- HMR 从未接线（pollHotReload 全仓零调用，Debug 改 JS 永不热重载，全部
+  HMR 修复不可达）：tick 按开关接线；reload 对静态 default export 双
+  Free（expandedRoot 与 rootView 同引用，引用计数下溢）补别名守卫；
+  重建前排空跨线程任务队列（在途 responder 持旧 ctx，销毁后 dataToJS
+  悬垂解引用）
+- 观测面：console 桥补全 debug/log/info/warn/error 五方法并分级进
+  Log——error 计入错误计数，冒烟可捕获 JS 错误（此前直通 println 全盲）；
+  未处理 Promise rejection 跟踪进错误日志（async 处理器抛错零报告）；
+  微任务消费预算（条数+墙钟双上限，自 requeue Promise 链不再无限循环）；
+  看门狗超时中断计数升级告警（脚本捕获中断后未退出的挂死特征可见）
+- 进程级崩溃报告：SetUnhandledExceptionFilter + minidump 落盘
+  （crashes/<时间戳>.dmp，LoadLibrary 动态绑定 MiniDumpWriteDump），
+  Application::run 安装，KWIK_CRASH_TEST=1 受控自检验证落盘链路
+- 摘除死稿 ui_demo.js（对不存在 API 所写，从未可运行，不可作验收素材）
+- 门禁：构建零新增警告 + ctest（core_tests 241 + js_tests 9→16）+
+  smoke 38/38 双模式全绿 + 崩溃转储受控自检通过
+### 修复（前批）
 - 非法属性输入导致进程终止：组件工厂与 reconcile 公共入口 parseNode、
   setProp、State.update 批量写入段三处 C++ 异常入口统一收场（错误日志；
   前两者转 JS 异常可被 JS try/catch 捕获），非法数值串沿 stof 链的抛出

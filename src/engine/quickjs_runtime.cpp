@@ -31,7 +31,12 @@ import kwik.core.log;
             std::chrono::steady_clock::now() - self->watchdogStart_).count();
         if (elapsed >= self->execBudgetMs_) {
             self->watchdogArmed_ = false;    // 解除：宿主接管后下一段重新计时
-            Log::error("JS 执行超过 {}ms 预算，已中断（疑似死循环）", self->execBudgetMs_);
+            ++self->watchdogOverruns_;
+            // 升级告警：偶发超时是正常防护；计数持续增长说明脚本捕获中断
+            // 后未退出（catch 循环）——预算无法硬终止，靠日志暴露挂死特征
+            if (self->watchdogOverruns_ == 1 || self->watchdogOverruns_ % 20 == 0)
+                Log::error("JS 执行超过 {}ms 预算，已中断（第 {} 次）——计数持续增长说明脚本捕获中断后仍未退出",
+                           self->execBudgetMs_, self->watchdogOverruns_);
             return 1;    // QuickJS 以异常终止当前执行
         }
         return 0;

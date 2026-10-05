@@ -15,49 +15,54 @@ import kwik.engine.js_value;    // JSValueRef（rAF 回调队列）
 import kwik.core.log;
 import kwik.engine.vm_callbacks;
 
-// JS console.log 绑定到 C++ std::println
+// console 桥 — 全方法分级进 Log（error 计入 errorCount → 冒烟/宿主可感知
+// JS 错误；原先仅 log/error 且直通 println，错误对宿主全盲）
+static JSValue js_console_impl(JSContext *ctx, int argc, JSValueConst *argv, LogLevel level) {
+    std::ostringstream oss;
+    for (int i = 0; i < argc; ++i) {
+        const char *str = JS_ToCString(ctx, argv[i]);
+        if (str) {
+            if (i > 0) oss << ' ';
+            oss << str;
+            JS_FreeCString(ctx, str);
+        } else {
+            if (i > 0) oss << ' ';
+            oss << "[unknown]";    // undefined/null/对象等无法直接转串的值
+        }
+    }
+    switch (level) {
+    case LogLevel::Debug: Log::debug("[console] {}", oss.str()); break;
+    case LogLevel::Info: Log::info("[console] {}", oss.str()); break;
+    case LogLevel::Warning: Log::warn("[console] {}", oss.str()); break;
+    case LogLevel::Error: Log::error("[console] {}", oss.str()); break;
+    default: Log::info("[console] {}", oss.str()); break;
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue js_console_debug(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return js_console_impl(ctx, argc, argv, LogLevel::Debug);
+}
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    std::ostringstream oss;
-    for (int i = 0; i < argc; ++i) {
-        const char *str = JS_ToCString(ctx, argv[i]);
-        if (str) {
-            if (i > 0) oss << ' ';
-            oss << str;
-            JS_FreeCString(ctx, str);
-        } else {
-            // 处理无法转换为字符串的值（如 undefined, null, 对象等）
-            // 可选：输出其类型或 JSON 表示，简单起见输出 "[unknown]"
-            if (i > 0) oss << ' ';
-            oss << "[unknown]";
-        }
-    }
-    std::println("console.log >> {}", oss.str());
-    return JS_UNDEFINED;
+    return js_console_impl(ctx, argc, argv, LogLevel::Info);
 }
-
+static JSValue js_console_info(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return js_console_impl(ctx, argc, argv, LogLevel::Info);
+}
+static JSValue js_console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    return js_console_impl(ctx, argc, argv, LogLevel::Warning);
+}
 static JSValue js_console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    std::ostringstream oss;
-    for (int i = 0; i < argc; ++i) {
-        const char *str = JS_ToCString(ctx, argv[i]);
-        if (str) {
-            if (i > 0) oss << ' ';
-            oss << str;
-            JS_FreeCString(ctx, str);
-        } else {
-            if (i > 0) oss << ' ';
-            oss << "[unknown]";
-        }
-    }
-    std::println(stderr, "console.error >> {}", oss.str());
-    return JS_UNDEFINED;
+    return js_console_impl(ctx, argc, argv, LogLevel::Error);
 }
 
-// 注册 console 对象
+// 注册 console 对象（debug/log/info/warn/error 五方法）
 static void init_console(JSContext *ctx) {
     JSValue console = JS_NewObject(ctx);
-    // 修复点：把 JS_ARG_ARBITRARY 改为 0
+    JS_SetPropertyStr(ctx, console, "debug", JS_NewCFunction(ctx, js_console_debug, "debug", 0));
     JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, js_console_log, "log", 0));
-
+    JS_SetPropertyStr(ctx, console, "info", JS_NewCFunction(ctx, js_console_info, "info", 0));
+    JS_SetPropertyStr(ctx, console, "warn", JS_NewCFunction(ctx, js_console_warn, "warn", 0));
     JS_SetPropertyStr(ctx, console, "error", JS_NewCFunction(ctx, js_console_error, "error", 0));
 
     JSValue global = JS_GetGlobalObject(ctx);
@@ -143,12 +148,25 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
 // ====================================================================
 // 构造 / 析构 / 拷贝 / 移动
 // ====================================================================
+// Promise rejection 跟踪：未处理 rejection 记入错误日志——async 事件
+// 处理器抛错此前零报告。is_handled=true（随后被 catch）不再记
+static void promise_rejection_cb(JSContext *ctx, JSValueConst promise, JSValueConst reason, bool is_handled,
+                                 void *opaque) {
+    if (is_handled) return;
+    const char *str = JS_ToCString(ctx, reason);
+    Log::error("Unhandled rejection: {}", str ? str : "[unknown]");
+    if (str) JS_FreeCString(ctx, str);
+}
+
 QuickJSContext::QuickJSContext() : runtime(QuickJSRuntime::getInstance()), rootView(JS_NULL), needRender(false) {
     context = JS_NewContext(runtime->getPtr());
     JS_SetContextOpaque(context, this);
     setupModuleLoader();    //  注册模块加载器
 
     init_console(context);    // 注册 console.log
+
+    // Promise rejection 跟踪（runtime 级；reload 重建 runtime 后由 reload 内补装）
+    JS_SetHostPromiseRejectionTracker(runtime->getPtr(), &promise_rejection_cb, this);
 
     // 设置渲染回调：当 State 变更时，触发 requestRender
     set_render_callback([this]() { requestRender(); });
@@ -568,14 +586,18 @@ void QuickJSContext::reload() {
         // 先释放 kwikuiModule_ 引用（QuickJS 内部管理的 JSModuleDef*）
         kwikuiModule_ = nullptr;
 
-        if (!JS_IsUndefined(expandedRoot) && !JS_IsNull(expandedRoot)) {
+        // 静态对象 default export：expandedRoot 与 rootView 是同一引用
+        // （结构体拷贝，见析构的别名守卫）——仅函数式导出（调用后产生新
+        // 对象）才各自持有，可分别 Free；别名情形只清指针，双 Free 会
+        // 引用计数下溢
+        if (JS_IsFunction(context, rootView) && !JS_IsUndefined(expandedRoot) && !JS_IsNull(expandedRoot)) {
             JS_FreeValue(context, expandedRoot);
-            expandedRoot = JS_NULL;
         }
+        expandedRoot = JS_NULL;
         if (!JS_IsUndefined(rootView) && !JS_IsNull(rootView)) {
             JS_FreeValue(context, rootView);
-            rootView = JS_NULL;
         }
+        rootView = JS_NULL;
         JS_FreeContext(context);
         context = nullptr;
     }
@@ -588,6 +610,8 @@ void QuickJSContext::reload() {
     JS_SetContextOpaque(context, this);
     setupModuleLoader();
     init_console(context);
+    // runtime 重建后补装 rejection 跟踪（与构造函数同款）
+    JS_SetHostPromiseRejectionTracker(runtime->getPtr(), &promise_rejection_cb, this);
     set_render_callback([this]() { requestRender(); });
 
     rootView = JS_NULL;
