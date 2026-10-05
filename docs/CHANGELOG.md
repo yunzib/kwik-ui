@@ -1,5 +1,31 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-05
+### 修复
+- State.update() 批量回写从未工作（JS_GetOwnPropertyNames 漏
+  JS_GPN_STRING_MASK → 恒 0 条属性，批量写入/逐键增量/全量判定三段
+  全部跳过——textview/slider/ui_demo 的 form.update 全部静默无效）：
+  补组合掩码；同批完成 headless JS 行为锁基建（kwik_js_tests 测试目标：
+  QuickJSContext 脱窗实例化 + register_kwikui_module + 临时模块
+  evalFile），L2 锁 7 断言全命中断言
+- LazyList 数据源原地增长（JS items.push 未经 reconcile）时实测缓存
+  sizes_[idx] 越界写（堆腐蚀）：updateWindow 按 count 补齐（-1 = 走
+  估计值，与 extentAt 语义兼容），配数据源增长行为锁
+- unfittable 超大字形 miss 路径（首次出现）直落 UV 回填，首帧画
+  uvRight>1 的巨型垃圾矩形（A5 只守了缓存命中路径）：回填前补零面积
+  守卫，A5 锁扩展首帧断言
+- js_stop / js_animate 空指针与 ToCString null 守卫：模块顶层（树未建）
+  调 stop 即空指针解引用；Symbol 入参 ToCString 返回 null 构造
+  std::string(nullptr) 为 UB
+- 文本组件输入面归正：TextView Ctrl 快捷键读成 Shift（修饰键位
+  0x02→0x01）；Input/TextArea/TextView 的 Home/End 三处语义颠倒对调；
+  RadioButton 点击已选中项不再取消（radio 语义，原与 RadioGroup 回填
+  打架）；三组件控制字符过滤统一（DEL/C1 区不再进文本成 notdef 豆腐）
+  且被过滤字符消费语义对齐；Button 文案增量更新补 requestLayout（自适应
+  宽度不再陈旧）；State set trap 热路径日志降 debug
+- 门禁：构建零新增警告 + ctest（core_tests 224→233 + 新增 js_tests 7 项）
+  + smoke 38/38 双模式全绿
+
 # 0.0.0 — 2026-10-04
 ### 修复
 - align/borderStyle/gradient 入属性总线（值类型不在 TypedProp，reader 恒

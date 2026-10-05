@@ -132,6 +132,10 @@ void LazyList::updateWindow() {
                                (frame.width - props.padding.horizontal() - headerHeight() - footerHeight());
     const int count = source_ ? source_->itemCount() : 0;
 
+    // 数据源就地增长（JS items.push 未经 reconcile）时补齐实测缓存，
+    // 否则下方 sizes_[idx] 越界写（堆腐蚀）；-1 语义 = 未实测走估计值
+    if ((int)sizes_.size() < count) sizes_.resize(count, -1.0f);
+
     // 无数据 / 无可用空间 → 清窗 + 归零
     if (count <= 0 || avail <= 0) {
         for (auto &c : children) discardRow(static_cast<LazyListRow *>(c.get()));

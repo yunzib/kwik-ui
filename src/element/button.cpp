@@ -127,6 +127,7 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
             text_.text = *s;
             textResult_.reset();    // ← 排版缓存废止，下次 onMeasure/onDraw 惰性重建
             markDirty();
+            requestLayout();    // 文案变更可能改变自适应尺寸——只 markDirty 会尺寸陈旧到下次全量重建
             return true;
         }
         return false;

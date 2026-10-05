@@ -220,9 +220,11 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         if (!focused_) focus();
         return true;
     case DispatchEvent::Type::CharInput: {
-        if (!focused_ || props_.readOnly) return true;
+        // readOnly/被过滤字符返回 false（与 Input 对齐——不消费则沿祖先链传播）
+        if (!focused_ || props_.readOnly) return false;
         uint32_t cp = event.charCode;
-        if (cp < 0x20 && cp != '\n') return true;
+        // 控制字符统一过滤（与 Input 同口径）：DEL 与 C1 区塑形成 notdef
+        if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
         if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (size_t)props_.maxLength) return true;
         insertAtCursor(cp == '\n' ? "\n" : codepointToUtf8(cp));
         cursorVisible_ = true;
@@ -253,8 +255,8 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         case 0x27: moveCursorRight(); break;
         case 0x26: moveCursorUp(); break;
         case 0x28: moveCursorDown(); break;
-        case 0x24: cursorBytePos_ = text_.size(); break;    // End
-        case 0x23: cursorBytePos_ = 0; break;               // Home
+        case 0x24: cursorBytePos_ = 0; break;               // VK_HOME → 行首
+        case 0x23: cursorBytePos_ = text_.size(); break;    // VK_END → 行尾
         }
         cursorVisible_ = true;
         lastBlinkTime_ =

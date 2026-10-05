@@ -488,7 +488,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::KeyAction) {
         if (!focused_) return false;
         auto vk = event.keyCode;
-        bool ctrl = (event.modifiers & 0x02) != 0;
+        bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl / bit1=Shift（win32 侧按此填）
 
         if (ctrl) {
             switch (vk) {
@@ -530,13 +530,13 @@ bool TextView::onEvent(const DispatchEvent &event) {
             case 0x27: moveCursorRight_(); break;
             case 0x26: moveCursorUp_(); break;
             case 0x28: moveCursorDown_(); break;
-            case 0x24:
-                cursorPos_ = plainText_.size();
+            case 0x24:    // VK_HOME → 行首
+                cursorPos_ = 0;
                 selectionStart_ = cursorPos_;
                 break;
-            case 0x23:
-                cursorPos_ = 0;
-                selectionStart_ = 0;
+            case 0x23:    // VK_END → 行尾
+                cursorPos_ = plainText_.size();
+                selectionStart_ = cursorPos_;
                 break;
             default: return false;
             }
@@ -553,6 +553,9 @@ bool TextView::onEvent(const DispatchEvent &event) {
         if (!focused_ || tvp_.readOnly) return false;
         auto cp = event.charCode;
         if (cp == 0) return true;
+        // 控制字符统一过滤（与 Input/TextArea 同口径）：DEL 与 C1 区
+        // 会塑形成 notdef 豆腐；\n 允许（富文本换行）
+        if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
 
         // maxLength 检查
         if (tvp_.maxLength > 0) {

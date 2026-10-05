@@ -46,6 +46,14 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
         }
 
         auto &entry = it->second;
+        // miss 路径新插入的 unfittable 条目（rasterize 后装不下图集）：
+        // 与上方 hit 路径守卫同语义——首帧即零面积，否则此处回填出
+        // uvRight>1 / 数百 px 宽的越界采样矩形
+        if (entry.unfittable) {
+            g.width = 0;
+            g.height = 0;
+            continue;
+        }
         g.pageIndex = static_cast<uint32_t>(entry.pageIndex);
         float atlasSize_f = static_cast<float>(atlasSize);
         // 消除 half-texel，UV 直接映射（与 EUI 一致）

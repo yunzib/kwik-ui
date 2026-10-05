@@ -69,6 +69,18 @@ if(KWIK_BUILD_EXAMPLES)
     target_link_libraries(kwik_unit_tests PRIVATE kwik_element kwik_core kwik_event)
     add_test(NAME core_tests COMMAND kwik_unit_tests)
 
+    # kwik_js_tests — T0-00 headless JS 桥接行为锁：QuickJSContext 脱窗实例化 +
+    # 临时模块文件 evalFile，不需要窗口/根 View。bridge/engine 的依赖为
+    # PRIVATE 链接不下发，测试目标需显式补齐（模块 BMI 传递可达性）。
+    add_executable(kwik_js_tests unit/js_tests.cpp)
+    target_link_libraries(kwik_js_tests PRIVATE
+        kwik_bridge       # State / 绑定层模块
+        kwik_engine       # QuickJSContext / vm_callbacks
+        kwik_element kwik_core kwik_event
+        qjs qjs-libc      # quickjs.h 头与库（engine 亦为 PRIVATE 链接）
+    )
+    add_test(NAME js_tests COMMAND kwik_js_tests)
+
      # vk_smoke — 裸 Vulkan 内存冒烟测试（诊断工具, 不链接 kwik, 仅 Win32）
     if(WIN32)
         add_executable(vk_smoke ${CMAKE_CURRENT_SOURCE_DIR}/vk_smoke.cpp)

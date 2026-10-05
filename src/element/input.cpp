@@ -233,7 +233,8 @@ bool Input::onEvent(const DispatchEvent &event) {
         Log::debug("[Input] CHAR cp={:#x} focused={}", event.charCode, focused_);
         if (!focused_ || input_.readOnly) return false;
         uint32_t cp = event.charCode;
-        if (cp < 0x20 && cp != '\n') return false;
+        // 控制字符统一过滤（DEL 与 C1 区塑形成 notdef 豆腐）；\n 允许（触发提交）
+        if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
         // ── 数字模式: 白名单过滤 ──
         // 仅允许 0-9 / '-' / '.'; '-' 仅首位; '.' 至多一个
         if (input_.isNumber) {
@@ -307,8 +308,8 @@ bool Input::onEvent(const DispatchEvent &event) {
             break;
         case 0x25: moveCursorLeft(); break;     // VK_LEFT
         case 0x27: moveCursorRight(); break;    // VK_RIGHT
-        case 0x24: cursorToEnd(); break;        // VK_END
-        case 0x23: cursorToHome(); break;       // VK_HOME
+        case 0x24: cursorToHome(); break;       // VK_HOME → 行首
+        case 0x23: cursorToEnd(); break;        // VK_END → 行尾
         }
         cursorVisible_ = true;
         lastBlinkTime_ =

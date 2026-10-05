@@ -240,7 +240,7 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
             if (key) {
                 Log::debug("State set_property called   incCb: {}  key: {}", (void *)incCb, key);
                 handled = incCb(JS_VALUE_GET_PTR(obj), key, ctx, value);
-                Log::info("[StateSet] key={} incHandled={}", key, handled);
+                Log::debug("[StateSet] key={} incHandled={}", key, handled);    // 逐键回写属热路径（键盘输入），info 刷屏
                 JS_FreeCString(ctx, key);
             }
         }
@@ -393,7 +393,9 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
     JSValue props = argv[0];
     JSPropertyEnum *tab;
     uint32_t len;
-    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_ENUM_ONLY) != 0) return JS_UNDEFINED;
+    // JS_GPN_STRING_MASK 必须与 ENUM_ONLY 组合：单独 ENUM_ONLY 恒 0 条
+    // （quickjs 按 kind 过滤属性）——同文件 resolveRefProp :140 有正确写法对照
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return JS_UNDEFINED;
 
     // ── 阶段 ①：批量写入 JS 数据层 ──
     for (uint32_t i = 0; i < len; ++i) {
@@ -546,7 +548,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         for (uint32_t i = 0; i < arrLen; ++i) {
             JSValue elem = JS_GetPropertyUint32(ctx, argv[0], i);
             const char *id = JS_ToCString(ctx, elem);
-            View *v = root ? root->findById(id) : nullptr;
+            View *v = (id && root) ? root->findById(id) : nullptr;    // Symbol 等无法转字符串时 ToCString 返回 null
             JS_FreeCString(ctx, id);
             JS_FreeValue(ctx, elem);
             if (v) targets.push_back(v);
@@ -555,7 +557,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     } else {
         // 字符串形式：'id'
         const char *id = JS_ToCString(ctx, argv[0]);
-        View *v = root ? root->findById(id) : nullptr;
+        View *v = (id && root) ? root->findById(id) : nullptr;    // Symbol 等无法转字符串时 ToCString 返回 null
         JS_FreeCString(ctx, id);
         if (!v) { return JS_ThrowTypeError(ctx, "animate: 未找到目标组件"); }
         targets.push_back(v);
@@ -881,12 +883,19 @@ static JSValue js_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     if (argc < 1) return JS_ThrowTypeError(ctx, "stop: 至少需要 target 参数");
 
     auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
-    View *root = static_cast<View *>(qctx->getUserPointer());
+    // 模块顶层（树未建）调用 stop：与 js_animate/js_isAnimating 同守卫
+    View *root = qctx ? static_cast<View *>(qctx->getUserPointer()) : nullptr;
+    if (!root) return JS_UNDEFINED;
     auto *engine = static_cast<AnimationEngine *>(root->treeService(View::kSvcAnimEngine));
 
     const char *id = JS_ToCString(ctx, argv[0]);
+    if (!id) return JS_ThrowTypeError(ctx, "stop: target 无法转为字符串");    // Symbol 等挂异常时 ToCString 返回 null
     if (argc >= 2) {
         const char *prop = JS_ToCString(ctx, argv[1]);
+        if (!prop) {
+            JS_FreeCString(ctx, id);
+            return JS_ThrowTypeError(ctx, "stop: prop 无法转为字符串");
+        }
         PropId pid = propIdFromName(prop);
         JS_FreeCString(ctx, prop);
         engine->stopByViewAndProp(id, pid);

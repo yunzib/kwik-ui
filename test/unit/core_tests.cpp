@@ -17,6 +17,10 @@ import kwik.render.text.font.manager;
 import kwik.render.text.cache;
 import kwik.element.view;
 import kwik.element.text;
+import kwik.element.lazy_list;
+import kwik.element.lazy_list_source;
+import kwik.element.input;
+import kwik.element.radiobutton;
 import kwik.event;
 
 import std;
@@ -60,8 +64,8 @@ static void test_prop_meta_consistency() {
 
     // ② 布局属性行为锁：Layout 标志必须恰好钉在这 14 个属性上
     //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线；
-    //    B2b 增 flex 三项——FlexLayout 直接消费其值；B2c 增 align——
-    //    定位门 align≠Default 脱流，布局语义）
+    //    flexGrow/flexShrink/flexBasis 由 FlexLayout 直接消费，align 参与
+    //    定位门 align≠Default 脱流——均为布局语义）
     const char *kLayoutNames[] = {"width", "height", "padding", "margin",
                                   "x", "y", "absTop", "absLeft", "absRight", "absBottom",
                                   "flexGrow", "flexShrink", "flexBasis", "align"};
@@ -167,7 +171,7 @@ static void test_surrogate_recombine() {
     CHECK(out.size() == 1 && out[0].charCode == 'B');
 }
 
-// ── 行为锁: FocusManager 遍历中追加焦点事件（A1 UB 修复的回归防线）──
+// ── 行为锁: FocusManager 遍历中追加焦点事件 ──
 // 扩容致迭代器悬空本身无法在纯逻辑测试中断言（无 ASan），本锁钉住修复
 // 后的派发语义：原始事件不动、焦点事件全按序落在队尾、先 blur 后 focus
 namespace {
@@ -233,7 +237,7 @@ static void test_focus_process_append() {
     CHECK(events[15].presetTarget == &inputA && events[16].presetTarget == &inputB);
 }
 
-// ── 行为锁: 属性总线写 x/y 必须置显式定位标志（A2 修复回归防线）──
+// ── 行为锁: 属性总线写 x/y 必须置显式定位标志 ──
 // 布局定位门（view.cpp:194 / stack_layout.cpp:65）只认 hasExplicitX/Y
 // 标志、不认坐标值；parse 期写 x/y 即置位（props_parser.cpp:252/256），
 // 总线 writer 原先只写坐标不置标志 → setProp("x")/绑定/动画对未声明过
@@ -253,7 +257,7 @@ static void test_xy_writer_sets_explicit_flag() {
     CHECK(q.hasExplicitY);
 }
 
-// ── 行为锁: TextureManager 按域隔离销毁（A3 多窗跨域销毁修复回归防线）──
+// ── 行为锁: TextureManager 按域隔离销毁（多窗跨域销毁回归防线）──
 // 原 destroyAll 遍历全部域：任一窗口 teardown 即静默销毁他树活跃纹理
 // （别窗丢图），且 domains_ 裸指针键永不摘除（后关闭的树遍历悬空键域）。
 // 锁住域隔离 + 摘键 + 未注册域防御三项语义。
@@ -329,7 +333,7 @@ static void test_texture_manager_domain_isolation() {
     CHECK(backendC.destroyed.empty());
 }
 
-// ── 行为锁: 超大字形不触发图集整页淘汰风暴（A5 修复回归防线）──
+// ── 行为锁: 超大字形不触发图集整页淘汰风暴 ──
 // packedW/H > kAtlasSize(512) 的字形永远装不进图集：原实现每帧新建页直至
 // 打满、之后每帧 LRU 整页淘汰——同页正常字形被反复作废重栅格化重上传，
 // consumeUploads 每帧都有新任务即风暴签名。锁住：修复后仅首帧一次上传，
@@ -360,6 +364,11 @@ static void test_text_cache_unfittable_glyph_no_storm() {
     auto jobs1 = cache.consumeUploads();
     CHECK(jobs1.size() == 1);
 
+    // miss 路径（本帧首次 rasterize+insert）的 unfittable 字形首帧必须
+    // 零面积——UV 回填若无守卫会画出 uvRight>1 的巨型垃圾矩形
+    CHECK(result.glyphs[1].width == 0 && result.glyphs[1].height == 0);
+    CHECK(result.glyphs[1].uvRight == 0.0f && result.glyphs[1].uvLeft == 0.0f);
+
     // 帧 2（原风暴场景）：正常字形不重上传，超大字形零动作
     cache.ensureGlyphs(result);
     CHECK(cache.consumeUploads().empty());
@@ -369,7 +378,7 @@ static void test_text_cache_unfittable_glyph_no_storm() {
     CHECK(cache.consumeUploads().empty());
 }
 
-// ── 行为锁: 动画帧路由与 shadow 总线写入（B1 修复回归防线）──
+// ── 行为锁: 动画帧路由与 shadow 总线写入 ──
 // ① textColor/fontSize 属 TextContent 不在 ViewProps，PropMeta writer 空
 //    桩 → 基类动画帧路径静默无效；Text::applyAnimationFrame 覆写后帧值
 //    必须真实落到组件字段。② shadow writer 原为空桩 → setProperty('shadow')
@@ -388,7 +397,7 @@ static void test_animation_frame_and_shadow_write() {
     CHECK(t.text_.fontSize == 30.0f);
 }
 
-// ── 行为锁: widthPct 压制修复 + 位置短名入总线（B2a 回归防线）──
+// ── 行为锁: widthPct 压制 + 位置短名入总线 ──
 // ① resolveEffectiveSize 中 widthPct 无条件压过 width（注释却写"px 优先"，
 //    代码相反）——px 写入不清 pct 则运行期 setProp("width") 被 parse 期
 //    遗留值静默覆盖。② parse 期认 top/left/right/bottom 短名（→abs*），
@@ -404,16 +413,16 @@ static void test_b2_width_pct_and_aliases() {
     getPropMeta(PropId::height).writer(hp, TypedProp{200.0});
     CHECK(hp.height == 200.0f && !hp.heightPct.has_value());
 
-    // ② 四个位置短名总线反查（与 parse 期映射同目标；flex 待 B2b 建
-    //    flexGrow 条目后一并登记）
+    // ② 四个位置短名总线反查（与 parse 期映射同目标；flex 别名→flexGrow
+    //    亦在总线）
     CHECK(propIdFromName("top") == PropId::absTop);
     CHECK(propIdFromName("left") == PropId::absLeft);
     CHECK(propIdFromName("right") == PropId::absRight);
     CHECK(propIdFromName("bottom") == PropId::absBottom);
 }
 
-// ── 行为锁: 数字类缺条目入总线（B2b 回归防线）──
-// flexGrow/flexShrink/flexBasis/transitionDuration 原无 PropId 条目，JS 声明
+// ── 行为锁: 数字类条目入总线 ──
+// flexGrow/flexShrink/flexBasis/transitionDuration 若缺 PropId 条目，JS 声明
 // 有效（parse 直填字段）但运行期 setProp/绑定/动画查表落空静默无效。
 // 锁住：flex 别名反查 + 四条目写入落字段（消费方：FlexLayout/binding_
 // registry）。rowGap/columnGap 在 ContainerProps（容器私有）——PropMeta
@@ -429,10 +438,10 @@ static void test_b2b_numeric_entries() {
     CHECK(p.transitionDuration == 0.3f);
 }
 
-// ── 行为锁: 字符串枚举/装饰入总线（B2c 回归防线）+ shadow 总线路径收口 ──
+// ── 行为锁: 字符串枚举/装饰入总线 + shadow 总线路径收口 ──
 // align/borderStyle/gradient 值类型不在 TypedProp 内：reader 恒 monostate，
 // 基类字符串转换链原在 monostate 分支直接 return false（到不了 writer）——
-// 现改为原样透传给 writer 自解析。shadow 同路径（B1 行为锁只验了 writer
+// 现改为原样透传给 writer 自解析。shadow 同路径（既有锁只验了 writer
 // 直调，本锁补总线端到端）。
 static void test_b2c_string_enum_entries() {
     View v;
@@ -443,10 +452,98 @@ static void test_b2c_string_enum_entries() {
     CHECK(v.setProperty("gradient", "linear 90 #ff0000 #0000ff"));
     CHECK(v.props.gradient.has_value() && v.props.gradient->type == GradientType::Linear);
 
-    // shadow 经总线字符串形态写入（B1 writer 直调锁的端到端补全）
+    // shadow 经总线字符串形态写入（writer 直调锁的端到端补全）
     View s;
     CHECK(s.setProperty("shadow", "0 6px 18px rgba(0,0,0,0.5)"));
     CHECK(s.props.shadow.has_value() && s.props.shadow->blurRadius == 18.0f);
+}
+
+// ── 行为锁: LazyList 数据源原地增长 ──
+// JS 侧 items.push 未经 reconcile 时 count > sizes_.size()，updateWindow
+// 若不按 count 补齐，下方行实测写 sizes_[idx] 即越界（堆腐蚀，ASAN 可见）；
+// 补齐值 -1 = 未实测走估计值，与 extentAt 语义兼容。
+class StubListSource : public LazyListSource {
+public:
+    int items = 5;
+    int itemCount() const override { return items; }
+    std::unique_ptr<View> buildItem(int) override {
+        auto v = std::make_unique<View>();
+        v->props.height = 20.0f;    // 每行实测高 20（可变模式写 sizes_）
+        return v;
+    }
+    void discardItem(int, View *) override {}
+};
+
+static void test_lazy_list_sizes_growth() {
+    LazyList list{ViewProps{}, ScrollViewProps{}, LazyListProps{}};
+    auto src = std::make_unique<StubListSource>();
+    StubListSource *raw = src.get();
+    list.setDataSource(std::move(src));
+    list.layout(Rect{0, 0, 300, 400});
+    CHECK((int)list.children.size() == 5);    // 5 行 × 20 高全部入窗
+
+    raw->items = 8;    // 原地增长（模拟 JS items.push，不经 rebuildAll）
+    // 高度变化强制 moved → onLayout → updateWindow（窗口 resize 的真实
+    // 路径；updateWindow 私有，借 resize 驱动窗口重建）
+    list.layout(Rect{0, 0, 300, 401});
+    CHECK((int)list.children.size() == 8);    // 窗口扩到新 count，不崩不空洞
+}
+
+// ── 行为锁: RadioButton radio 语义 ──
+// 点击已选中项必须保持选中：取消会致组内全空，且与 RadioGroup::selected
+// 回填互相打架。
+static void test_radiobutton_no_untoggle() {
+    RadioButton rb;
+    int fires = 0;
+    bool last = false;
+    rb.handlers.onChange = [&](ChangeArgs a) {
+        ++fires;
+        last = std::get<bool>(a.value);
+    };
+    DispatchEvent tap;
+    tap.type = DispatchEvent::Type::Tap;
+    View &vb = rb;    // onEvent 在组件层为 protected，经基类接口分发（与事件系统同路径）
+    vb.onEvent(tap);
+    CHECK(fires == 1 && last == true);    // 首次点选：checked=true
+    vb.onEvent(tap);
+    CHECK(fires == 1);                    // 已选中再点：不取消、不触发
+}
+
+// ── 行为锁: Input 控制字符过滤 + Home/End 语义 ──
+static void test_input_control_chars_and_home_end() {
+    Input in;
+    int fires = 0;
+    std::string last;
+    in.handlers.onChange = [&](ChangeArgs a) {
+        ++fires;
+        if (auto *s = std::get_if<std::string>(&a.value)) last = *s;
+    };
+    DispatchEvent tap;
+    tap.type = DispatchEvent::Type::Tap;
+    View &vb = in;
+    vb.onEvent(tap);    // → focus()
+
+    DispatchEvent ch;
+    ch.type = DispatchEvent::Type::CharInput;
+    ch.charCode = 0x7F;
+    vb.onEvent(ch);    // DEL：过滤
+    ch.charCode = 0x01;
+    vb.onEvent(ch);    // C0 控制符：过滤
+    CHECK(fires == 0);    // 被过滤字符不插入不触发
+
+    ch.charCode = 'a';
+    vb.onEvent(ch);
+    ch.charCode = 'b';
+    vb.onEvent(ch);
+    CHECK(fires == 2 && last == "ab");
+
+    DispatchEvent key;
+    key.type = DispatchEvent::Type::KeyAction;
+    key.keyCode = 0x24;    // VK_HOME → 行首
+    vb.onEvent(key);
+    ch.charCode = 'X';
+    vb.onEvent(ch);
+    CHECK(fires == 3 && last == "Xab");    // Home 后插入落在行首
 }
 
 int main() {
@@ -462,6 +559,9 @@ int main() {
     test_b2_width_pct_and_aliases();
     test_b2b_numeric_entries();
     test_b2c_string_enum_entries();
+    test_lazy_list_sizes_growth();
+    test_radiobutton_no_untoggle();
+    test_input_control_chars_and_home_end();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

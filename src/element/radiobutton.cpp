@@ -77,11 +77,14 @@ void RadioButton::setChecked(bool val) {
 // ============================================================================
 bool RadioButton::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
-        bool was = radio_.checked;
-        setChecked(!radio_.checked);
-        // 状态确实变化才触发, JS 侧收到 { checked: bool }
-        if (radio_.checked != was && handlers.onChange) {
-            handlers.onChange(ChangeArgs{TypedProp{radio_.checked}});
+        // radio 语义：点击已选中项保持选中（不可取消——否则组内全空，
+        // 且与 RadioGroup::selected 回填互相打架）
+        if (!radio_.checked) {
+            setChecked(true);
+            // JS 侧收到 { checked: bool }（此时必为 true）
+            if (handlers.onChange) {
+                handlers.onChange(ChangeArgs{TypedProp{radio_.checked}});
+            }
         }
     }
     return View::onEvent(event);
