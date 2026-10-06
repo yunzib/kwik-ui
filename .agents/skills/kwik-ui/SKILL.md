@@ -132,7 +132,10 @@ compatibility: opencode
 4. 视觉相关改动：`cd build/test && ./example.exe <demo>` 目视复验
    （glass/car/animation 等，JS 示例在 test/ui/*.js）
 - 文档纪律：完成任务勾选 docs/当前优化任务清单.md 对应项（含完成日期与
-  定案理由），docs/CHANGELOG.md 顶部加条目
+  定案理由），docs/CHANGELOG.md 顶部加条目。CHANGELOG 只写做了什么：
+  ### 修复 下每项一行（问题：改动），按现有条目风格；不写测试/复现锁/
+  门禁过程内容。CHANGELOG 与提交日志均不引用任务清单内容（T0/§/批次号
+  等——任务清单是内部台账，日志只面向改动本身）
 
 ## 已知框架缺陷
 ### ensureGlyphs 崩溃

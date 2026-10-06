@@ -94,6 +94,10 @@ public:
     /** @brief 诊断/测试访问器 */
     size_t cmdCount() const { return commands_.size(); }
     size_t subtreeCount() const { return subtrees_.size(); }
+    const std::vector<DrawCommand> &commands() const { return commands_; }    ///< 只读命令流（行为锁断言绘制产物用）
+    const std::vector<std::pair<size_t, std::shared_ptr<const DisplayList>>> &subtrees() const {
+        return subtrees_;
+    }    ///< 只读子树访问器（递归检查行命令坐标用）
 
 private:
     std::vector<DrawCommand> commands_;     ///< 叶子命令流（16 种，无嵌套）

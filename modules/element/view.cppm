@@ -208,6 +208,10 @@ public:
      */
     virtual void draw(Graphics &graphics);
 
+    /** @brief 布局相最近一次测量约束——容器 onLayout 与测量同源换算用
+     *         （如 FlexLayout 行主轴容量从该约束重算，消除量行/排行分叉） */
+    const Constraints &lastLayoutConstraints() const { return lastLayoutC_; }
+
     // ==================== 子控件管理 ====================
     /**
      * @brief 获取父节点指针

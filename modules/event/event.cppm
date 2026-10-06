@@ -225,8 +225,10 @@ public:
      * @brief 应用滚动
      * @param dx 水平偏移量
      * @param dy 垂直偏移量
+     * @return 是否完整消费（位移未被边界 clamp 打折）——false 时事件链
+     *         沿可滚祖先继续（嵌套滚动到边界的传递语义）
      */
-    virtual void applyScroll(float dx, float dy) {}
+    virtual bool applyScroll(float dx, float dy) { return false; }
 };
 
 // ============================================================================

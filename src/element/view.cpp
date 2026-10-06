@@ -114,6 +114,9 @@ Size View::onMeasure(Constraints constraints) {
         float totalChildHeight = 0;
         float maxExplicitBottom = 0;    // 显式 y 定位子节点的下边界包络
         for (auto &child : children) {
+            // 隐藏子级不测不占位（与 onLayout 跳过镜像；visible 现带
+            // Layout 标志，显隐切换会触发重排）
+            if (!child->props.visible) continue;
             Size childSize = child->measure(childConstraints);
             float cw = childSize.width + child->props.margin.horizontal();
             float ch = childSize.height + child->props.margin.vertical();
@@ -122,9 +125,12 @@ Size View::onMeasure(Constraints constraints) {
             float extentW = child->props.hasExplicitX ? child->props.x + cw : cw;
             maxChildWidth = std::max(maxChildWidth, extentW);
 
-            // 显式 y：脱离纵向流（与 onLayout 的 yCursor 跳过逻辑对齐），取 y+高 包络
+            // 脱流判定与 onLayout 镜像（align 定位 / 显式 x / 显式 y 均脱流）：
+            // 显式 y 取 y+高 包络，其余定位子级不贡献纵向测高
             if (child->props.hasExplicitY) {
                 maxExplicitBottom = std::max(maxExplicitBottom, child->props.y + ch);
+            } else if (child->props.align != Align::Default || child->props.hasExplicitX) {
+                // 定位子级：不占流（onLayout 同判据走 applyChildAlign）
             } else {
                 totalChildHeight += ch;
             }
@@ -187,6 +193,8 @@ void View::onLayout() {
     float contentH = frame.height - props.padding.vertical();
     float yCursor = contentY;
     for (auto &child : children) {
+        // 隐藏子级不布局不占位（与 onMeasure 跳过镜像）
+        if (!child->props.visible) continue;
         Size childSize = child->measure(Constraints::loose(Size{contentW, contentH}));
         float cw = childSize.width + child->props.margin.horizontal();
         float ch = childSize.height + child->props.margin.vertical();

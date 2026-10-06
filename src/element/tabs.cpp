@@ -127,6 +127,15 @@ void Tabs::onLayout() {
         Rect childFrame = {frame.x, contentAreaY_, contentW, contentH};
         children[idx]->layout(childFrame);
     }
+    // 非选中面板 frame 归零：切换后旧面板若保留旧 frame，基类 hitTest
+    // 仍会命中（隐形面板吃点击/聚焦）
+    for (int i = 0; i < static_cast<int>(children.size()); ++i) {
+        if (i == idx) continue;
+        auto &c = children[i];
+        if (c->frame.width != 0 || c->frame.height != 0 || c->frame.x != 0 || c->frame.y != 0) {
+            c->layout(Rect{0, 0, 0, 0});
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -312,6 +321,14 @@ void Tabs::setSelectedIndex(int index) {
         Constraints childC = {0, contentW, 0, contentH};
         children[index]->measure(childC);
         children[index]->layout({frame.x, contentAreaY_, contentW, contentH});
+    }
+    // 非选中面板 frame 归零（与 onLayout 同理：旧面板保留 frame 会吃点击）
+    for (int i = 0; i < static_cast<int>(children.size()); ++i) {
+        if (i == index) continue;
+        auto &c = children[i];
+        if (c->frame.width != 0 || c->frame.height != 0 || c->frame.x != 0 || c->frame.y != 0) {
+            c->layout(Rect{0, 0, 0, 0});
+        }
     }
 
     markDirty();

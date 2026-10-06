@@ -289,21 +289,32 @@ bool ScrollView::onEvent(const DispatchEvent &event) {
 
 // ============================================================================
 // applyScroll — 滚轮滚动（EventDispatcher 阶段②调用，单次应用，不消费 onEvent）
+// 返回是否完整消费：clamp 后位移未被边界打折为 true；到边界返回 false，
+// 事件链交祖先继续（嵌套滚动到边界的最小修复）
 // ============================================================================
-void ScrollView::applyScroll(float dx, float dy) {
+bool ScrollView::applyScroll(float dx, float dy) {
+    const float oldX = scrollOffset_.x, oldY = scrollOffset_.y;
+    float usedX = 0, usedY = 0;    // 期望位移（含步长因子）
     switch (sp_.direction) {
     case ScrollDirection::Horizontal:
         // 单轴横向：优先 dx；win32 无水平滚轮（dx 恒 0）→ 回退 dy，对齐 ListLayout
-        setScroll(scrollOffset_.x + (dx != 0 ? dx : dy) * -sp_.scrollStep, scrollOffset_.y);
+        usedX = (dx != 0 ? dx : dy) * -sp_.scrollStep;
+        setScroll(scrollOffset_.x + usedX, scrollOffset_.y);
         break;
     case ScrollDirection::Both:
         // 双轴：dx→X、dy→Y 各自独立应用
-        setScroll(scrollOffset_.x + dx * -sp_.scrollStep, scrollOffset_.y + dy * -sp_.scrollStep);
+        usedX = dx * -sp_.scrollStep;
+        usedY = dy * -sp_.scrollStep;
+        setScroll(scrollOffset_.x + usedX, scrollOffset_.y + usedY);
         break;
     default:    // Vertical
-        setScroll(scrollOffset_.x, scrollOffset_.y + (dy != 0 ? dy : dx) * -sp_.scrollStep);
+        usedY = (dy != 0 ? dy : dx) * -sp_.scrollStep;
+        setScroll(scrollOffset_.x, scrollOffset_.y + usedY);
         break;
     }
+    const bool consumedX = std::abs(scrollOffset_.x - oldX) >= std::abs(usedX) - 0.5f;
+    const bool consumedY = std::abs(scrollOffset_.y - oldY) >= std::abs(usedY) - 0.5f;
+    return consumedX && consumedY;
 }
 
 // ============================================================================

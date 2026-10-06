@@ -425,20 +425,17 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
     }
 
     // ── 阶段②: 滚轮事件 ──
-    // hitTest + fireOnTarget + parent scrollable→applyScroll
+    // hitTest + fireOnTarget + 滚动链：目标自身可滚则先消费；未完整消费
+    // （到边界）沿祖先链继续——修复嵌套滚动内层到界外层死区
     if (event.type == DispatchEvent::Type::Scroll) {
         EventTarget *target = root->hitTest(Point{event.globalX, event.globalY});
         if (!target) return false;
 
         fireOnTarget(target, event);
 
-        // 沿 parent 链查找可滚动的祖先并应用滚动
-        target->applyScroll(event.scrollX, event.scrollY);
-        for (EventTarget *v = target->parent(); v; v = v->parent()) {
-            if (v->scrollable()) {
-                v->applyScroll(event.scrollX, event.scrollY);
-                break;
-            }
+        for (EventTarget *v = target; v; v = v->parent()) {
+            if (!v->scrollable()) continue;
+            if (v->applyScroll(event.scrollX, event.scrollY)) break;    // 完整消费 → 停链
         }
         return true;
     }

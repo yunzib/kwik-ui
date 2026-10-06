@@ -87,8 +87,12 @@ public:
 
     // ── EventTarget 接口 ──
     bool scrollable() const override { return true; }
-    /// 滚轮入口（EventDispatcher 阶段② hitTest→applyScroll 单次调用，镜像 ScrollView）
-    void applyScroll(float dx, float dy) override;
+    /// 滚轮入口（EventDispatcher 阶段② hitTest→applyScroll，返回是否完整消费）
+    bool applyScroll(float dx, float dy) override;
+    /// scrollX/scrollY 命令式通路（定位/贴底/动画；原实现 JS 无法滚动列表）
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
+    /// 滚动到指定数据行（行首对齐；clamp 到滚动范围）
+    void scrollToIndex(int index);
 
 protected:
     Size onMeasure(Constraints constraints) override;

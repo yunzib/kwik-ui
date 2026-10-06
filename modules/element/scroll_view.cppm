@@ -60,8 +60,8 @@ public:
     // ── EventTarget 接口 ──
     bool scrollable() const override { return true; }
 
-    /// @brief 滚轮/触摸滚动入口（EventDispatcher 阶段②调用，单次应用）
-    void applyScroll(float dx, float dy) override;
+    /// @brief 滚轮/触摸滚动入口（返回是否完整消费——到边界由祖先链继续）
+    bool applyScroll(float dx, float dy) override;
 
     // ── 属性读写（getProp/setProp 支持 scrollX/scrollY/direction）──
     std::string getProperty(const char *name) const override;

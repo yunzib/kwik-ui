@@ -6,6 +6,7 @@
 import kwik.core.types;
 import kwik.core.prop_meta;
 import kwik.core.props;
+import kwik.core.constraints;
 import kwik.core.path;    // AAVertex / SweepGrad（fillTriangles 桩签名需要）
 import kwik.animation.engine;
 import kwik.render.command;
@@ -21,7 +22,12 @@ import kwik.element.lazy_list;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.radiobutton;
+import kwik.element.tabs;
+import kwik.layout.grid_layout;
+import kwik.layout.list_layout;
+import kwik.layout.flex_layout;
 import kwik.event;
+import kwik.render.graphics;
 
 import std;
 
@@ -68,7 +74,7 @@ static void test_prop_meta_consistency() {
     //    定位门 align≠Default 脱流——均为布局语义）
     const char *kLayoutNames[] = {"width", "height", "padding", "margin",
                                   "x", "y", "absTop", "absLeft", "absRight", "absBottom",
-                                  "flexGrow", "flexShrink", "flexBasis", "align"};
+                                  "flexGrow", "flexShrink", "flexBasis", "align", "visible"};
     for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
         auto id = static_cast<PropId>(pi);
         bool isLayout = getPropMeta(id).flags & PropFlags::Layout;
@@ -489,6 +495,252 @@ static void test_lazy_list_sizes_growth() {
     CHECK((int)list.children.size() == 8);    // 窗口扩到新 count，不崩不空洞
 }
 
+// ── 行为锁: visible 显隐触发重排（C3 修复回归防线）──
+// 隐藏子级不占流式测高（自适应父 100→50），且不再被 hitTest 命中；
+// visible 现带 Layout 标志，setPropertyTyped 即触发 requestLayout。
+static void test_c3_visible_relayout() {
+    View parent;
+    auto c1 = std::make_unique<View>();
+    c1->props.height = 50;
+    auto c2 = std::make_unique<View>();
+    c2->props.height = 50;
+    View *c2p = c2.get();
+    parent.addChild(std::move(c1));
+    parent.addChild(std::move(c2));
+
+    Constraints loose = Constraints::loose(Size{300, Constraints::INF});
+    Size s = parent.measure(loose);
+    CHECK(s.height == 100);
+    parent.layout(Rect{0, 0, 300, 100});
+    EventTarget *hit = parent.hitTest(Point{150, 75});
+    CHECK(hit == c2p);    // 初始：第二子级可命中
+
+    CHECK(c2p->setPropertyTyped("visible", TypedProp{false}));
+    s = parent.measure(loose);
+    CHECK(s.height == 50);                       // 隐藏子级不占流式测高
+    parent.layout(Rect{0, 0, 300, 50});
+    hit = parent.hitTest(Point{150, 75});
+    CHECK(hit == nullptr);                       // 隐藏子级不可命中
+}
+
+// ── 行为锁: 定位子级不贡献自适应测高（C1 measure/layout 脱流镜像）──
+// align 定位子级在 onLayout 走 applyChildAlign 不占纵向流——测量端必须
+// 同判据（原实现计入 totalChildHeight → 自适应父测高偏大、底部空洞）。
+static void test_c1_align_measure_mirror() {
+    View parent;
+    auto c = std::make_unique<View>();
+    c->props.height = 50;
+    c->props.align = Align::Center;
+    parent.addChild(std::move(c));
+
+    Constraints loose = Constraints::loose(Size{300, Constraints::INF});
+    Size s = parent.measure(loose);
+    CHECK(s.height == 0);    // 自适应：定位子级不计高
+
+    // 显式高度父：居中定位语义不变（onLayout applyChildAlign 按父高居中）
+    View parent2;
+    auto c2 = std::make_unique<View>();
+    c2->props.height = 50;
+    c2->props.align = Align::Center;
+    View *cp2 = c2.get();
+    parent2.addChild(std::move(c2));
+    parent2.props.height = 200;
+    parent2.layout(Rect{0, 0, 300, 200});
+    CHECK(cp2->frame.y == 75 && cp2->frame.height == 50);
+}
+
+// ── 行为锁: Grid 测量子级 + 显式高度优先（C4 修复回归防线）──
+// 自适应（无界父）测高 = 行高包络（原实现直接取 INF → 滚动范围无限）；
+// 显式 px 高度绝不被内容高顶掉（10-02 退回项的"改写 h"不复活）。
+static void test_c4_grid_measure_children() {
+    ContainerProps cp;
+    cp.gridRows = 2;
+    GridLayout g1{ViewProps{}, cp};
+    auto a = std::make_unique<View>();
+    a->props.height = 30;
+    a->props.gridRow = 0;
+    auto b = std::make_unique<View>();
+    b->props.height = 50;
+    b->props.gridRow = 1;
+    g1.addChild(std::move(a));
+    g1.addChild(std::move(b));
+    Size s = g1.measure(Constraints::loose(Size{300, Constraints::INF}));
+    CHECK(s.height == 80);    // 行高包络 30+50（原实现 INF）
+    CHECK(s.width == 300);    // 宽度自适应维持约束
+
+    ViewProps vp;
+    vp.height = 200;
+    GridLayout g2{vp, cp};
+    auto c = std::make_unique<View>();
+    c->props.height = 30;
+    g2.addChild(std::move(c));
+    s = g2.measure(Constraints::loose(Size{300, Constraints::INF}));
+    CHECK(s.height == 200);    // 显式高度优先
+}
+
+// ── 行为锁: ListLayout 滚动命中换算 + 滚动边界感知（④b 修复回归防线）──
+// ① 滚动后 hitTest 命中点转内容坐标（原实现缺失 → 偏移一个 scrollOffset）；
+// ② scrollX/scrollY 命令式通路；③ applyScroll 到边界返回 false（嵌套
+// 滚动传递的前置语义）。
+static void test_4b_list_hittest_and_boundary() {
+    ListLayout list{ViewProps{}, ContainerProps{}};
+    for (int i = 0; i < 3; ++i) {
+        auto c = std::make_unique<View>();
+        c->props.height = 100;
+        list.addChild(std::move(c));
+    }
+    list.layout(Rect{0, 0, 300, 150});
+    View *mid = list.children[1].get();
+
+    CHECK(list.setPropertyTyped("scrollY", TypedProp{100.0}));    // 命令式通路
+    EventTarget *hit = list.hitTest(Point{150, 50});
+    CHECK(hit == mid);    // 滚动 100 后命中的是内容系 y=150 的第二行
+
+    CHECK(list.setPropertyTyped("scrollY", TypedProp{40.0}));
+    CHECK(list.applyScroll(0, -1) == true);      // 中间位置：完整消费
+    CHECK(list.setPropertyTyped("scrollY", TypedProp{150.0}));    // 滚到底
+    CHECK(list.applyScroll(0, 30) == false);     // 下边界：未完整消费
+}
+
+// ── 复现锁: list demo 滚动到内容末端后列表项消失（用户真机报告）──
+// 结构镜像 PLAYLIST（7 行 × 52 高、margin.bottom 4、视口 290），行内含孙级
+// 探针（封面/文字的替身——真机上消失的正是行的孙级内容：干净孙级挂构建期
+// 旧快照 → 回放被伤害带剔除/被行裁剪切掉）。连续滚轮走真实
+// EventDispatcher::dispatch 往返全程，每步绘制断言：
+// ① 可视行被列表实际绘制（行级 = 叶子命令层，修复前本就通过）；
+// ② 可视行的孙级探针当帧被重编（子树引用层——onDraw 不被调用即挂了旧快照）。
+class ProbeRow : public View {
+public:
+    int draws = 0;
+    void onDraw(Graphics &g) override {
+        ++draws;
+        View::onDraw(g);
+    }
+};
+
+// 孙级探针：带可识别背景色（复合清单中按 color.r==50 检索），计数 onDraw
+class ProbeLeaf : public View {
+public:
+    int draws = 0;
+    void onDraw(Graphics &g) override {
+        ++draws;
+        View::onDraw(g);
+    }
+};
+
+static void test_4b_playlist_scroll_to_end() {
+    // 页面包裹（镜像真实 demo：Root → View 页面 → 列表）——命中/事件/绘制
+    // 都从页面根起走
+    View page{ViewProps{}};
+    auto listPtr = std::make_unique<ListLayout>(ViewProps{}, ContainerProps{});
+    ListLayout *list = listPtr.get();
+    list->props.height = 290;
+    std::vector<ProbeRow *> rows;
+    std::vector<ProbeLeaf *> leaves;
+    for (int i = 0; i < 7; ++i) {
+        auto row = std::make_unique<ProbeRow>();
+        row->props.height = 52;
+        row->props.margin.bottom = 4;
+        row->props.background = Color{200, 100, 50, 255};    // 行背景（行级检索用）
+        auto leaf = std::make_unique<ProbeLeaf>();
+        leaf->props.width = 40;
+        leaf->props.height = 20;
+        leaf->props.background = Color{50, 150, 200, 255};   // 孙级背景（子树引用检索用）
+        leaves.push_back(leaf.get());
+        row->addChild(std::move(leaf));
+        rows.push_back(row.get());
+        list->addChild(std::move(row));
+    }
+    page.addChild(std::move(listPtr));
+    page.layout(Rect{0, 0, 350, 290});
+
+    EventDispatcher dispatcher;
+
+    // 复合清单检索：递归收集全部圆角矩形填充命令（含子树引用展开）
+    std::function<void(const DisplayList &, std::vector<const FillRoundedRectCmd *> &)>
+        collectBg = [&](const DisplayList &l, std::vector<const FillRoundedRectCmd *> &out) {
+            for (const auto &cmd : l.commands()) {
+                if (auto *rr = std::get_if<FillRoundedRectCmd>(&cmd)) out.push_back(rr);
+            }
+            for (auto &[pos, child] : l.subtrees()) {
+                if (child) collectBg(*child, out);
+            }
+        };
+
+    // 子树引用层断言：孙级背景命令必须携带当前滚动矩阵（烘焙 t.m12 = -offset）。
+    // 命令 rect 恒为未滚动逻辑系，滚动位移只活在矩阵里——干净挂旧快照时矩阵
+    // 停在最后一次编码的 offset → 此断言失败（修复前红）
+    auto verify_leaf_matrices = [&](int step) {
+        DisplayList dl;
+        Graphics g;
+        g.beginFrame();
+        g.pushSink(&dl);
+        page.draw(g);
+        g.popSink();
+        g.endFrame();
+        std::vector<const FillRoundedRectCmd *> bgCmds;
+        collectBg(dl, bgCmds);
+        size_t leafHits = 0;
+        for (const auto *cmd : bgCmds) {
+            if (cmd->color.r != 50) continue;    // 只看孙级探针背景
+            ++leafHits;
+            if (std::abs(cmd->t.m12 + list->scrollOffset.y) > 0.5f) {
+                std::println("FAIL step={} leafCmd m12={:.1f} offset={:.1f}（孙级快照未随滚动重编）", step,
+                             cmd->t.m12, list->scrollOffset.y);
+                ++g_failed;
+            }
+            ++g_total;
+        }
+        CHECK(leafHits > 0);    // 视口 290 > 行高 56，恒有可视行 → 孙级必须存在
+    };
+
+    auto draw_and_verify = [&](int step) {
+        for (size_t i = 0; i < rows.size(); ++i) {
+            rows[i]->draws = 0;
+            leaves[i]->draws = 0;
+        }
+        Graphics g;
+        g.beginFrame();
+        page.draw(g);
+        g.endFrame();
+        Rect vis{0, list->scrollOffset.y, 350, 290};
+        for (size_t i = 0; i < rows.size(); ++i) {
+            auto *row = rows[i];
+            if (!row->frame.intersects(vis)) continue;    // 视口外不绘制合法
+            if (row->draws == 0) {                        // 可视行未被绘制 = 消失（行级）
+                std::println("FAIL step={} offset={} row={} frameY={}", step, list->scrollOffset.y, i,
+                             row->frame.y);
+                ++g_failed;
+            }
+            if (leaves[i]->draws == 0) {                  // 可视行孙级未重编 = 挂旧快照（消失根因路径）
+                std::println("FAIL step={} offset={} leafOfRow={} 未随列表重编（干净挂旧快照）", step,
+                             list->scrollOffset.y, i);
+                ++g_failed;
+            }
+            ++g_total;
+        }
+    };
+
+    for (int tick = 0; tick < 40; ++tick) {    // 下到底
+        DispatchEvent ev;
+        ev.type = DispatchEvent::Type::Scroll;
+        ev.scrollY = -120;
+        dispatcher.dispatch(&page, ev);
+        draw_and_verify(tick);
+    }
+    CHECK(list->scrollOffset.y <= 102.5f);
+    verify_leaf_matrices(100);                 // 底部：孙级烘焙矩阵锁
+    for (int tick = 0; tick < 40; ++tick) {    // 往上滚回顶
+        DispatchEvent ev;
+        ev.type = DispatchEvent::Type::Scroll;
+        ev.scrollY = 120;
+        dispatcher.dispatch(&page, ev);
+        draw_and_verify(1000 + tick);
+    }
+    CHECK(list->scrollOffset.y >= -0.5f);      // 回到顶部且不为负
+    verify_leaf_matrices(200);                 // 顶部：孙级烘焙矩阵锁（旧快照在此暴露）
+}
+
 // ── 行为锁: RadioButton radio 语义 ──
 // 点击已选中项必须保持选中：取消会致组内全空，且与 RadioGroup::selected
 // 回填互相打架。
@@ -583,6 +835,11 @@ int main() {
     test_radiobutton_no_untoggle();
     test_input_control_chars_and_home_end();
     test_l1_isfinite_rejection();
+    test_c3_visible_relayout();
+    test_c1_align_measure_mirror();
+    test_c4_grid_measure_children();
+    test_4b_list_hittest_and_boundary();
+    test_4b_playlist_scroll_to_end();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

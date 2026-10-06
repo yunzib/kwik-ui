@@ -1,5 +1,38 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-07
+### 修复
+- List 滚动后行内容消失：applyScroll/setPropertyTyped 改 markAllDirty
+  （滚动时行子树一并重编，对齐 ScrollView）
+- ListLayout::onEvent 移除 Scroll 分支（消除与事件链的双重应用）
+- LazyList consumed 判定移到 updateWindow clamp 之后（到边界正确交祖先）
+
+# 0.0.0 — 2026-10-06
+### 修复
+- visible 显隐不重排 + 隐藏子级仍占位：visible 入 Layout 标志（显隐切换
+  触发 requestLayout），基类 onMeasure/onLayout 跳过隐藏子级——表单校验
+  提示、分组折叠不再留永久空洞；布局标志行为锁 14→15
+- 定位子级测量/布局脱流判据不镜像：align 定位与仅显式 x 的子级在
+  onLayout 不占纵向流但测量计入高 → 自适应父测高偏大、底部空洞；
+  测量端补同款三选一判据
+- flex stretch 拉伸子级画面陈旧：分支预写 frame 使 layout 的 moved 检测
+  失效、子树跳过重排——删除预写（layout 内部本就 frame=bounds）
+- flex wrap 量行/排行宽度基准不同（约束 max vs frame）：onLayout 行主轴
+  容量改由测量相缓存约束重算——行数与测量一致，底部不再留白/溢出
+- Grid 不测子级（无界父下高度 INF、滚动范围无限）：onMeasure 测子级 →
+  行高包络累加，无界父取内容高有界化；显式 px/百分比高度优先
+- Tabs 切换后隐形旧面板吃点击/聚焦：非选中面板 frame 归零
+  （onLayout 与 setSelectedIndex 双点）
+- ListLayout 滚动后点击错位一个 scrollOffset（三个滚动容器唯一漏
+  hitTest 换算者）：补 hitTest（子级内容坐标 +scrollOffset 转换）；
+  scrollX/scrollY 命令式通路补齐（ListLayout/LazyList）+ LazyList::
+  scrollToIndex（贴底/定位到项可达）
+- 嵌套滚动到边界外层死区：applyScroll void→bool（完整消费=位移未被
+  clamp 打折），事件链改为未完整消费沿可滚祖先继续
+- 门禁：构建零新增警告 + ctest（core_tests 241→257）+ smoke 38/38
+  双模式全绿（wrap 同源/visible 跳过改全 demo 共用布局路径，38 例全量
+  回归通过为本批关键验证）
+
 # 0.0.0 — 2026-10-05
 ### 修复
 - HMR 从未接线（pollHotReload 全仓零调用，Debug 改 JS 永不热重载，全部

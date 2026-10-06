@@ -44,8 +44,15 @@ public:
     // ─── EventTarget 接口 ─────────────────────────────
     bool scrollable() const override { return true; }
 
-    // ─── 滚轮/触摸滚动入口（供 EventRouter 调用） ─────
-    void applyScroll(float dx, float dy) override;
+    // ─── 滚轮/触摸滚动入口（返回是否完整消费——到边界由祖先链继续） ─────
+    bool applyScroll(float dx, float dy) override;
+
+    // ─── scrollX/scrollY 命令式通路（定位/贴底/动画；无此通路 JS 无法滚动） ───
+    bool setPropertyTyped(const char *name, const TypedProp &value) override;
+
+    // ─── 命中测试：子 frame 为内容坐标（onDraw 平移 -scrollOffset），
+    //     命中点先转回内容系——原实现缺失，滚动后点击偏移一个 scrollOffset ───
+    EventTarget *hitTest(Point p) override;
 
     /**
      * @brief 增量更新容器属性（reconcile 路径）

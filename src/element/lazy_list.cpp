@@ -374,9 +374,10 @@ EventTarget *LazyList::hitTest(Point p) {
 }
 
 // ============================================================================
-// 滚动入口（EventDispatcher 阶段②调用，单次应用）
+// 滚动入口（EventDispatcher 阶段②调用；返回是否完整消费——到边界由
+// 祖先链继续，嵌套滚动到边界的最小修复）
 // ============================================================================
-void LazyList::applyScroll(float dx, float dy) {
+bool LazyList::applyScroll(float dx, float dy) {
     const bool vert = sp_.direction == ScrollDirection::Vertical;
     const float kFactor = -30.0f;    // 对齐 ListLayout/ScrollView 手感
     const float delta = vert ? (dy != 0 ? dy * kFactor : dx * kFactor) : (dx != 0 ? dx * kFactor : dy * kFactor);
@@ -384,8 +385,39 @@ void LazyList::applyScroll(float dx, float dy) {
     float &cur = vert ? scrollOffset_.y : scrollOffset_.x;
     const float before = cur;
     cur += delta;
-    if (cur == before) return;
+    if (cur == before) return false;    // 到边界未动：事件链交祖先继续
 
-    updateWindow();    // 窗口 diff + 行布局 + clamp
+    updateWindow();    // 窗口 diff + 行布局 + clamp（步骤⑧收口 scrollOffset_）
+    markDirty();
+    // 完整消费判定必须在 updateWindow 之后：clamp 在其中收口，位移未被边界
+    // 打折才算完整消费。提前判定会读到 clamp 前的值 → 到边界仍返回 true，
+    // 嵌套滚动交祖先的语义对 LazyList 失效（对齐 ScrollView/ListLayout 判定口径）
+    return std::abs(cur - before) >= std::abs(delta) - 0.5f;
+}
+
+// ============================================================================
+// setPropertyTyped — scrollX/scrollY 命令式通路（定位/贴底/动画）
+// ============================================================================
+bool LazyList::setPropertyTyped(const char *name, const TypedProp &value) {
+    if (std::strcmp(name, "scrollX") == 0 || std::strcmp(name, "scrollY") == 0) {
+        auto v = typedToFloat(value);
+        if (!v) return false;
+        if (name[6] == 'X') scrollOffset_.x = *v; else scrollOffset_.y = *v;
+        updateWindow();
+        markDirty();
+        return true;
+    }
+    return View::setPropertyTyped(name, value);
+}
+
+// ============================================================================
+// scrollToIndex — 滚动到指定数据行（行首对齐，clamp 到滚动范围）
+// ============================================================================
+void LazyList::scrollToIndex(int index) {
+    if (index < 0 || (source_ && index >= source_->itemCount())) return;
+    const bool vert = sp_.direction == ScrollDirection::Vertical;
+    const float pos = rowPos(index);
+    if (vert) scrollOffset_.y = pos; else scrollOffset_.x = pos;
+    updateWindow();
     markDirty();
 }

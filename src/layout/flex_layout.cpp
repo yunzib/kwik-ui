@@ -112,7 +112,11 @@ void FlexLayout::onLayout() {
     float contentY = frame.y + props.padding.top;
     float contentW = frame.width - props.padding.horizontal();
     float contentH = frame.height - props.padding.vertical();
-    float lineMain = isRow ? contentW : contentH;
+    // 行主轴容量与测量同源（按测量相缓存的约束重算 resolveEffectiveSize）：
+    // 原实现从 frame 派生——父容器收窄自适应 flex 时行数与测量分叉，
+    // 底部留白/溢出。仅换行判定与主轴分配用此值，定位坐标仍按 frame
+    auto [effW, effH] = View::resolveEffectiveSize(props, lastLayoutConstraints());
+    float lineMain = isRow ? effW - props.padding.horizontal() : effH - props.padding.vertical();
     bool wrap = (container_.flexWrap == FlexWrap::Wrap && lineMain < Constraints::INF);
 
     // ── 第一遍：测量所有可见子项 ──
@@ -202,16 +206,13 @@ void FlexLayout::onLayout() {
             float crossSz = it.crossSz + crossMargin1;
             bool isStretch = (container_.crossAxisAlignment == CrossAlign::Stretch);
             if (isStretch) {
-                // 拉伸到行交叉轴高度
+                // 拉伸到行交叉轴高度——尺寸只经 layout(Rest) 传入：
+                // 预写 frame 会让 moved 检测失效、拉伸子树跳过重排（画面陈旧）
                 float stretchSz = lineCrossSpace - crossMargin1;
                 if (isRow) {
-                    it.view->frame.width = it.mainSz;
-                    it.view->frame.height = stretchSz;
                     it.view->layout(
                         Rect{mainCursor + it.view->props.margin.left, crossCursor + crossMargin0, it.mainSz, stretchSz});
                 } else {
-                    it.view->frame.width = stretchSz;
-                    it.view->frame.height = it.mainSz;
                     it.view->layout(
                         Rect{crossCursor + crossMargin0, mainCursor + it.view->props.margin.top, stretchSz, it.mainSz});
                 }

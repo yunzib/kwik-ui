@@ -34,7 +34,9 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::visible)] = {
-        PropId::visible, "visible", nullptr, PropUnit::None, PropFlags::None, false,
+        // Layout 标志：显隐切换必须触发重排——隐藏子级不占流式位（跳过
+        // 镜像），否则表现为永久空洞
+        PropId::visible, "visible", nullptr, PropUnit::None, PropFlags::Layout, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.visible;
         },

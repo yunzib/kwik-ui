@@ -5,9 +5,35 @@ import kwik.core.types;
 import kwik.core.constraints;
 import std;
 Size GridLayout::onMeasure(Constraints constraints) {
-    float w = props.width.value_or(constraints.maxWidth);
-    float h = props.height.value_or(constraints.maxHeight);
-    return constraints.constrain(Size{w, h});
+    // 显式 px / 百分比统一换算（与基类同源；显式高度优先，绝不被内容高顶掉）
+    auto [w, h] = View::resolveEffectiveSize(props, constraints);
+    int cols = std::max(1, container_.gridCols);
+    int rows = std::max(1, container_.gridRows);
+    float contentW = w - props.padding.horizontal();
+
+    // 测量每个子级（gridRow/Column 定格，span 占多格）→ 行高包络 → 内容高。
+    // 原实现不测子级：无界父（ScrollView 的 loose+INF）下 h 直接取 INF，
+    // 滚动范围无限
+    float cellW = (contentW - container_.columnGap * (cols - 1)) / cols;
+    if (cellW < 0) cellW = 0;
+    std::vector<float> rowMax(rows, 0.0f);
+    for (auto &child : children) {
+        if (!child->props.visible) continue;
+        int r = std::clamp(child->props.gridRow, 0, rows - 1);
+        int rs = std::clamp(std::max(1, child->props.gridRowSpan), 1, rows - r);
+        float spanW = cellW * rs + container_.columnGap * (rs - 1);
+        Size cs = child->measure(Constraints::loose(Size{std::max(0.0f, spanW), Constraints::INF}));
+        float ch = cs.height + child->props.margin.vertical();
+        for (int k = r; k < r + rs; ++k) rowMax[k] = std::max(rowMax[k], ch);
+    }
+    float contentH = container_.rowGap * (rows - 1);
+    for (float m : rowMax) contentH += m;
+
+    // 无界父且无显式高度 → 内容高（有界）；显式 px/百分比保持换算值
+    float resultH = h;
+    if (!props.height.has_value() && !props.heightPct.has_value() && constraints.maxHeight >= Constraints::INF)
+        resultH = contentH + props.padding.vertical();
+    return constraints.constrain(Size{w, resultH});
 }
 void GridLayout::onLayout() {
     int cols = std::max(1, container_.gridCols);

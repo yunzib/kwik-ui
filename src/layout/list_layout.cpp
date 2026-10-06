@@ -194,7 +194,7 @@ void ListLayout::onDraw(Graphics &g) {
 
     // 绘制子项 + 分割线
     for (size_t i = 0; i < children.size(); ++i) {
-       if (!children[i]->frame.intersects(visRect)) continue;  // 容器自管剔除（滚动感知）
+        if (!children[i]->frame.intersects(visRect)) continue;  // 容器自管剔除（滚动感知）
         children[i]->drawForced(g);                             // 跳过全局脏区剔除
 
         // divider 绘制
@@ -228,37 +228,87 @@ void ListLayout::onDraw(Graphics &g) {
 }
 
 // ============================================================================
-// ListLayout::onEvent — Scroll 滚轮事件 → applyScroll
+// ListLayout::onEvent — Scroll 不在此消费：事件链阶段②（event.cpp）已按
+// scrollable/applyScroll 统一接管滚动（含到边界交祖先的嵌套语义）。此处若
+// 再应用一次，命中 List 本体时滚速 ×2、边界 consumed 失真——与 ScrollView
+// 的"applyScroll 由分发链调用、不消费 onEvent"纪律对齐。
 // ============================================================================
 bool ListLayout::onEvent(const DispatchEvent &event) {
-    if (event.type == DispatchEvent::Type::Scroll) {
-        applyScroll(event.scrollX, event.scrollY);
-        return true;
-    }
     return View::onEvent(event);
 }
 
 // ============================================================================
-// ListLayout::applyScroll — 平滑滚动 + 方向降级
+// ListLayout::applyScroll — 平滑滚动 + 方向降级（返回是否完整消费——
+// 未被边界打折返回 true；到边界返回 false，事件链交祖先继续）
+//
+// markAllDirty 必须在事件时（绘制前）调用，不能在 onDraw 里补标：
+// 行子树（孙级 Text 等）若不随滚动重编，会把构建期旧快照挂进新清单
+// （命令烘焙于旧 scroll 矩阵、包含盒记在未滚动内容系）→ 回放期被屏幕系
+// 伤害带整棵剔除或被行裁剪切掉 → 滚动后行内容消失。对齐
+// ScrollView::setScroll markAllDirty（scroll_view.cpp）；编码期补标会把
+// 已消费的祖先 subtreeDirty_ 重新置位 → 无事件帧级联重建且行在 identity
+// 矩阵下重编（rebuild 分支无 translate）→ 幽灵帧。
 // ============================================================================
-void ListLayout::applyScroll(float dx, float dy) {
-    // Log::info("applyScroll dir={} dx={:.1f} dy={:.1f} sx={:.1f} sy={:.1f}", (int)container_.scrollDir, dx, dy,
-    //           scrollOffset.x, scrollOffset.y);
+bool ListLayout::applyScroll(float dx, float dy) {
     const float kFactor = -30.0f;
     if (container_.scrollDir == ScrollDirection::Vertical) {
-        float delta = dy != 0 ? dy * kFactor : dx * kFactor;
+        const float before = scrollOffset.y;
+        const float used = (dy != 0 ? dy : dx) * kFactor;
         float maxY = std::max(0.0f, contentSize.height
                                         - (frame.height - props.padding.vertical() - headerHeight() - footerHeight()));
-        scrollOffset.y = std::clamp(scrollOffset.y + delta, 0.0f, maxY);
-    } else {
-        float delta = dx != 0 ? dx * kFactor : dy * kFactor;
-        float maxX = std::max(0.0f, contentSize.width
-                                        - (frame.width - props.padding.horizontal() - headerWidth() - footerWidth()));
-        // Log::info("  HORIZONTAL: csW={:.0f} fW={:.0f} padH={:.0f} hW={:.0f} fW={:.0f} maxX={:.0f} delta={:.1f}",
-        //           contentSize.width, frame.width, props.padding.horizontal(), headerWidth(), footerWidth(), maxX,
-        //           delta);
-        scrollOffset.x = std::clamp(scrollOffset.x + delta, 0.0f, maxX);
-        // Log::info("  result sx={:.1f}", scrollOffset.x);zh
+        scrollOffset.y = std::clamp(before + used, 0.0f, maxY);
+        markAllDirty();
+        return std::abs(scrollOffset.y - before) >= std::abs(used) - 0.5f;    // 完整消费判定
     }
-    markDirty();
+    const float before = scrollOffset.x;
+    const float used = (dx != 0 ? dx : dy) * kFactor;
+    float maxX = std::max(0.0f, contentSize.width
+                                    - (frame.width - props.padding.horizontal() - headerWidth() - footerWidth()));
+    scrollOffset.x = std::clamp(before + used, 0.0f, maxX);
+    markAllDirty();
+    return std::abs(scrollOffset.x - before) >= std::abs(used) - 0.5f;
+}
+
+// ============================================================================
+// ListLayout::hitTest — 子 frame 为内容坐标（onDraw 平移 -scrollOffset），
+// 命中点先转回内容系。原实现缺失：滚动后点击偏移一个 scrollOffset
+// ============================================================================
+EventTarget *ListLayout::hitTest(Point p) {
+    if (!props.visible || !frame.contains(p)) return nullptr;
+
+    // header/footer 固定在屏幕坐标系，优先命中
+    if (header) {
+        if (auto *h = header->hitTest(p)) return h;
+    }
+    if (footer) {
+        if (auto *f = footer->hitTest(p)) return f;
+    }
+    const Point content = {p.x + scrollOffset.x, p.y + scrollOffset.y};
+    for (auto it = children.rbegin(); it != children.rend(); ++it) {    // 逆序：后添加者在上层
+        if (auto *h = (*it)->hitTest(content)) return h;
+    }
+    return this;
+}
+
+// ============================================================================
+// ListLayout::setPropertyTyped — scrollX/scrollY 命令式通路（定位/贴底/动画）
+// markAllDirty 对齐 applyScroll：命令式滚动同样必须重编行子树
+// ============================================================================
+bool ListLayout::setPropertyTyped(const char *name, const TypedProp &value) {
+    if (std::strcmp(name, "scrollX") == 0 || std::strcmp(name, "scrollY") == 0) {
+        auto v = typedToFloat(value);
+        if (!v) return false;
+        if (name[6] == 'X') {
+            float maxX = std::max(0.0f, contentSize.width - (frame.width - props.padding.horizontal() -
+                                                             headerWidth() - footerWidth()));
+            scrollOffset.x = std::clamp(*v, 0.0f, maxX);
+        } else {
+            float maxY = std::max(0.0f, contentSize.height - (frame.height - props.padding.vertical() -
+                                                               headerHeight() - footerHeight()));
+            scrollOffset.y = std::clamp(*v, 0.0f, maxY);
+        }
+        markAllDirty();
+        return true;
+    }
+    return View::setPropertyTyped(name, value);
 }
