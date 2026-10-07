@@ -400,7 +400,9 @@ void KwikRuntime::handleResize(int width, int height) {
         tree_->markAllDirty();            // 全树脏标记：全量重编清单
     }
 
-    eventRouter_.reset();
+    // G7：resize 是纯重排（树未重建），不再 reset 事件路由——原实现逐
+    // WM_SIZE 清空 FocusManager/PointerTracker/GestureRecognizer，任何
+    // 窗口缩放（含最大化/拖角）即失焦、IME 断。setContentTransform 保留
     eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
 
     needsRedraw_ = true;

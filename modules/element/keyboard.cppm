@@ -62,6 +62,8 @@ protected:
     void onDraw(Graphics &g) override;
     EventTarget *hitTest(Point p) override;
     bool onEvent(const DispatchEvent &event) override;
+    /** H6：ESC 显式查询——键盘层注册为图层（可见态）才消费 ESC */
+    bool acceptsEscape() const override { return registered_; }
     void draw(Graphics &g) override;    // 未注册层时空转清脏（镜像 MenuView）
 
 private:

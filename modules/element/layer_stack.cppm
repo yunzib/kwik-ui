@@ -63,6 +63,15 @@ public:
     bool onEvent(const DispatchEvent &event) override { return false; }
     EventTarget *parent() const override { return nullptr; }
 
+    /** H6 ESC 显式查询：图层顶→底逐层下探（四类浮层组件均注册为图层），
+     *  base 树不参与——ESC 消费语义限定浮层 */
+    EventTarget *findEscapeConsumer() override {
+        for (auto it = layers_.rbegin(); it != layers_.rend(); ++it) {
+            if (auto *t = (*it)->findEscapeConsumer()) return t;
+        }
+        return nullptr;
+    }
+
 private:
     View *base_ = nullptr;                // base 视图树根（非拥有；实为 RootView*，按 View 接口使用）
     std::vector<View *> layers_;          // 有序图层（底→顶，borrowed 非拥有）

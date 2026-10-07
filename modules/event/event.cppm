@@ -186,9 +186,28 @@ export struct DispatchEvent {
  * View 继承此接口实现事件接收。
  * kwik.event 模块不包含任何实现代码, 真正零依赖。
  */
+// L4 悬空生产者统一校验：存活登记表（构造登记/析构注销）
+// FocusManager::focused_ / PointerState::pressTarget / lastHoverTarget_
+// 均为裸 EventTarget*，目标销毁（如 LazyList 出窗行）后悬空——分发前
+// isAlive 统一校验，替代逐生产者判空
+export class TargetLiveness {
+public:
+    static TargetLiveness &instance() {
+        static TargetLiveness l;
+        return l;
+    }
+    void add(const void *t) { alive_.insert(t); }
+    void remove(const void *t) { alive_.erase(t); }
+    bool isAlive(const void *t) const { return t != nullptr && alive_.count(t) > 0; }
+
+private:
+    std::unordered_set<const void *> alive_;    // UI 单线程，无锁
+};
+
 export class EventTarget {
 public:
-    virtual ~EventTarget() = default;
+    EventTarget() { TargetLiveness::instance().add(this); }    // L4：构造登记
+    virtual ~EventTarget() { TargetLiveness::instance().remove(this); }    // L4：析构注销
 
     /**
      * @brief 接收并处理分发事件
@@ -213,6 +232,20 @@ public:
      * @brief 是否可聚焦 (Input/TextArea 等)
      */
     virtual bool acceptsFocus() const { return false; }
+
+    /**
+     * @brief 是否消费 ESC 键（H6 显式查询：浮层/弹出组件开合态返回 true）
+     *
+     * 优先级高于聚焦控件——router 对 ESC 先查询本接口（顶层优先），
+     * 命中则整体派发至该目标；未命中才走聚焦控件/丢弃
+     */
+    virtual bool acceptsEscape() const { return false; }
+
+    /**
+     * @brief ESC 显式查询：返回本子树中最顶层的 ESC 消费者（无子树概念
+     * 的实现仅自查自身；View/LayerStack 覆写为顶层优先递归）
+     */
+    virtual EventTarget *findEscapeConsumer() { return acceptsEscape() ? this : nullptr; }
 
     virtual bool isLayerNode() const { return false; }
 
@@ -399,8 +432,11 @@ public:
 
     /**
      * @brief 当前聚焦目标
+     * @return 聚焦目标；已销毁（L4 悬空）视同无焦点返回 nullptr
      */
-    EventTarget *focused() const { return focused_; }
+    EventTarget *focused() const {
+        return TargetLiveness::instance().isAlive(focused_) ? focused_ : nullptr;
+    }
 
     /**
      * @brief 强制聚焦指定目标

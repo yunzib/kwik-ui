@@ -1063,7 +1063,99 @@ static void test_text_layout_wrap_rules() {
     }
 }
 
+// ── 行为锁: 事件与焦点（T0-⑦a）──
+// ① L4 存活登记：View 构造登记/析构注销，悬空焦点视同无焦点
+// ② H6 键盘投递：无焦点 Key/Char 丢弃（不落 hitTest(0,0) 误投左上角）；
+//    ESC 显式查询优先于聚焦控件路由至浮层消费者
+// ③ Gesture Cancel：pan 中被夺（WM_CAPTURECHANGED 合成 Cancel）→ 清 pan
+//    状态 + PointerCancel 透传，同 pointerId 再拖可重新 PanBegin
+class EventProbeView : public View {
+public:
+    int keyActions = 0;
+    int panBegins = 0;
+    int panMoves = 0;
+    int pointerCancels = 0;
+    bool escapeConsumer = false;
+    bool acceptsEscape() const override { return escapeConsumer; }
+    bool onEvent(const DispatchEvent &event) override {
+        switch (event.type) {
+        case DispatchEvent::Type::KeyAction: ++keyActions; return true;
+        case DispatchEvent::Type::PanBegin: ++panBegins; return true;
+        case DispatchEvent::Type::PanMove: ++panMoves; return true;
+        case DispatchEvent::Type::PointerCancel: ++pointerCancels; return true;
+        default: return View::onEvent(event);
+        }
+    }
+};
+
+static void feed(EventRouter &router, RawEvent::Device dev, RawEvent::Action act, float x, float y, uint32_t key = 0,
+                 uint64_t ts = 0) {
+    RawEvent raw;
+    raw.device = dev;
+    raw.action = act;
+    raw.x = x;
+    raw.y = y;
+    raw.keyCode = key;
+    raw.timestamp = ts;
+    router.feedRawEvent(raw);
+}
+
+static void test_t07a_event_focus() {
+    // ① L4 存活登记：悬空焦点视同无焦点（原返回悬空指针）
+    {
+        FocusManager fm;
+        auto v = std::make_unique<View>();
+        fm.focus(v.get());
+        CHECK(fm.focused() == v.get());
+        v.reset();    // 如 LazyList 出窗销毁聚焦控件
+        CHECK(fm.focused() == nullptr);
+    }
+
+    // ②③ H6 + Gesture Cancel（EventRouter 全程）
+    EventRouter router;
+    View tree;
+    auto escProbe = std::make_unique<EventProbeView>();
+    escProbe->layout(Rect{0, 0, 100, 400});
+    auto normal = std::make_unique<EventProbeView>();
+    normal->layout(Rect{100, 0, 100, 400});
+    EventProbeView *escP = escProbe.get(), *nP = normal.get();
+    tree.addChild(std::move(escProbe));
+    tree.addChild(std::move(normal));
+    router.setRootTarget(&tree);
+
+    // 无焦点：普通 KeyAction 丢弃（原落 hitTest(0,0) 误投 escProbe）
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 'A');
+    CHECK(nP->keyActions == 0 && escP->keyActions == 0);
+
+    // 无焦点 + ESC + 浮层消费者 → 显式查询路由至浮层（优先于聚焦控件）
+    escP->escapeConsumer = true;
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 27);
+    CHECK(escP->keyActions == 1);    // ESC 达浮层消费者
+    CHECK(nP->keyActions == 0);
+
+    // 有焦点：普通 KeyAction 至聚焦控件；ESC 仍优先路由浮层
+    router.focusManager().focus(nP);
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 'B');
+    CHECK(nP->keyActions == 1);
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 27);
+    CHECK(escP->keyActions == 2 && nP->keyActions == 1);
+
+    // ③ Gesture Cancel：pan 中被夺 → PointerCancel 透传 + pan 状态清零，
+    //    同 pointerId 再拖可重新 PanBegin（原残留 PanMove 永无 PanBegin）
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Down, 200, 200, 0, 100);
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Move, 230, 200, 0, 150);    // >5px → PanBegin
+    CHECK(nP->panBegins == 1);    // presetTarget = (200,200) 命中 normal
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Move, 250, 200, 0, 180);
+    CHECK(nP->panMoves == 2);    // PanBegin 当帧随 PanMove 一次 + 本帧一次
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Cancel, 250, 200, 0, 200);
+    CHECK(nP->pointerCancels == 1);    // 取消透传
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Down, 200, 200, 0, 300);
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Move, 235, 200, 0, 350);
+    CHECK(nP->panBegins == 2);    // Cancel 清状态后新拖动能重新 PanBegin（原永无）
+}
+
 int main() {
+    test_t07a_event_focus();
     test_text_layout_wrap_rules();
     test_flex_line_capacity_and_grow();
     test_rect();

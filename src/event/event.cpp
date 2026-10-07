@@ -243,6 +243,24 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
         panStarted_.erase(pid);
         break;
     }
+    // ── 捕获被夺 / 合成取消（WM_CAPTURECHANGED 常规路径）──
+    case RawEvent::Action::Cancel: {
+        // 原落 default → panStarted_ 残留：pan 进行中被夺后同 pointerId
+        // 再拖直接 PanMove 永无 PanBegin。清 pan/按压状态并透传取消
+        bool hadPan = panStarted_.erase(pid) > 0;
+        auto *ps = tracker.get(pid);
+        if (hadPan || (ps && ps->active)) {
+            DispatchEvent cancelEvt;
+            cancelEvt.type = DispatchEvent::Type::PointerCancel;
+            cancelEvt.pointerId = pid;
+            cancelEvt.timestamp = ts;
+            cancelEvt.globalX = raw.x;
+            cancelEvt.globalY = raw.y;
+            if (ps && ps->pressTarget) { cancelEvt.presetTarget = ps->pressTarget; }
+            out.push_back(cancelEvt);
+        }
+        break;
+    }
     // ── 滚轮 ────────────────────────────────────────
     case RawEvent::Action::Scroll: {
         DispatchEvent scrollEvt;
@@ -501,13 +519,26 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     }
     case RawEvent::Device::Keyboard: {
         keyboardHandler_.process(scaled, events);
-        // 键盘事件路由到聚焦控件, 不走 hitTest(0,0)
-        if (EventTarget *focused = focusManager_.focused()) {
-            for (auto &evt : events) {
-                if (evt.type == DispatchEvent::Type::KeyAction || evt.type == DispatchEvent::Type::CharInput) {
-                    evt.presetTarget = focused;
+        // H6 键盘投递修正：无焦点丢弃 Key/Char（原无 presetTarget 落
+        // hitTest(0,0) 误投左上角元素）；ESC 显式查询优先于聚焦控件——
+        // 自顶层浮层（LayerStack 图层）下探 acceptsEscape 消费者
+        for (auto it = events.begin(); it != events.end();) {
+            bool isKey = (it->type == DispatchEvent::Type::KeyAction || it->type == DispatchEvent::Type::CharInput);
+            if (!isKey) { ++it; continue; }
+            bool isEsc = (it->type == DispatchEvent::Type::KeyAction && it->keyCode == 27);
+            if (isEsc) {
+                if (EventTarget *esc = rootTarget_->findEscapeConsumer()) {
+                    it->presetTarget = esc;    // 浮层优先：即使焦点在别处也派发至消费者
+                    ++it;
+                    continue;
                 }
             }
+            if (EventTarget *focused = focusManager_.focused()) {
+                it->presetTarget = focused;
+                ++it;
+                continue;
+            }
+            it = events.erase(it);    // 无焦点且非 ESC（或 ESC 无消费者）→ 丢弃
         }
         break;
     }
@@ -536,6 +567,9 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     // ⑤ 分发
     for (auto &evt : events) {
         if (evt.propagationStopped) continue;
+        // L4：presetTarget 已销毁（LazyList 出窗行等）→ 事件整体丢弃，
+        // 不再派发到悬空指针
+        if (evt.presetTarget && !TargetLiveness::instance().isAlive(evt.presetTarget)) continue;
         dispatcher_.dispatch(rootTarget_, evt);
     }
 }
@@ -546,7 +580,11 @@ void EventRouter::poll() {
     std::vector<DispatchEvent> events;
     gestureRecognizer_.poll(rootTarget_, pointerTracker_, events);
 
-    for (auto &evt : events) { dispatcher_.dispatch(rootTarget_, evt); }
+    for (auto &evt : events) {
+        // L4：同 feedRawEvent——悬空 presetTarget 事件丢弃
+        if (evt.presetTarget && !TargetLiveness::instance().isAlive(evt.presetTarget)) continue;
+        dispatcher_.dispatch(rootTarget_, evt);
+    }
 }
 
 void EventRouter::reset() {

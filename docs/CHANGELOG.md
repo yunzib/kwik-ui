@@ -2,6 +2,19 @@
 
 # 0.0.0 — 2026-10-07
 ### 修复
+- 聚焦控件销毁（如 LazyList 出窗行）后键盘/焦点事件发往悬空指针：
+  EventTarget 增 TargetLiveness 存活登记（构造登记/析构注销），分发前
+  presetTarget 校验、悬空事件整体丢弃，FocusManager::focused() 悬空
+  视同无焦点
+- 无焦点键盘事件经 hitTest(0,0) 误投递左上角元素：无焦点 Key/Char
+  丢弃；ESC 显式查询（acceptsEscape/findEscapeConsumer，LayerStack
+  图层顶→底下探，Dropdown 菜单/DateTimePicker 面板/Keyboard/LayerView
+  模态四消费方按开合态应答，优先级高于聚焦控件）
+- 窗口 resize（含最大化/拖角）即失焦、IME 断：handleResize 移除
+  eventRouter_.reset()（纯重排不触发，仅 rebuildTree/HMR 保留）
+- pan 拖动中被夺焦点（WM_CAPTURECHANGED 合成 Cancel）后同指针再拖
+  永无 PanBegin：GestureRecognizer 增 Cancel 分支，清 pan 状态并透传
+  PointerCancel
 - State 增量更新不再抑制全量重建（handled 门控移除：State.set 陷阱与
   State.update 两处）——派生 UI 永久陈旧根治；notify handled 判定收窄
   （仅残留条目不算已处理）

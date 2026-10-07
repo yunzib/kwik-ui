@@ -62,6 +62,9 @@ public:
         if (registered_) layersOf(this)->unregisterLayerView(this);
     }
 
+    /** H6：ESC 显式查询——菜单注册为图层（展开态）才消费 ESC */
+    bool acceptsEscape() const override { return registered_; }
+
     /** @brief 展开菜单：定位到触发区正下方并注册进 LayerStack */
     void open() {
         if (registered_) return;

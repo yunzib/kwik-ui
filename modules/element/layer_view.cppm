@@ -62,6 +62,8 @@ protected:
     void onDraw(Graphics &g) override;
     EventTarget *hitTest(Point p) override;
     bool onEvent(const DispatchEvent &event) override;
+    /** H6：ESC 显式查询——仅激活的模态浮层消费 ESC（非模态放行给聚焦控件） */
+    bool acceptsEscape() const override { return lp_.active && lp_.modal; }
 
 private:
     LayerProps lp_;

@@ -777,6 +777,16 @@ bool View::acceptsFocus() const {
     return type() == ElementType::Input || type() == ElementType::TextArea || type() == ElementType::TextView;
 }
 
+// View::findEscapeConsumer — H6 ESC 显式查询：逆 z 序（后添加者视觉在上层
+// 优先）递归子树，命中 acceptsEscape 的最顶层组件即返回；无命中再查自身
+EventTarget *View::findEscapeConsumer() {
+    for (auto it = children.rbegin(); it != children.rend(); ++it) {
+        if ((*it)->drawnElsewhere_) continue;    // 借根子树由其所属层栈应答
+        if (auto *t = (*it)->findEscapeConsumer()) return t;
+    }
+    return acceptsEscape() ? this : nullptr;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 属性描述符驱动 — read / write / applyAnimationFrame
 // ═══════════════════════════════════════════════════════════════════════════
