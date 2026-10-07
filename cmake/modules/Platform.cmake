@@ -1,12 +1,14 @@
 
 # 平台后端选项（用户可设置）
 set(KWIK_PLATFORM_BACKEND "auto" CACHE STRING "Platform window backend")
-set_property(CACHE KWIK_PLATFORM_BACKEND PROPERTY STRINGS auto win32 wayland x11 drm fbdev android cocoa)
+set_property(CACHE KWIK_PLATFORM_BACKEND PROPERTY STRINGS auto win32 wayland x11 drm fbdev android harmony cocoa ios)
 
 # 自动检测或使用用户指定的后端
 if(KWIK_PLATFORM_BACKEND STREQUAL "auto")
     if(WIN32)
         set(KWIK_PLATFORM_BACKEND "win32")
+    elseif(OHOS)
+        set(KWIK_PLATFORM_BACKEND "harmony")    # OpenHarmony/HarmonyOS 工具链定义 OHOS
     elseif(ANDROID)
         set(KWIK_PLATFORM_BACKEND "android")
     elseif(APPLE)
@@ -16,12 +18,8 @@ if(KWIK_PLATFORM_BACKEND STREQUAL "auto")
             set(KWIK_PLATFORM_BACKEND "cocoa")
         endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        # Linux自动检测：优先Wayland，否则X11
-        if(EXISTS "/run/wayland/wayland-0" OR EXISTS "$ENV{XDG_RUNTIME_DIR}/wayland-0")
-            set(KWIK_PLATFORM_BACKEND "wayland")
-        else()
-            set(KWIK_PLATFORM_BACKEND "x11")
-        endif()
+        # Linux 缺省 Wayland（x11 后端文件未实现，不作为 fallback）
+        set(KWIK_PLATFORM_BACKEND "wayland")
     else()
         message(FATAL_ERROR "无法自动检测平台后端")
     endif()
@@ -40,9 +38,11 @@ if(KWIK_PLATFORM_BACKEND STREQUAL "win32")
 elseif(KWIK_PLATFORM_BACKEND STREQUAL "wayland")
     set(KWIK_PLATFORM_MODULE_FILE "modules/platform/window_wayland.cppm")
     set(KWIK_PLATFORM_SOURCE_FILE "src/platform/window_wayland.cpp")
-    find_package(Wayland REQUIRED COMPONENTS client cursor)
-    find_package(xkbcommon REQUIRED)
-    set(KWIK_PLATFORM_LIBS Wayland::client Wayland::cursor ${xkbcommon_LIBRARIES})
+    # 骨架占位不依赖 wayland 头文件/库——探测降为可选（无 dev 包也能编译护栏）；
+    # 接线实现时恢复 REQUIRED（Wayland::client/cursor + xkbcommon）
+    find_package(Wayland QUIET COMPONENTS client cursor)
+    find_package(xkbcommon QUIET)
+    set(KWIK_PLATFORM_LIBS ${Wayland_LIBRARIES} ${xkbcommon_LIBRARIES})
 
 elseif(KWIK_PLATFORM_BACKEND STREQUAL "x11")
     set(KWIK_PLATFORM_MODULE_FILE "modules/platform/window_x11.cppm")
@@ -53,9 +53,10 @@ elseif(KWIK_PLATFORM_BACKEND STREQUAL "x11")
 elseif(KWIK_PLATFORM_BACKEND STREQUAL "drm")
     set(KWIK_PLATFORM_MODULE_FILE "modules/platform/window_drm.cppm")
     set(KWIK_PLATFORM_SOURCE_FILE "src/platform/window_drm.cpp")
-    find_package(LibDRM REQUIRED)
-    find_package(GBM REQUIRED)
-    find_package(EGL REQUIRED)
+    # 骨架占位不依赖 libdrm/GBM/EGL——探测降为可选；接线实现时恢复 REQUIRED
+    find_package(LibDRM QUIET)
+    find_package(GBM QUIET)
+    find_package(EGL QUIET)
     set(KWIK_PLATFORM_LIBS ${LibDRM_LIBRARIES} ${GBM_LIBRARIES} ${EGL_LIBRARIES})
 
 elseif(KWIK_PLATFORM_BACKEND STREQUAL "fbdev")
@@ -67,6 +68,13 @@ elseif(KWIK_PLATFORM_BACKEND STREQUAL "android")
     set(KWIK_PLATFORM_MODULE_FILE "modules/platform/window_android.cppm")
     set(KWIK_PLATFORM_SOURCE_FILE "src/platform/window_android.cpp")
     set(KWIK_PLATFORM_LIBS log android EGL GLESv2)
+
+elseif(KWIK_PLATFORM_BACKEND STREQUAL "harmony")
+    set(KWIK_PLATFORM_MODULE_FILE "modules/platform/window_harmony.cppm")
+    set(KWIK_PLATFORM_SOURCE_FILE "src/platform/window_harmony.cpp")
+    # 骨架占位不依赖 OHOS SDK 头文件；接线时经 OHOS 工具链链接
+    # libnative_window/libvulkan（VK_OHOS_surface）
+    set(KWIK_PLATFORM_LIBS "")
 
 elseif(KWIK_PLATFORM_BACKEND STREQUAL "cocoa")
     # macOS 后端（需要额外处理，原函数未完整，这里补充基本框架）
@@ -94,7 +102,6 @@ add_library(kwik_platform)
 # 2. 添加公共模块接口文件（包含固定模块 + 平台特定模块）
 set(PLATFORM_PUBLIC_MODULES
     modules/platform/window.cppm
-    modules/platform/window_factory.cppm
     modules/platform/platform.cppm
     ${KWIK_PLATFORM_MODULE_FILE}
 )

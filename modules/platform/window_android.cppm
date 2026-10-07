@@ -1,93 +1,63 @@
 module;
 
+#include <cstdint>
 
 export module kwik.platform.android_window;
-#if defined(__ANDROID__)
-#include <android/native_activity.h>
-#include <android/input.h>
-#include <android/native_window.h>
-#include <android/looper.h>
-#include <pthread.h>
-#include <cstring>
-#include <mutex>
-#include <condition_variable>
 
-import kwik.platform.platform_window;
-import kwik.core.types;
+import kwik.platform.window;
 import std;
-export namespace kwik::platform {
-    /**
-    * @brief Android平台窗口实现
-    * 
-    * 使用Android NativeActivity进行原生窗口渲染
-    * 支持触摸、键盘输入和Android生命周期管理
-    */
-    class PlatformWindowAndroid : public PlatformWindow {
-    public:
-        PlatformWindowAndroid();
-        ~PlatformWindowAndroid() override;
-        
-        // 窗口生命周期
-        bool Create(const std::string& title, int width, int height) override;
-        void Destroy() override;
-        void Show() override;
-        void Hide() override;
-        void GetSize(int* width, int* height) const override;
-        
-        // 软件渲染
-        bool LockBackBuffer(void** pixels, int* stride) override;
-        void UnlockBackBuffer() override;
-        void Present() override;
-        
-        // GPU渲染
-        void* GetNativeHandle() const override;
-        
-        // 事件处理
-        void SetEventCallback(EventCallback callback) override;
-        void PollEvents() override;
-        void WaitEvents() override;
-        
-        // 窗口定制
-        void SetDecoration(WindowDecoration decoration) override;
-        void SetShape(const std::vector<std::pair<int, int>>& polygon) override;
-        void SetShapeMask(const uint8_t* maskData, int width, int height) override;
-        void SetResizable(bool resizable) override;
-        
-        // Android特定方法
-        void SetAndroidApp(android_app* app);
-        static void HandleCmd(android_app* app, int32_t cmd);
-        static int32_t HandleInput(android_app* app, AInputEvent* event);
-        
-    private:
-        // Android相关
-        android_app* androidApp_ = nullptr;
-        ANativeWindow* nativeWindow_ = nullptr;
-        ANativeWindow_Buffer windowBuffer_;
-        
-        // 状态管理
-        bool windowReady_ = false;
-        bool hasFocus_ = false;
-        bool windowVisible_ = false;
-        int width_ = 0;
-        int height_ = 0;
-        int32_t format_ = WINDOW_FORMAT_RGBA_8888;
-        
-        // 事件处理
-        EventCallback callback_;
-        std::mutex eventMutex_;
-        std::condition_variable eventCondition_;
-        
-        // 渲染状态
-        bool bufferLocked_ = false;
-        void* lockedBuffer_ = nullptr;
-        int lockedStride_ = 0;
-        
-        // 辅助方法
-        void ProcessCommand(int32_t cmd);
-        void ProcessInputEvent(AInputEvent* event);
-        void UpdateWindowSize();
-        static Event::MouseButton MapAndroidButton(int32_t button);
-        static uint32_t MapAndroidKey(int32_t keyCode);
-    };
-}
-#endif // __ANDROID__
+
+/**
+ * @brief Android 平台窗口实现（骨架占位）——NativeActivity 路径
+ *
+ * 现状：按 PlatformWindow 现接口占位——Create() 返回 false（NDK 未接线），
+ * 不依赖 android/native_window 等头文件，全平台可编译。
+ *
+ * 落地路径（待接，对应任务清单 T4-61）：
+ * - 窗口：android_native_app_glue 的 APP->window（ANativeWindow*），
+ *   生命周期 onInitWindow/onTerminateWindow 桥接 Create/Destroy，
+ *   APP_CMD_RESUME/PAUSE 桥接 Show/Hide——Create 的 title/width/height
+ *   被忽略（Android 窗口由 Activity 全屏给定）
+ * - 呈现：Vulkan VK_KHR_android_surface（GetNativeHandle 返回
+ *   ANativeWindow*）；软件路径无意义（SurfaceView/TOP_OPAQUE 由合成器管）
+ * - 输入：AInputQueue（AKeyEvent/A MotionEvent）→ RawEvent 翻译；
+ *   文本输入经 JNI 调 InputMethodManager（软键盘），或 Keyboard 组件注入
+ * - DPI：ANativeWindow_getWidth/Height ÷ AConfiguration 密度 → 与 win32
+ *   GetDpiScale 同口径（物理/逻辑比）
+ */
+export class PlatformWindowAndroid : public PlatformWindow {
+public:
+    PlatformWindowAndroid();
+    ~PlatformWindowAndroid() override;
+
+    // 窗口生命周期
+    bool Create(const std::string &title, int width, int height) override;
+    void Destroy() override;
+    void Show() override;
+    void Hide() override;
+    void GetSize(int *width, int *height) const override;
+    float GetDpiScale() const override;
+    void GetScreenWorkArea(int *width, int *height) override;
+    // 软件渲染（Android 上不可用——合成器管理呈现，仅 Vulkan 路径有效）
+    bool LockBackBuffer(void **pixels, int *stride) override;
+    void UnlockBackBuffer() override;
+    void Present() override;
+    // GPU 渲染
+    void *GetNativeHandle() const override { return nativeWindow_; }
+    // 事件
+    void PollEvents() override;
+    void WaitEvents() override;
+    void SetRawEventCallback(RawEventCallback callback) override;
+    // 窗口定制
+    void SetDecoration(WindowDecoration decoration) override;
+    void SetShape(const std::vector<std::pair<int, int>> &polygon) override;
+    void SetShapeMask(const uint8_t *maskData, int width, int height) override;
+    void SetResizable(bool resizable) override;
+
+private:
+    void *nativeWindow_ = nullptr;    // ANativeWindow*（待接，来自 app_glue）
+    int width_ = 0;
+    int height_ = 0;
+    bool visible_ = false;
+    RawEventCallback rawCallback_ = nullptr;
+};

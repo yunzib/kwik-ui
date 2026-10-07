@@ -127,8 +127,8 @@ compatibility: opencode
 
 1. `cmake --build build -j`——零新增警告
 2. `ctest --test-dir build`——秒级纯逻辑单测
-3. `cd build/test && python ../../test/tools/smoke.py`——37 示例自动退出 +
-   错误扫描；再跑 `--validation`（Vulkan 验证层）——两模式均须 37/37
+3. `cd build/test && python ../../test/tools/smoke.py`——38 示例自动退出 +
+   错误扫描；再跑 `--validation`（Vulkan 验证层）——两模式均须 38/38
 4. 视觉相关改动：`cd build/test && ./example.exe <demo>` 目视复验
    （glass/car/animation 等，JS 示例在 test/ui/*.js）
 - 文档纪律：完成任务勾选 docs/当前优化任务清单.md 对应项（含完成日期与
@@ -174,7 +174,8 @@ compatibility: opencode
              modules/render/vulkan/（context / pipeline_factory / 6 渲染器 / clip_manager）
              src/render/render_thread.cpp（回放调度）
 - 运行时:     modules/app/kwik_runtime.cppm + src/app/kwik_runtime.cpp（一窗一树）
-- 任务清单:   docs/当前优化任务清单.md（架构债权威清单+推进路线图）
+- 任务清单:   docs/当前优化任务清单.md（v0.1 冲刺单一任务清单，按紧急度
+             T0-T4 排序）
              docs/CHANGELOG.md（每批次改动记录）
 
 ## 新增组件检查清单
