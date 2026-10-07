@@ -818,7 +818,113 @@ static void test_l1_isfinite_rejection() {
     CHECK(v.props.width.has_value() && *v.props.width == 200.0f);    // 正常帧仍生效
 }
 
+// ── 行为锁: flex 主轴容量双口径 + grow 项 basis 起步 ──
+// ① grow/shrink/justify 分布容量按 frame 实际内容尺寸——按内容收缩的
+//    flex（无显式宽度）若按约束宽分布，会把子项摊出容器被裁；
+// ② 无显式主轴尺寸的 grow 项从 flexBasis 起步并填满剩余空间——基类
+//    "无宽度按约束填满"曾使 grow 项独占整行、grow 失效、后续子级出界；
+// ③ 断行容量仍与测量同源（约束重算），量行/排行不分叉。
+static void test_flex_line_capacity_and_grow() {
+    ViewProps rp;
+    rp.width = 800;
+    rp.height = 700;
+    rp.padding = EdgeInsets{30};
+    View root{rp};
+
+    ContainerProps gcp;
+    gcp.gap = 8;
+    auto grow = std::make_unique<FlexLayout>(ViewProps{}, gcp);
+    grow->props.padding = EdgeInsets{20};
+    auto a = std::make_unique<View>();
+    a->props.width = 60;
+    a->props.height = 60;
+    auto b = std::make_unique<View>();
+    b->props.flexGrow = 1;
+    b->props.height = 60;
+    auto c = std::make_unique<View>();
+    c->props.width = 60;
+    c->props.height = 60;
+    View *bPtr = b.get(), *cPtr = c.get();
+    grow->addChild(std::move(a));
+    grow->addChild(std::move(b));
+    grow->addChild(std::move(c));
+
+    ContainerProps acp;
+    acp.gap = 8;
+    acp.mainAxisAlignment = LayoutAlign::SpaceAround;
+    auto align = std::make_unique<FlexLayout>(ViewProps{}, acp);
+    align->props.padding = EdgeInsets{20};
+    std::vector<View *> alignItems;
+    for (int i = 0; i < 3; ++i) {
+        auto v = std::make_unique<View>();
+        v->props.width = 60;
+        v->props.height = 60;
+        alignItems.push_back(v.get());
+        align->addChild(std::move(v));
+    }
+    FlexLayout *gp = grow.get(), *ap = align.get();
+    root.addChild(std::move(grow));
+    root.addChild(std::move(align));
+
+    View::setMeasurePhase(false);
+    root.measure(Constraints::loose(Size{800, 700}));
+    View::setMeasurePhase(true);
+    root.layout(Rect{0, 0, 800, 700});
+    View::setMeasurePhase(false);
+
+    // ① grow 容器按可用空间填满；grow 项 = 剩余空间；后续子级不越界
+    CHECK(gp->frame.width == 740);
+    CHECK(bPtr->frame.x == 118);
+    CHECK(bPtr->frame.width == 564);    // 700 - (60+60+2×8)
+    CHECK(cPtr->frame.x + cPtr->frame.width <= gp->frame.x + gp->frame.width);
+
+    // ② 按内容收缩容器（236）：spaceAround 按 frame 内容宽（196）分布，
+    //    零剩余 → 贴左排且全部在容器内
+    CHECK(ap->frame.width == 236);
+    CHECK(alignItems[0]->frame.x == 50);
+    CHECK(alignItems[1]->frame.x == 118);
+    CHECK(alignItems[2]->frame.x == 186);
+    CHECK(alignItems[2]->frame.x + alignItems[2]->frame.width <= ap->frame.x + ap->frame.width);
+
+    // ③ wrap + 百分比子项：两相解析基准一致（约束内容宽 708）→ 折行与
+    //    测量一致，行右缘不超出容器（MixDemo：120 + 30% + 60% 折两行，
+    //    60% 项满行；按 frame 重解析曾使 60% 缩水成 254.9 挤一行被裁）
+    ContainerProps wcp;
+    wcp.flexWrap = FlexWrap::Wrap;
+    wcp.gap = 8;
+    auto mix = std::make_unique<FlexLayout>(ViewProps{}, wcp);
+    mix->props.padding = EdgeInsets{16};
+    auto m1 = std::make_unique<View>();
+    m1->props.width = 120;
+    m1->props.height = 50;
+    auto m2 = std::make_unique<View>();
+    m2->props.widthPct = 0.30f;
+    m2->props.height = 50;
+    auto m3 = std::make_unique<View>();
+    m3->props.widthPct = 0.60f;
+    m3->props.height = 50;
+    View *m2Ptr = m2.get(), *m3Ptr = m3.get();
+    mix->addChild(std::move(m1));
+    mix->addChild(std::move(m2));
+    mix->addChild(std::move(m3));
+    FlexLayout *mp = mix.get();
+    root.addChild(std::move(mix));
+
+    View::setMeasurePhase(false);
+    root.measure(Constraints::loose(Size{800, 700}));
+    View::setMeasurePhase(true);
+    root.layout(Rect{0, 0, 800, 700});
+    View::setMeasurePhase(false);
+
+    CHECK(std::abs(mp->frame.width - 456.8f) < 0.1f);      // 最大行 60%×708 + padding
+    CHECK(std::abs(m2Ptr->frame.width - 212.4f) < 0.1f);   // 30%×708
+    CHECK(std::abs(m3Ptr->frame.width - 424.8f) < 0.1f);   // 60%×708
+    CHECK(m3Ptr->frame.y > m2Ptr->frame.y);                // 60% 项折到第二行
+    CHECK(m3Ptr->frame.x + m3Ptr->frame.width <= mp->frame.x + mp->frame.width);
+}
+
 int main() {
+    test_flex_line_capacity_and_grow();
     test_rect();
     test_prop_meta_consistency();
     test_display_list();

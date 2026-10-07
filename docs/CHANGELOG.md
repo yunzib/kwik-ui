@@ -6,6 +6,12 @@
   （滚动时行子树一并重编，对齐 ScrollView）
 - ListLayout::onEvent 移除 Scroll 分支（消除与事件链的双重应用）
 - LazyList consumed 判定移到 updateWindow clamp 之后（到边界正确交祖先）
+- flex 按内容收缩行分布越界（子项摊出容器被裁）：主轴容量拆双口径——
+  断行与测量同源（约束），grow/shrink/justify 分布按 frame 实际内容尺寸
+- flex 无显式宽度 grow 项整行占位失效溢出：grow 项从 flexBasis 起步，
+  容器主轴存在 grow 项时按可用空间填满
+- flexwrap 百分比子项折行后溢出容器被裁（MixDemo 60% 项右缘超出裁剪框）：
+  onLayout 子项测量约束与测量相同源，百分比解析基准两相一致
 
 # 0.0.0 — 2026-10-06
 ### 修复

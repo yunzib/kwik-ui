@@ -64,14 +64,25 @@ Size FlexLayout::onMeasure(Constraints constraints) {
 
     // ── 测量所有可见子项 ──
     std::vector<FlexItem> items;
+    bool anyGrowAuto = false;    // 有 flexGrow>0 且主轴尺寸未显式指定的子级
     for (auto &child : children) {
         if (!child->props.visible) continue;
+        bool hasMain = isRow ? (child->props.width.has_value() || child->props.widthPct.has_value())
+                             : (child->props.height.has_value() || child->props.heightPct.has_value());
+        anyGrowAuto = anyGrowAuto || (child->props.flexGrow > 0 && !hasMain);
         // flexBasis 仅在 flexGrow>0 时作为主轴最小值（沿用旧语义）
         float basis = (child->props.flexGrow > 0 && child->props.flexBasis >= 0) ? child->props.flexBasis : 0;
         Size cs = child->measure(Constraints::loose(Size{contentW, contentH}));
         float mainSz = isRow ? cs.width : cs.height;
         float crossSz = isRow ? cs.height : cs.width;
-        mainSz = std::max(mainSz, basis);
+        if (child->props.flexGrow > 0 && !hasMain) {
+            // grow 项未显式定主轴尺寸 → 从 flexBasis 起步：基类"无宽度按约束
+            // 填满"会把 grow 项测成整行宽，remaining 恒负、grow 失效且把后续
+            // 子级挤出容器（flex demo 蓝条 700 宽、第三项 x826 出界即此）
+            mainSz = std::max(0.0f, child->props.flexBasis);
+        } else {
+            mainSz = std::max(mainSz, basis);
+        }
         items.push_back({child.get(), mainSz, crossSz});
     }
 
@@ -96,13 +107,17 @@ Size FlexLayout::onMeasure(Constraints constraints) {
         if (items.size() > 1) totalMain += container_.gap * (items.size() - 1);
     }
 
-    // 交叉轴方向取内容尺寸；主轴方向显式/百分比用解析值，否则内容自适应
+    // 交叉轴方向取内容尺寸；主轴方向显式/百分比用解析值，否则内容自适应；
+    // 主轴存在待 grow 的自动尺寸子级时按可用空间填满——grow 需要可分配的
+    // 剩余空间，按内容收缩会把容器缩到各项 basis 之和，grow 无空间可分
     bool hasW = props.width.has_value() || props.widthPct.has_value();
     bool hasH = props.height.has_value() || props.heightPct.has_value();
     float resultW = isRow ? (totalMain + props.padding.horizontal()) : (totalCross + props.padding.horizontal());
     float resultH = isRow ? (totalCross + props.padding.vertical()) : (totalMain + props.padding.vertical());
     if (hasW) resultW = w;    // 显式/百分比覆盖计算值
     if (hasH) resultH = h;
+    if (isRow && !hasW && anyGrowAuto && constraints.maxWidth < Constraints::INF) resultW = w;
+    if (!isRow && !hasH && anyGrowAuto && constraints.maxHeight < Constraints::INF) resultH = h;
     return constraints.constrain(Size{resultW, resultH});
 }
 
@@ -112,27 +127,47 @@ void FlexLayout::onLayout() {
     float contentY = frame.y + props.padding.top;
     float contentW = frame.width - props.padding.horizontal();
     float contentH = frame.height - props.padding.vertical();
-    // 行主轴容量与测量同源（按测量相缓存的约束重算 resolveEffectiveSize）：
-    // 原实现从 frame 派生——父容器收窄自适应 flex 时行数与测量分叉，
-    // 底部留白/溢出。仅换行判定与主轴分配用此值，定位坐标仍按 frame
+    // 行主轴容量分两个口径：
+    //  - wrapMain：断行容量，与测量相同源（按测量相缓存的约束重算
+    //    resolveEffectiveSize）——量行与排行必须同一约束，否则行数分叉
+    //    （收窄父容器下底部留白/溢出）
+    //  - contentMain：grow/shrink/justify 的分布容量，按 frame 实际内容尺寸
+    //    ——按内容收缩的 flex（无显式宽度）约束宽 ≠ frame 宽，按约束分布会
+    //    把子项摊到容器外（flex demo AlignDemo 三项摊到 x370/x438 出界被裁）
     auto [effW, effH] = View::resolveEffectiveSize(props, lastLayoutConstraints());
-    float lineMain = isRow ? effW - props.padding.horizontal() : effH - props.padding.vertical();
-    bool wrap = (container_.flexWrap == FlexWrap::Wrap && lineMain < Constraints::INF);
+    float wrapMain = isRow ? effW - props.padding.horizontal() : effH - props.padding.vertical();
+    float contentMain = isRow ? contentW : contentH;
+    // 子项测量约束与测量相同源（effW/effH 派生，而非 frame 内容尺寸）：
+    // 百分比子项的解析基准在量行/排行两相必须一致——按内容收缩的容器
+    // （wrap 后收窄到最大行宽）若按 frame 重解析，百分比子项缩水、断行
+    // 结果与测量分叉，行右缘溢出容器被裁（flexwrap MixDemo 60% 项量行
+    // 424.8 / 排行 254.9，右缘超出裁剪框 93.5）
+    float measureW = effW - props.padding.horizontal();
+    float measureH = effH - props.padding.vertical();
+    bool wrap = (container_.flexWrap == FlexWrap::Wrap && wrapMain < Constraints::INF);
 
     // ── 第一遍：测量所有可见子项 ──
     std::vector<FlexItem> items;
     for (auto &child : children) {
         if (!child->props.visible) continue;
+        bool hasMain = isRow ? (child->props.width.has_value() || child->props.widthPct.has_value())
+                             : (child->props.height.has_value() || child->props.heightPct.has_value());
         float basis = (child->props.flexGrow > 0 && child->props.flexBasis >= 0) ? child->props.flexBasis : 0;
-        Size cs = child->measure(Constraints::loose(Size{contentW, contentH}));
+        Size cs = child->measure(Constraints::loose(Size{measureW, measureH}));
         float mainSz = isRow ? cs.width : cs.height;
         float crossSz = isRow ? cs.height : cs.width;
-        mainSz = std::max(mainSz, basis);
+        // grow 项主轴起步规则与 onMeasure 同源（见彼处注释）——两相不一致
+        // 会让断行/分布分叉
+        if (child->props.flexGrow > 0 && !hasMain) {
+            mainSz = std::max(0.0f, child->props.flexBasis);
+        } else {
+            mainSz = std::max(mainSz, basis);
+        }
         items.push_back({child.get(), mainSz, crossSz});
     }
 
     // ── 分行（与 onMeasure 同一规则）──
-    auto lines = breakFlexLines(items, isRow, wrap, lineMain, container_.gap);
+    auto lines = breakFlexLines(items, isRow, wrap, wrapMain, container_.gap);
 
     // ── 逐行定位 ──
     float crossCursor = isRow ? contentY : contentX;   // 当前行起点（交叉轴坐标）
@@ -153,7 +188,7 @@ void FlexLayout::onLayout() {
             usedMain += items[i].mainSz
                         + (isRow ? items[i].view->props.margin.horizontal() : items[i].view->props.margin.vertical());
         usedMain += container_.gap * (ln.idx.size() - 1);
-        float remaining = lineMain - usedMain;
+        float remaining = contentMain - usedMain;
         if (remaining > 0 && totalGrow > 0) {
             for (auto i : ln.idx)
                 if (items[i].view->props.flexGrow > 0)
@@ -171,7 +206,7 @@ void FlexLayout::onLayout() {
             usedMain += items[i].mainSz
                         + (isRow ? items[i].view->props.margin.horizontal() : items[i].view->props.margin.vertical());
         usedMain += container_.gap * (ln.idx.size() - 1);
-        float spaceRemain = lineMain - usedMain;
+        float spaceRemain = contentMain - usedMain;
         float startOffset = 0, betweenGap = container_.gap;
         switch (container_.mainAxisAlignment) {
         case LayoutAlign::Center: startOffset = spaceRemain * 0.5f; break;
