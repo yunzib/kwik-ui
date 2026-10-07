@@ -35,4 +35,11 @@ public:
 	 * 语义与重构前 JS 读取路径一致: number/boolean/null 统一转字符串。
 	 */
 	virtual std::string cellText(int row, const std::string &colKey) const = 0;
+
+	/**
+	 * @brief 数据内容身份标识（E1 reconcile 内容 diff 用）
+	 * @return 底层内容的稳定指针（如 JS 数组对象地址）；无法提供返回 nullptr。
+	 *         同一身份 = 数据源持同一活引用，原地变更自动生效，reconcile 无需重建
+	 */
+	virtual const void *sourceIdentity() const { return nullptr; }
 };

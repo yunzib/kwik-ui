@@ -102,6 +102,7 @@ Size TextArea::onMeasure(Constraints constraints) {
 // 编辑操作 (复用 Input 的 UTF-8 逻辑)
 // ════════════════════════════════════════════════════════
 void TextArea::insertAtCursor(const std::string &utf8) {
+    cursorBytePos_ = std::min(cursorBytePos_, text_.size());    // 越界光标防御（新-5）
     text_.insert(cursorBytePos_, utf8);
     cursorBytePos_ += utf8.size();
 }
@@ -440,10 +441,23 @@ bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
 }
 
 void TextArea::applyTextAreaProps(const TextAreaProps &p) {
+    // 新-5 受控回写门控：value 与上一轮 props 相同（键入触发的 reconcile
+    // 常见）不覆盖 text_——无条件覆盖会把用户输入回退到旧 props；仅 JS 侧
+    // 真正改值时才回填文档并重置排版
+    bool valueChanged = (p.value != props_.value);
     props_ = p;
-    text_ = props_.value;          // 与构造函数语义一致
-    textResult_.reset();           // 重排占位/正文
-    placeholderResult_.reset();
+    if (valueChanged) {
+        text_ = props_.value;
+        textResult_.reset();           // 重排占位/正文
+        placeholderResult_.reset();
+        // 光标夹紧到新文本末（外部改值语义），并对齐到码点边界防劈开字符
+        cursorBytePos_ = std::min(cursorBytePos_, text_.size());
+        while (cursorBytePos_ > 0 && cursorBytePos_ < text_.size() && (text_[cursorBytePos_] & 0xC0) == 0x80)
+            --cursorBytePos_;
+    }
+    // 光标越界防御：文本变短后越界光标会使 insertAtCursor 抛 out_of_range
+    // 穿 WndProc terminate
+    cursorBytePos_ = std::min(cursorBytePos_, text_.size());
     markDirty();
     requestLayout();
 }

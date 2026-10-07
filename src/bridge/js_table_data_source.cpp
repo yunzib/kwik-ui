@@ -19,6 +19,10 @@ import std;
 JsTableDataSource::JsTableDataSource(JSContext *ctx, JSValue array)
 	: ctx_(ctx), data_(JS_DupValue(ctx, array)) {}
 
+const void *JsTableDataSource::sourceIdentity() const {
+	return JS_VALUE_GET_PTR(data_);    // E1：JS 数组对象身份（同对象=活引用未变）
+}
+
 JsTableDataSource::~JsTableDataSource() {
 	JS_FreeValue(ctx_, data_);
 }

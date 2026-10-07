@@ -97,8 +97,35 @@ public:
     explicit TextView(ViewProps vp, TextViewProps tvp);
     ~TextView() override = default;
 
-    /** @brief reconcile 属性覆盖（rich 文本属性整体重解析，渲染期活读取） */
-    void applyTextViewProps(TextViewProps tvp) { tvp_ = std::move(tvp); }
+    /** @brief reconcile 属性覆盖（rich 文本属性整体重解析，渲染期活读取）
+     *
+     *  新-9：value/content 变化时回填 content_ 文档模型（构造路径同款：
+     *  value 非空单 run 覆盖；content 空补空 run），外部 value 更新不再
+     *  静默丢失。门控=value 与 content 文本均未变时不回填，编辑中的
+     *  content_ 不被 reconcile 回滚 */
+    void applyTextViewProps(TextViewProps tvp) {
+        bool changed = (tvp.value != tvp_.value);
+        if (!changed) {
+            if (tvp.content.size() != tvp_.content.size()) {
+                changed = true;
+            } else {
+                for (size_t i = 0; i < tvp.content.size() && !changed; ++i)
+                    changed = (tvp.content[i].text != tvp_.content[i].text);
+            }
+        }
+        if (changed) {
+            if (!tvp.value.empty()) {
+                tvp.content.clear();
+                tvp.content.push_back({tvp.value, {}});
+            } else if (tvp.content.empty()) {
+                tvp.content.push_back({{}, {}});
+            }
+            content_ = tvp.content;
+            rebuild_();
+            markDirty();
+        }
+        tvp_ = std::move(tvp);
+    }
 
     ElementType type() const override { return ElementType::TextView; }
     const TextViewProps &textViewProps() const { return tvp_; }

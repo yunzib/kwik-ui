@@ -43,6 +43,7 @@ public:
     int itemCount() const override;
     std::unique_ptr<View> buildItem(int index) override;
     void discardItem(int index, View *item) override;
+    const void *sourceIdentity() const override;    // E1：JS 数组对象身份
 
 private:
     JSContext *ctx_ = nullptr;

@@ -2,6 +2,23 @@
 
 # 0.0.0 — 2026-10-07
 ### 修复
+- State 增量更新不再抑制全量重建（handled 门控移除：State.set 陷阱与
+  State.update 两处）——派生 UI 永久陈旧根治；notify handled 判定收窄
+  （仅残留条目不算已处理）
+- BindingRegistry 重复注册：bind 按 (state,key,view,prop) 查重 +
+  reconcile 复用重绑前先 unbind（换 key/移除绑定两型残留根治）
+- Table/LazyList 每轮 reconcile 重建数据源：数据源持活引用，按 JS 数组
+  对象身份 diff 决定是否重建；LazyList 参数未变不再 rebuildAll
+- js_animate 数组关键帧 NaN 兜底（与单值路径同源）、loop:"3"/"infinite"
+  字符串口径（原被判真变无限循环）、属性别名键面支持
+- TextArea 受控回写回退用户输入、光标越界 out_of_range：value 未变不
+  覆盖文档，光标夹紧至码点边界，insert 越界防御
+- SpinBox reconcile 三处失效：移除对内部 Input 的 min/max/step 无效推送
+  （止告警刷屏）、字段文本未变不重写保光标、中间态 "-"/"1e" 不再外发
+- TextView 外部 value/content 静默丢失：真变化才回填文档并重排，编辑中
+  内容不被 reconcile 回滚
+- 浮层（Layer）每次 State 变更全量重建、onMount/onUnmount 循环触发：
+  element_type 补 "Layer" 别名，reconcile 判型恢复复用
 - List 滚动后行内容消失：applyScroll/setPropertyTyped 改 markAllDirty
   （滚动时行子树一并重编，对齐 ScrollView）
 - ListLayout::onEvent 移除 Scroll 分支（消除与事件链的双重应用）

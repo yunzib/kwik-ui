@@ -26,6 +26,10 @@ import std;
 JsLazyListSource::JsLazyListSource(JSContext *ctx, JSValue items, JSValue itemBuilder) :
     ctx_(ctx), items_(JS_DupValue(ctx, items)), builder_(JS_DupValue(ctx, itemBuilder)) {}
 
+const void *JsLazyListSource::sourceIdentity() const {
+    return JS_VALUE_GET_PTR(items_);    // E1：JS 数组对象身份（同对象=活引用未变）
+}
+
 JsLazyListSource::~JsLazyListSource() {
     JS_FreeValue(ctx_, items_);
     JS_FreeValue(ctx_, builder_);

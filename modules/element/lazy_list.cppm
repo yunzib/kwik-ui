@@ -74,6 +74,7 @@ public:
 
     /// 重建数据源（items/itemBuilder 变更 → 全量重出窗）
     void setDataSource(std::unique_ptr<LazyListSource> src);
+    LazyListSource *dataSource() const { return source_.get(); }    // E1 身份 diff 读当前源身份
     void setHeader(std::unique_ptr<View> h) { header_ = std::move(h); }
     void setFooter(std::unique_ptr<View> f) { footer_ = std::move(f); }
     /// 取走 header/footer 所有权（reconcile 先解绑旧根再重建用）

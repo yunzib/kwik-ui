@@ -932,8 +932,15 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         const auto &fac = lazyListSourceFactory();
         if (fac && propsVal.hasProperty("items") && propsVal.getProperty("items").isArray()) {
             auto itemsVal = propsVal.getProperty("items");
-            JSValue bv = propsVal.hasProperty("itemBuilder") ? propsVal.getProperty("itemBuilder").raw() : JS_UNDEFINED;
-            ll->setDataSource(fac(itemsVal.context(), itemsVal.raw(), bv));
+            // E1 内容 diff（对象身份）：数据源持活引用，同一 JS 数组原地变更
+            // 自动生效；仅数组对象身份变化才重建（原实现每轮 reconcile 双
+            // rebuildAll 白耗性能、可变行高 sizes_ 丢失回退估计值跳动）
+            const void *srcId = JS_VALUE_GET_PTR(itemsVal.raw());
+            auto *curSrc = ll->dataSource();
+            if (!curSrc || curSrc->sourceIdentity() != srcId) {
+                JSValue bv = propsVal.hasProperty("itemBuilder") ? propsVal.getProperty("itemBuilder").raw() : JS_UNDEFINED;
+                ll->setDataSource(fac(itemsVal.context(), itemsVal.raw(), bv));
+            }
         }
         break;
     }
@@ -982,10 +989,15 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::Table: {
         auto *t = static_cast<Table *>(oldView.get());
         t->applyTableProps(parseTableProps(ex));
-        // data 变更 → 数据源重建（与创建路径同源；Table 渲染活读取 columns）
+        // data 变更 → 数据源重建（与创建路径同源；Table 渲染活读取 columns）。
+        // E1 内容 diff（对象身份）：数据源持活引用读原数组，同一 JS 数组对象
+        // 原地变更自动生效，仅身份变化才重建（原实现每轮 State 变更重建数据源）
         if (propsVal.hasProperty("data") && propsVal.getProperty("data").isArray()) {
             auto dataVal = propsVal.getProperty("data");
-            t->setData(createJsTableDataSource(dataVal.context(), dataVal.raw()));
+            const void *srcId = JS_VALUE_GET_PTR(dataVal.raw());
+            auto *curSrc = t->dataSource();
+            if (!curSrc || curSrc->sourceIdentity() != srcId)
+                t->setData(createJsTableDataSource(dataVal.context(), dataVal.raw()));
         }
         break;
     }
@@ -1022,6 +1034,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     }
 
     oldView->propMeta = std::move(meta);       // ← 更新 hasBinding 标记
+    // E9：重绑前先解绑本视图全部旧条目——否则换 key（旧键残留仍被 notify
+    // 命中）与移除绑定（条目永久残留）两型残留查重修不掉
+    if (auto *reg = getRegisteredRegistry()) reg->unbind(oldView.get());
     applyBindings(oldView.get(), propsVal);    // ← 重新注册到 BindingRegistry
 
     // ── 递归 reconcile children ──

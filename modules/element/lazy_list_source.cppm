@@ -31,4 +31,9 @@ public:
      *        防 State 悬空指针 UAF——bindings 是逐 View 注册的，须递归解绑）
      */
     virtual void discardItem(int index, View *item) = 0;
+
+    /**
+     * @brief 数据内容身份标识（E1 reconcile 内容 diff 用，同 TableDataSource）
+     */
+    virtual const void *sourceIdentity() const { return nullptr; }
 };

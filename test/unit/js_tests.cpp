@@ -14,8 +14,14 @@
 
 import kwik.engine.context;        // QuickJSContext（默认构造，无需窗口）
 import kwik.engine.vm_callbacks;   // set_incremental_callback / set_render_callback
+import kwik.engine.js_value;       // JSValueRef
+import kwik.core.types;            // TypedProp
 import kwik.bridge.bindings;       // register_kwikui_module（KwikRuntime 平时替做）
+import kwik.bridge.binding_registry;
+import kwik.bridge.element_parser;
 import kwik.element.view;
+import kwik.element.element_type;
+import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.core.log;
 
 import std;
@@ -66,6 +72,60 @@ static bool eval_module(const char *filename, const std::string &code) {
     return ok;
 }
 
+// ── 行为锁: T0-⑥ 数据驱动批 ──
+// ① E9 查重：同 (state,key,view,prop) 重复 bind（reconcile 每轮重绑形态）
+//    notify 只写一次——原纯 insert 同键无界增长、写入 N 倍
+// ② notify 判定收窄：仅残留条目（propMeta 无该属性类型记录）不算 handled
+// ③ Layer 别名：reconcile 判型命中 LayerView 复用同一实例（别名缺失时
+//    每轮重建、onMount/onUnmount 循环触发）
+class ProbeBoundView : public View {
+public:
+    int writes = 0;
+    bool setPropertyTyped(const char *name, const TypedProp &v) override {
+        if (std::strcmp(name, "value") == 0) { ++writes; return true; }
+        return View::setPropertyTyped(name, v);
+    }
+};
+
+static void test_t06_data_driven() {
+    reset_callbacks();
+
+    // ①② BindingRegistry 直驱（不经 JS trap）
+    {
+        BindingRegistry reg;
+        auto pv = std::make_unique<ProbeBoundView>();
+        pv->propMeta.set("value", PropType::String, true);
+        reg.bind(&pv, "k", pv.get(), "value");
+        reg.bind(&pv, "k", pv.get(), "value");    // reconcile 每轮重绑形态
+        JSContext *c = g_ctx->getPtr();
+        JSValue strv = JS_NewString(c, "x");
+        CHECK(reg.notify(&pv, "k", c, strv) == true);
+        CHECK(pv->writes == 1);                   // 去重生效：两 bind 一次写
+        auto pv2 = std::make_unique<ProbeBoundView>();
+        reg.bind(&pv, "k2", pv2.get(), "value");
+        CHECK(reg.notify(&pv, "k2", c, strv) == false);    // 判定收窄：残留条目不算 handled
+        CHECK(pv2->writes == 0);
+        JS_FreeValue(c, strv);
+    }
+
+    // ③ Layer 别名 → reconcile 复用同一实例
+    {
+        JSContext *c = g_ctx->getPtr();
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Layer"));
+        JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+        JSValueRef ref(c, node);    // 接管 node 所有权（析构释放）
+        auto v1 = ElementParser::parseNode(ref);
+        CHECK(v1 && v1->type() == ElementType::LayerView);
+        View *raw = v1.get();
+        auto v2 = ElementParser::reconcile(c, node, std::move(v1));
+        CHECK(v2.get() == raw);    // 同一实例 = 判型命中复用
+    }
+
+    teardown_callbacks();
+}
+
 // ── 行为锁: State.update() 枚举字符串键（数据驱动批量回写）──
 // JS_GetOwnPropertyNames 若缺 JS_GPN_STRING_MASK 则恒 0 条属性，update
 // 的批量写入/逐键增量/全量判定三段全部落空。
@@ -83,7 +143,8 @@ static void test_state_update_enumerates_string_keys() {
     CHECK(std::find(g_keys.begin(), g_keys.end(), "a") != g_keys.end());
     CHECK(std::find(g_keys.begin(), g_keys.end(), "b") != g_keys.end());
     CHECK(std::find(g_keys.begin(), g_keys.end(), "c") != g_keys.end());
-    CHECK(g_renders == 0);    // 全命中 → 跳过全量重建
+    CHECK(g_renders == 1);    // N1 定案（保守方案）：update 批量回写后无条件触发全量重建
+                              // （每调用一次 update 一次；派生 UI 一致性优先，性能挂 ⑨ 评估）
 
     teardown_callbacks();
 }
@@ -167,6 +228,7 @@ int main() {
     // （纯导出表/State 类/channel 单例，不需要根 View）
     CHECK(register_kwikui_module(*g_ctx));
 
+    test_t06_data_driven();
     test_state_update_enumerates_string_keys();
     test_l1_illegal_input_no_crash();
     test_console_and_rejection_observability();

@@ -261,14 +261,23 @@ void SpinBox::stepArrow(int dir) {
 
 void SpinBox::onFieldChange() {
     if (!field_) return;
-    // 输入过程实时解析 (不 clamp, 不重写文本; clamp 由 Input 提交校验负责)
-    sp_.value = static_cast<float>(std::strtod(field_->value().c_str(), nullptr));
+    // 新-6 中间态门控：文本须完整解析为有限数值才更新/外发——"-"、"1e" 等
+    // 输入中间态不再以 0/截断值外发（"12." 是合法 double 字面量，照常通过）
+    std::string text = field_->value();
+    char *end = nullptr;
+    double v = std::strtod(text.c_str(), &end);
+    if (end == text.c_str() || *end != 0 || !std::isfinite(v)) return;
+    sp_.value = static_cast<float>(v);
     if (binding_) binding_->setFloat(bindKey_, sp_.value);
     fireChange();
 }
 
 void SpinBox::syncFieldText() {
-    if (field_) field_->setValue(fmtNum(sp_.value));
+    if (!field_) return;
+    // 新-6 光标保护：字段文本与格式化值一致时不重写——setValue 会把光标
+    // 顶到尾部，reconcile 每轮都走这里，"12." 等中间态输入无法继续编辑
+    std::string text = fmtNum(sp_.value);
+    if (field_->value() != text) field_->setValue(text);
 }
 
 void SpinBox::fireChange() {
@@ -319,13 +328,12 @@ bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
 void SpinBox::applySpinBoxProps(SpinBoxProps sp) {
     sp_ = std::move(sp);
     if (!field_) return;
-    // 同步内部字段 (已设置的约束才下发; 未设置保持构造值)
+    // 同步内部字段 (已设置的约束才下发; 未设置保持构造值)。
+    // 新-6：min/max/step 是 SpinBox 自身约束（sp_ 已直收），对内部 Input
+    // setProperty 是 no-op 且每轮 reconcile 触发未知名告警刷屏——不再推送
     field_->setProperty("placeholder", sp_.placeholder.c_str());
     field_->setProperty("fontSize", fmtNum(sp_.fontSize).c_str());
     field_->setProperty("readOnly", sp_.readOnly ? "true" : "false");
-    if (sp_.min) field_->setProperty("min", fmtNum(*sp_.min).c_str());
-    if (sp_.max) field_->setProperty("max", fmtNum(*sp_.max).c_str());
-    if (sp_.step) field_->setProperty("step", fmtNum(*sp_.step).c_str());
     sp_.value = clampValue(sp_.value);
     syncFieldText();
     markDirty();

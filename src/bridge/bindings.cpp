@@ -232,7 +232,10 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
     if (!sd) return -1;
     int ret = JS_SetProperty(ctx, sd->data, atom, JS_DupValue(ctx, value));
     if (ret >= 0) {
-        // 增量更新路径：查 BindingRegistry，若已处理则跳过全量重建
+        // N1 定案（保守方案）：增量回写不再抑制全量重建——handled 只表示
+        // 绑定视图已直写，派生 UI（未绑定部分）仍需 reconcile 保持一致，
+        // "handled 跳过重建"是派生 UI 永久陈旧的根源。键入逐次整树
+        // rebuild 的性能代价挂 ⑨ 评估（脏子树 measure 收窄）。
         bool handled = false;
         auto incCb = get_incremental_callback();
         if (incCb) {
@@ -244,12 +247,11 @@ static int state_set_property(JSContext *ctx, JSValueConst obj, JSAtom atom, JSV
                 JS_FreeCString(ctx, key);
             }
         }
-        if (!handled) {
-            auto renCb = get_render_callback();
-            if (renCb) {
-                Log::debug("State set_property called   renCb");
-                renCb();
-            }
+        (void)handled;
+        auto renCb = get_render_callback();
+        if (renCb) {
+            Log::debug("State set_property called   renCb");
+            renCb();
         }
     }
     return ret;
@@ -438,11 +440,15 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
     // 异常收场：转为 JS 异常（调用方可捕获），不再继续
     if (threw) return JS_ThrowTypeError(ctx, "state.update: 属性写入失败（详见日志）");
 
-    // ── 阶段 ③：全部增量命中 → 跳过重建；有未命中 → 全量兜底 ──
-    if (!allHandled) {
+    // ── N1 定案（保守方案）：增量回写不再抑制全量重建——handled 只表示
+    // 绑定视图已直写，派生 UI（未绑定部分）仍需 reconcile 保持一致；
+    // "全命中跳过重建"是派生 UI 永久陈旧的根源。性能代价挂 ⑨ 评估。
+    // if (!allHandled) …
+    {
         auto renCb = get_render_callback();
         if (renCb) renCb();
     }
+    (void)allHandled;
 
     return JS_UNDEFINED;
 }
@@ -586,19 +592,27 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         std::vector<TypedProp> values;
     };
     std::vector<AnimProp> animProps;
+    std::vector<char> propSeen(static_cast<size_t>(PropId::COUNT), 0);
 
-    for (int pid = 0; pid < static_cast<int>(PropId::COUNT); ++pid) {
-        PropId prop = static_cast<PropId>(pid);
-        const char *pname = propName(prop);
-        JSValue jsVal = JS_GetPropertyStr(ctx, argv[1], pname);
-        if (JS_IsUndefined(jsVal)) {
-            JS_FreeValue(ctx, jsVal);
-            continue;
+    // 值解析三路共用（数组关键帧/单值/别名键）：E3——ToFloat64 失败或
+    // NaN（非数字字符串）→ 字符串路径（颜色/文本关键帧）。数组路径原实现
+    // 缺 NaN 兜底，会把 NaN 直接 push 进关键帧。纯数值 color 不可补间跳过
+    auto pushAnimValue = [&](AnimProp &ap, PropId prop, JSValue v) {
+        double d = 0;
+        if (JS_ToFloat64(ctx, &d, v) < 0 || std::isnan(d)) {
+            const char *s = JS_ToCString(ctx, v);
+            if (s) {
+                ap.values.push_back(getPropMeta(prop).colorType ? TypedProp{parseColor(s)} : TypedProp{std::string(s)});
+                JS_FreeCString(ctx, s);
+            }
+            return;
         }
-
+        if (!getPropMeta(prop).colorType) { ap.values.push_back(d); }
+    };
+    auto collectAnimProp = [&](PropId prop, JSValue jsVal) {
+        if (propSeen[static_cast<size_t>(prop)]) return;
         AnimProp ap;
         ap.prop = prop;
-
         if (JS_IsArray(jsVal)) {
             uint32_t vLen = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, jsVal, "length");
@@ -606,60 +620,46 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             JS_FreeValue(ctx, lenVal);
             for (uint32_t j = 0; j < vLen; ++j) {
                 JSValue ev = JS_GetPropertyUint32(ctx, jsVal, j);
-                double d;
-                if (JS_ToFloat64(ctx, &d, ev)) {
-                    const char *s = JS_ToCString(ctx, ev);
-                    if (s) {
-                        if (getPropMeta(prop).colorType) {
-                            ap.values.push_back(parseColor(s));
-                        } else {
-                            ap.values.push_back(std::string(s));
-                        }
-                        JS_FreeCString(ctx, s);
-                    }
-                } else {
-                    ap.values.push_back(d);
-                }
+                pushAnimValue(ap, prop, ev);
                 JS_FreeValue(ctx, ev);
             }
         } else {
-            double d;
-            if (JS_ToFloat64(ctx, &d, jsVal)) {
-                const char *s = JS_ToCString(ctx, jsVal);
-                if (s) {
-                    if (getPropMeta(prop).colorType) {
-                        ap.values.push_back(parseColor(s));
-                    } else {
-                        ap.values.push_back(std::string(s));
-                    }
-                    JS_FreeCString(ctx, s);
-                }
-            } else if (std::isnan(d)) {
-                // JS_ToFloat64 将字符串（如 '#67C23A'）成功转为 NaN，
-                // 实际仍是字符串，走 parseColor 路径
-                const char *s = JS_ToCString(ctx, jsVal);
-                if (s) {
-                    if (getPropMeta(prop).colorType) {
-                        ap.values.push_back(parseColor(s));
-                    } else {
-                        ap.values.push_back(std::string(s));
-                    }
-                    JS_FreeCString(ctx, s);
-                }
-            } else {
-                // 合法数值
-                if (getPropMeta(prop).colorType) {
-                    // 纯数字 color → 跳过
-                } else {
-                    ap.values.push_back(d);
-                }
-            }
+            pushAnimValue(ap, prop, jsVal);
         }
-        JS_FreeValue(ctx, jsVal);
         // 空 values 整属性跳过（如纯数值 color 被"跳过"后 vector 仍为空）——
         // 留空条目会让下游单段模式 values[0] 越界读
-        if (ap.values.empty()) continue;
+        if (ap.values.empty()) return;
+        propSeen[static_cast<size_t>(prop)] = 1;
         animProps.push_back(std::move(ap));
+    };
+
+    // 规范键扫描（先到先得）
+    for (int pid = 0; pid < static_cast<int>(PropId::COUNT); ++pid) {
+        PropId prop = static_cast<PropId>(pid);
+        JSValue jsVal = JS_GetPropertyStr(ctx, argv[1], propName(prop));
+        if (!JS_IsUndefined(jsVal)) { collectAnimProp(prop, jsVal); }
+        JS_FreeValue(ctx, jsVal);
+    }
+
+    // E3 别名键面：属性别名键（propMeta 别名表经 propIdFromName 解析）
+    // 同样可驱动动画，与规范键去重
+    {
+        JSPropertyEnum *tab = nullptr;
+        uint32_t tabLen = 0;
+        if (!JS_GetOwnPropertyNames(ctx, &tab, &tabLen, argv[1], JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY)) {
+            for (uint32_t k = 0; k < tabLen; ++k) {
+                const char *key = JS_AtomToCString(ctx, tab[k].atom);
+                PropId prop = key ? propIdFromName(key) : PropId::COUNT;
+                if (prop != PropId::COUNT && !propSeen[static_cast<size_t>(prop)]) {
+                    JSValue v = JS_GetProperty(ctx, argv[1], tab[k].atom);
+                    collectAnimProp(prop, v);
+                    JS_FreeValue(ctx, v);
+                }
+                if (key) { JS_FreeCString(ctx, key); }
+                JS_FreeAtom(ctx, tab[k].atom);
+            }
+            js_free(ctx, tab);
+        }
     }
     Log::debug("[js_animate] animProps count={}", animProps.size());
 
@@ -740,6 +740,20 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             double v;
             JS_ToFloat64(ctx, &v, lp);
             opts.loopCount = static_cast<int>(v);
+        } else if (JS_IsString(lp)) {
+            // E3：字符串口径——"infinite"=无限，纯数字串按次数（"3" 原被
+            // JS_ToBool 判真 → 变无限循环）
+            const char *s = JS_ToCString(ctx, lp);
+            if (s) {
+                if (std::strcmp(s, "infinite") == 0) {
+                    opts.loopCount = 0;
+                } else {
+                    char *end = nullptr;
+                    long n = std::strtol(s, &end, 10);
+                    if (end != s && *end == 0 && n >= 0) opts.loopCount = static_cast<int>(n);
+                }
+                JS_FreeCString(ctx, s);
+            }
         } else if (JS_ToBool(ctx, lp)) {
             opts.loopCount = 0;    // true = 无限
         }

@@ -86,7 +86,14 @@ void LazyList::applyScrollProps(const ScrollViewProps &sp) {
 }
 
 void LazyList::applyLazyListProps(const LazyListProps &lp) {
+    // E1 内容 diff：行高/行宽/估计值/overscan/分割线全部未变时不重建行窗
+    // （reconcile 每轮都会带全量 props 过来，无条件 rebuildAll 会清行窗
+    // 重出行，可变模式实测 sizes_ 丢失回退估计值跳动）
+    bool changed = lp.itemHeight != lp_.itemHeight || lp.itemWidth != lp_.itemWidth ||
+                   lp.estimatedItemSize != lp_.estimatedItemSize || lp.overscan != lp_.overscan ||
+                   lp.dividerHeight != lp_.dividerHeight || !(lp.dividerColor == lp_.dividerColor);
     lp_ = lp;
+    if (!changed) return;
     rebuildAll();    // 行高/分割线/估计值变更影响全局 → 清窗重建
 }
 

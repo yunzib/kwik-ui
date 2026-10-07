@@ -38,6 +38,7 @@ public:
 	// ── TableDataSource 接口 ──
 	int rowCount() const override;
 	std::string cellText(int row, const std::string &colKey) const override;
+	const void *sourceIdentity() const override;    // E1：JS 数组对象身份
 
 	/**
 	 * @brief 获取第 row 行的 JS 行对象 (新引用, 调用方负责释放)

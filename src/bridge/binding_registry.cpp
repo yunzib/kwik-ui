@@ -92,6 +92,13 @@ TypedProp jsValueToTypedProp(JSContext *ctx, JSValueConst value, PropType type) 
 // ═══════════════════════════════════════════════════════════════════════════
 
 void BindingRegistry::bind(void *statePtr, const std::string &key, View *view, const std::string &propName) {
+    // E9 查重：reconcile 复用路径每轮重绑，纯 insert 会同键无界增长，
+    // notify 重复 setPropertyTyped/transition N 倍——同 (state,key,view,prop)
+    // 已存在则跳过
+    auto range = bindings_.equal_range(BindingKey{statePtr, key});
+    for (auto it = range.first; it != range.second; ++it) {
+        if (it->second.view == view && it->second.propName == propName) return;
+    }
     bindings_.insert({{statePtr, key}, {view, propName}});
 }
 
@@ -156,6 +163,11 @@ bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *
     // dup 新值，避免遍历中多次读取时 refcount 问题
     JSValue val = JS_DupValue(ctx, newValue);
 
+    // handled 判定收窄（N1）：至少一个绑定真正消费（propMeta 有该属性的
+    // 类型记录并完成写入）才算 handled——仅有残留条目而属性已不可写时
+    // 返回 false，调用方按未处理口径走
+    bool handled = false;
+
     for (auto it = range.first; it != range.second; ++it) {
         View *view = it->second.view;
         const std::string &propName = it->second.propName;
@@ -163,6 +175,7 @@ bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *
         // 查 TypedPropMap 获得 parse 阶段记录的类型信息
         PropEntry *entry = view->propMeta.find(propName);
         if (!entry) continue;
+        handled = true;
 
         // 将 JSValue 按原始 C++ 类型转为 TypedProp
         TypedProp typed = jsValueToTypedProp(ctx, val, entry->typeHint);
@@ -177,6 +190,6 @@ bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *
     }
 
     JS_FreeValue(ctx, val);
-    return true;
+    return handled;
 }
 

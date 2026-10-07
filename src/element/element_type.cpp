@@ -111,5 +111,7 @@ static struct InitElementTypeNames {
         registerElementTypeAlias("Grid", ElementType::GridLayout);
         registerElementTypeAlias("Stack", ElementType::StackLayout);
         registerElementTypeAlias("List", ElementType::ListLayout);
+        registerElementTypeAlias("Layer", ElementType::LayerView);    // 缺此别名 → 浮层 reconcile 判型失败
+                                                                          // 每次 State 变更全量重建、onMount/onUnmount 循环触发
     }
 } _init_element_type_names;
