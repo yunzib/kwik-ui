@@ -64,13 +64,27 @@ void Text::ensureLayout(float maxW) {
     // 超行 + 省略号 → 截断重排
     if (text_.maxLines > 0 && text_.ellipsis && full && full->truncated && !full->lines.empty()) {
         auto &last = full->lines.back();
-        displayedText_ = text_.text.substr(0, last.clusterEnd) + "\xE2\x80\xA6";    // U+2026 …
-        // 截断串缓存匹配：cutCfg.maxLines=0（截断串已定长），与排版所用 cfg 一致
-        // —— 若仍用原 cfg（maxLines>0）则 Result.maxLines=0 恒不匹配 → 每帧重排
+        std::string cut = text_.text.substr(0, last.clusterEnd);
+        // 收尾适配：截断串 + 省略号重排若仍折出 > maxLines 行（末行装不下
+        // "…" 被挤到第 N+1 行），逐码点回退直至行数收进 maxLines
         auto cutCfg = cfg;
         cutCfg.maxLines = 0;
-        if (layoutResult_ && layoutResult_->matchesKey(displayedText_, fid, text_.fontSize, cutCfg)) return;
-        full = pipe.layoutText(displayedText_, fid, text_.fontSize, cutCfg);
+        for (int guard = 0; guard < 64; ++guard) {
+            displayedText_ = cut + "\xE2\x80\xA6";    // U+2026 …
+            if (layoutResult_ && layoutResult_->matchesKey(displayedText_, fid, text_.fontSize, cutCfg)) return;
+            auto relaid = pipe.layoutText(displayedText_, fid, text_.fontSize, cutCfg);
+            if (!relaid || (int)relaid->lines.size() <= text_.maxLines) {
+                full = std::move(relaid);
+                break;
+            }
+            if (cut.empty()) {
+                full = std::move(relaid);
+                break;
+            }
+            size_t pos = cut.size() - 1;    // 回退一个码点，给省略号腾位
+            while (pos > 0 && ((unsigned char)cut[pos] & 0xC0) == 0x80) --pos;
+            cut.resize(pos);
+        }
     } else {
         displayedText_ = text_.text;
     }
@@ -116,8 +130,8 @@ void Text::onDraw(Graphics &graphics) {
     pipe.ensureGlyphs(*layoutResult_);
     if (!layoutResult_ || layoutResult_->glyphs.empty()) return;
 
-    // 行高步进与 layout totalHeight 一致（lineHeight>0 ? 固定 : fontSize*1.4）
-    float lh = (text_.lineHeight > 0) ? text_.lineHeight : std::max(text_.fontSize * 1.4f, 1.0f);
+    // 行高步进与布局一致：逐行用 layout 行高（= max(标准行高, ink 高)）——
+    // 固定 fontSize*1.4 在高字形（emoji）行与布局 totalHeight 分叉 → 行重叠
 
     // 垂直对齐：在 padding 后内容区（frame.height - padding.vertical()）内整体下移
     float contentH = layoutResult_->totalHeight;
@@ -138,7 +152,7 @@ void Text::onDraw(Graphics &graphics) {
         graphics.translate(x0, yCursor);
         graphics.drawTextCached(seg, text_.textColor);
         graphics.restore();
-        yCursor += lh;
+        yCursor += sl.height;
     }
 }
 

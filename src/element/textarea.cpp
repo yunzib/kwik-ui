@@ -125,55 +125,64 @@ void TextArea::moveCursorRight() {
     skipForward(text_, cursorBytePos_);
 }
 
-void TextArea::moveCursorUp() {
-    // 通过排版结果的 cluster 范围反推当前 cursorBytePos_ 所在 visual line
-    if (!textResult_ || textResult_->lines.empty()) {
-        cursorBytePos_ = 0;
-        return;
-    }
-    size_t pos = cursorBytePos_;
-    int lineIdx = -1;
+// ════════════════════════════════════════════════════════
+// lineForByte — 字节偏移 → visual line（公共口：光标绘制/上下键共用，
+// 三处行匹配逻辑收口一处）
+//   常规匹配 [clusterStart, clusterEnd)；
+//   空行（glyphCount==0）匹配 clusterStart（==clusterEnd）；
+//   文末光标（pos == 尾字节 == 末行 clusterEnd）匹配末行——多字节结尾
+//   文本此前因末行 clusterEnd 回退值偏小而匹配失败（光标不可见/上下键失效）
+// ════════════════════════════════════════════════════════
+int TextArea::lineForByte(size_t pos) const {
+    if (!textResult_) return -1;
     for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
         auto &l = textResult_->lines[vi];
-        if (pos >= l.clusterStart && pos < l.clusterEnd) {
-            lineIdx = (int)vi;
-            break;
-        }
+        bool isEmpty = (l.glyphCount == 0);
+        bool isLast = (vi == textResult_->lines.size() - 1);
+        if (pos >= l.clusterStart &&
+            (pos < l.clusterEnd || (isEmpty && pos == l.clusterStart) || (pos == l.clusterEnd && isLast)))
+            return (int)vi;
     }
+    return -1;
+}
+
+void TextArea::moveCursorUp() {
+    int lineIdx = lineForByte(cursorBytePos_);
     if (lineIdx <= 0) {
         cursorBytePos_ = 0;
         return;
     }
-    // 上一行同列位置
+    // 上一行同列位置（字节列）
     auto &prev = textResult_->lines[lineIdx - 1];
-    size_t col = pos - textResult_->lines[lineIdx].clusterStart;
-    size_t target = prev.clusterStart + std::min(col, size_t(prev.clusterEnd - prev.clusterStart - 1));
+    auto &cur = textResult_->lines[lineIdx];
+    size_t col = cursorBytePos_ - cur.clusterStart;
+    size_t len = prev.clusterEnd - prev.clusterStart;
+    size_t target = prev.clusterStart + std::min(col, len);
+    // 落点码点边界对齐：continuation 字节回退到码点首字节——否则此后
+    // insertAtCursor 在多字节字符中间插入，text_ 永久非法 UTF-8
+    while (target > prev.clusterStart && target < text_.size() && (text_[target] & 0xC0) == 0x80) --target;
+    // 落在行尾（== clusterEnd）行匹配会跳到下一行 → 回退一个码点保持本行
+    if (target >= prev.clusterEnd && target > prev.clusterStart) skipBackward(text_, target);
     cursorBytePos_ = std::min(target, text_.size());
 }
 
 void TextArea::moveCursorDown() {
-    if (!textResult_ || textResult_->lines.empty()) {
-        cursorBytePos_ = text_.size();
-        return;
-    }
-    size_t pos = cursorBytePos_;
-    int lineIdx = -1;
-    for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
-        auto &l = textResult_->lines[vi];
-        if (pos >= l.clusterStart && pos < l.clusterEnd) {
-            lineIdx = (int)vi;
-            break;
-        }
-    }
+    int lineIdx = lineForByte(cursorBytePos_);
     if (lineIdx < 0 || lineIdx >= (int)textResult_->lines.size() - 1) {
         cursorBytePos_ = text_.size();
         return;
     }
-    // 下一行同列位置
+    // 下一行同列位置（字节列）
     auto &cur = textResult_->lines[lineIdx];
     auto &next = textResult_->lines[lineIdx + 1];
-    size_t col = pos - cur.clusterStart;
-    size_t target = next.clusterStart + std::min(col, size_t(next.clusterEnd - next.clusterStart - 1));
+    size_t col = cursorBytePos_ - cur.clusterStart;
+    size_t len = next.clusterEnd - next.clusterStart;
+    size_t target = next.clusterStart + std::min(col, len);
+    // 落点码点边界对齐（同 moveCursorUp）
+    while (target > next.clusterStart && target < text_.size() && (text_[target] & 0xC0) == 0x80) --target;
+    // 行尾落点对齐到上一码点（末行文末除外——isLast 规则可直接匹配）
+    if (target >= next.clusterEnd && target > next.clusterStart && target < text_.size())
+        skipBackward(text_, target);
     cursorBytePos_ = std::min(target, text_.size());
 }
 
@@ -318,7 +327,7 @@ void TextArea::onDraw(Graphics &graphics) {
             graphics.restore();
         }
     } else {
-        // ── 逐 visual line 渲染 ──────────────────────────────────
+        // ── 逐 visual line 渲染（步进用 layout 行高，与 totalHeight 一致）──
         float yCursor = inner.y;
         for (auto &sl : textResult_->lines) {
             auto seg = std::vector<ShapedGlyph>(textResult_->glyphs.begin() + sl.glyphStart,
@@ -327,7 +336,7 @@ void TextArea::onDraw(Graphics &graphics) {
             graphics.translate(inner.x, yCursor);
             graphics.drawTextCached(seg, props_.textColor);
             graphics.restore();
-            yCursor += lh;
+            yCursor += sl.height;
         }
     }
 
@@ -336,20 +345,20 @@ void TextArea::onDraw(Graphics &graphics) {
         if (updateCursorBlink()) markDirty();
         if (cursorVisible_) {
             size_t pos = cursorBytePos_;
-            float cx = inner.x;
-            for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
-                auto &sl = textResult_->lines[vi];
-                bool isLast = (vi == textResult_->lines.size() - 1);
-                if (pos >= sl.clusterStart && (pos < sl.clusterEnd || (pos == sl.clusterEnd && isLast))) {
-                    for (uint32_t j = 0; j < sl.glyphCount; ++j) {
-                        auto &g = textResult_->glyphs[sl.glyphStart + j];
-                        if (g.cluster < pos) cx += g.advanceX;
-                    }
-                    float curY = inner.y + (float)vi * lh;
-                    cx = std::min(cx, inner.x + inner.width);
-                    graphics.drawRect({cx - 0.5f, curY, 1.5f, lh}, props_.cursorColor);
-                    break;
+            int matchLine = lineForByte(pos);
+            if (matchLine >= 0) {
+                auto &sl = textResult_->lines[matchLine];
+                float cx = inner.x;
+                for (uint32_t j = 0; j < sl.glyphCount; ++j) {
+                    auto &g = textResult_->glyphs[sl.glyphStart + j];
+                    if (g.cluster < pos) cx += g.advanceX;
                 }
+                // 光标 y = 前序各行 layout 行高累加（与绘制步进同源）
+                float curY = inner.y;
+                for (int k = 0; k < matchLine; ++k) curY += textResult_->lines[k].height;
+                float lineH = sl.height > 0 ? sl.height : lh;
+                cx = std::min(cx, inner.x + inner.width);
+                graphics.drawRect({cx - 0.5f, curY, 1.5f, lineH}, props_.cursorColor);
             }
         }
     }

@@ -96,4 +96,10 @@ private:
     void fireChange();
     // ── 行工具 ──────────────────────────────────────
     float lineHeight() const;
+    /** @brief 字节偏移 → visual line 索引（光标绘制/上下键共用）
+     *
+     * 常规匹配 [clusterStart, clusterEnd)；空行匹配其 clusterStart；
+     * 文末光标（pos == text 尾字节 == 末行 clusterEnd）匹配末行。
+     * @return 行索引，无匹配（未排版）返回 -1 */
+    int lineForByte(size_t pos) const;
 };

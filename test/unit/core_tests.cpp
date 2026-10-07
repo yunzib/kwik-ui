@@ -14,6 +14,7 @@ import kwik.render.command_buffer;
 import kwik.render.backend;
 import kwik.render.texture_manager;
 import kwik.render.text.types;
+import kwik.render.text.layout;
 import kwik.render.text.font.manager;
 import kwik.render.text.cache;
 import kwik.element.view;
@@ -923,7 +924,147 @@ static void test_flex_line_capacity_and_grow() {
     CHECK(m3Ptr->frame.x + m3Ptr->frame.width <= mp->frame.x + mp->frame.width);
 }
 
+// ── 行为锁: 文本排版断行规则（T0-⑤/D3，合成字形免字体）──
+// ① 硬断行后行记录扁平索引正确（\n 跳过使源索引≠扁平索引，原实现越界读）
+// ② 连续 \n 空行保留（高度=标准行高，totalHeight 不再吞行）
+// ③ 末行 clusterEnd 码点安全（= 尾字节；多字节结尾原 +1 切进码点中间）
+// ④ 词回溯：英文在最后空格处断行，空格串修剪，半截词移入下一行不丢字
+// ⑤ 行首禁则：闭标点不居行首（回溯使禁则串连同前一字入下行）
+// ⑥ 行尾禁则：开括号不居行尾
+// ⑦ maxLines 恰排满不误截断（跳过尾随 \n 后无可见字形 = 不截断）
+static void test_text_layout_wrap_rules() {
+    // 合成字形辅助：advance 10、fontSize 16、cluster 按调用方给的字节位
+    auto mk = [](std::vector<ShapedGlyph> &gs, uint32_t cluster, bool nl = false, bool sp = false, bool nls = false,
+                 bool nle = false, uint8_t nb = 1) {
+        ShapedGlyph g;
+        g.cluster = cluster;
+        g.advanceX = nl ? 0 : 10;
+        g.fontSize = 16;
+        g.numBytes = nb;
+        g.isNewline = nl;
+        g.isSpace = sp;
+        g.noLineStart = nls;
+        g.noLineEnd = nle;
+        gs.push_back(g);
+    };
+    TextLayout ly;
+
+    // ①②③ "ab\n\ncd"（中:2 字节 3）——多字节结尾 + 中间空行
+    {
+        std::vector<ShapedGlyph> gs;
+        mk(gs, 0);
+        mk(gs, 1);
+        mk(gs, 2, true);
+        mk(gs, 3, true);
+        mk(gs, 4, false, false, false, false, 3);    // 中（3 字节）
+        TextLayoutConfig cfg;
+        cfg.maxWidth = 1000;
+        cfg.wrap = WrapMode::WordWrap;
+        auto r = ly.layout(gs, cfg);
+        CHECK(r.lines.size() == 3);                             // 空行保留
+        CHECK(r.lines[0].glyphStart == 0 && r.lines[0].glyphCount == 2);
+        CHECK(r.lines[0].clusterEnd == 3);                      // 硬断行含 \n 字节，指向下一行首
+        CHECK(r.lines[1].glyphCount == 0);                      // 空行
+        CHECK(r.lines[1].clusterStart == 3 && r.lines[1].clusterEnd == 4);
+        CHECK(r.lines[2].glyphStart == r.lines[1].glyphStart);    // 空行无字形 → 扁平起点不变
+        CHECK(r.lines[2].clusterEnd == 7);                      // 末行 fallback = 尾码点末字节（5+3-1+1）——码点安全
+        CHECK(std::abs(r.totalHeight - 3 * 16 * 1.4f) < 0.6f);    // 空行高度计入
+    }
+
+    // ④ 词回溯 + 空格修剪："ab cd ef" maxWidth 45（4 字/行）→ ab / cd / ef
+    {
+        std::vector<ShapedGlyph> gs;
+        mk(gs, 0);
+        mk(gs, 1);
+        mk(gs, 2, false, true);    // 空格
+        mk(gs, 3);
+        mk(gs, 4);
+        mk(gs, 5, false, true);
+        mk(gs, 6);
+        mk(gs, 7);
+        TextLayoutConfig cfg;
+        cfg.maxWidth = 45;
+        cfg.wrap = WrapMode::WordWrap;
+        auto r = ly.layout(gs, cfg);
+        CHECK(r.lines.size() == 3);
+        CHECK(r.lines[0].glyphStart == 0 && r.lines[0].glyphCount == 2);     // "ab"（空格修剪）
+        CHECK(r.lines[0].clusterEnd == 3);
+        CHECK(r.lines[1].glyphStart == 2 && r.lines[1].glyphCount == 2);     // "cd" 移入下一行
+        CHECK(r.lines[1].clusterStart == 3);
+        CHECK(r.lines[2].glyphCount == 2);                                   // "ef"
+        size_t rendered = 0;
+        for (auto &l : r.lines) rendered += l.glyphCount;
+        CHECK(rendered == 6);                                                // 8 字形 - 2 空格，无字丢失
+    }
+
+    // ⑤ 行首禁则 + 连续禁则串回溯："abc。。" maxWidth 35 → "ab" / "c。。"
+    {
+        std::vector<ShapedGlyph> gs;
+        mk(gs, 0);
+        mk(gs, 1);
+        mk(gs, 2);
+        mk(gs, 3, false, false, true, false, 3);    // 。（闭标点）
+        mk(gs, 6, false, false, true, false, 3);    // 。
+        TextLayoutConfig cfg;
+        cfg.maxWidth = 35;
+        cfg.wrap = WrapMode::WordWrap;
+        auto r = ly.layout(gs, cfg);
+        CHECK(r.lines.size() == 2);
+        CHECK(r.lines[0].glyphCount == 2);                              // "ab"（。不居下一行行首 → 连同 c 回溯）
+        CHECK(r.lines[1].glyphCount == 3);                              // "c。。"
+        CHECK(r.lines[1].clusterStart == 2);                            // 从 'c' 起（禁则串连同前一字下移）
+    }
+
+    // ⑥ 行尾禁则："ab（cd" maxWidth 35 → "ab" / "（cd"
+    {
+        std::vector<ShapedGlyph> gs;
+        mk(gs, 0);
+        mk(gs, 1);
+        mk(gs, 2, false, false, false, true, 3);    // （（开括号）
+        mk(gs, 5);
+        mk(gs, 6);
+        TextLayoutConfig cfg;
+        cfg.maxWidth = 35;
+        cfg.wrap = WrapMode::WordWrap;
+        auto r = ly.layout(gs, cfg);
+        CHECK(r.lines.size() == 2);
+        CHECK(r.lines[0].glyphCount == 2);                              // 开括号移入下一行
+        CHECK(r.lines[1].clusterStart == 2);
+        CHECK(r.lines[1].glyphCount == 3);
+    }
+
+    // ⑦ maxLines 恰排满：恰满不截断 / 真溢出截断 / 尾随 \n 不算截断
+    {
+        auto layout = [&](std::vector<ShapedGlyph> &gs, float maxW, int maxLines = 1) {
+            TextLayoutConfig cfg;
+            cfg.maxWidth = maxW;
+            cfg.wrap = WrapMode::WordWrap;
+            cfg.maxLines = maxLines;
+            return ly.layout(gs, cfg);
+        };
+        std::vector<ShapedGlyph> exact;    // "abcd" 恰好 4×10=40
+        for (int k = 0; k < 4; ++k) mk(exact, (uint32_t)k);
+        CHECK(layout(exact, 40).truncated == false);                   // 恰排满 → 不误截断
+
+        std::vector<ShapedGlyph> over;    // "abcde" 溢出
+        for (int k = 0; k < 5; ++k) mk(over, (uint32_t)k);
+        CHECK(layout(over, 40).truncated == true);
+
+        std::vector<ShapedGlyph> tailNl;    // "ab\ncd\n"：尾随 \n 不产生可见丢失
+        mk(tailNl, 0);
+        mk(tailNl, 1);
+        mk(tailNl, 2, true);
+        mk(tailNl, 3);
+        mk(tailNl, 4);
+        mk(tailNl, 5, true);
+        auto r3 = layout(tailNl, 1000, 2);
+        CHECK(r3.truncated == false);
+        CHECK(r3.lines.back().clusterEnd == 6);                        // 码点安全：== 全文本节长
+    }
+}
+
 int main() {
+    test_text_layout_wrap_rules();
     test_flex_line_capacity_and_grow();
     test_rect();
     test_prop_meta_consistency();

@@ -80,12 +80,15 @@ void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const Text
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 自动换行: 字符级断行 + \n 硬换行
+// 自动换行: 词回溯 + 禁则 + \n 硬换行（D3 口径）
 //
-// 流程:
-//   1. 遍历 glyphs，每行累加 advanceX
-//   2. 超过 maxWidth 或遇到 \n 时断行
-//   3. 每行独立烘焙 baseline 并归一化 x 坐标
+// 断行规则（软断行时依序应用）:
+//   ① 词回溯：行内有空格 → 断在最后一个空格处，行尾空格串（含 U+3000）
+//      修剪不渲染，溢出词整体移入下一行
+//   ② 行首禁则：下一行行首不得为闭标点（noLineStart）——回溯使禁则串连同
+//      其前一字符移入下一行（连续禁则串一并回溯）
+//   ③ 行尾禁则：本行行尾不得为开括号（noLineEnd）——开括号移入下一行
+//   ④ 空行：行首即 \n 仍产生行记录（高度=标准行高），连续 \n 不再被吞
 // ═══════════════════════════════════════════════════════════════════════════
 void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                                  const TextLayoutConfig& cfg,
@@ -106,6 +109,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         float maxBottom = 0;
         uint32_t i;
         bool isHardBreak = false;
+        uint32_t nextStart = 0;    // 下一行起始（源索引）：硬断行 = \n 之后，软断行 = 断点/词首
 
         // ── 收集当前行字形 ──────────────────────────────────────────
         for (i = lineStart; i < glyphs.size(); ++i) {
@@ -113,16 +117,31 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
 
             /* \n 标记 → 硬断行，跳过该 glyph */
             if (g.isNewline) {
+                isHardBreak = true;
+                nextStart = i + 1;    // 下一行从 \n 之后起：行 clusterEnd 覆盖 \n 字节，
+                                      // 行尾光标（pos==\n 字节位）才能匹配本行
                 if (i == lineStart) {
-                    /* 空行（连续 \n 或行首 \n）：推进光标但无 glyph */
-                    minY = 0; maxBottom = 0;
+                    /* 空行（连续 \n 或行首 \n）：仍产生行记录（高度=标准行高），
+                     * 多行文本 totalHeight 才算对；clusterEnd 指向下一行首 */
+                    float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : g.fontSize * 1.4f;
+                    result.lines.push_back({
+                        .glyphStart  = static_cast<uint32_t>(result.glyphs.size()),
+                        .glyphCount  = 0,
+                        .width       = 0,
+                        .height      = rowH,
+                        .baseline    = 0,
+                        .clusterStart = g.cluster,
+                        .clusterEnd  = (nextStart < glyphs.size()) ? glyphs[nextStart].cluster
+                                                                   : g.cluster + g.numBytes,
+                        .isHardBreak = true,
+                    });
+                    totalH += rowH;
                     ++lineStart;
                 }
-                isHardBreak = true;
                 break;
             }
 
-            /* 超出 maxWidth → 软断行（字符级别） */
+            /* 超出 maxWidth → 软断行候选（字符级，后续按词/禁则修正） */
             if (cursorX + g.advanceX > cfg.maxWidth && i > lineStart)
                 break;
 
@@ -132,9 +151,39 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         }
         if (i == lineStart) ++i;           // 单个超宽 glyph 也要推进
         uint32_t lineEnd = i;
+        if (!isHardBreak) nextStart = lineEnd;    // 无断行（末行）默认即行尾；软/硬断行路径已各自覆写
+
+        // ── 软断行修正：词回溯 + 禁则 + 行尾空格修剪（硬断行/末行不适用）──
+        if (!isHardBreak && lineEnd > lineStart && lineEnd < glyphs.size()) {
+            // ① 词回溯：行内最后一个空格处断行
+            int sp = -1;
+            for (uint32_t j = lineEnd; j-- > lineStart;)
+                if (glyphs[j].isSpace) { sp = (int)j; break; }
+            if (sp > (int)lineStart) {
+                lineEnd = (uint32_t)sp;
+                while (lineEnd > lineStart && glyphs[lineEnd - 1].isSpace) --lineEnd;    // 空格串一并修剪
+                nextStart = sp + 1;    // 空格之后的半截词整体移入下一行（丢弃的只有被修剪的空格串）
+                // 重算行宽/ink 包围（修剪部分不再计入）
+                cursorX = 0; minY = 0; maxBottom = 0;
+                for (uint32_t j = lineStart; j < lineEnd; ++j) {
+                    cursorX += glyphs[j].advanceX;
+                    minY = std::min(minY, glyphs[j].y);
+                    maxBottom = std::max(maxBottom, glyphs[j].y + glyphs[j].height);
+                }
+            } else {
+                // ② 行首禁则：断点不得使下一行以闭标点开头（连续禁则串一并回溯）
+                while (lineEnd > lineStart + 1 && glyphs[lineEnd].noLineStart) --lineEnd;
+                // ③ 行尾禁则：本行不得以开括号收尾（连续开括号一并移下）
+                while (lineEnd > lineStart + 1 && glyphs[lineEnd - 1].noLineEnd) --lineEnd;
+                nextStart = lineEnd;
+            }
+        }
 
         // ── 写入行 ──────────────────────────────────────────────────
         if (lineEnd > lineStart) {
+            /* 本行扁平数组起点：\n 被跳过 → 源索引 ≠ 扁平索引，
+             * 必须取当前扁平长度（原 startIdx+lineStart 会越界读） */
+            uint32_t flatStart = static_cast<uint32_t>(result.glyphs.size());
             /* 对齐偏移（Justify 在行写入时逐字拉宽） */
             float alignOff = 0;
             if (cfg.align == LayoutTextAlign::Center)
@@ -178,33 +227,36 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
             float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : glyphs[lineStart].fontSize * 1.4f;
             rowH = std::max(rowH, lh);
             result.lines.push_back({
-                .glyphStart  = startIdx + lineStart,
+                .glyphStart  = flatStart,
                 .glyphCount  = lineEnd - lineStart,
                 .width       = cursorX,
                 .height      = rowH,
                 .baseline    = baseline,
                 .clusterStart = glyphs[lineStart].cluster,
-                .clusterEnd   = (lineEnd < glyphs.size())
-                                ? glyphs[lineEnd].cluster
-                                : glyphs.back().cluster + 1,
+                .clusterEnd   = (nextStart < glyphs.size())
+                                ? glyphs[nextStart].cluster
+                                : glyphs.back().cluster + glyphs.back().numBytes,
                 .isHardBreak = isHardBreak,
             });
             totalW = std::max(totalW, cursorX);
             totalH += rowH;
         }
 
-        // maxLines 截断：达到上限即停止收集后续行，标记 truncated
-        // （element 层据 lines.back().clusterEnd 截断文本并补省略号重排）
+        // maxLines 截断：恰排满不误截断——仅当行尾之后（跳过尾随 \n）仍有
+        // 可见字形才算截断（原 lines.size()>=maxLines 判据在恰满时误加省略号
+        // 且可能切出非法 UTF-8）
         if (cfg.maxLines > 0 && (int)result.lines.size() >= cfg.maxLines) {
-            result.truncated = true;
+            uint32_t j = lineEnd;
+            while (j < glyphs.size() && glyphs[j].isNewline) ++j;
+            result.truncated = (j < glyphs.size());
             break;
         }
 
-        /* 跳过 \n glyph */
+        /* 跳过 \n glyph / 推进到下一行 */
         if (isHardBreak && i < glyphs.size() && glyphs[i].isNewline)
             lineStart = i + 1;
         else
-            lineStart = lineEnd;
+            lineStart = nextStart;
     }
 
     result.totalWidth  = totalW;

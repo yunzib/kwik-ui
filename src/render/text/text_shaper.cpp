@@ -38,6 +38,36 @@ static hb_buffer_t *getHbBuffer() {
 TextShaper::TextShaper(FontManager &fontManager) : fontManager_(fontManager) {}
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 禁则字符集（简表，D3 断行用；shaper 按码点打标，layout 按标回溯）
+//   行首禁则：闭标点类（句读/收引号/收括号/中点/省略破折），不可居行首
+//   行尾禁则：开括号类（开引号/开括号），不可居行尾
+// ═══════════════════════════════════════════════════════════════════════════
+static bool isKinsokuNoLineStart(uint32_t cp) {
+    switch (cp) {
+    case 0x3001: case 0x3002:                                                // 、。
+    case 0xFF01: case 0xFF0C: case 0xFF0E: case 0xFF1A: case 0xFF1B: case 0xFF1F:    // ！，．：；？
+    case 0xFF09: case 0xFF5D: case 0xFF3D:                                   // ）｝】
+    case 0x3011: case 0x3015: case 0x3017:                                   // 】〕〉
+    case 0x300B: case 0x300D: case 0x300F:                                   // 》」』
+    case 0x00B7: case 0x30FB: case 0x2026: case 0x2014: case 0xFF5E:         // ·・…—～
+    case '!': case '?': case ',': case '.': case ';': case ':': case ')': case ']': case '}':
+        return true;
+    default:
+        return false;
+    }
+}
+static bool isKinsokuNoLineEnd(uint32_t cp) {
+    switch (cp) {
+    case 0xFF08: case 0xFF3B: case 0xFF5B:                                   // （［｛
+    case 0x3010: case 0x3014: case 0x3008: case 0x300A: case 0x300C: case 0x300E:    // 【〔〈《「『
+    case '(': case '[': case '{':
+        return true;
+    default:
+        return false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // shapeText — 完整排版字形序列
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -79,6 +109,14 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         if ((*p & 0xF0) == 0xE0) return ((*p & 0x0Fu) << 12) | ((p[1] & 0x3Fu) << 6) | (p[2] & 0x3Fu);
         return ((*p & 0x07u) << 18) | ((p[1] & 0x3Fu) << 12) | ((p[2] & 0x3Fu) << 6) | (p[3] & 0x3Fu);
     };
+    // ── Helper: 码点的 UTF-8 字节长（按首字节；调用方保证 offset 落在码点首） ──
+    auto decodeUtf8Len = [](const char *s, int offset) -> uint8_t {
+        unsigned char c = (unsigned char)s[offset];
+        if ((c & 0x80) == 0) return 1;
+        if ((c & 0xE0) == 0xC0) return 2;
+        if ((c & 0xF0) == 0xE0) return 3;
+        return 4;
+    };
 
     for (unsigned int i = 0; i < glyphCount; i++) {
         const uint32_t gid = glyphInfo[i].codepoint;
@@ -93,6 +131,8 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
                 ShapedGlyph sg;
                 sg.fontId = fontId;
                 sg.cluster = glyphInfo[i].cluster;
+                sg.numBytes = 1;    // \n 恒 1 字节
+                sg.fontSize = fontSize;    // 空行行高按标准行高算，须携带字号
                 sg.isNewline = true;
                 sg.advanceX = 0;
                 result.push_back(sg);
@@ -151,6 +191,12 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
 
         // float scaleToLogical = fontSize / pixelSize;
         float scaleToLogical = 1.0f / dpiScale;    // 统一到物理 1:1 网格(旧 1.0833 → 1.046)
+        // D1：回退字形 advance 用回退字体真实度量——主字体 hb_shape 对缺字
+        // 字形给出的是 notdef 步进，emoji/缺字字符宽度会错（过宽/过窄/重叠）
+        float advPhysical = xAdv;
+        if (activeFont != fontId) {
+            advPhysical = static_cast<float>(ftFace->glyph->metrics.horiAdvance) / 64.0f;
+        }
         ShapedGlyph sg;
         sg.fontId = activeFont;
         sg.glyphIndex = activeGid;
@@ -158,17 +204,20 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         sg.x = (cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f) * scaleToLogical;
         sg.y = (cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust)
                * scaleToLogical;
-        sg.advanceX = xAdv * scaleToLogical;
+        sg.advanceX = advPhysical * scaleToLogical;
         sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f * scaleToLogical;
         sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f * scaleToLogical;
         sg.cluster = glyphInfo[i].cluster;
-        // Justify 词间拉伸需要标记空格字形（U+0020 半角 / U+3000 全角）
+        // 码点字节长 + 禁则标记（断行回溯/修剪的判定数据，见 text_layout）
         {
             uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+            sg.numBytes = decodeUtf8Len(text, (int)glyphInfo[i].cluster);
             sg.isSpace = (cp == 0x20 || cp == 0x3000);
+            sg.noLineStart = isKinsokuNoLineStart(cp);
+            sg.noLineEnd = isKinsokuNoLineEnd(cp);
         }
         result.push_back(sg);
-        cursorX += xAdv;
+        cursorX += advPhysical;
     }
 
     return result;

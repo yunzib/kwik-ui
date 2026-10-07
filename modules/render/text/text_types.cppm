@@ -74,8 +74,11 @@ export {
         float uvTop = 0, uvBottom = 0;       ///< 图集 UV（y 方向）
         uint32_t cluster = 0;                ///< 原始文本 UTF-8 字节偏移
         uint32_t pageIndex = 0;
+        uint8_t numBytes = 1;      ///< cluster 处码点的 UTF-8 字节长（行尾 clusterEnd 码点安全用）
         bool isNewline = false;    ///< 是否为 \n 标记字形（不渲染）
         bool isSpace = false;      ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
+        bool noLineStart = false;  ///< 行首禁则（闭标点类，不可居行首），shaper 按码点表标记
+        bool noLineEnd = false;    ///< 行尾禁则（开括号类，不可居行尾），shaper 按码点表标记
     };
 
     /**

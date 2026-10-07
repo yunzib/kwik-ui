@@ -262,6 +262,16 @@ void TextView::rebuildLines_(float availWidth) {
                     lineX += g.advanceX;
                     continue;
                 }
+                // 无空格可回退（纯 CJK 等）→ 按 glyph 断：溢出字形移入新行，
+                // 行宽不再无限溢出 availWidth（中日文此前永不折行）
+                line.width = lineX;
+                line.height = lineH;
+                line.endByte = gBytePos;    // 新行起点 = 溢出字形字节位（码点安全）
+                lines_.push_back(line);
+                line = LineInfo{};
+                lineX = 0;
+                lineH = lh;
+                line.startByte = gBytePos;
             }
 
             // ── 正常追加 ──
