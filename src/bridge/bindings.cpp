@@ -1075,6 +1075,22 @@ static JSValue js_channel_handle(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
+// channel.off(topic, handler) — 注销 on 注册的 JS handler（与 channel.on 对称的解绑入口）
+static JSValue js_channel_off(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2) { return JS_ThrowTypeError(ctx, "channel.off: requires topic and handler"); }
+    const char *topic = JS_ToCString(ctx, argv[0]);
+    if (!topic) return JS_ThrowTypeError(ctx, "channel.off: topic must be a string");
+
+    if (!JS_IsFunction(ctx, argv[1])) {
+        JS_FreeCString(ctx, topic);
+        return JS_ThrowTypeError(ctx, "channel.off: second argument must be a function");
+    }
+
+    Channel::jsOff(ctx, topic, argv[1]);
+    JS_FreeCString(ctx, topic);
+    return JS_UNDEFINED;
+}
+
 static JSValue js_tabs(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Tabs", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
@@ -1334,6 +1350,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_SetPropertyStr(ctx, channelObj, "on", JS_NewCFunction(ctx, js_channel_on, "on", 2));
         JS_SetPropertyStr(ctx, channelObj, "call", JS_NewCFunction(ctx, js_channel_call, "call", 1));
         JS_SetPropertyStr(ctx, channelObj, "handle", JS_NewCFunction(ctx, js_channel_handle, "handle", 2));
+        JS_SetPropertyStr(ctx, channelObj, "off", JS_NewCFunction(ctx, js_channel_off, "off", 2));
         JS_SetModuleExport(ctx, m, "channel", channelObj);
 
         // ── 追加扩展元素 JS 导出 (init 时设置实际工厂函数) ──

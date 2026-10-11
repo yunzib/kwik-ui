@@ -71,6 +71,7 @@ void Channel::flush(JSContext *ctx) {
         for (auto &entry : ch.queue_) {
             if (entry.type == QueueEntry::Send) {
                 MergedEntry &m = ch.merged_[entry.topic];
+                if (m.hasPending) JS_FreeValue(ctx, m.data);    // 同帧同 topic 覆盖前释放旧值，防泄漏
                 m.data = ch.dataToJS(ctx, Data(entry.value.data));
                 m.hasPending = true;
             } else if (entry.type == QueueEntry::ResolveCall) {
@@ -85,7 +86,13 @@ void Channel::flush(JSContext *ctx) {
         if (!merged.hasPending) continue;
         auto it = ch.jsOnHandlers_.find(topic);
         if (it == ch.jsOnHandlers_.end()) continue;
-        for (auto &handler : it->second) {
+        // 快照（Dup）后再迭代：handler 内再 channel.on 同 topic 会 push_back
+        // 扩容，直接迭代原容器即迭代器失效；Dup 保证快照期间即使条目被
+        // off 移除释放，快照引用仍有效
+        std::vector<JSValue> snapshot;
+        snapshot.reserve(it->second.size());
+        for (auto h : it->second) snapshot.push_back(JS_DupValue(ctx, h));
+        for (auto &handler : snapshot) {
             if (!JS_IsFunction(ctx, handler)) continue;
             JSValue ret = JS_Call(ctx, handler, JS_UNDEFINED, 1, &merged.data);
             if (JS_IsException(ret)) {
@@ -97,6 +104,7 @@ void Channel::flush(JSContext *ctx) {
             }
             JS_FreeValue(ctx, ret);
         }
+        for (auto &handler : snapshot) JS_FreeValue(ctx, handler);    // 释放快照 Dup
     }
 
     // ── 3. 触发到期定时器 ──
@@ -301,6 +309,31 @@ void Channel::resolveCall(uint64_t callId, JSValueConst result) {
     JS_FreeValue(pc.ctx, pc.reject);
 }
 
+// rejectCall — resolveCall 的镜像：以 reason 拒绝 pendingCall 的 Promise。
+// 参数所有权归本函数（与 resolveCall 对 result 的语义一致）。
+void Channel::rejectCall(uint64_t callId, JSValueConst reason) {
+    PendingCall pc;
+    {
+        std::lock_guard lock(callMutex_);
+        auto it = pendingCalls_.find(callId);
+        if (it == pendingCalls_.end()) return;
+        pc = it->second;
+        pendingCalls_.erase(it);
+    }
+    JSValue ret = JS_Call(pc.ctx, pc.reject, JS_UNDEFINED, 1, &reason);
+    if (JS_IsException(ret)) {
+        JSValue exc = JS_GetException(pc.ctx);
+        const char *s = JS_ToCString(pc.ctx, exc);
+        Log::error("[Channel] rejectCall error: {}", s ? s : "unknown");
+        JS_FreeCString(pc.ctx, s);
+        JS_FreeValue(pc.ctx, exc);
+    }
+    JS_FreeValue(pc.ctx, ret);
+    JS_FreeValue(pc.ctx, (JSValue)reason);
+    JS_FreeValue(pc.ctx, pc.resolve);
+    JS_FreeValue(pc.ctx, pc.reject);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // JS native 入口
 // ═══════════════════════════════════════════════════════════════════════════
@@ -317,7 +350,26 @@ void Channel::jsSend(JSContext *ctx, const char *topic, JSValueConst data) {
 }
 
 void Channel::jsOn(JSContext *ctx, const char *topic, JSValue handler) {
-    inst().jsOnHandlers_[topic].push_back(JS_DupValue(ctx, handler));
+    auto &v = inst().jsOnHandlers_[topic];
+    // 同函数同 topic 去重：组件工厂每轮 State 重建重复注册会导致
+    // flush 重复触发同一 handler
+    for (auto &h : v)
+        if (JS_VALUE_GET_PTR(h) == JS_VALUE_GET_PTR(handler)) return;
+    v.push_back(JS_DupValue(ctx, handler));
+}
+
+// jsOff — 注销 on 注册的 JS handler（按 JS 值身份匹配首个命中项）
+void Channel::jsOff(JSContext *ctx, const char *topic, JSValue handler) {
+    auto it = inst().jsOnHandlers_.find(topic);
+    if (it == inst().jsOnHandlers_.end()) return;
+    auto &v = it->second;
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (JS_VALUE_GET_PTR(v[i]) == JS_VALUE_GET_PTR(handler)) {
+            JS_FreeValue(ctx, v[i]);
+            v.erase(v.begin() + static_cast<std::ptrdiff_t>(i));
+            break;
+        }
+    }
 }
 
 JSValue Channel::jsCall(JSContext *ctx, const char *topic, JSValueConst data) {
@@ -358,13 +410,36 @@ JSValue Channel::jsCall(JSContext *ctx, const char *topic, JSValueConst data) {
         return promise;
     }
 
+    // JS 侧 handle 注册的处理器：同步语义，handler(data) 返回值即结果，
+    // 抛错走 rejectCall 拒绝 Promise
+    auto jsIt = ch.jsCallHandlers_.find(topic);
+    if (jsIt != ch.jsCallHandlers_.end() && !jsIt->second.empty()) {
+        JSValue handler = jsIt->second.front();
+        JSValue dataJS = ch.dataToJS(ctx, d);
+        JSValue ret = JS_Call(ctx, handler, JS_UNDEFINED, 1, &dataJS);
+        JS_FreeValue(ctx, dataJS);
+        if (JS_IsException(ret)) {
+            ch.rejectCall(callId, JS_GetException(ctx));    // rejectCall 拥有并释放 reason
+        } else {
+            ch.resolveCall(callId, ret);    // resolveCall 拥有并释放 result
+        }
+        JS_FreeValue(ctx, resolving_funcs[0]);
+        JS_FreeValue(ctx, resolving_funcs[1]);
+        return promise;
+    }
+
     // 无 handler → reject
     JSValue err = JS_NewString(ctx, "no handler for call");
     JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &err);
     JS_FreeValue(ctx, err);
     {
         std::lock_guard lock(ch.callMutex_);
-        ch.pendingCalls_.erase(callId);
+        auto it = ch.pendingCalls_.find(callId);
+        if (it != ch.pendingCalls_.end()) {
+            JS_FreeValue(ctx, it->second.resolve);    // 释放 map 内 dup 副本（局部变量原已释放）
+            JS_FreeValue(ctx, it->second.reject);
+            ch.pendingCalls_.erase(it);
+        }
     }
     JS_FreeValue(ctx, resolving_funcs[0]);
     JS_FreeValue(ctx, resolving_funcs[1]);

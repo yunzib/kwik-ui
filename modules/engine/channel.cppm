@@ -239,6 +239,8 @@ public:
     static void jsOn(JSContext *ctx, const char *topic, JSValue handler);
     static JSValue jsCall(JSContext *ctx, const char *topic, JSValueConst data);
     static void jsHandle(JSContext *ctx, const char *topic, JSValue handler);
+    /// 注销 on 注册的 JS handler（按 JS 值身份匹配首个命中项）
+    static void jsOff(JSContext *ctx, const char *topic, JSValue handler);
 
 private:
     Channel() = default;
@@ -302,4 +304,6 @@ private:
     uint64_t nextCallId();
     uint64_t currentMs() const;
     void resolveCall(uint64_t callId, JSValueConst result);
+    /// 以 reason 拒绝 pendingCall 的 Promise（参数所有权归被调方，与 resolveCall 一致）
+    void rejectCall(uint64_t callId, JSValueConst reason);
 };

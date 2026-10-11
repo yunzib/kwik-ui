@@ -14,6 +14,7 @@
 
 import kwik.engine.context;        // QuickJSContext（默认构造，无需窗口）
 import kwik.engine.vm_callbacks;   // set_incremental_callback / set_render_callback
+import kwik.engine.channel;        // Channel::send/flush/shutdown（E4 行为锁直驱）
 import kwik.engine.js_value;       // JSValueRef
 import kwik.core.types;            // TypedProp
 import kwik.bridge.bindings;       // register_kwikui_module（KwikRuntime 平时替做）
@@ -222,6 +223,83 @@ static void test_reload_static_default_no_double_free() {
     CHECK(eval_module("reload_after.mjs", "globalThis.__alive = 1;\nexport default null;\n"));
 }
 
+// ── 行为锁: T0-2 E4 Channel 卫生批 ──
+// ① flush 迭代期 handler 内再 on 同 topic：快照迭代不失效（修复前 push_back
+//    扩容致迭代器失效 UAF），已注册者本帧照常触发、迭代期新注册者次帧生效
+// ② on 去重：同函数同 topic 重复注册（模块级 + handler 内）flush 仅触发一次；
+//    off 注销后不再触发、off 未注册函数为无副作用空操作
+// ③ 同帧同 topic 连续 send：帧合并仅末值送达（覆盖前旧 JSValue 已释放）
+// ④ 无任何 handler 的 call：Promise 以 "no handler for call" 拒绝
+// ⑤ E4a JS 侧 handle 处理器被 jsCall 消费：返回值 resolve；抛错走 reject
+static void test_channel_e4_hygiene() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    CHECK(eval_module("channel_e4_fixture.mjs",
+                      "import { channel } from 'kwikui';\n"
+                      "globalThis.__hits = [];\n"
+                      "globalThis.__re = null; globalThis.__rj = null; globalThis.__rj2 = null;\n"
+                      "globalThis.__late = function(d) { globalThis.__hits.push('late:' + d); };\n"
+                      "globalThis.__main = function(d) {\n"
+                      "    globalThis.__hits.push('main:' + d);\n"
+                      "    channel.on('e4:snap', globalThis.__late);    // 迭代期内注册（修复前 UAF 点）\n"
+                      "    channel.on('e4:snap', globalThis.__main);    // 迭代期内自注册 → 去重\n"
+                      "};\n"
+                      "channel.on('e4:snap', globalThis.__main);\n"
+                      "channel.on('e4:snap', globalThis.__main);        // 模块级重复注册 → 去重\n"
+                      "channel.call('e4:none').then(function(v) { globalThis.__rj = 'resolved-unexpected'; },\n"
+                      "                             function(e) { globalThis.__rj = String(e); });\n"
+                      "channel.handle('e4:js', function(d) { return 'got:' + d; });\n"
+                      "channel.call('e4:js', 'x').then(function(v) { globalThis.__re = v; });\n"
+                      "channel.handle('e4:throw', function() { throw new Error('boom'); });\n"
+                      "channel.call('e4:throw').then(null, function(e) { globalThis.__rj2 = String(e); });\n"
+                      "export default null;\n"));
+
+    // ③ 同帧双发同 topic：帧合并仅末值 'b' 送达
+    Channel::send("e4:snap", std::string("a"));
+    Channel::send("e4:snap", std::string("b"));
+    Channel::flush(c);                 // ①② 断言点在本次迭代内
+    g_ctx->processMicrotasks();        // 跑 ④⑤ 的 promise 落定微任务
+
+    CHECK(eval_module("channel_e4_read.mjs",
+                      "globalThis.__hitsStr = globalThis.__hits.join('|');\n"
+                      "export default null;\n"));
+    JSValue global = JS_GetGlobalObject(c);
+    auto str_prop = [&](const char *name) -> std::string {
+        JSValue v = JS_GetPropertyStr(c, global, name);
+        const char *s = JS_ToCString(c, v);
+        std::string r = s ? s : "";
+        JS_FreeCString(c, s);
+        JS_FreeValue(c, v);
+        return r;
+    };
+    CHECK(str_prop("__hitsStr") == "main:b");    // ①②③：恰一次、末值、迭代期注册者次帧生效
+    std::string rj = str_prop("__rj");
+    CHECK(rj.find("no handler for call") != std::string::npos);    // ④
+    CHECK(str_prop("__re") == "got:x");                             // ⑤ resolve 路径
+    std::string rj2 = str_prop("__rj2");
+    CHECK(rj2.find("boom") != std::string::npos);                   // ⑤ reject 路径
+    JS_FreeValue(c, global);
+
+    // ② off：注销 main 后同 topic 再发，仅迭代期注册的 late 触发（次帧生效佐证）
+    CHECK(eval_module("channel_e4_off.mjs",
+                      "import { channel } from 'kwikui';\n"
+                      "channel.off('e4:snap', globalThis.__main);\n"
+                      "channel.off('e4:snap', function() {});    // 未注册函数 → 空操作\n"
+                      "export default null;\n"));
+    Channel::send("e4:snap", std::string("c"));
+    Channel::flush(c);
+    CHECK(eval_module("channel_e4_read2.mjs",
+                      "globalThis.__hitsStr = globalThis.__hits.join('|');\n"
+                      "export default null;\n"));
+    global = JS_GetGlobalObject(c);
+    CHECK(str_prop("__hitsStr") == "main:b|late:c");    // main 已摘除，late 恰一次
+    JS_FreeValue(c, global);
+
+    Channel::shutdown(c);    // 释放 Channel 持有的 JSValue（须在 ctx 存活期内）
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -233,6 +311,7 @@ int main() {
     test_l1_illegal_input_no_crash();
     test_console_and_rejection_observability();
     test_microtask_budget();
+    test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

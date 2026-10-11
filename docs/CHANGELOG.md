@@ -2,6 +2,14 @@
 
 # 0.0.0 — 2026-10-11
 ### 修复
+- Channel 通讯层五项卫生缺陷一批清：flush 遍历 handler 期间同 topic 再
+  channel.on 致迭代器失效 UAF（改快照 Dup 后迭代）；channel.on 同函数
+  重复注册无去重、组件工厂每轮 State 重建叠加重复触发（按 JS 值身份去重
+  + 新增 channel.off 注销入口）；同帧同 topic 覆盖旧 JSValue 与帧合并
+  残留未释放（覆盖前/下帧消费前 Free）；call 无 handler 路径泄漏 map 内
+  resolve/reject 副本；channel.handle(JS) 注册的处理器永不被 call 消费、
+  JS→JS 调用恒拒绝（jsCall 补 JS 侧处理器分支：返回值 resolve、抛错
+  reject）
 - reconcile 销毁子树（条件渲染删节点/类型切换/LazyList header-footer 重建）
   仅解绑根节点，后代 State 绑定条目悬空、State 变更即 UAF：
   BindingRegistry 新增 unbindSubtree 整子树解绑（销毁路径全部改用），
