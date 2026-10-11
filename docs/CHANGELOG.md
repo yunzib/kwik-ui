@@ -2,6 +2,11 @@
 
 # 0.0.0 — 2026-10-11
 ### 修复
+- LayerView 析构仅走 deactivate（注销延迟到下一帧 draw 的空清单发布），
+  节点销毁后 draw 永不执行 → LayerStack 残留悬空指针，后续绘制/命中
+  即 UAF：析构改硬注销；配套收口退出路径同类隐患——KwikRuntime teardown
+  解除根节点层树接线（成员析构序 LayerStack 先于树），Dropdown 菜单/
+  DateTimePicker 面板析构注销与 Keyboard 关闭路径补判空
 - Channel 通讯层五项卫生缺陷一批清：flush 遍历 handler 期间同 topic 再
   channel.on 致迭代器失效 UAF（改快照 Dup 后迭代）；channel.on 同函数
   重复注册无去重、组件工厂每轮 State 重建叠加重复触发（按 JS 值身份去重

@@ -128,8 +128,11 @@ public:
     explicit CalendarView(DateTimePicker &owner) : owner_(owner) {}
 
     ~CalendarView() override {
-        // HMR / 树重建兜底：确保不残留悬空层指针
-        if (registered_) layersOf(this)->unregisterLayerView(this);
+        // HMR / 树重建兜底：确保不残留悬空层指针；根未接线（teardown 已
+        // 解除）时 layersOf 为空跳过
+        if (registered_) {
+            if (auto *ls = layersOf(this)) ls->unregisterLayerView(this);
+        }
     }
 
     /** H6：ESC 显式查询——面板注册为图层（展开态）才消费 ESC */

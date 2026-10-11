@@ -75,13 +75,18 @@ void Keyboard::activate() {
 void Keyboard::deactivate() {
     if (!registered_) return;
     registered_ = false;
-    layersOf(this)->unregisterLayerView(this);
+    // 根未接线（teardown 解除后的树析构期）时 layersOf 为空，跳过注销与
+    // base 脏标记（层列表已 clear，无残留可清）
+    LayerStack *ls = layersOf(this);
+    if (ls) ls->unregisterLayerView(this);
     drawnElsewhere_ = false;
     props.visible = false;    // ← 同步隐蔽态
-    if (auto *base = layersOf(this)->base()) {
-        View *root = base;
-        while (root->parent()) root = root->parent();
-        root->markAllDirty();
+    if (ls) {
+        if (auto *base = ls->base()) {
+            View *root = base;
+            while (root->parent()) root = root->parent();
+            root->markAllDirty();
+        }
     }
     clearAllDirtySubtree();
 }

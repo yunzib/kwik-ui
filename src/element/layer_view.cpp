@@ -24,7 +24,14 @@ import std;
 // LayerView — 统一浮层实现（替代 Dialog/Tip）
 // ══════════════════════════════════════════════════════════════
 LayerView::~LayerView() {
-    if (registered_) deactivate();
+    // 析构后 draw 永不执行，deactivate 的延迟注销（等下一帧 draw 发布空清单）
+    // 无法收尾——必须硬注销，防 LayerStack 残留悬空 borrowed 指针（对照
+    // MenuView/CalendarView/Keyboard 析构硬注销）。publishedList_ 为
+    // shared_ptr 快照，渲染线程在飞帧持引用不悬空。根未接线（teardown 已
+    // 解除/防御路径）时 layersOf 为空，跳过即可。
+    if (registered_) {
+        if (auto *ls = layersOf(this)) ls->unregisterLayerView(this);
+    }
 }
 
 // findTarget：经 layersOf(this)->base()->findById，不需 RootView 完整类型

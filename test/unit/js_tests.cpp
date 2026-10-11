@@ -22,6 +22,7 @@ import kwik.bridge.binding_registry;
 import kwik.bridge.element_parser;
 import kwik.element.view;
 import kwik.element.element_type;
+import kwik.element.layer_stack;    // LayerStack / layersOf（稳N2 行为锁直驱）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.core.log;
 
@@ -300,6 +301,37 @@ static void test_channel_e4_hygiene() {
     teardown_callbacks();
 }
 
+// ── 行为锁: T0-3 稳N2 LayerView 析构硬注销 ──
+// ~LayerView 原仅 deactivate()（注销延迟到下一帧 draw 的空清单发布），析构后
+// draw 永不执行 → LayerStack 残留悬空 borrowed 指针，后续 drawAll/hitTest
+// 即 UAF（条件渲染删节点/类型切换即触发）。修复：dtor 硬注销。
+static void test_layer_view_dtor_unregisters() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Layer"));
+    JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    JSValueRef ref(c, node);    // 接管 node 所有权（析构释放）
+
+    LayerStack stack;    // 栈上层树，借根节点服务槽接线（模拟 KwikRuntime 接线）
+    auto v = ElementParser::parseNode(ref);
+    CHECK(v && v->type() == ElementType::LayerView);
+    v->setTreeService(View::kSvcLayerStack, &stack);    // 未挂父：本节点即根
+
+    // 激活：active=true → activate() → registerLayerView（借 layersOf 上行）
+    CHECK(v->setPropertyTyped("active", TypedProp{true}));
+    CHECK(stack.layerCount() == 1);
+
+    // 缺陷场景：不经 draw（下一帧延迟注销永不发生）直接析构——修复前
+    // stack 残留悬空指针（layerCount 仍 1）
+    v.reset();
+    CHECK(stack.layerCount() == 0);    // dtor 硬注销生效
+
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -312,6 +344,7 @@ int main() {
     test_console_and_rejection_observability();
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
+    test_layer_view_dtor_unregisters();
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);
