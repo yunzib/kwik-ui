@@ -2,6 +2,10 @@
 
 # 0.0.0 — 2026-10-11
 ### 修复
+- 渲染帧提交失败后线程永久挂死：vkQueueSubmit 失败仅推进帧槽轮转，该槽
+  fence 已重置且无提交者，轮转回时 vkWaitForFences 无限等待；且 acquire
+  已 signal 的图像可用信号量无人消费、复用属未定义——失败路径补空提交
+  （等掉信号量并 signal fence）恢复槽位不变量
 - 动画目标悬垂 UAF：ActiveAnimation 缓存的 View 指针在节点销毁（列表行
   回收、条件渲染删节点等非重建路径）后悬空，动画 tick 仍经其写属性——
   ~View 反注册（新增 AnimationEngine::stopByTarget 指针精确匹配，不写

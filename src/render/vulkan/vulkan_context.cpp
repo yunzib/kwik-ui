@@ -685,7 +685,23 @@ bool VulkanContext::present() {
     if (submitResult != VK_SUCCESS) {
         Log::error("present: vkQueueSubmit failed: {}", static_cast<int>(submitResult),
                    std::source_location::current());
-        frameIndex_ = (frameIndex_ + 1) % MAX_FRAMES_IN_FLIGHT;    // ← 新增：保持槽位轮转
+        // 恢复槽位不变量：本帧 fence 已在 beginFrame reset、imageAvailable 已被
+        // acquire signal——失败帧无提交者，轮转回本槽时 vkWaitForFences
+        // (UINT64_MAX) 将永久阻塞；且已 signal 的信号量复用给下轮 acquire
+        // 属未定义行为。空提交等掉信号量并 signal fence。
+        VkSubmitInfo recovery{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        VkPipelineStageFlags recoveryStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        recovery.waitSemaphoreCount = 1;
+        recovery.pWaitSemaphores = &imageAvailableSemaphores_[frameIndex_];
+        recovery.pWaitDstStageMask = &recoveryStage;
+        VkResult recoveryResult = vkQueueSubmit(vkQueue_, 1, &recovery, inFlightFences_[frameIndex_]);
+        if (recoveryResult != VK_SUCCESS) {
+            // 空提交也失败 = 设备级错误（LOST/OOM），fence 无法恢复，后续
+            // 等待/提交将逐个显式失败——只记日志不吞错
+            Log::error("present: recovery submit failed: {}", static_cast<int>(recoveryResult),
+                       std::source_location::current());
+        }
+        frameIndex_ = (frameIndex_ + 1) % MAX_FRAMES_IN_FLIGHT;    // 保持槽位轮转
         return false;
     }
 
