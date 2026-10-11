@@ -106,10 +106,14 @@ void KwikRuntime::teardownJsBoundRuntime() {
     animations_.stopAll();
     layers_.clear();
     layers_.setBase(nullptr);
-    // 解除根节点层树接线：成员析构序 layers_ 先于 tree_，随后的 tree_.reset()
-    // 期间各浮层 dtor 的硬注销经 layersOf 判空跳过，不再触碰已析构的
-    // LayerStack 成员（rebuild 路径随后重接线，见 :292）
-    if (tree_) tree_->setTreeService(View::kSvcLayerStack, nullptr);
+    // 解除根节点层树/动画引擎接线：成员析构序 layers_/animations_ 均先于
+    // tree_，随后的 tree_.reset() 期间各浮层 dtor 硬注销与 ~View 动画
+    // 反注册经 layersOf/treeService 判空跳过，不再触碰已析构成员
+    // （rebuild 路径随后重接线，见 :292）
+    if (tree_) {
+        tree_->setTreeService(View::kSvcLayerStack, nullptr);
+        tree_->setTreeService(View::kSvcAnimEngine, nullptr);
+    }
     // 整树即将重建/销毁：绑定注册表的 View* 条目全部随之悬空，必须清空
     // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
     // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）

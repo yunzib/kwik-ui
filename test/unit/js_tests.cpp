@@ -22,7 +22,8 @@ import kwik.bridge.binding_registry;
 import kwik.bridge.element_parser;
 import kwik.element.view;
 import kwik.element.element_type;
-import kwik.element.layer_stack;    // LayerStack / layersOf（稳N2 行为锁直驱）
+import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构注销行为锁直驱）
+import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.core.log;
 
@@ -224,7 +225,7 @@ static void test_reload_static_default_no_double_free() {
     CHECK(eval_module("reload_after.mjs", "globalThis.__alive = 1;\nexport default null;\n"));
 }
 
-// ── 行为锁: T0-2 E4 Channel 卫生批 ──
+// ── 行为锁: Channel 卫生（flush 快照迭代 / on 去重 + off / JS handle 消费）──
 // ① flush 迭代期 handler 内再 on 同 topic：快照迭代不失效（修复前 push_back
 //    扩容致迭代器失效 UAF），已注册者本帧照常触发、迭代期新注册者次帧生效
 // ② on 去重：同函数同 topic 重复注册（模块级 + handler 内）flush 仅触发一次；
@@ -301,7 +302,7 @@ static void test_channel_e4_hygiene() {
     teardown_callbacks();
 }
 
-// ── 行为锁: T0-3 稳N2 LayerView 析构硬注销 ──
+// ── 行为锁: LayerView 析构硬注销（LayerStack 不残留悬空层指针）──
 // ~LayerView 原仅 deactivate()（注销延迟到下一帧 draw 的空清单发布），析构后
 // draw 永不执行 → LayerStack 残留悬空 borrowed 指针，后续 drawAll/hitTest
 // 即 UAF（条件渲染删节点/类型切换即触发）。修复：dtor 硬注销。
@@ -332,6 +333,39 @@ static void test_layer_view_dtor_unregisters() {
     teardown_callbacks();
 }
 
+// ── 行为锁: ~View 动画反注册（ActiveAnimation::target_ 不悬垂）──
+// target_ 在动画启动时缓存 View 指针；节点在非整树重建路径（列表行回收、
+// 条件渲染删节点）销毁后，残留动画 tick 会经悬空 target 调
+// applyAnimationFrame。修复：~View 经 stopByTarget 反注册。
+static void test_view_dtor_stops_animations() {
+    reset_callbacks();
+
+    auto root = std::make_unique<View>();
+    auto child = std::make_unique<View>();
+    child->props.id = "v1";
+    child->props.width = 100.0f;
+    root->addChild(std::move(child));
+    g_ctx->setUserPointer(root.get());    // js_animate 经 userPointer→findById 找目标
+
+    AnimationEngine engine;
+    root->setTreeService(View::kSvcAnimEngine, &engine);
+
+    CHECK(eval_module("anim_target_fixture.mjs",
+                      "import { animate } from 'kwikui';\n"
+                      "animate('v1', { width: [100, 300] }, { duration: 10, loop: 'infinite' });\n"
+                      "export default null;\n"));
+    CHECK(engine.hasActiveAnimation("v1"));    // 动画运行中（target_ 已缓存 child 指针）
+
+    root->children.clear();    // 销毁 v1（列表行回收同型的节点销毁路径）
+    CHECK(!engine.hasActiveAnimation("v1"));    // 反注册生效（修复前残留活跃，target 悬垂）
+
+    engine.update(1.0, root.get());    // tick 复跑：无可触发动画，宿主存活
+    CHECK(true);
+
+    g_ctx->setUserPointer(nullptr);
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -345,6 +379,7 @@ int main() {
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();
+    test_view_dtor_stops_animations();
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

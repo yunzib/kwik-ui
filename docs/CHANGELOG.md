@@ -2,6 +2,12 @@
 
 # 0.0.0 — 2026-10-11
 ### 修复
+- 动画目标悬垂 UAF：ActiveAnimation 缓存的 View 指针在节点销毁（列表行
+  回收、条件渲染删节点等非重建路径）后悬空，动画 tick 仍经其写属性——
+  ~View 反注册（新增 AnimationEngine::stopByTarget 指针精确匹配，不写
+  期末值、完成回调照常触发防 Promise 悬挂）；配套退出路径收口——
+  KwikRuntime teardown 解除根节点动画引擎接线（成员析构序引擎先于 View
+  树，与层树同型）
 - LayerView 析构仅走 deactivate（注销延迟到下一帧 draw 的空清单发布），
   节点销毁后 draw 永不执行 → LayerStack 残留悬空指针，后续绘制/命中
   即 UAF：析构改硬注销；配套收口退出路径同类隐患——KwikRuntime teardown

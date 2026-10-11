@@ -138,7 +138,7 @@ public:
     }
 
     View() = default;
-    virtual ~View() = default;
+    virtual ~View();    // 动画反注册（ActiveAnimation::target_ 缓存本指针，实现见 view.cpp）
     /**
      * @brief 构造 View 并注入属性
      * @param p ViewProps 属性结构体

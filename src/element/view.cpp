@@ -11,6 +11,7 @@ import kwik.event;
 import kwik.core.log;
 import kwik.core.prop_meta;
 import kwik.core.color_parser;
+import kwik.animation.engine;    // ~View 反注册动画（AnimationEngine）
 
 import std;
 
@@ -544,6 +545,15 @@ void View::echoBoundState(const char *name) {
 // 槽位限定两个（kSvcLayerStack/kSvcAnimEngine），非扩展点——新增服务走
 // KwikRuntime 成员评审。类型安全取用见 layer_stack 的 layersOf。
 // ============================================================================
+View::~View() {
+    // 动画反注册：ActiveAnimation::target_ 在 start 时缓存本指针，节点在
+    // 非整树重建路径（列表行回收、浮层关闭等）销毁后，残留动画 tick 会经
+    // 悬空 target 调 applyAnimationFrame。整树 teardown 先行 stopAll 并
+    // 解除接线（见 KwikRuntime::teardownJsBoundRuntime），此处判空跳过。
+    if (auto *engine = static_cast<AnimationEngine *>(treeService(kSvcAnimEngine)))
+        engine->stopByTarget(this);
+}
+
 void View::setTreeService(int slot, void *svc) {
     if (slot < 0 || slot >= 3) return;
     if (parent_) return;    // 仅根节点接线（子节点槽恒空，上行到根取）

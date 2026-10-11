@@ -140,6 +140,16 @@ public:
     void stopByView(const std::string& viewId);
 
     /**
+     * @brief 按目标指针停止动画（~View 反注册用）
+     * @param target ActiveAnimation::target_ 缓存的 View 指针
+     *
+     * 与 stopByView 的 viewId 匹配不同：id 可能为空/中途变更，指针匹配
+     * 精确。目标即将析构，不写期末值（writeFinal 会经 target 写属性），
+     * onComplete 照常以 completed=false 触发（Promise 不悬挂）。
+     */
+    void stopByTarget(const void* target);
+
+    /**
      * @brief 停止指定 View 指定属性的动画
      * @param viewId 目标控件 ID
      * @param prop   目标属性

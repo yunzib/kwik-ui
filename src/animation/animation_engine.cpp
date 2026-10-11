@@ -250,6 +250,13 @@ void AnimationEngine::stopByView(const std::string& viewId) {
     }
 }
 
+void AnimationEngine::stopByTarget(const void* target) {
+    for (auto& a : animations_) {
+        if (a->target_ == target && a->state != ActiveAnimation::Finished)
+            stopAnim(*a, false);    // 目标将析构：不写期末值（writeFinal 经 target 写属性即悬垂写）
+    }
+}
+
 void AnimationEngine::stopByViewAndProp(const std::string& viewId, PropId prop) {
     for (auto& a : animations_) {
         if (a->viewId == viewId && a->prop == prop && a->state != ActiveAnimation::Finished)
