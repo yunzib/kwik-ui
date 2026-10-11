@@ -840,7 +840,9 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
     auto *reg = getRegisteredRegistry();
     for (size_t i = 0; i < oldN; ++i) {
         if (!claimed[i] && oldChildren[i]) {
-            if (reg) reg->unbind(oldChildren[i].get());
+            // 稳N1：销毁整棵子树前整子树解绑——单节点 unbind 会让后代条目
+            // 悬空，State 变更 notify 直写已释放内存（UAF）
+            if (reg) reg->unbindSubtree(oldChildren[i].get());
             notifyUnmountRecursive(oldChildren[i].get());    // 卸载通知: 析构前 this/ctx 均有效
             // unique_ptr 在此析构 → 递归 ~View()
         }
@@ -872,7 +874,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
 
     // ── 类型不一致 → 销毁旧 View，创建新 View ──
     if (newType != oldType) {
-        if (auto *reg = getRegisteredRegistry()) reg->unbind(oldView.get());
+        // 稳N1：整子树解绑（后代可能持绑定条目，单节点 unbind 悬空）
+        if (auto *reg = getRegisteredRegistry()) reg->unbindSubtree(oldView.get());
         notifyUnmountRecursive(oldView.get());    // 类型切换 = 旧组件卸载，析构前通知
         return parseNode(jsVal);
     }
@@ -910,7 +913,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         // 旧 header/footer 销毁前先解绑根节点（与 reconcile 其余路径的 unbind 语义一致）
         if (propsVal.hasProperty("header") && propsVal.getProperty("header").isObject()) {
             if (auto old = ll->takeHeader()) {
-                if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+                // 稳N1：整子树解绑（header 子树内可能持绑定）
+                if (auto *reg = getRegisteredRegistry()) reg->unbindSubtree(old.get());
                 notifyUnmountRecursive(old.get());    // header 重建: 旧节点卸载通知
             }
             auto hdr = propsVal.getProperty("header");
@@ -919,7 +923,8 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         }
         if (propsVal.hasProperty("footer") && propsVal.getProperty("footer").isObject()) {
             if (auto old = ll->takeFooter()) {
-                if (auto *reg = getRegisteredRegistry()) reg->unbind(old.get());
+                // 稳N1：整子树解绑（footer 子树内可能持绑定）
+                if (auto *reg = getRegisteredRegistry()) reg->unbindSubtree(old.get());
                 notifyUnmountRecursive(old.get());    // footer 重建: 旧节点卸载通知
             }
             auto ftr = propsVal.getProperty("footer");
@@ -1037,6 +1042,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // E9：重绑前先解绑本视图全部旧条目——否则换 key（旧键残留仍被 notify
     // 命中）与移除绑定（条目永久残留）两型残留查重修不掉
     if (auto *reg = getRegisteredRegistry()) reg->unbind(oldView.get());
+    oldView->clearBinding();    // 稳N1 配套：清反向 State 绑定，防绑定移除后旧引用残留回写
     applyBindings(oldView.get(), propsVal);    // ← 重新注册到 BindingRegistry
 
     // ── 递归 reconcile children ──

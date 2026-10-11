@@ -1,5 +1,13 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-11
+### 修复
+- reconcile 销毁子树（条件渲染删节点/类型切换/LazyList header-footer 重建）
+  仅解绑根节点，后代 State 绑定条目悬空、State 变更即 UAF：
+  BindingRegistry 新增 unbindSubtree 整子树解绑（销毁路径全部改用），
+  View 新增 clearBinding 清反向绑定（复用重绑路径配套，防绑定移除后
+  旧引用残留回写 State）
+
 # 0.0.0 — 2026-10-07
 ### 修复
 - 聚焦控件销毁（如 LazyList 出窗行）后键盘/焦点事件发往悬空指针：

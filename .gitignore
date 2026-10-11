@@ -6,3 +6,4 @@ build/
 CMakeFiles/
 .opencode/package-lock.json
 docs/当前优化任务清单.md
+.acl-recovery/

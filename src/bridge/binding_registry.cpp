@@ -115,6 +115,15 @@ void BindingRegistry::unbind(View *view) {
     }
 }
 
+// unbindSubtree — 整子树解绑（稳N1：销毁子树前调用）。
+// 递归清根+全部后代的增量条目与反向绑定，防后代条目悬空被 notify 命中。
+void BindingRegistry::unbindSubtree(View *root) {
+    if (!root) return;
+    unbind(root);            // 本节点增量绑定条目
+    root->clearBinding();    // 反向 State 绑定（持 JS 引用）
+    for (auto &child : root->children) unbindSubtree(child.get());    // children 为 public
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // tryStartTransition — 隐式 transition（State 增量更新的自动补间）
 //

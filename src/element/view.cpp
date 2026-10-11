@@ -701,6 +701,14 @@ void View::setBinding(std::unique_ptr<StateBinding> binding,
 	boundTypeHint_ = typeHint;
 }
 
+// clearBinding — 清除反向绑定状态（稳N1 配套：销毁/重绑路径调用，
+// 及时释放 StateBinding 持有的 JS 引用，防悬空回写/泄漏）
+void View::clearBinding() {
+	binding_.reset();
+	bindKey_.clear();
+	boundPropName_.clear();
+}
+
 // ============================================================================
 // setPropertyTyped 默认实现 — 描述符表直写 + string 形态按期望类型反推
 //

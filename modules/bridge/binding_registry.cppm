@@ -69,6 +69,15 @@ public:
      */
     void unbind(View *view);
 
+    /**
+     * @brief 整子树解绑（稳N1：销毁子树前调用）
+     *
+     * 递归遍历 root 及全部后代，逐个 unbind 增量条目并 clearBinding
+     * 清反向 State 绑定。单节点 unbind 只清根，后代条目残留 →
+     * State 变更 notify 直写已释放内存（UAF）。
+     */
+    void unbindSubtree(View* root);
+
 private:
     struct Entry {
         View* view;

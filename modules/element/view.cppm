@@ -433,6 +433,12 @@ public:
      */
     virtual void setBinding(std::unique_ptr<StateBinding> binding, const std::string &stateKey,
                             const std::string &propName, PropType typeHint);
+
+    /** @brief 清除反向 State 绑定（reconcile 销毁/重绑路径调用）
+     *
+     * binding_ 持有 JS 侧 State 引用，View 销毁或绑定移除后
+     * 必须及时释放，否则悬空回写/引用泄漏（稳N1 配套）。*/
+    void clearBinding();
     /**
      * @brief 获取当前 View 从父树继承的主题数据
      *
