@@ -1263,6 +1263,75 @@ static void test_clipboard_wire() {
     CHECK(clip.setCalls == 1);
 }
 
+// ── 行为锁: 吞键收口 + Tab 放行 ──
+// 聚焦控件仅吞已实现键位（光标/编辑/剪贴板）；Tab 交宿主，未命中键位
+// （F 键/其余 Ctrl 组合/ESC）沿祖先链放行。命中/未命中的返回值分界即锁。
+static void test_key_passthrough_unhandled() {
+    DispatchEvent key;
+    key.type = DispatchEvent::Type::KeyAction;
+
+    // ① Input：命中键吞（true），未命中键放行（false）
+    {
+        Input in;
+        View &vb = in;
+        DispatchEvent focus;
+        focus.type = DispatchEvent::Type::FocusGained;
+        vb.onEvent(focus);
+
+        key.modifiers = 0;
+        key.keyCode = 0x24;                // VK_HOME 命中
+        CHECK(vb.onEvent(key) == true);
+        key.keyCode = 0x08;                // VK_BACK 命中
+        CHECK(vb.onEvent(key) == true);
+
+        key.keyCode = 0x09;                // Tab 放行交宿主
+        CHECK(vb.onEvent(key) == false);
+        key.keyCode = 0x74;                // F5 未实现键位
+        CHECK(vb.onEvent(key) == false);
+        key.keyCode = 0x46;                // Ctrl+F 组合未实现
+        key.modifiers = 0x01;
+        CHECK(vb.onEvent(key) == false);
+        key.keyCode = 27;                  // ESC 放行
+        CHECK(vb.onEvent(key) == false);
+    }
+
+    // ② TextArea：命中键吞，Tab/组合键放行
+    {
+        TextArea ta;
+        View &vb = ta;
+        DispatchEvent focus;
+        focus.type = DispatchEvent::Type::FocusGained;
+        vb.onEvent(focus);
+
+        key.modifiers = 0;
+        key.keyCode = 0x28;                // VK_DOWN 命中
+        CHECK(vb.onEvent(key) == true);
+
+        key.keyCode = 0x09;                // Tab 放行（不插缩进）
+        CHECK(vb.onEvent(key) == false);
+        key.keyCode = 0x4F;                // Ctrl+O 组合未实现
+        key.modifiers = 0x01;
+        CHECK(vb.onEvent(key) == false);
+    }
+
+    // ③ TextView：已收口（default 放行）——锁既有行为防回归
+    {
+        TextView tv;
+        View &vb = tv;
+        DispatchEvent focus;
+        focus.type = DispatchEvent::Type::FocusGained;
+        vb.onEvent(focus);
+
+        key.modifiers = 0;
+        key.keyCode = 0x09;                // Tab 放行
+        CHECK(vb.onEvent(key) == false);
+        key.keyCode = 0x23;                // VK_END 命中吞
+        CHECK(vb.onEvent(key) == true);
+        key.keyCode = 0x70;                // F1 放行
+        CHECK(vb.onEvent(key) == false);
+    }
+}
+
 // ── 行为锁: tap 点击定位光标 ──
 // Input 单行：中点规则边界→源文本码点序字节（密码掩码布局与源文本 1:1 同函数）；
 // TextArea：y→visual line + 行内边界，行尾落点非末行收回本行末码点、末行放行文末。
@@ -1361,6 +1430,7 @@ int main() {
     test_input_control_chars_and_home_end();
     test_tap_caret_mapping();
     test_clipboard_wire();
+    test_key_passthrough_unhandled();
     test_l1_isfinite_rejection();
     test_c3_visible_relayout();
     test_c1_align_measure_mirror();

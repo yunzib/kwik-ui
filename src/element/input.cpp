@@ -351,6 +351,8 @@ bool Input::onEvent(const DispatchEvent &event) {
                 }
             }
             break;
+        case 0x09: return false;    // Tab 交宿主处理（焦点遍历体系后续另行建立）：不吞，不重置光标
+        default: return false;      // 未命中的键位（F 键/其余 Ctrl 组合/ESC）不吞，沿祖先链传播
         }
         cursorVisible_ = true;
         lastBlinkTime_ =

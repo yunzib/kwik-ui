@@ -2,6 +2,9 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- Input/TextArea 聚焦期间不再吞掉未实现的按键：仅光标/编辑/剪贴板键位
+  被消费，Tab 放行交宿主处理（不做焦点遍历），F 键/其余 Ctrl 组合/ESC
+  沿祖先链传播；未命中键不再误重置光标闪烁计时
 - Input/TextArea/TextView 剪贴板接线：Ctrl+C 复制/Ctrl+V 粘贴全链通——
   新增 ClipboardService 树级服务（每 runtime 一份平台窗口适配器，init/
   重根/HMR 三处接线、teardown 清槽）；TextView 补上焦点事件（点击聚焦
