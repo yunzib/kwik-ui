@@ -7,6 +7,7 @@ module;    // 全局模块片段开始
 
 #include <windows.h>
 #include <map>
+#include <cstdint>
 
 module kwik.platform.win32_window;
 
@@ -367,6 +368,25 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         e.y = (int)(short)HIWORD(lParam);
         break;
 
+    // 右键上下文菜单（系统在 WM_RBUTTONUP 交默认处理后随发）：
+    // 键盘唤起（Shift+F10/Apps，lParam=-1）无落点，v0.1 只吞不发；
+    // 鼠标唤起：屏幕坐标转客户区后合成 ContextMenu 原始事件，
+    // 并吞掉默认系统弹出菜单（上下文菜单由框架元素自行绘制）
+    case WM_CONTEXTMENU: {
+        if (lParam == -1) return 0;
+        POINT pt{(int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam)};
+        ScreenToClient(hwnd_, &pt);
+        RawEvent raw;
+        raw.device = RawEvent::Device::Mouse;
+        raw.action = RawEvent::Action::ContextMenu;
+        raw.button = 2;
+        raw.x = (float)pt.x;
+        raw.y = (float)pt.y;
+        raw.timestamp = GetTickCount64();
+        if (rawCallback_) rawCallback_(raw);
+        return 0;
+    }
+
     // 鼠标滚轮
     // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
     // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
@@ -600,18 +620,21 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
+        raw.button = static_cast<uint8_t>(e.button);
         break;
     case Event::Type::MouseDown:
         raw.action = RawEvent::Action::Down;
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
+        raw.button = static_cast<uint8_t>(e.button);
         break;
     case Event::Type::MouseUp:
         raw.action = RawEvent::Action::Up;
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
+        raw.button = static_cast<uint8_t>(e.button);
         break;
     case Event::Type::MouseWheel:
         raw.action = RawEvent::Action::Scroll;
@@ -619,6 +642,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
+        raw.button = static_cast<uint8_t>(e.button);
         break;
     case Event::Type::KeyDown:
         raw.device = RawEvent::Device::Keyboard;
@@ -656,6 +680,9 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
 
     if (rawCallback_) rawCallback_(raw);
 
+    // 右键抬起交默认处理：否则系统永不产生 WM_CONTEXTMENU（右键完成语义）；
+    // 其余消息仍 return 0（维持自有输入消费策略）
+    if (msg == WM_RBUTTONUP) return DefWindowProcW(hwnd_, msg, wParam, lParam);
     return 0;
 }
 
@@ -746,65 +773,6 @@ void PlatformWindowWin32::SetClipboardText(const std::string &text) {
 
 void PlatformWindowWin32::SetRawEventCallback(PlatformWindow::RawEventCallback callback) {
     rawCallback_ = std::move(callback);
-}
-
-static RawEvent toRawEvent(const Event &e, UINT msg, WPARAM wParam, LPARAM) {
-    RawEvent r;
-    r.timestamp = GetTickCount64();
-    switch (e.type) {
-    case Event::Type::MouseMove:
-        r.device = RawEvent::Device::Mouse;
-        r.action = RawEvent::Action::Move;
-        r.x = (float)e.x;
-        r.y = (float)e.y;
-        r.pointerId = 0;
-        break;
-    case Event::Type::MouseDown:
-        r.device = RawEvent::Device::Mouse;
-        r.action = RawEvent::Action::Down;
-        r.x = (float)e.x;
-        r.y = (float)e.y;
-        r.pointerId = 0;
-        break;
-    case Event::Type::MouseUp:
-        r.device = RawEvent::Device::Mouse;
-        r.action = RawEvent::Action::Up;
-        r.x = (float)e.x;
-        r.y = (float)e.y;
-        r.pointerId = 0;
-        break;
-    case Event::Type::MouseWheel:
-        r.device = RawEvent::Device::Mouse;
-        r.action = RawEvent::Action::Scroll;
-        r.scrollY = (float)GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
-        r.x = (float)e.x;
-        r.y = (float)e.y;
-        r.pointerId = 0;
-        break;
-    case Event::Type::KeyDown:
-        r.device = RawEvent::Device::Keyboard;
-        r.action = RawEvent::Action::KeyDown;
-        r.keyCode = e.keyCode;
-        r.modifiers = e.modifiers;
-        break;
-    case Event::Type::TextInput:
-        r.device = RawEvent::Device::Keyboard;
-        r.action = RawEvent::Action::TextInput;
-        r.charCode = e.charCode;
-        break;
-    case Event::Type::WindowResize:
-        r.device = RawEvent::Device::Window;
-        r.action = RawEvent::Action::WindowResize;
-        r.width = e.width;
-        r.height = e.height;
-        break;
-    case Event::Type::WindowClose:
-        r.device = RawEvent::Device::Window;
-        r.action = RawEvent::Action::WindowClose;
-        break;
-    default: break;
-    }
-    return r;
 }
 
 void PlatformWindowWin32::RefitToNearestMonitor() {

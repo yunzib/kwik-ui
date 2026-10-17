@@ -46,6 +46,7 @@ int dispatchEventTypeToCode(DispatchEvent::Type t) {
     case DispatchEvent::Type::WindowClose: return 25;
     case DispatchEvent::Type::WindowResize: return 26;
     case DispatchEvent::Type::WindowPaint: return 27;
+    case DispatchEvent::Type::ContextMenu: return 28;    // 右键上下文菜单（与 ViewEventHandlers 槽位同源）
     // Pinch/Rotate 暂未分配给 JS 回调
     default: return -1;
     }
@@ -75,6 +76,7 @@ void PointerTracker::update(const RawEvent &raw) {
         st.lastY = raw.y;
         st.pressure = raw.pressure;
         st.active = true;
+        st.button = raw.button;
         st.pressTarget = nullptr;    // 由外部调用者设置
         break;
     }
@@ -205,6 +207,7 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
         pointerEvt.timestamp = ts;
         pointerEvt.globalX = raw.x;
         pointerEvt.globalY = raw.y;
+        pointerEvt.button = raw.button;
         if (ps && ps->pressTarget) { pointerEvt.presetTarget = ps->pressTarget; }
         out.push_back(pointerEvt);
         break;
@@ -218,14 +221,16 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
             float dist = std::sqrt(dx * dx + dy * dy);
             uint64_t elapsed = ts - ps->downTime;
 
-            // Tap 判定: 移动小 + 时间短
-            if (elapsed < kTapTimeout && dist < kTapDistance) {
+            // Tap 判定: 移动小 + 时间短（点击类手势仅无/左键——右/中键不产
+            // Tap，其按键语义已在 button 字段可分辨）
+            if (raw.button <= 1 && elapsed < kTapTimeout && dist < kTapDistance) {
                 DispatchEvent tapEvt;
                 tapEvt.type = DispatchEvent::Type::Tap;
                 tapEvt.pointerId = pid;
                 tapEvt.timestamp = ts;
                 tapEvt.globalX = raw.x;
                 tapEvt.globalY = raw.y;
+                tapEvt.button = raw.button;
                 tapEvt.presetTarget = ps->pressTarget;
                 out.push_back(tapEvt);
             }
@@ -237,6 +242,7 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
             upEvt.timestamp = ts;
             upEvt.globalX = raw.x;
             upEvt.globalY = raw.y;
+            upEvt.button = raw.button;
             upEvt.presetTarget = ps->pressTarget;
             out.push_back(upEvt);
         }
@@ -256,6 +262,7 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
             cancelEvt.timestamp = ts;
             cancelEvt.globalX = raw.x;
             cancelEvt.globalY = raw.y;
+            cancelEvt.button = raw.button;
             if (ps && ps->pressTarget) { cancelEvt.presetTarget = ps->pressTarget; }
             out.push_back(cancelEvt);
         }
@@ -274,6 +281,17 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
         out.push_back(scrollEvt);
         break;
     }
+    // ── 右键上下文菜单 ──────────────────────────────
+    case RawEvent::Action::ContextMenu: {
+        DispatchEvent ctxEvt;
+        ctxEvt.type = DispatchEvent::Type::ContextMenu;
+        ctxEvt.timestamp = ts;
+        ctxEvt.globalX = raw.x;
+        ctxEvt.globalY = raw.y;
+        ctxEvt.button = raw.button;
+        out.push_back(ctxEvt);    // 无 presetTarget：分发按坐标新鲜 hitTest
+        break;
+    }
     default: break;
     }
 }
@@ -288,8 +306,8 @@ void GestureRecognizer::poll(EventTarget *root, PointerTracker &tracker, std::ve
         float dy = ps.lastY - ps.downY;
         float dist = std::sqrt(dx * dx + dy * dy);
 
-        // 长按: 静止 + 超时
-        if (ps.downTime > 0 && dist < kTapDistance && ts - ps.downTime >= kLongPressDelay) {
+        // 长按: 静止 + 超时（点击类手势仅无/左键按起——右/中键禁触发）
+        if (ps.downTime > 0 && ps.button <= 1 && dist < kTapDistance && ts - ps.downTime >= kLongPressDelay) {
             DispatchEvent lpEvt;
             lpEvt.type = DispatchEvent::Type::LongPress;
             lpEvt.pointerId = pid;

@@ -82,6 +82,7 @@ export struct ViewEventHandlers {
     std::function<bool(const PointerArgs &)> onLongPress;     ///< 长按
     std::function<bool(const PointerArgs &)> onHoverEnter;    ///< 鼠标进入
     std::function<bool(const PointerArgs &)> onHoverLeave;    ///< 鼠标离开
+    std::function<bool(const PointerArgs &)> onContextMenu;   ///< 右键上下文菜单 (返回 true=消费，阻止冒泡)
     std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击

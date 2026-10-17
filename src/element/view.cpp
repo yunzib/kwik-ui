@@ -28,6 +28,7 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
     case 1: slot = &onLongPress; break;     // LongPress
     case 2: slot = &onHoverEnter; break;    // HoverEnter
     case 3: slot = &onHoverLeave; break;    // HoverLeave
+    case 28: slot = &onContextMenu; break;  // ContextMenu（与 dispatchEventTypeToCode 码 28 同源）
     default: return false;
     }
     if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡

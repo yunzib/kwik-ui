@@ -56,6 +56,7 @@ export struct RawEvent {
         Move,
         Up,
         Cancel,
+        ContextMenu,    // 右键上下文菜单 (平台 WM_CONTEXTMENU 合成)
         // 滚轮 / 触控板
         Scroll,
         // 键盘动作
@@ -80,6 +81,7 @@ export struct RawEvent {
     float pressure = 0.0f;    // 触摸压力 [0, 1]
     float scrollX = 0.0f;     // 水平滚轮偏移
     float scrollY = 0.0f;     // 垂直滚轮偏移
+    uint8_t button = 0;       // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
 
     // ── 键盘字段 ──
     uint32_t keyCode = 0;      // 虚拟键码 (平台无关, 由适配器映射)
@@ -130,6 +132,9 @@ export struct DispatchEvent {
         PointerCancel,
         Scroll,
 
+        // 右键上下文菜单
+        ContextMenu,
+
         // Keyboard (键盘)
         KeyAction,
         CharInput,
@@ -148,6 +153,7 @@ export struct DispatchEvent {
 
     // ── 来源标识 ──
     int32_t pointerId = 0;     // 关联的 Pointer (Pointer/Gesture 事件)
+    uint8_t button = 0;        // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
     uint64_t timestamp = 0;    // 毫秒
 
     // ── 位置 (逻辑像素, 已 DPI 缩放) ──
@@ -302,6 +308,7 @@ public:
         float lastY = 0.0f;
         float pressure = 0.0f;                 // 最新压力
         bool active = false;                   // 是否仍按下
+        uint8_t button = 0;                    // 按下时按键 (点击类手势仅 0 无/1 左触发)
         EventTarget *pressTarget = nullptr;    // 按下时命中的目标
     };
 

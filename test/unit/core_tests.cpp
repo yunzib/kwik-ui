@@ -1332,6 +1332,95 @@ static void test_key_passthrough_unhandled() {
     }
 }
 
+// ── 行为锁: 右键分发 + button 透传 ──
+// RawEvent.button 直通 DispatchEvent；右/中键不产点击类手势（Tap/LongPress），
+// WM_CONTEXTMENU 语义合成为 ContextMenu 事件可达元素；左键路径维持原行为。
+class CtxProbeView : public View {
+public:
+    int pointerDowns = 0, pointerUps = 0, taps = 0, contextMenus = 0;
+    uint8_t lastDownButton = 0, lastUpButton = 0;
+    float ctxX = -1, ctxY = -1;
+    bool onEvent(const DispatchEvent &event) override {
+        switch (event.type) {
+        case DispatchEvent::Type::PointerDown:
+            ++pointerDowns;
+            lastDownButton = event.button;
+            return true;
+        case DispatchEvent::Type::PointerUp:
+            ++pointerUps;
+            lastUpButton = event.button;
+            return true;
+        case DispatchEvent::Type::Tap: ++taps; return true;
+        case DispatchEvent::Type::ContextMenu:
+            ++contextMenus;
+            ctxX = event.globalX;
+            ctxY = event.globalY;
+            return true;
+        default: return View::onEvent(event);
+        }
+    }
+};
+
+static void feedB(EventRouter &router, RawEvent::Action act, float x, float y, uint8_t btn) {
+    RawEvent raw;
+    raw.device = RawEvent::Device::Mouse;
+    raw.action = act;
+    raw.x = x;
+    raw.y = y;
+    raw.button = btn;
+    router.feedRawEvent(raw);
+}
+
+static void test_right_button_dispatch() {
+    // ① 路由层：button 透传 + 右/中键不产 Tap + ContextMenu 合成
+    EventRouter router;
+    View tree;
+    auto probe = std::make_unique<CtxProbeView>();
+    probe->layout(Rect{0, 0, 100, 100});
+    CtxProbeView *pr = probe.get();
+    tree.addChild(std::move(probe));
+    router.setRootTarget(&tree);
+
+    feedB(router, RawEvent::Action::Down, 30, 40, 2);    // 右键按下/抬起（时距均够 Tap 判定）
+    feedB(router, RawEvent::Action::Up, 30, 40, 2);
+    CHECK(pr->pointerDowns == 1 && pr->lastDownButton == 2);
+    CHECK(pr->pointerUps == 1 && pr->lastUpButton == 2);
+    CHECK(pr->taps == 0);                                // 右键不产 Tap（原与左键同发 onClick）
+
+    feedB(router, RawEvent::Action::ContextMenu, 30, 40, 2);
+    CHECK(pr->contextMenus == 1 && pr->ctxX == 30 && pr->ctxY == 40);
+
+    feedB(router, RawEvent::Action::Down, 50, 60, 1);    // 左键路径维持原行为 + button==1
+    feedB(router, RawEvent::Action::Up, 50, 60, 1);
+    CHECK(pr->pointerDowns == 2 && pr->lastDownButton == 1);
+    CHECK(pr->taps == 1);
+
+    feedB(router, RawEvent::Action::Down, 50, 60, 3);    // 中键不产 Tap
+    feedB(router, RawEvent::Action::Up, 50, 60, 3);
+    CHECK(pr->taps == 1 && pr->lastUpButton == 3);
+
+    // ② 元素槽位面：onContextMenu 消费语义（基类 View 通用分派，码 28）
+    int slotCalls = 0;
+    float slotX = -1, slotY = -1;
+    View element;
+    element.layout(Rect{10, 10, 50, 50});
+    element.handlers.onContextMenu = [&](const PointerArgs &a) {
+        ++slotCalls;
+        slotX = a.x;
+        slotY = a.y;
+        return true;
+    };
+    View &vb = element;
+    DispatchEvent ctx;
+    ctx.type = DispatchEvent::Type::ContextMenu;
+    ctx.globalX = 12;
+    ctx.globalY = 34;
+    ctx.button = 2;
+    CHECK(vb.onEvent(ctx) == true);                       // 处理器返回 true=消费
+    CHECK(slotCalls == 1 && slotX == 2 && slotY == 24);   // local = global − frame
+    CHECK(ctx.button == 2);
+}
+
 // ── 行为锁: tap 点击定位光标 ──
 // Input 单行：中点规则边界→源文本码点序字节（密码掩码布局与源文本 1:1 同函数）；
 // TextArea：y→visual line + 行内边界，行尾落点非末行收回本行末码点、末行放行文末。
@@ -1431,6 +1520,7 @@ int main() {
     test_tap_caret_mapping();
     test_clipboard_wire();
     test_key_passthrough_unhandled();
+    test_right_button_dispatch();
     test_l1_isfinite_rejection();
     test_c3_visible_relayout();
     test_c1_align_measure_mirror();

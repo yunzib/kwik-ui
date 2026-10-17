@@ -244,6 +244,7 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
     bindPointer("onLongPress", view.handlers.onLongPress);
     bindPointer("onHoverEnter", view.handlers.onHoverEnter);
     bindPointer("onHoverLeave", view.handlers.onHoverLeave);
+    bindPointer("onContextMenu", view.handlers.onContextMenu);
 
     // ── onChange: 捕获 View*, 调用时按组件类型现场构造事件对象 ──
     // (View* 与 std::function 同属于该 View, 同生共死, 无悬垂)
