@@ -25,9 +25,11 @@ import kwik.element.element_type;
 import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构注销行为锁直驱）
 import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
 import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
+import kwik.element.text;           // Text（reconcile @token 解析行为锁直驱）
 import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
 import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校验行为锁）
 import kwik.core.props;             // DropdownProps / KeyboardProps
+import kwik.core.theme;             // ThemeData::defaultTheme（@token 期望值同源求取）
 import kwik.core.constraints;       // Constraints（Keyboard 布局驱动）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.event;                  // DispatchEvent（onWindowResize 直投行为锁）
@@ -850,6 +852,131 @@ static void test_prop_bus_typed_return() {
     teardown_callbacks();
 }
 
+// ── 行为锁: reconcile 新建节点 @token 主题解析 ──
+// resolveThemeDefaults 此前仅 ElementParser::parse 入口（初次挂载 / HMR 整树
+// 重建）调用——reconcile 新建分支（旧树为空 / 类型切换 / children 无可认领
+// 旧节点）创建的子树 token 静默落空（"@primary" 经 parseColor 失败落
+// transparent）。修复后按指针身份判新建，节点挂接（addChild 设 parent_ 链
+// 完整）后补 resolveThemeTree；复用节点零触碰——防每轮 reconcile 覆写运行期
+// setProp 已覆写的 token 属性。
+// 锁面结构说明：ThemeProvider 类未覆写 type()（返基类 View）——其根/子节点
+// 在 reconcile 判型中一律按 View 语义，锁面不以 Provider 类型身份作复用类
+// 断言；用"普通 View 根 + 复用/新建子树"与"Provider 整树重建"两组夹具覆盖。
+static void test_reconcile_token_resolve() {
+    JSContext *c = g_ctx->getPtr();
+
+    // opaque ThemeData 经 kwikui theme() 工厂构造（与用户书写路径同源）
+    CHECK(eval_module("theme_fixture.mjs",
+                      "import { theme } from 'kwikui';\n"
+                      "globalThis.__t = theme({colors:{primary:'#FF2222'}});\n"
+                      "export default null;\n"));
+    JSValue global = JS_GetGlobalObject(c);
+    JSValue themeObj = JS_GetPropertyStr(c, global, "__t");    // 独立引用，末尾释放
+    CHECK(!JS_IsUndefined(themeObj));
+
+    constexpr Color tokenRed{0xFF, 0x22, 0x22, 255};    // theme primary '#FF2222' 期望值
+
+    // Text 节点描述符 {type:'Text', props:{text, color?}, children:[]}
+    // 返回独立引用；随后调用方经 JS_SetProperty* 转移所有权
+    auto makeTextNode = [&](const char *text, const char *color) -> JSValue {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Text"));
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "text", JS_NewString(c, text));
+        if (color) JS_SetPropertyStr(c, props, "color", JS_NewString(c, color));
+        JS_SetPropertyStr(c, node, "props", props);        // 接管 props
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));    // 接管空数组
+        return node;
+    };
+
+    // 普通 View 描述符，children 逐个接管（返回独立引用，调用方负责 Free）
+    auto makeViewNode = [&](std::initializer_list<JSValue> children) -> JSValue {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
+        JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
+        JSValue arr = JS_NewArray(c);
+        uint32_t i = 0;
+        for (auto ch : children) JS_SetPropertyUint32(c, arr, i++, ch);    // 逐个接管
+        JS_SetPropertyStr(c, node, "children", arr);
+        return node;
+    };
+
+    // ThemeProvider 描述符 {type, props:{theme}, children:[...]}——子树 token
+    // 经 parent 链上溯到 Provider 数据
+    auto makeProviderNode = [&](std::initializer_list<JSValue> children) -> JSValue {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "ThemeProvider"));
+        JSValue props = JS_NewObject(c);
+        // Dup 引用被 props 接管；themeObj 本体由本测试持有贯穿全程
+        JS_SetPropertyStr(c, props, "theme", JS_DupValue(c, themeObj));
+        JS_SetPropertyStr(c, node, "props", props);
+        JSValue arr = JS_NewArray(c);
+        uint32_t i = 0;
+        for (auto ch : children) JS_SetPropertyUint32(c, arr, i++, ch);
+        JS_SetPropertyStr(c, node, "children", arr);
+        return node;
+    };
+
+    // 无 provider 上下文（View 根直挂）时的 @primary 期望值——与实现同源求取
+    auto defaultPrimary = ThemeData::defaultTheme().resolveToken("primary");
+    CHECK(defaultPrimary.has_value());
+
+    // ── 锁①: 根复用（指针不变）+ 复用子节点零触碰 + 新增子节点默认主题解析 ──
+    {
+        JSValue oldNode = makeViewNode({makeTextNode("a", "green")});
+        auto tree = ElementParser::parse(c, oldNode);    // 生产 init 同款：parse 含整树解析
+        JS_FreeValue(c, oldNode);
+        View *oldRootPtr = tree.get();
+        View *child0Ptr = (tree && !tree->children.empty()) ? tree->children[0].get() : nullptr;
+        CHECK(tree && tree->children.size() == 1);
+
+        JSValue newNode = makeViewNode({makeTextNode("a", "green"), makeTextNode("b", "@primary")});
+        auto merged = ElementParser::reconcile(c, newNode, std::move(tree));
+        JS_FreeValue(c, newNode);
+        CHECK(merged.get() == oldRootPtr);               // 根类型一致 → 原位更新（View==View）
+        CHECK(merged && merged->children.size() == 2);   // 旧 child 保留 + 新 child 追加
+        CHECK(child0Ptr && merged->children[0].get() == child0Ptr);    // 位置+类型命中复用
+        auto *reused = dynamic_cast<Text *>(merged->children[0].get());
+        auto *fresh = dynamic_cast<Text *>(merged->children[1].get());
+        CHECK(reused && reused->textContent().textColor == Color::green());      // 复用零触碰
+        CHECK(fresh && defaultPrimary && fresh->textContent().textColor == *defaultPrimary);
+    }
+
+    // ── 锁②: 旧树为空（HMR 失败 → rebuildTree 形态）+ Provider 整树解析 ──
+    {
+        JSValue provNode = makeProviderNode({makeTextNode("b", "@primary")});
+        auto rebuilt = ElementParser::reconcile(c, provNode, nullptr);
+        JS_FreeValue(c, provNode);
+        CHECK(rebuilt && rebuilt->children.size() == 1);
+        auto *fresh = dynamic_cast<Text *>(rebuilt->children[0].get());
+        CHECK(fresh && fresh->textContent().textColor == tokenRed);    // provider 上下文注入
+    }
+
+    // ── 锁③: 子树类型切换新建（Text → Provider[Text]）→ 新子树 token 解析 ──
+    {
+        JSValue oldNode = makeViewNode({makeTextNode("a", "green")});
+        auto tree = ElementParser::parse(c, oldNode);
+        JS_FreeValue(c, oldNode);
+        CHECK(tree && tree->children.size() == 1);
+
+        // 新 children[0] 与旧 Text 类型不一致（Provider 判型按 View 语义绕开
+        // 判型命中——非 Text 即新建）→ 旧节点销毁 + parseNode 新建，freshChild 标记
+        JSValue newNode = makeViewNode({makeProviderNode({makeTextNode("b", "@primary")})});
+        auto switched = ElementParser::reconcile(c, newNode, std::move(tree));
+        JS_FreeValue(c, newNode);
+        CHECK(switched && switched->children.size() == 1);
+        CHECK(switched->type() == ElementType::View && switched->children[0]->type() == ElementType::View);
+        // 新子树内部：Provider（type()=View）的 children[0] 是解析后的 Text
+        auto *sub =
+            dynamic_cast<Text *>(switched->children[0]->children.empty() ? nullptr
+                                                                         : switched->children[0]->children[0].get());
+        CHECK(sub && sub->textContent().textColor == tokenRed);    // 新建分支 + provider 上下文
+    }
+
+    JS_FreeValue(c, themeObj);
+    JS_FreeValue(c, global);
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -863,6 +990,7 @@ int main() {
     test_root_props_wired();             // 须在 storm 之前：预算测试中断后续测试执行
     test_focus_js_slots();               // 同上（storm 前保纯净 VM）
     test_prop_bus_typed_return();        // 同上
+    test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();

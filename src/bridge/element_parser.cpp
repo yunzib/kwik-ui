@@ -865,6 +865,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
     // ── ② 逐个新节点匹配 ──
     std::vector<bool> claimed(oldN, false);
     std::vector<std::unique_ptr<View>> newChildren;
+    std::vector<bool> freshChild;    // 27：与 newChildren 平行——true=新建子树（含类型切换），挂接后需补主题解析
     int newLen = childrenVal.getArrayLength();
     size_t posCursor = 0;    // 位置匹配游标（遍历 oldN，跳过已被 id 认领的）
 
@@ -904,12 +905,20 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         }
 
         // ── 复用 or 新建 ──
+        // 27：fresh 标记按指针身份判定——reconcileNode 返回指针 ≠ 旧指针
+        // 即类型切换新建；parseNode 路径恒新建。两类子树缺乏主题解析
+        // （resolveThemeDefaults 仅 parse 入口调用），挂接后统一补
         if (matchIdx != SIZE_MAX) {
             claimed[matchIdx] = true;
+            View *oldPtr = oldChildren[matchIdx].get();
             auto oldView = std::move(oldChildren[matchIdx]);
-            newChildren.push_back(reconcileNode(jsChild, std::move(oldView)));
+            auto node = reconcileNode(jsChild, std::move(oldView));
+            freshChild.push_back(node.get() != oldPtr);
+            newChildren.push_back(std::move(node));
         } else {
-            newChildren.push_back(parseNode(jsChild));
+            auto child = parseNode(jsChild);
+            freshChild.push_back(child != nullptr);
+            newChildren.push_back(std::move(child));
         }
     }
 
@@ -927,7 +936,14 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
 
     // 替换 parent 的 children
     parent->children.clear();    // View::children 是 public vector<unique_ptr<View>>
-    for (auto &child : newChildren) parent->addChild(std::move(child));
+    for (size_t i = 0; i < newChildren.size(); ++i) {
+        View *raw = newChildren[i].get();
+        parent->addChild(std::move(newChildren[i]));
+        // 27：必须挂接（addChild 设 parent_）后再解析——theme() 需沿 parent_
+        // 上溯到 ThemeProvider；此时父链已完整，token 不再落 defaultTheme。
+        // 仅新建子树解析，复用节点零触碰（防覆写运行期 setProp 覆写的 token 属性）
+        if (freshChild[i]) resolveThemeTree(raw);
+    }
 }
 
 /**
@@ -996,7 +1012,14 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
             }
             auto hdr = propsVal.getProperty("header");
             JSValueRef node(hdr.context(), JS_DupValue(hdr.context(), hdr.raw()));
-            ll->setHeader(ElementParser::parseNode(node));
+            auto headerView = ElementParser::parseNode(node);
+            // 27：header 独立存储（setHeader 非 addChild，无 parent_ 链），theme()
+            // 落 defaultTheme——本批至少解析到默认主题 token（此前连默认都不走，
+            // token 色文字呈 parseColor 失败的透明不可见）；ancestor-provider 继承
+            // 语义与 LazyList 行同族，注记任务清单另立（65 主题运行时一同定案）
+            View *hraw = headerView.get();
+            ll->setHeader(std::move(headerView));
+            if (hraw) resolveThemeTree(hraw);
         }
         if (propsVal.hasProperty("footer") && propsVal.getProperty("footer").isObject()) {
             if (auto old = ll->takeFooter()) {
@@ -1006,7 +1029,11 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
             }
             auto ftr = propsVal.getProperty("footer");
             JSValueRef node(ftr.context(), JS_DupValue(ftr.context(), ftr.raw()));
-            ll->setFooter(ElementParser::parseNode(node));
+            auto footerView = ElementParser::parseNode(node);
+            // 27：footer 同 header——无 parent 链，按 defaultTheme 解析可用 token
+            View *fraw = footerView.get();
+            ll->setFooter(std::move(footerView));
+            if (fraw) resolveThemeTree(fraw);
         }
 
         // 数据源重建（items/itemBuilder 变更 → applyLazyListProps 已清窗，
@@ -1139,7 +1166,14 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
 std::unique_ptr<View> ElementParser::reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot) {
     JSValueRef jsVal(ctx, JS_DupValue(ctx, value));
     if (!jsVal.isObject() || jsVal.isNull()) return std::move(oldRoot);
-    return reconcileNode(jsVal, std::move(oldRoot));
+    // 27：主题解析收口——凭指针身份区分复用与新建：返回指针与旧根相同
+    // （类型一致原位更新）则不动，避免每轮 reconcile 重解析覆写运行期
+    // setProp 已覆写的 token 属性；返回新指针（旧树为空如 HMR 失败后的
+    // rebuildTree、或根类型切换）→ 整树自底向上补 resolveThemeDefaults
+    View *oldPtr = oldRoot.get();
+    auto root = reconcileNode(jsVal, std::move(oldRoot));
+    if (root && root.get() != oldPtr) resolveThemeTree(root.get());
+    return root;
 }
 
 // ============================================================================
