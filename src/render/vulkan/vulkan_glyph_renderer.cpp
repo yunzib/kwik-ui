@@ -9,6 +9,7 @@ import kwik.render.vulkan.context;
 import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
 import kwik.render.command;
 import kwik.core.types;
+import kwik.core.log;    // 上传/绑定失败日志
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.render.text.cache;
@@ -127,8 +128,12 @@ bool GlyphRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
         destroy();
         return false;
     }
-
-    vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0);
+    if (vkBindImageMemory(device_, glyphAtlasImage_, glyphAtlasMemory_, 0) != VK_SUCCESS) {
+        // 绑定失败后续采样/拷贝均非法——按 init 失败整体回收
+        Log::error("GlyphRenderer init: vkBindImageMemory failed");
+        destroy();
+        return false;
+    }
 
     // ── 初始 layout 过渡: UNDEFINED → SHADER_READ_ONLY_OPTIMAL ──
     VulkanContext::runOneOff(device_, cmdPool, queue, [this](VkCommandBuffer cmd) {
@@ -258,8 +263,15 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
                                      staging, stagingMem))
         return;
 
-    void *map;
-    vkMapMemory(dc.device, stagingMem, 0, totalSize, 0, &map);
+    void *map = nullptr;
+    if (vkMapMemory(dc.device, stagingMem, 0, totalSize, 0, &map) != VK_SUCCESS) {
+        // map 失败时 map 指针无效，继续 memcpy 即野指针写——释放 staging、
+        // 丢弃本批字形（像素已被 consumeUploads 取走，重试另行处理）
+        Log::error("uploadPendingGlyphs: vkMapMemory failed ({} bytes)", static_cast<uint64_t>(totalSize));
+        vkDestroyBuffer(dc.device, staging, nullptr);
+        vkFreeMemory(dc.device, stagingMem, nullptr);
+        return;
+    }
 
     std::vector<VkBufferImageCopy> regions;
     regions.reserve(jobs.size());

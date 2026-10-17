@@ -1,5 +1,16 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-17
+### 修复
+- Vulkan 内存映射/绑定失败即野指针写：vkMapMemory/vkBindImageMemory 返回
+  值不检查共 9 处（字形图集上传与初始化、四边形顶点 staging、画布与
+  模板附件、3D/三角形持久映射、图片上传、玻璃离屏靶），失败路径统一
+  释放资源按对应失败收场，不再向无效指针 memcpy
+- swapchain 重建失败后画面永久冻结：resize 任一步失败（createSwapchain
+  半成品/画布重建失败）遗留空句柄，此后每帧对 VK_NULL_HANDLE acquire
+  且无自愈路径——失败统一释放进"无 swapchain"恢复态，帧首检测缺链先
+  重建（surface 不可用则跳帧重试）；extent 短路补链存在守卫
+
 # 0.0.0 — 2026-10-11
 ### 修复
 - 渲染帧提交失败后线程永久挂死：vkQueueSubmit 失败仅推进帧槽轮转，该槽

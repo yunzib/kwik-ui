@@ -141,7 +141,14 @@ bool BackdropRenderer::ensureTargets(VkPhysicalDevice phys, uint32_t w, uint32_t
         VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
             VulkanContext::findMemoryType(phys, mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
         if (vkAllocateMemory(device_, &ai, nullptr, &t.memory) != VK_SUCCESS) return false;
-        vkBindImageMemory(device_, t.image, t.memory, 0);
+        // 绑定失败后续离屏捕获/采样对非法句柄操作——释放已建资源按建靶失败收场
+        if (vkBindImageMemory(device_, t.image, t.memory, 0) != VK_SUCCESS) {
+            vkDestroyImage(device_, t.image, nullptr);
+            t.image = VK_NULL_HANDLE;
+            vkFreeMemory(device_, t.memory, nullptr);
+            t.memory = VK_NULL_HANDLE;
+            return false;
+        }
         VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         vi.image = t.image; vi.viewType = VK_IMAGE_VIEW_TYPE_2D; vi.format = offscreenFormat_;
         vi.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};

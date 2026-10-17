@@ -194,11 +194,12 @@ bool VulkanContext::resize(int w, int h) {
     }
 
     // ── ③ 短路：以 surface 真实尺寸为准（而非事件参数，事件可能滞后）──
-    //    currentExtent 为 UINT32_MAX 表示由 swapchain 决定（Win32 不会出现），此时退回事件尺寸比较
+    //    currentExtent 为 UINT32_MAX 表示由 swapchain 决定（Win32 不会出现），此时退回事件尺寸比较。
+    //    链缺失（上次失败遗留）时跳过短路必重建——extent 匹配不代表链存在
     const bool extentDefined = caps.currentExtent.width != UINT32_MAX;
     const uint32_t targetW = extentDefined ? caps.currentExtent.width : static_cast<uint32_t>(w);
     const uint32_t targetH = extentDefined ? caps.currentExtent.height : static_cast<uint32_t>(h);
-    if (swapchainExtent_.width == targetW && swapchainExtent_.height == targetH) {
+    if (swapchain_ != VK_NULL_HANDLE && swapchainExtent_.width == targetW && swapchainExtent_.height == targetH) {
         Log::debug("resize: extent unchanged {}x{} (event {}x{}), skip", swapchainExtent_.width,
                    swapchainExtent_.height, w, h, std::source_location::current());
         return true;
@@ -224,21 +225,23 @@ bool VulkanContext::resize(int w, int h) {
     accumulatedDirtyRects_.clear();
     swapchainImageLayouts_.clear();
 
-    if (!createSwapchain(oldSwapchain)) {    // ← 签名微调，见下
+    if (!createSwapchain(oldSwapchain)) {
         Log::error("resize: createSwapchain failed ({}x{})", targetW, targetH, std::source_location::current());
         if (oldSwapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(vkDevice_, oldSwapchain, nullptr); }
+        // createSwapchain 可能在 view 创建步失败遗留新链半成品——统一释放，
+        // 进入"无 swapchain"恢复态（beginFrame 帧首检测缺失并重试重建）
+        cleanupSwapchain();
         return false;
     }
 
     // 新链已建立，安全销毁旧链
     if (oldSwapchain != VK_NULL_HANDLE) { vkDestroySwapchainKHR(vkDevice_, oldSwapchain, nullptr); }
 
-    if (!createCanvasImage()) {
-        Log::error("resize: createCanvasImage failed", std::source_location::current());
-        return false;
-    }
-    if (!createCanvasFramebuffer()) {
-        Log::error("resize: createCanvasFramebuffer failed", std::source_location::current());
+    if (!createCanvasImage() || !createCanvasFramebuffer()) {
+        Log::error("resize: canvas recreation failed ({}x{})", targetW, targetH, std::source_location::current());
+        // 画布缺失新链同样不可呈现——释放进"无 swapchain"恢复态（beginFrame
+        // 帧首重试，画布残件由下次 resize 的 destroyCanvas 清理）
+        cleanupSwapchain();
         return false;
     }
 
@@ -391,6 +394,13 @@ bool VulkanContext::createLogicalDevice() {
 // 返回 FrameToken 或 nullopt（swapchain 不可用）
 // ================================================================
 std::optional<FrameToken> VulkanContext::beginFrame() {
+    // ── ⓪' swapchain 缺失（上次 resize 失败遗留）：先尝试重建——缺失态下
+    //    每帧对 NULL 句柄 acquire 属非法调用（画面永久冻结且无法自愈）；
+    //    surface 仍不可用（最小化等）则跳帧，下帧再试 ──
+    if (swapchain_ == VK_NULL_HANDLE) {
+        Log::info("beginFrame: swapchain missing -> try recreate");
+        if (!resize(0, 0)) return std::nullopt;
+    }
     // ── ⓪ 上一帧报告过 SUBOPTIMAL：surface 与 swapchain 已不匹配 ──
     // 主动重建（resize 内部以 caps.currentExtent 为准，参数仅作日志），
     // 本帧跳过；重建置位 justRecreated_，下一帧强制全量重绘。
@@ -890,11 +900,26 @@ bool VulkanContext::createVertexBuffer() {
         vkFreeMemory(vkDevice_, stagingVBMem, nullptr);
         return false;
     }
-    void *data;
-    vkMapMemory(vkDevice_, stagingVBMem, 0, vbSize, 0, &data);
+    void *data = nullptr;
+    // map 失败时 data 指针无效，继续 memcpy 即野指针写——释放 staging 按 init 失败收场
+    if (vkMapMemory(vkDevice_, stagingVBMem, 0, vbSize, 0, &data) != VK_SUCCESS) {
+        Log::error("createVertexBuffer: vkMapMemory (vertex staging) failed", std::source_location::current());
+        vkDestroyBuffer(vkDevice_, stagingVB, nullptr);
+        vkFreeMemory(vkDevice_, stagingVBMem, nullptr);
+        vkDestroyBuffer(vkDevice_, stagingIB, nullptr);
+        vkFreeMemory(vkDevice_, stagingIBMem, nullptr);
+        return false;
+    }
     std::memcpy(data, kQuadVertices, vbSize);
     vkUnmapMemory(vkDevice_, stagingVBMem);
-    vkMapMemory(vkDevice_, stagingIBMem, 0, ibSize, 0, &data);
+    if (vkMapMemory(vkDevice_, stagingIBMem, 0, ibSize, 0, &data) != VK_SUCCESS) {
+        Log::error("createVertexBuffer: vkMapMemory (index staging) failed", std::source_location::current());
+        vkDestroyBuffer(vkDevice_, stagingVB, nullptr);
+        vkFreeMemory(vkDevice_, stagingVBMem, nullptr);
+        vkDestroyBuffer(vkDevice_, stagingIB, nullptr);
+        vkFreeMemory(vkDevice_, stagingIBMem, nullptr);
+        return false;
+    }
     std::memcpy(data, kQuadIndices, ibSize);
     vkUnmapMemory(vkDevice_, stagingIBMem);
     if (!createBuffer(vbSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -1038,7 +1063,8 @@ bool VulkanContext::createCanvasImage() {
     VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, mr.size,
                             findMemoryType(vkPhysicalDevice_, mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
     if (vkAllocateMemory(vkDevice_, &ai, nullptr, &canvasMemory_) != VK_SUCCESS) return false;
-    vkBindImageMemory(vkDevice_, canvasImage_, canvasMemory_, 0);
+    // 绑定失败后续渲染/拷贝对非法句柄操作——按画布创建失败收场（resize 转"无链"恢复态）
+    if (vkBindImageMemory(vkDevice_, canvasImage_, canvasMemory_, 0) != VK_SUCCESS) return false;
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = canvasImage_;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -1066,7 +1092,7 @@ bool VulkanContext::createCanvasImage() {
         VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, smr.size,
         findMemoryType(vkPhysicalDevice_, smr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)};
     if (vkAllocateMemory(vkDevice_, &sAlloc, nullptr, &canvasStencilMemory_) != VK_SUCCESS) return false;
-    vkBindImageMemory(vkDevice_, canvasStencilImage_, canvasStencilMemory_, 0);
+    if (vkBindImageMemory(vkDevice_, canvasStencilImage_, canvasStencilMemory_, 0) != VK_SUCCESS) return false;
     VkImageViewCreateInfo sView{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     sView.image = canvasStencilImage_;
     sView.viewType = VK_IMAGE_VIEW_TYPE_2D;

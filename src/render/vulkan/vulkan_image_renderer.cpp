@@ -110,8 +110,13 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
                                      staging, stagingMem))
         return 0;
     {
-        void *mapped;
-        vkMapMemory(dc.device, stagingMem, 0, imageSize, 0, &mapped);
+        void *mapped = nullptr;
+        // map 失败时 mapped 指针无效，继续 memcpy 即野指针写——释放 staging 按上传失败收场（返回 0）
+        if (vkMapMemory(dc.device, stagingMem, 0, imageSize, 0, &mapped) != VK_SUCCESS) {
+            vkDestroyBuffer(dc.device, staging, nullptr);
+            vkFreeMemory(dc.device, stagingMem, nullptr);
+            return 0;
+        }
         std::memcpy(mapped, rgba, (size_t)imageSize);
         vkUnmapMemory(dc.device, stagingMem);
     }
@@ -147,7 +152,14 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
         vkFreeMemory(dc.device, stagingMem, nullptr);
         return 0;
     }
-    vkBindImageMemory(dc.device, tex.image, tex.memory, 0);
+    // 绑定失败后续采样/拷贝对非法句柄操作——回收全部资源按上传失败收场
+    if (vkBindImageMemory(dc.device, tex.image, tex.memory, 0) != VK_SUCCESS) {
+        vkDestroyImage(dc.device, tex.image, nullptr);
+        vkFreeMemory(dc.device, tex.memory, nullptr);
+        vkDestroyBuffer(dc.device, staging, nullptr);
+        vkFreeMemory(dc.device, stagingMem, nullptr);
+        return 0;
+    }
     // ── 一次性命令 — copy + mipmap（§四收口） ──
     VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
         // UNDEFINED → TRANSFER_DST (level 0)

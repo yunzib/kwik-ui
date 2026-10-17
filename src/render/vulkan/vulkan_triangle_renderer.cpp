@@ -128,7 +128,14 @@ bool TriangleRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysical
                                      stagingBuffer_, stagingMemory_)) {
         return false;
     }
-    vkMapMemory(device_, stagingMemory_, 0, bufferCapacity_, 0, &mappedData_);
+    // 持久映射失败：mappedData_ 无效，后续每帧 memcpy 即野指针写——释放缓冲按 init 失败收场
+    if (vkMapMemory(device_, stagingMemory_, 0, bufferCapacity_, 0, &mappedData_) != VK_SUCCESS) {
+        vkDestroyBuffer(device_, stagingBuffer_, nullptr);
+        stagingBuffer_ = VK_NULL_HANDLE;
+        vkFreeMemory(device_, stagingMemory_, nullptr);
+        stagingMemory_ = VK_NULL_HANDLE;
+        return false;
+    }
 
     return true;
 }
