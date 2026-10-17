@@ -33,7 +33,7 @@ export default View({
     Text({ text: "显示控制（setProp visible）", fontSize: 16, color: "#666", margin: [0, 0, 8, 0]}),
     Flex({ gap: 12, alignItems: "center", margin: [0, 0, 24, 0] }, [
         Button({
-            text: "隐藏 / 显示", width: 140, height: 32, borderRadius: 4, color: "ffffff",
+            text: "隐藏 / 显示", width: 140, height: 32, borderRadius: 4, color: "#ffffff",
             onClick: () => {
                 let v = getProp("sp1", "visible");
                 setProp("sp1", "visible", v === "true" ? "false" : "true");
