@@ -506,7 +506,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
         Log::debug("[TextView] GAIN focused={}", focused_);
         if (!focused_) focus();
         markDirty();
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onFocus 槽（基类统一焦点分发）
     }
     if (event.type == DispatchEvent::Type::FocusLost) {
         Log::debug("[TextView] LOST focused={}", focused_);
@@ -515,7 +515,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
             cursorVisible_ = false;
             markDirty();
         }
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onBlur 槽
     }
     if (event.type == DispatchEvent::Type::KeyAction) {
         if (!focused_) return false;

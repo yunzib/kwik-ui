@@ -741,6 +741,54 @@ static void test_window_viewport_surface() {
     teardown_callbacks();
 }
 
+// ── 行为锁: FocusGained/Lost JS 槽（onFocus/onBlur）──
+// FocusManager 注入的焦点事件此前止步于 C++ 内部（TextView 焦点接线），
+// JS 声明 onFocus/onBlur 无槽可落。透传后：presetTarget 直投 → 无参回调，
+// 消费返回 true、未声明返回 false。
+static void test_focus_js_slots() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    // 前置：JS 侧备回调全局；C++ 侧手搭 Input + onFocus/onBlur props
+    CHECK(eval_module("focus_cb.mjs",
+                      "globalThis.__log = [];\n"
+                      "globalThis.__f = function() { globalThis.__log.push('focus'); };\n"
+                      "globalThis.__b = function() { globalThis.__log.push('blur'); };\n"
+                      "export default null;\n"));
+    JSValue global = JS_GetGlobalObject(c);
+    JSValue fcb = JS_GetPropertyStr(c, global, "__f");
+    JSValue bcb = JS_GetPropertyStr(c, global, "__b");
+    JSValue props = JS_NewObject(c);
+    JS_SetPropertyStr(c, props, "onFocus", fcb);    // SetPropertyStr 消费引用
+    JS_SetPropertyStr(c, props, "onBlur", bcb);
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Input"));
+    JS_SetPropertyStr(c, node, "props", props);
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    JSValueRef ref(c, node);    // 接管 node 所有权（析构释放）
+    auto v = ElementParser::parseNode(ref);
+    CHECK(v && v->type() == ElementType::Input);
+    CHECK(v->handlers.onFocus != nullptr);    // 槽挂接成立
+    CHECK(v->handlers.onBlur != nullptr);
+
+    // FocusGained/Lost 直投（FocusManager 同款 presetTarget 形态）→ JS 依序收到
+    DispatchEvent gain, lost;
+    gain.type = DispatchEvent::Type::FocusGained;
+    gain.presetTarget = v.get();
+    lost.type = DispatchEvent::Type::FocusLost;
+    lost.presetTarget = v.get();
+    JS_FreeValue(c, global);
+    CHECK(v->onEvent(gain));
+    CHECK(v->onEvent(lost));
+    CHECK(jsGlobalStr(c, "__log") == "focus,blur");    // JS 数组 ToString = join(",")
+
+    // 未声明槽的组件：事件到达但无人消费（false），不崩
+    auto plain = std::make_unique<View>();
+    CHECK(plain->onEvent(gain) == false);
+
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -752,6 +800,7 @@ int main() {
     test_l1_illegal_input_no_crash();
     test_console_and_rejection_observability();
     test_root_props_wired();             // 须在 storm 之前：预算测试中断后续测试执行
+    test_focus_js_slots();               // 同上（storm 前保纯净 VM）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();

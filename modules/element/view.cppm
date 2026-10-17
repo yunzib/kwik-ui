@@ -88,6 +88,8 @@ export struct ViewEventHandlers {
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击
     std::function<void(const KeyArgs &)> onKey;               ///< 虚拟键盘按键（旁路通知，不干预注入）
+    std::function<void()> onFocus;                            ///< 获得焦点（FocusManager 注入，presetTarget 直投，无参）
+    std::function<void()> onBlur;                             ///< 失去焦点（同上）
     std::function<void()> onMount;                            ///< 挂载后回调（树构建完成，仅本轮新建节点触发）
     std::function<void()> onUnmount;                          ///< 卸载前回调（reconcile 拆除、析构前；HMR 整树重建不触发）
 

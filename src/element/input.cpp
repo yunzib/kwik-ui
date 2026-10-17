@@ -241,11 +241,11 @@ bool Input::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::FocusGained:
         Log::debug("[Input] GAIN focused={}", focused_);
         if (!focused_) focus();
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onFocus 槽（基类统一焦点分发）
     case DispatchEvent::Type::FocusLost:
         Log::debug("[Input] LOST focused={}", focused_);
         if (focused_) blur();
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onBlur 槽
     case DispatchEvent::Type::Tap:
         Log::debug("[Input] TAP focused={}", focused_);
         // 触发 JS onClick（键盘弹窗等 JS 逻辑可由此挂接）

@@ -792,6 +792,16 @@ bool View::onEvent(const DispatchEvent &event) {
         return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.resizeWidth),
                                  static_cast<float>(event.resizeHeight));
     }
+    // 焦点事件: FocusManager 注入、presetTarget 直投（无坐标载荷，无参回调，
+    // 消费不冒泡——焦点归属唯一，无链式传播语义）
+    if (event.type == DispatchEvent::Type::FocusGained) {
+        if (handlers.onFocus) { handlers.onFocus(); return true; }
+        return false;
+    }
+    if (event.type == DispatchEvent::Type::FocusLost) {
+        if (handlers.onBlur) { handlers.onBlur(); return true; }
+        return false;
+    }
 
     // 指针/手势事件: 使用全局坐标转换
     Point local = {event.globalX - frame.x, event.globalY - frame.y};

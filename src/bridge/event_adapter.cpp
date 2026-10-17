@@ -281,6 +281,15 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         };
     }
 
+    // ── onFocus / onBlur (焦点获得/失去, 无参; FocusManager 注入直投) ──
+    // 表单校验常用：Input/TextArea/TextView 等可聚焦组件声明即生效
+    if (auto h = dupHandler(ctx, props, "onFocus")) {
+        view.handlers.onFocus = [ctx, h]() { callJs0(ctx, h, "onFocus"); };
+    }
+    if (auto h = dupHandler(ctx, props, "onBlur")) {
+        view.handlers.onBlur = [ctx, h]() { callJs0(ctx, h, "onBlur"); };
+    }
+
     // ── onMount / onUnmount (通用生命周期, 无参) ──
     // onMount: 树构建完成后由 ElementParser::firePendingMounts 触发（仅新建节点）
     // onUnmount: reconcile 拆除路径在析构前触发；HMR 整树重建不触发

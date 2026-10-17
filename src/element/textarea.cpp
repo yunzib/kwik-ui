@@ -295,10 +295,10 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     switch (event.type) {
     case DispatchEvent::Type::FocusGained:
         if (!focused_) focus();
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onFocus 槽（基类统一焦点分发）
     case DispatchEvent::Type::FocusLost:
         if (focused_) blur();
-        return true;
+        return View::onEvent(event);    // 透传触发 JS onBlur 槽
     case DispatchEvent::Type::Tap:
         if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
         // 点击定位：行/列就近落在字形边界（focus() 置文末语义保留给键盘链）

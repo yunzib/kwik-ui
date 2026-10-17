@@ -2,6 +2,11 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- 组件 onFocus/onBlur 事件：Input/TextArea/TextView 焦点变化回调 JS 可达
+  （原事件止步 C++ 内部自吞），组件声明即生效
+- 微任务风暴期间引擎崩溃修复：JS 内存硬顶 16MB 在分配压力下触发
+  quickjs-ng 0.13.0 内存压力强制 GC 路径的内部崩溃（崩溃点随 ASLR
+  漂移、纯引擎数据结构损坏），放宽至 256MB 消除触发面
 - Slider 拖拽态支持 PointerCancel 复位（指针捕获被夺后不再永久保持拖拽）
 - animate() 注释消歧：返回值为裸 Promise（未附加控制方法），控制面
   pause/resume/seek/setDirection 引擎已实现、JS 暂未导出
