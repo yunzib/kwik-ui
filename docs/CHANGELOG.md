@@ -2,6 +2,8 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- animate() 注释消歧：返回值为裸 Promise（未附加控制方法），控制面
+  pause/resume/seek/setDirection 引擎已实现、JS 暂未导出
 - TreeMenu 支持 ref 增量绑定（creator 补齐属性元数据记录与绑定应用）
 - Root 工厂支持 props 配置对象透传与数组子节点展开，children 中无 type
   的对象节点由静默跳过改为 warn 提示

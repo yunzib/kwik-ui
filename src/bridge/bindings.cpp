@@ -570,9 +570,9 @@ static JSValue js_textview(JSContext *ctx, JSValueConst this_val, int argc, JSVa
  *    animate('#id', { scale: 2 },
  *            { duration: 0.5, loop: 3, direction: 'alternate' });
  *
- *  返回 Promise<AnimationResult> + 附加 handle 方法
- *
- *  当前实现：立即启动动画，不等待延迟。
+ *  返回 Promise<AnimationResult>（全部动画完成时 resolve {completed}）；
+ *  控制面 pause/resume/seek/setDirection 引擎侧已实现、JS 暂未导出接线
+ *  （用 stop() 可中途停止）。当前实现：立即启动动画，不等待延迟。
  */
 static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     Log::debug("[js_animate] ENTER argc={}", argc);
@@ -873,15 +873,14 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     JSValue resolvingFuncs[2];
     JSValue promise = JS_NewPromiseCapability(ctx, resolvingFuncs);
 
-    // 使用 shared_ptr 共享计数器，在全部动画完成时 resolve
+    // 使用 shared_ptr 共享状态，在全部动画完成时 resolve
     struct PromiseState {
         JSContext *ctx;
         JSValue resolve;
         JSValue reject;
-        // 注意：不持有 JSValue 的所有权引用，只做一次性调用
-        // 由于这些 JSValue 在 animate() 函数作用域内有效，
-        // 并且 onComplete 回调在同步的 update() 循环中执行，
-        // 不需要 JS_DupValue
+        // resolve/reject 经 Dup 持引用：动画逐帧异步推进，onComplete 在
+        // 之后某帧的 update() 里触发（相对本调用异步），一次性调用后
+        // 立即 FreeValue 收尾
     };
 
     auto state = std::make_shared<PromiseState>();
@@ -906,19 +905,11 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         static_cast<void *>(root));
 
     // ════════════════════════════════════════════════════════
-    // 6. 在 Promise 上附加 pause/resume/stop/seek 方法
-    //    （通过设置 Promise 对象的属性实现）
+    // 6. Promise 不附加控制方法：pause/resume/seek/setDirection
+    //    引擎已实现但 JS 未接线（导出后在此挂闭包）；中途停止用 stop()
     // ════════════════════════════════════════════════════════
 
-    // 将 groupId 编码为 double 捕获到 JS 闭包
-    uint64_t groupId = group.id;
-    // ⚠ 上面这行 hack：AnimationGroup 只有 groupId_ 一个成员，
-    // 可以直接用 reinterpret_cast 小 class → uint64_t 提取内部字段
-    // AnimationGroup 已纯 token 化：.id 为公开成员
-    // 简化实现：通过 engine 间接操作
-    // 实际实现中，从 engine 提供的 groups_ 映射中间接
-
-    // 释放 resolve/reject 的临时引用
+    // 释放 resolve/reject 的临时引用（state 内已各持一份 Dup）
     JS_FreeValue(ctx, resolvingFuncs[0]);
     JS_FreeValue(ctx, resolvingFuncs[1]);
 
