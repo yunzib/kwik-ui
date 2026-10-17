@@ -439,6 +439,121 @@ static void test_component_state_machine_guards() {
     teardown_callbacks();
 }
 
+// ── 行为锁: raw 取值路径属性的反向绑定补记与增量写入 ──
+// 复杂形态属性（width 双形态 / padding 多形态 / align 透传 writer 等）parse
+// 走 ex.raw() 直取，不经 tryRecordBinding；applyBindings 开头的批量补记
+// 使其进入反向绑定与增量链（State 改初值之后不再断链）。
+// ① 补记成立：parse 后 propMeta 出现 width/padding/align 条目
+// ② width 增量：Float 直转（数字态）
+// ③ padding 增量：EdgeInsets 多形态转换（数组[2]=[水平,垂直]）
+// ④ align 增量：reader 不可表达 → string 透传 writer 自解析（parse 同源）
+// ⑤ 百分比串态防线：Float 转换非有限 → 不落笔且不视作已处理
+// ⑥ 数据面键（src 等非可运行时写入属性）：不入链 → notify 未处理口径
+// ⑦ 收尾：整子树解绑后增量命中收敛为空（不触碰已析构视图指针）
+static void test_incremental_ref_raw_wire() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+    BindingRegistry reg;
+    setRegisteredRegistry(&reg);    // parse 期注册需要（运行期由 KwikRuntime 接线）
+
+    // State 对象（注册键用对象指针本身，echo 写回方向未在锁面驱动）
+    JSValue st = JS_NewObject(c);
+    {
+        JSValue pad = JS_NewArray(c);
+        JS_SetPropertyUint32(c, pad, 0, JS_NewInt32(c, 10));
+        JS_SetPropertyUint32(c, pad, 1, JS_NewInt32(c, 20));
+        JS_SetPropertyStr(c, st, "padding", pad);    // SetProperty 获引用所有权
+        JS_SetPropertyStr(c, st, "align", JS_NewString(c, "center"));
+        JS_SetPropertyStr(c, st, "width", JS_NewInt32(c, 40));
+        JS_SetPropertyStr(c, st, "src", JS_NewString(c, "a.png"));
+    }
+
+    // props：值已取 State 当前值（工厂期 resolveRefProp 产物镜像）+ 隐藏键
+    JSValue props = JS_NewObject(c);
+    JS_SetPropertyStr(c, props, "width", JS_GetPropertyStr(c, st, "width"));      // Get 获独立引用
+    JS_SetPropertyStr(c, props, "padding", JS_GetPropertyStr(c, st, "padding"));
+    JS_SetPropertyStr(c, props, "align", JS_GetPropertyStr(c, st, "align"));
+    JS_SetPropertyStr(c, props, "src", JS_GetPropertyStr(c, st, "src"));
+    JS_SetPropertyStr(c, props, "__bind_widthState", JS_DupValue(c, st));
+    JS_SetPropertyStr(c, props, "__bind_widthKey", JS_NewString(c, "width"));
+    JS_SetPropertyStr(c, props, "__bind_paddingState", JS_DupValue(c, st));
+    JS_SetPropertyStr(c, props, "__bind_paddingKey", JS_NewString(c, "padding"));
+    JS_SetPropertyStr(c, props, "__bind_alignState", JS_DupValue(c, st));
+    JS_SetPropertyStr(c, props, "__bind_alignKey", JS_NewString(c, "align"));
+    JS_SetPropertyStr(c, props, "__bind_srcState", JS_DupValue(c, st));
+    JS_SetPropertyStr(c, props, "__bind_srcKey", JS_NewString(c, "src"));
+
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
+    JS_SetPropertyStr(c, node, "props", props);    // 所有权移交 node
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    JSValueRef ref(c, node);    // 接管 node 所有权（析构释放）
+
+    auto v = ElementParser::parseNode(ref);
+    CHECK(v && v->type() == ElementType::View);
+
+    // ① 补记成立 + 数据面键排除
+    CHECK(v->propMeta.find("width") != nullptr);
+    CHECK(v->propMeta.find("padding") != nullptr);
+    CHECK(v->propMeta.find("align") != nullptr);
+    CHECK(v->propMeta.find("src") == nullptr);
+    void *stPtr = JS_VALUE_GET_PTR(st);
+
+    // ② width 增量（数字态 → Float 直转）
+    {
+        JSValue wNew = JS_NewFloat64(c, 120);
+        CHECK(reg.notify(stPtr, "width", c, wNew) == true);
+        JS_FreeValue(c, wNew);
+    }
+    CHECK(v->props.width.has_value() && std::abs(*v->props.width - 120.0f) < 1e-5f);
+
+    // ③ padding 增量（数组[2] → parseEdgeInsets 同源多形态）
+    {
+        JSValue padNew = JS_NewArray(c);
+        JS_SetPropertyUint32(c, padNew, 0, JS_NewInt32(c, 40));
+        JS_SetPropertyUint32(c, padNew, 1, JS_NewInt32(c, 80));
+        CHECK(reg.notify(stPtr, "padding", c, padNew) == true);
+        JS_FreeValue(c, padNew);
+    }
+    CHECK(v->props.padding.left == 40 && v->props.padding.right == 40 &&
+          v->props.padding.top == 80 && v->props.padding.bottom == 80);
+
+    // ④ align 增量（string 透传 writer：parseAlign 自解析写回枚举）
+    {
+        JSValue alignNew = JS_NewString(c, "bottomCenter");
+        CHECK(reg.notify(stPtr, "align", c, alignNew) == true);
+        JS_FreeValue(c, alignNew);
+    }
+    CHECK(v->props.align == Align::BottomCenter);
+
+    // ⑤ 百分比串态：Float 转换非有限 → 不落笔且不视作已处理、原值保持
+    {
+        JSValue pctNew = JS_NewString(c, "50%");
+        CHECK(reg.notify(stPtr, "width", c, pctNew) == false);
+        JS_FreeValue(c, pctNew);
+        CHECK(v->props.width.has_value() && std::abs(*v->props.width - 120.0f) < 1e-5f);
+    }
+
+    // ⑥ 数据面键：未注册（notify 未处理口径、src 值亦不落笔）
+    {
+        JSValue srcNew = JS_NewString(c, "b.png");
+        CHECK(reg.notify(stPtr, "src", c, srcNew) == false);
+        JS_FreeValue(c, srcNew);
+    }
+
+    // ⑦ 收尾解绑：增量命中收敛为空（清理反向绑定持 JS 引用）
+    reg.unbindSubtree(v.get());
+    {
+        JSValue wAgain = JS_NewFloat64(c, 200);
+        CHECK(reg.notify(stPtr, "width", c, wAgain) == false);
+        JS_FreeValue(c, wAgain);
+    }
+
+    JS_FreeValue(c, st);
+    setRegisteredRegistry(nullptr);
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -454,6 +569,7 @@ int main() {
     test_layer_view_dtor_unregisters();
     test_view_dtor_stops_animations();
     test_component_state_machine_guards();
+    test_incremental_ref_raw_wire();
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

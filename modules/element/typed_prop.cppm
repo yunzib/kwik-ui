@@ -19,7 +19,8 @@ export enum class PropType : std::uint8_t {
     Int,
     Float,
     String,
-    Color
+    Color,
+    EdgeInsets    // 四边距多形态（数值/数组/对象），增量侧经 parseEdgeInsets 同源转换
 };
 
 /**

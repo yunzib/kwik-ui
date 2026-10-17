@@ -20,6 +20,8 @@ import kwik.bridge.props_parser;
 import kwik.element.view;
 import kwik.element.rootview;
 import kwik.core.props;
+import kwik.core.prop_meta;    // propIdFromName / getPropMeta（补记分类查表）
+import kwik.core.types;        // TypedProp / Transform / Color / EdgeInsets（reader 假读分派）
 import kwik.engine.js_value;
 import kwik.layout.flex_layout;
 import kwik.layout.grid_layout;
@@ -65,6 +67,71 @@ import kwik.bridge.element_spec; // ElementSpec / ElementRegistry — 扩展契�
 
 import std;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 批量补记绑定元数据
+//
+// ref(state, "name") 经工厂 resolveRefProp 后：属性值已替换为 State 当前值，
+// 并注入 __bind_{name}State / __bind_{name}Key 隐藏键。经 PropsExtractor::get
+// 读取的属性由 tryRecordBinding 记录 propMeta；复杂形态属性（width 双形态、
+// padding/margin 多形态、transform/shadow 系、align 等）走 ex.raw() 直接取值
+// 而绕过记录 → meta 无条目 → applyBindings 的 forEachBinding 看不到：
+// 反向绑定不建、增量注册不发生（State 改初值之后增量断链）。
+//
+// 在 applyBindings 开头扫 props 自有键补记缺失条目。类型以属性描述符
+// reader 假读的期望值为准（与 setPropertyTyped 字符串反推同源），保证增量
+// 写入沿既有反推/透传链落地。未注册名（src/items/nodes 等数据面键，查表
+// 无条目）不是运行时可写属性，跳过不注册；组件专有键已由 get 期记录的同样
+// 跳过（先查后写，天然幂等，reconcile 每轮重绑无叠加）。
+// ═══════════════════════════════════════════════════════════════════════════
+static void batchRecordBindings(View *view, const JSValueRef &pv) {
+    if (!view || !pv.isObject()) return;
+    auto &meta = view->propMeta;
+    JSContext *ctx = pv.context();
+    JSValue props = pv.raw();
+
+    JSPropertyEnum *tab = nullptr;
+    uint32_t len = 0;
+    if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
+
+    for (uint32_t i = 0; i < len; ++i) {
+        const char *keyName = JS_AtomToCString(ctx, tab[i].atom);
+        std::string propName;    // "__bind_<name>Key" 中段的属性名
+        if (keyName) {
+            std::string_view sv(keyName);
+            if (sv.starts_with("__bind_") && sv.ends_with("Key") && sv.size() >= 11) {
+                propName.assign(sv.substr(7, sv.size() - 10));
+            }
+            JS_FreeCString(ctx, keyName);
+        }
+        JS_FreeAtom(ctx, tab[i].atom);
+        if (propName.empty()) continue;
+
+        if (meta.find(propName)) continue;    // get 期已记录，不覆盖更精确的本地类型
+
+        PropId prop = propIdFromName(propName);
+        if (prop == PropId::COUNT) {
+            // 数据面键（src/items/nodes 等）：非运行时可写属性，不参与增量
+            Log::debug("绑定属性 '{}' 非运行时可写，跳过增量注册", propName);
+            continue;
+        }
+        const PropMeta &pm = getPropMeta(prop);
+        if (!pm.reader || !pm.writer) continue;
+
+        // reader 假读——期望值类型即该属性可接收的写入类型（反推同源）：
+        // double/int64/bool/Color 走原生转换，EdgeInsets 走多形态转换，
+        // Transform/不可读型走 string 形态由 setPropertyTyped 反推或透传 writer
+        TypedProp expect = pm.reader(view->props);
+        PropType hint = PropType::String;
+        if (std::get_if<double>(&expect)) { hint = PropType::Float; }
+        else if (std::get_if<int64_t>(&expect)) { hint = PropType::Int; }
+        else if (std::get_if<bool>(&expect)) { hint = PropType::Bool; }
+        else if (std::get_if<Color>(&expect)) { hint = PropType::Color; }
+        else if (std::get_if<EdgeInsets>(&expect)) { hint = PropType::EdgeInsets; }
+        meta.set(propName, hint, true);
+    }
+    js_free(ctx, tab);
+}
+
 /**
  * @brief 统一绑定注入 — 遍历 propMeta 中 hasBinding=true 的属性，
  *        逐一建立双向绑定链路：
@@ -84,6 +151,7 @@ import std;
 void applyBindings(View *view, const JSValueRef &pv) {
     auto &meta = view->propMeta;
     JSContext *ctx = pv.context();
+    batchRecordBindings(view, pv);    // raw 取值路径属性批量补记（get 期已记录的自动跳过）
 
     meta.forEachBinding([&](const std::string &propName, const PropEntry &) {
         std::string stateName = "__bind_" + propName + "State";

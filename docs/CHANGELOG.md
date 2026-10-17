@@ -2,6 +2,13 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- raw 取值路径属性反绑接通：复杂形态属性（width/height 百分比双形态、
+  padding/margin 多形态、transform、shadow/gradient、align/borderStyle 等）
+  声明式 ref(state,"key") 此前仅初值生效、State 增量改动静默不更新——
+  绑定应用入口批量补记缺失的属性元数据（类型按属性描述符假读，与字符串
+  反推同源分派），增量转换新增 EdgeInsets 多形态直转与非有限值拒绝，
+  转换不出的形态按未处理口径不落笔；数据面键（src/items/nodes 等非运行时
+  可写属性）不参与属性增量
 - 右键语义补全：RawEvent/DispatchEvent 增按钮字段全链透传，右键按下/
   抬起不再错发 onClick/长按手势（点击类手势仅左键/触摸触发）；右键
   抬起转交系统处理以产生 WM_CONTEXTMENU，框架合成 ContextMenu 事件供

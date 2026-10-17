@@ -12,6 +12,8 @@ import kwik.engine.vm_callbacks;
 import kwik.core.log;
 import kwik.animation.engine;   // AnimationEngine / AnimationDesc
 import kwik.core.prop_meta;     // propIdFromName / getPropMeta
+import kwik.bridge.props_parser;    // parseEdgeInsets（增量侧多形态转换与 parse 同源）
+import kwik.engine.js_value;        // JSValueRef（RAII 包转 parseEdgeInsets 入参）
 
 import std;
 
@@ -66,6 +68,9 @@ TypedProp jsValueToTypedProp(JSContext *ctx, JSValueConst value, PropType type) 
     case PropType::Float: {
         double d = 0;
         JS_ToFloat64(ctx, &d, value);
+        // 非有限数值（百分比串态/NaN 残留等）拒绝：与 parse 期有限性纪律
+        // 同源，防 NaN 沿增量写入链污染布局
+        if (!std::isfinite(d)) { return std::monostate{}; }
         return d;
     }
 
@@ -81,6 +86,14 @@ TypedProp jsValueToTypedProp(JSContext *ctx, JSValueConst value, PropType type) 
         Color c = parseColor(s ? s : "");
         if (s) JS_FreeCString(ctx, s);
         return c;
+    }
+
+    case PropType::EdgeInsets: {
+        // 字符串形态无边距语义，拒之不由增量落笔；数值/数组[1]/[2]/[4]/对象
+        // 多形态经 parseEdgeInsets 与 parse 期同源解析
+        if (JS_IsString(value)) { return std::monostate{}; }
+        JSValueRef rv(ctx, JS_DupValue(ctx, value));
+        return parseEdgeInsets(rv);
     }
 
     default: return std::monostate{};
@@ -184,10 +197,13 @@ bool BindingRegistry::notify(void *statePtr, const std::string &key, JSContext *
         // 查 TypedPropMap 获得 parse 阶段记录的类型信息
         PropEntry *entry = view->propMeta.find(propName);
         if (!entry) continue;
-        handled = true;
 
         // 将 JSValue 按原始 C++ 类型转为 TypedProp
         TypedProp typed = jsValueToTypedProp(ctx, val, entry->typeHint);
+        // 转换不出的形态不落笔亦不视作已处理（防非有限/未识别值沿写入链
+        // 扩散；调用方按未处理口径收场）
+        if (std::holds_alternative<std::monostate>(typed)) { continue; }
+        handled = true;
 
         // 类型安全写入，不触发 binding_ 写回（避免循环）
         // 隐式 transition：条件满足则启动自动补间，值由动画逐帧 applyAnimationFrame
