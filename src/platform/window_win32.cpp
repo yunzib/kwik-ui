@@ -716,6 +716,8 @@ bool PlatformWindowWin32::GetClipboardText(std::string &out) {
     if (len > 1) {
         out.resize(len - 1);
         WideCharToMultiByte(CP_UTF8, 0, w, -1, out.data(), len, nullptr, nullptr);
+    } else if (len == 1) {
+        out.clear();    // 空剪贴板（仅 NUL 转换返回）：成功但无内容，不得残留调用方旧 out
     }
     GlobalUnlock(h);
     CloseClipboard();
@@ -724,13 +726,20 @@ bool PlatformWindowWin32::GetClipboardText(std::string &out) {
 
 void PlatformWindowWin32::SetClipboardText(const std::string &text) {
     if (!OpenClipboard(hwnd_)) return;
-    EmptyClipboard();
+    // 先分配/编码/锁定全部就绪，再清空贴入——任一步失败旧剪贴板原样保留
     int wlen = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
-    if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, (SIZE_T)wlen * sizeof(wchar_t))) {
-        wchar_t *w = static_cast<wchar_t *>(GlobalLock(h));
-        MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, w, wlen);
-        GlobalUnlock(h);
-        SetClipboardData(CF_UNICODETEXT, h);
+    if (wlen > 0) {
+        if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, (SIZE_T)wlen * sizeof(wchar_t))) {
+            if (wchar_t *w = static_cast<wchar_t *>(GlobalLock(h))) {
+                MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, w, wlen);
+                GlobalUnlock(h);
+                EmptyClipboard();
+                if (!SetClipboardData(CF_UNICODETEXT, h)) GlobalFree(h);    // 贴入失败：系统不接管，自行释放
+                CloseClipboard();
+                return;
+            }
+            GlobalFree(h);    // 锁失败：释放内存，剪贴板原样保留
+        }
     }
     CloseClipboard();
 }

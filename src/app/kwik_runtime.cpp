@@ -23,6 +23,7 @@ import kwik.render.command_queue;
 import kwik.render.command_buffer;    // DisplayList（复合根清单）
 import kwik.event;
 import kwik.element.view;
+import kwik.element.clipboard_service;    // ClipboardService（树服务槽适配）
 import kwik.element.layer_view;    // LayerStack（阶段 2-2 前仍为全局单例形态）
 import kwik.bridge.element_parser;
 import kwik.core.types;
@@ -56,6 +57,30 @@ extern "C" void kwik_register_app_js(const BytecodeModule *modules, int count) {
 }
 
 // ============================================================================
+// RuntimeClipboardService — ClipboardService → 本树平台窗口转发
+// 每树一份（构造时以本窗初始化）；窗口侧未提供剪贴板能力（接口默认
+// 实现）时安全失败返回 false，组件层跳过
+// ============================================================================
+namespace {
+class RuntimeClipboardService : public ClipboardService {
+public:
+    explicit RuntimeClipboardService(PlatformWindow &w) : window_(&w) {}
+    bool getText(std::string &out) override {
+        if (window_->GetClipboardText(out)) return true;
+        Log::debug("[Clipboard] 读取失败（剪贴板打开失败/无文本数据）");
+        return false;
+    }
+    bool setText(const std::string &text) override {
+        if (text.empty()) return false;    // 空文本写入=清空剪贴板，组件层无此需求
+        window_->SetClipboardText(text);
+        return true;
+    }
+private:
+    PlatformWindow *window_;
+};
+}    // namespace
+
+// ============================================================================
 // 构造 / 析构 / 生命周期
 // ============================================================================
 KwikRuntime::KwikRuntime(PlatformWindow &window, const Config &config)
@@ -71,7 +96,8 @@ KwikRuntime::KwikRuntime(PlatformWindow &window, const Config &config)
                             .onStopped = []() { Log::info("渲染线程停止"); },
                         },
                     }),
-      jsCtx_{} {}
+      jsCtx_{},
+      clipSvc_(std::make_unique<RuntimeClipboardService>(window)) {}
 
 KwikRuntime::~KwikRuntime() { teardown(); }
 
@@ -113,6 +139,7 @@ void KwikRuntime::teardownJsBoundRuntime() {
     if (tree_) {
         tree_->setTreeService(View::kSvcLayerStack, nullptr);
         tree_->setTreeService(View::kSvcAnimEngine, nullptr);
+        tree_->setTreeService(View::kSvcClipboard, nullptr);
     }
     // 整树即将重建/销毁：绑定注册表的 View* 条目全部随之悬空，必须清空
     // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
@@ -193,6 +220,7 @@ bool KwikRuntime::init() {
     tree_->setTreeService(View::kSvcLayerStack, &layers_);
     tree_->setTreeService(View::kSvcAnimEngine, &animations_);
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
+    tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
 
     // px = 逻辑像素：布局空间与文字密度统一跟随 S 因子
     TextRenderPipeline::instance().setDpiScale(renderScale());
@@ -300,6 +328,7 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->setTreeService(View::kSvcLayerStack, &layers_);
     if (tree_) tree_->setTreeService(View::kSvcAnimEngine, &animations_);      // 新根重接线
     if (tree_) tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
+    if (tree_) tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
     jsCtx_.clearRenderFlag();
@@ -512,6 +541,7 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     tree_->setTreeService(View::kSvcLayerStack, &layers_);
     tree_->setTreeService(View::kSvcAnimEngine, &animations_);
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());    // 新根重接线服务槽
+    tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
 

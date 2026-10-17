@@ -197,6 +197,9 @@ private:
     void deleteAfterCursor_();
     void deleteSelection_();
 
+    /** @brief 选区平文本（s..e 字节区间 substr；无选区返回全文 plainText_） */
+    std::string selectionString_() const;
+
     void moveCursorLeft_();
     void moveCursorRight_();
     void moveCursorUp_();

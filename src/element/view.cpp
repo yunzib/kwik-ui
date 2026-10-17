@@ -541,9 +541,10 @@ void View::echoBoundState(const char *name) {
 }
 
 // ============================================================================
-// 树级服务槽（多呈现，清单 §十四）：根持本树服务指针，组件上行取。
-// 槽位限定两个（kSvcLayerStack/kSvcAnimEngine），非扩展点——新增服务走
-// KwikRuntime 成员评审。类型安全取用见 layer_stack 的 layersOf。
+// 树级服务槽（多呈现）：根持本树服务指针，组件上行取。
+// 槽位四个（kSvcLayerStack / kSvcAnimEngine / kSvcRenderBackend /
+// kSvcClipboard），非扩展点——新增服务走 KwikRuntime 成员评审。
+// 类型安全取用见 layer_stack 的 layersOf。
 // ============================================================================
 View::~View() {
     // 动画反注册：ActiveAnimation::target_ 在 start 时缓存本指针，节点在
@@ -555,13 +556,13 @@ View::~View() {
 }
 
 void View::setTreeService(int slot, void *svc) {
-    if (slot < 0 || slot >= 3) return;
+    if (slot < 0 || slot >= 4) return;
     if (parent_) return;    // 仅根节点接线（子节点槽恒空，上行到根取）
     treeSvc_[slot] = svc;
 }
 
 void *View::treeService(int slot) const {
-    if (slot < 0 || slot >= 3) return nullptr;
+    if (slot < 0 || slot >= 4) return nullptr;
     const View *v = this;
     while (v->parent_) v = v->parent_;    // 上行到根
     return v->treeSvc_[slot];

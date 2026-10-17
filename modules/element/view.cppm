@@ -546,6 +546,7 @@ public:
     static constexpr int kSvcLayerStack = 0;    // 槽 0：LayerStack*（layersOf 取用）
     static constexpr int kSvcAnimEngine = 1;   // 槽 1：AnimationEngine*（bridge 侧取用）
     static constexpr int kSvcRenderBackend = 2; // 槽 2：RenderBackend*（Image 纹理路由用）
+    static constexpr int kSvcClipboard = 3;     // 槽 3：ClipboardService*（文本组件 Ctrl+C/V/X）
 
     /** @brief 根节点接线（KwikRuntime::init 调用；非根调用无效果） */
     void setTreeService(int slot, void *svc);
@@ -564,7 +565,7 @@ private:
     void encodeList(Graphics &graphics);
 
     std::shared_ptr<const DisplayList> publishedList_;   ///< 已发布快照（render 线程只读）
-    void *treeSvc_[3] = {nullptr, nullptr, nullptr};       ///< 树级服务槽（仅根节点有效，见 setTreeService）
+    void *treeSvc_[4] = {nullptr, nullptr, nullptr, nullptr};    ///< 树级服务槽（仅根节点有效，见 setTreeService）
     std::unique_ptr<DisplayList> pendingList_;           ///< 编码草稿（UI 线程私有）
     bool listDirty_ = true;                              ///< 视觉变化后待重编
 

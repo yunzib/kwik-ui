@@ -11,6 +11,7 @@ module;
 
 module kwik.element.textarea;
 import kwik.element.view;
+import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/V 的源与目标）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -47,6 +48,11 @@ static void skipBackward(const std::string &s, size_t &pos) {
     if (pos == 0) return;
     --pos;
     while (pos > 0 && (s[pos] & 0xC0) == 0x80) --pos;
+}
+
+// 取本树剪贴板服务（未接线/未适配返回 nullptr，调用方安全跳过）
+static ClipboardService *clipOf(const View &v) {
+    return static_cast<ClipboardService *>(v.treeService(View::kSvcClipboard));
 }
 
 // ════════════════════════════════════════════════════════
@@ -317,6 +323,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::KeyAction: {
         if (!focused_) return false;
         uint32_t vk = event.keyCode;
+        bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl（TextView 同款填法）
         switch (vk) {
         case 0x08:
             if (!props_.readOnly) {
@@ -336,6 +343,22 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         case 0x28: moveCursorDown(); break;
         case 0x24: cursorBytePos_ = 0; break;               // VK_HOME → 行首
         case 0x23: cursorBytePos_ = text_.size(); break;    // VK_END → 行尾
+        case 0x43:    // 'C' — Ctrl 组合复制全值（无选区状态模型；未接线/空值跳过）
+            if (ctrl) {
+                if (auto *clip = clipOf(*this); clip && !text_.empty()) clip->setText(text_);
+            }
+            break;
+        case 0x56:    // 'V' — Ctrl 组合光标处粘贴（readOnly/未接线/剪贴板空跳过）
+            if (ctrl) {
+                if (auto *clip = clipOf(*this); clip && !props_.readOnly) {
+                    std::string clipText;
+                    if (clip->getText(clipText) && !clipText.empty()) {
+                        insertAtCursor(clipText);
+                        fireChange();
+                    }
+                }
+            }
+            break;
         }
         cursorVisible_ = true;
         lastBlinkTime_ =

@@ -23,6 +23,8 @@ import kwik.element.lazy_list;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.textarea;
+import kwik.element.textview;
+import kwik.element.clipboard_service;
 import kwik.element.radiobutton;
 import kwik.element.tabs;
 import kwik.layout.grid_layout;
@@ -1155,6 +1157,112 @@ static void test_t07a_event_focus() {
     CHECK(nP->panBegins == 2);    // Cancel 清状态后新拖动能重新 PanBegin（原永无）
 }
 
+// ── 行为锁: 剪贴板接线 ──
+// 录制型 ClipboardService 直塞树服务槽：Input/TextArea Ctrl+C 复制全值、
+// Ctrl+V 光标处粘贴（onChange 触发、Ctrl 位判定）；TextView 焦点接线后
+// 键盘链可达（Ctrl+A+C 服务被调 = 焦点与槽位双接通）。平台真剪贴板经
+// smoke 输入 demo 目视覆盖。
+namespace {
+struct RecordingClipboard : ClipboardService {
+    std::string lastSet;
+    std::string nextGet;
+    int setCalls = 0;
+    bool getText(std::string &out) override {
+        out = nextGet;
+        return true;
+    }
+    bool setText(const std::string &text) override {
+        lastSet = text;
+        ++setCalls;
+        return true;
+    }
+};
+}    // namespace
+
+static void test_clipboard_wire() {
+    RecordingClipboard clip;
+
+    // ① Input：焦点 → 键入 "aa" → Ctrl+C 复制全值 → Ctrl+V 文末追加粘贴
+    Input in;
+    in.setTreeService(View::kSvcClipboard, &clip);    // 独立即根，直塞可接线
+    int fires = 0;
+    std::string last;
+    in.handlers.onChange = [&](ChangeArgs a) {
+        ++fires;
+        if (auto *s = std::get_if<std::string>(&a.value)) last = *s;
+    };
+    View &vb = in;
+    DispatchEvent focus;
+    focus.type = DispatchEvent::Type::FocusGained;
+    vb.onEvent(focus);
+    DispatchEvent ch;
+    ch.type = DispatchEvent::Type::CharInput;
+    ch.charCode = 'a';
+    vb.onEvent(ch);
+    vb.onEvent(ch);
+    CHECK(fires == 2 && last == "aa");
+
+    DispatchEvent key;
+    key.type = DispatchEvent::Type::KeyAction;
+    key.keyCode = 0x43;
+    key.modifiers = 0x01;                            // bit0=Ctrl
+    vb.onEvent(key);
+    CHECK(clip.setCalls == 1 && clip.lastSet == "aa");
+
+    clip.nextGet = "xy";
+    key.keyCode = 0x56;
+    vb.onEvent(key);
+    CHECK(fires == 3 && last == "aaxy");             // 光标在文末 → 追加
+
+    // ② 无 Ctrl 位：'C' 本键不触发剪贴板
+    clip.setCalls = 0;
+    key.keyCode = 0x43;
+    key.modifiers = 0;
+    vb.onEvent(key);
+    CHECK(clip.setCalls == 0);
+
+    // ③ TextArea：FocusGained → Ctrl+V 光标处粘贴 → Ctrl+C 复制当前值
+    clip.setCalls = 0;
+    clip.lastSet.clear();
+    clip.nextGet = "ab";
+    TextArea ta;
+    ta.setTreeService(View::kSvcClipboard, &clip);
+    View &tb = ta;
+    tb.onEvent(focus);
+    DispatchEvent vkey;
+    vkey.type = DispatchEvent::Type::KeyAction;
+    vkey.keyCode = 0x56;
+    vkey.modifiers = 0x01;
+    tb.onEvent(vkey);
+    CHECK(ta.value() == "ab");
+    DispatchEvent ckey;
+    ckey.type = DispatchEvent::Type::KeyAction;
+    ckey.keyCode = 0x43;
+    ckey.modifiers = 0x01;
+    tb.onEvent(ckey);
+    CHECK(clip.setCalls == 1 && clip.lastSet == "ab");
+
+    // ④ TextView：FocusGained 接线（原键盘链死路）→ Ctrl+A + Ctrl+C 服务被调
+    clip.setCalls = 0;
+    clip.lastSet.clear();
+    clip.nextGet.clear();
+    TextView tv;
+    tv.setTreeService(View::kSvcClipboard, &clip);
+    View &tvb = tv;
+    tvb.onEvent(focus);
+    DispatchEvent akey;
+    akey.type = DispatchEvent::Type::KeyAction;
+    akey.keyCode = 0x41;
+    akey.modifiers = 0x01;
+    tvb.onEvent(akey);
+    DispatchEvent tkey;
+    tkey.type = DispatchEvent::Type::KeyAction;
+    tkey.keyCode = 0x43;
+    tkey.modifiers = 0x01;
+    tvb.onEvent(tkey);
+    CHECK(clip.setCalls == 1);
+}
+
 // ── 行为锁: tap 点击定位光标 ──
 // Input 单行：中点规则边界→源文本码点序字节（密码掩码布局与源文本 1:1 同函数）；
 // TextArea：y→visual line + 行内边界，行尾落点非末行收回本行末码点、末行放行文末。
@@ -1252,6 +1360,7 @@ int main() {
     test_radiobutton_no_untoggle();
     test_input_control_chars_and_home_end();
     test_tap_caret_mapping();
+    test_clipboard_wire();
     test_l1_isfinite_rejection();
     test_c3_visible_relayout();
     test_c1_align_measure_mirror();

@@ -19,6 +19,7 @@ module;
 module kwik.element.textview;
 
 import kwik.element.view;
+import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/X/V 的源与目标）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -494,7 +495,28 @@ void TextView::onDraw(Graphics &graphics) {
  * @param event DispatchEvent 事件（Type::KeyAction / Type::CharInput）
  * @return true 表示事件已消费
  */
+// 取本树剪贴板服务（未接线/未适配返回 nullptr，调用方安全跳过）
+static ClipboardService *clipOf(const View &v) {
+    return static_cast<ClipboardService *>(v.treeService(View::kSvcClipboard));
+}
+
 bool TextView::onEvent(const DispatchEvent &event) {
+    // ── 焦点接线：点击/手动移焦时 FocusManager 派发本事件，置 focused_ 后键盘编辑链才可达 ──
+    if (event.type == DispatchEvent::Type::FocusGained) {
+        Log::debug("[TextView] GAIN focused={}", focused_);
+        if (!focused_) focus();
+        markDirty();
+        return true;
+    }
+    if (event.type == DispatchEvent::Type::FocusLost) {
+        Log::debug("[TextView] LOST focused={}", focused_);
+        if (focused_) {
+            focused_ = false;
+            cursorVisible_ = false;
+            markDirty();
+        }
+        return true;
+    }
     if (event.type == DispatchEvent::Type::KeyAction) {
         if (!focused_) return false;
         auto vk = event.keyCode;
@@ -518,6 +540,27 @@ bool TextView::onEvent(const DispatchEvent &event) {
                 fireChange_();
                 break;
             case 0x41: selectAll_(); break;
+            case 0x43:    // Ctrl+C：复制选区（无选区 = 全文平文本；readOnly 不设限）
+                if (auto *clip = clipOf(*this); clip) clip->setText(selectionString_());
+                break;
+            case 0x58:    // Ctrl+X：剪选区（严格语义：无选区不操作；readOnly 不动）
+                if (tvp_.readOnly || selectionStart_ == cursorPos_) break;
+                if (auto *clip = clipOf(*this); clip) clip->setText(selectionString_());
+                deleteSelection_();
+                rebuild_();
+                fireChange_();
+                break;
+            case 0x56:    // Ctrl+V：粘贴（insertAtCursor_ 自带选区优先删除 = 替换语义）
+                if (tvp_.readOnly) break;
+                if (auto *clip = clipOf(*this); clip) {
+                    std::string clipText;
+                    if (clip->getText(clipText) && !clipText.empty()) {
+                        insertAtCursor_(clipText);
+                        rebuild_();
+                        fireChange_();
+                    }
+                }
+                break;
             default: return false;
             }
         } else {
@@ -823,6 +866,13 @@ void TextView::moveCursorDown_() {
 void TextView::selectAll_() {
     selectionStart_ = 0;
     cursorPos_ = plainText_.size();
+}
+
+std::string TextView::selectionString_() const {
+    if (selectionStart_ == cursorPos_) return plainText_;    // 无选区 = 全文
+    size_t s = std::min(selectionStart_, cursorPos_);
+    size_t e = std::max(selectionStart_, cursorPos_);
+    return plainText_.substr(s, e - s);    // 区间与选区字节模型同源
 }
 
 // ============================================================================

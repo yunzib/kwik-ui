@@ -13,6 +13,7 @@ module;
 
 module kwik.element.input;
 import kwik.element.view;
+import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/V 的源与目标）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -26,6 +27,12 @@ import kwik.core.log;
 import kwik.core.timer;
 
 import std;
+
+// 取本树剪贴板服务（未接线/未适配返回 nullptr，调用方安全跳过）
+static ClipboardService *clipOf(const View &v) {
+    return static_cast<ClipboardService *>(v.treeService(View::kSvcClipboard));
+}
+
 // ── 光标点击定位辅助（纯函数族：合成字形可直测，免字体）──
 // 中点规则：x 落第 i 个字形前半 → 边界 i（字形之前）；后半 → 边界 i+1。
 // 越界：x ≤ 首字形前沿 → 0；x ≥ 全文宽 → count（末尾）。
@@ -310,6 +317,7 @@ bool Input::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::KeyAction: {
         if (!focused_) return false;
         uint32_t vk = event.keyCode;
+        bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl（TextView 同款填法）
         switch (vk) {
         case 0x08:    // VK_BACK
             if (!input_.readOnly) {
@@ -327,6 +335,22 @@ bool Input::onEvent(const DispatchEvent &event) {
         case 0x27: moveCursorRight(); break;    // VK_RIGHT
         case 0x24: cursorToHome(); break;       // VK_HOME → 行首
         case 0x23: cursorToEnd(); break;        // VK_END → 行尾
+        case 0x43:    // 'C' — Ctrl 组合复制全值（无选区状态模型；未接线/空值跳过）
+            if (ctrl) {
+                if (auto *clip = clipOf(*this); clip && !text_.empty()) clip->setText(text_);
+            }
+            break;
+        case 0x56:    // 'V' — Ctrl 组合光标处粘贴（readOnly/未接线/剪贴板空跳过）
+            if (ctrl) {
+                if (auto *clip = clipOf(*this); clip && !input_.readOnly) {
+                    std::string clipText;
+                    if (clip->getText(clipText) && !clipText.empty()) {
+                        insertAtCursor(clipText);
+                        fireChange();
+                    }
+                }
+            }
+            break;
         }
         cursorVisible_ = true;
         lastBlinkTime_ =
