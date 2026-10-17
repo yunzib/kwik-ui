@@ -246,19 +246,26 @@ private:
     std::unordered_map<std::string, std::string> themeTokens_;
 
     /**
-     * @brief 检查并记录绑定元数据
+     * @brief 检查并记录属性元数据（类型 + 绑定标志）
      * @param name  属性名
      * @param type  属性原始类型
      *
-     * 在 props_ 上检测 __bind_{name}Key 隐藏属性是否存在。
-     * （resolveRefProp 在 JS 模块执行时注入了这些隐藏属性）
-     * 若存在则写入 meta_，后续 element_parser 通过
-     * forEachBinding 遍历此记录来注册 JSStateBinding。
+     * 无条件记录类型元数据（getProp 类型化返回的依据——此前仅绑定属性
+     * 记录，普通属性拿不到类型）；绑定标志按 props_ 上是否存在
+     * __bind_{name}Key 隐藏属性置位（resolveRefProp 在 JS 模块执行时注入）。
+     * element_parser 通过 forEachBinding 遍历 hasBinding 条目注册
+     * JSStateBinding——非绑定条目不参与增量，仅作类型标注。
      */
     void tryRecordBinding(const char *name, PropType type) {
         if (!meta_) return;
         std::string key = std::string("__bind_") + name + "Key";
-        if (props_.hasProperty(key.c_str())) { meta_->set(name, type, true); }
+        bool hasBind = props_.hasProperty(key.c_str());
+        if (auto *e = meta_->find(name)) {
+            e->typeHint = type;
+            e->hasBinding = e->hasBinding || hasBind;    // 幂等合并（applyBindings 入口补记同源）
+        } else {
+            meta_->set(name, type, hasBind);
+        }
     }
 };
 

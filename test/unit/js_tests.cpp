@@ -789,6 +789,67 @@ static void test_focus_js_slots() {
     teardown_callbacks();
 }
 
+// ── 行为锁: getProp 类型化返回 + 未命中警告（prop_bus）──
+// getProp 此前一律字符串化——`if (getProp('chk','checked'))` 得 "false"
+// 恒真；未命中 id 静默 undefined、setProp 未命中静默跳过，id 写错零反馈。
+static void test_prop_bus_typed_return() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    // C++ 侧搭根 + 经 parseNode 建 View/Checkbox（creator 填 propMeta：
+    // width=Float、checked=Bool——手搭 View 无 propMeta 走不到类型化分支）
+    auto root = std::make_unique<View>();
+    auto mkNode = [&](const char *type, const char *propsSrc) {
+        std::string code = std::string("globalThis.__n = { type: '") + type + "', props: " + propsSrc + " };\n"
+                           "export default null;\n";
+        CHECK(eval_module("prop_bus_node.mjs", code));
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__n");
+        JSValueRef nv(c, n);    // 接管 n（析构释放）
+        auto v = ElementParser::parseNode(nv);
+        JS_FreeValue(c, gv);
+        return v;
+    };
+    auto pv = mkNode("View", "{ id: 'pbv', opacity: 0.5 }");    // opacity 走描述符 reader，不依赖布局
+    auto pc = mkNode("Checkbox", "{ id: 'pbc', checked: true }");
+    CHECK(pv && pc);
+    View *rawPv = pv.get();
+    View *rawPc = pc.get();
+    root->addChild(std::move(pv));
+    root->addChild(std::move(pc));
+    g_ctx->setUserPointer(root.get());
+
+    // ① Float 属性 → number（此前字符串形态）
+    CHECK(eval_module("prop_bus_a.mjs",
+                      "import { getProp } from 'kwikui';\n"
+                      "const w = getProp('pbv', 'opacity');\n"
+                      "globalThis.__w = (typeof w === 'number' && w === 0.5) ? 'ok' : typeof w + ':' + w;\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__w") == "ok");
+
+    // ② Bool 属性 → boolean（"false" 恒真陷阱根除）
+    CHECK(eval_module("prop_bus_b.mjs",
+                      "import { getProp } from 'kwikui';\n"
+                      "const b = getProp('pbc', 'checked');\n"
+                      "globalThis.__b = (typeof b === 'boolean' && b === true) ? 'ok' : typeof b + ':' + b;\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__b") == "ok");
+
+    // ③ 未命中 id → undefined 不抛（warn 出声不断言）；setProp 未命中不崩
+    CHECK(eval_module("prop_bus_c.mjs",
+                      "import { getProp, setProp } from 'kwikui';\n"
+                      "globalThis.__u = (getProp('nope', 'width') === undefined) ? 'ok' : 'bad';\n"
+                      "setProp('nope', 'width', '50');\n"
+                      "globalThis.__s = 'alive';\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__u") == "ok");
+    CHECK(jsGlobalStr(c, "__s") == "alive");
+    CHECK(rawPv && rawPc);    // 未命中路径不触碰真实组件（仍存活）
+
+    g_ctx->setUserPointer(nullptr);
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -801,6 +862,7 @@ int main() {
     test_console_and_rejection_observability();
     test_root_props_wired();             // 须在 storm 之前：预算测试中断后续测试执行
     test_focus_js_slots();               // 同上（storm 前保纯净 VM）
+    test_prop_bus_typed_return();        // 同上
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();
