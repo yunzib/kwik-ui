@@ -77,10 +77,26 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     if (!ftFace) return;
 
     // NEAREST + 1∶1 栅格化
-    FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_));
-
-    FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
-    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) return;
+    // FT_Set/Load 查错：失败后 ftFace->glyph 残留上一个字形的陈旧位图
+    // （FreeType 不清空 glyph slot），继续走打包会把旧字形当新字形渲染成
+    // 错字——按空占位收场（与 0×0 合法空位图同款 3×3 透明）
+    auto blankEntry = [&entry]() {
+        entry.packedW = 3;
+        entry.packedH = 3;
+        entry.info.pixelData.assign(9, 0);
+    };
+    if (FT_Set_Pixel_Sizes(ftFace, 0, (FT_UInt)std::round(fontSize * dpiScale_)) != 0) {
+        blankEntry();
+        return;
+    }
+    if (FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT) != 0) {
+        blankEntry();
+        return;
+    }
+    if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) {
+        blankEntry();
+        return;
+    }
 
     FT_Bitmap *bmp = &ftFace->glyph->bitmap;
 
@@ -91,10 +107,8 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     uint32_t pixelW = bmp->width;
     uint32_t rawH = bmp->rows;
 
-    if (pixelW == 0 || rawH == 0) {
-        entry.packedW = 3;
-        entry.packedH = 3;
-        entry.info.pixelData.resize(9, 0);
+    if (pixelW == 0 || rawH == 0) {    // 合法空位图（空格等）——同款空占位
+        blankEntry();
         return;
     }
 

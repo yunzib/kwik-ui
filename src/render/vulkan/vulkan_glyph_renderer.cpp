@@ -136,7 +136,10 @@ bool GlyphRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
     }
 
     // ── 初始 layout 过渡: UNDEFINED → SHADER_READ_ONLY_OPTIMAL ──
-    VulkanContext::runOneOff(device_, cmdPool, queue, [this](VkCommandBuffer cmd) {
+    // 失败不落 layout 语义位：图集留在 UNDEFINED，首次字形上传 barrier 以
+    // UNDEFINED 为源（内容无关语义，合法）重做过渡自然恢复；先落位会让
+    // 上传 barrier 误以 SHADER_READ_ONLY 为源（实际未过渡）→ 验证层报错
+    const bool transitioned = VulkanContext::runOneOff(device_, cmdPool, queue, [this](VkCommandBuffer cmd) {
         VkImageMemoryBarrier initBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         initBarrier.image = glyphAtlasImage_;
         initBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -149,7 +152,11 @@ bool GlyphRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                              nullptr, 0, nullptr, 1, &initBarrier);
     });
-    atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    if (transitioned) {
+        atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    } else {
+        Log::error("GlyphRenderer init: 图集初始 layout 过渡失败，留待首次上传路径以 UNDEFINED 源恢复");
+    }
 
     VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vi.image = glyphAtlasImage_;
