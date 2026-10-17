@@ -48,8 +48,14 @@ public:
     explicit Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
     }
 
-    /** @brief reconcile 属性覆盖（options/value 等整体重解析，渲染期活读取） */
-    void applyDropdownProps(DropdownProps dp) { dp_ = std::move(dp); }
+    /** @brief reconcile 属性覆盖（options/value 等整体重解析，渲染期活读取）；
+     *  items 缩短时夹紧选中索引——onDraw 按索引直取显示文本，越界即读 */
+    void applyDropdownProps(DropdownProps dp) {
+        if (dp.selectedIndex >= static_cast<int>(dp.items.size()))
+            dp.selectedIndex = dp.items.empty() ? -1 : static_cast<int>(dp.items.size()) - 1;
+        dp_ = std::move(dp);
+        markDirty();
+    }
 
     ElementType type() const override {
         return ElementType::Dropdown;

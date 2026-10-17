@@ -201,8 +201,11 @@ bool LayerView::onEvent(const DispatchEvent &event) {
         if (lp_.transparent) return false;
         Point global{event.globalX, event.globalY};
         if (!contentBounds_.contains(global)) {
-            if (lp_.modal && lp_.maskClosable) { close(); }
-            return lp_.modal;
+            // close 内 onClose 回调可能同步移除自身（模态自关闭常见模式），
+            // 之后不可再读 this——先暂存 modal 再关
+            const bool modal = lp_.modal;
+            if (modal && lp_.maskClosable) { close(); }
+            return modal;
         }
         return lp_.modal;   // modal 行为不变，非 modal 点容器内空区穿透到 base
     }

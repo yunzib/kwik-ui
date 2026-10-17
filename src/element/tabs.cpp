@@ -188,7 +188,9 @@ void Tabs::onDraw(Graphics &graphics) {
     // ═══════════════════════════════════════════════════════
     // tab 条绘制
     // ═══════════════════════════════════════════════════════
-    size_t n = tp_.items.size();
+    // 防御：items 增多后重测前 tabWidths_/tabLayouts_ 仍为旧尺寸（apply 已
+    // requestLayout，正常下一帧 layoutTabs 同步；窗口期按旧向量长度截断防越界）
+    size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
     float drawY = frame.y + kTabPaddingV;
 
     for (size_t i = 0; i < n; ++i) {
@@ -278,7 +280,8 @@ bool Tabs::onEvent(const DispatchEvent &event) {
 // hitTestTab — 局部坐标命中检测
 // ═══════════════════════════════════════════════════════════
 int Tabs::hitTestTab(float localX, float localY) const {
-    size_t n = tp_.items.size();
+    // 与 onDraw 同防线：重测同步前的窗口期按旧向量长度截断，新 tab 下帧出现
+    size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
     for (size_t i = 0; i < n; ++i) {
         float x0 = tabX(static_cast<int>(i));
         float x1 = x0 + tabWidths_[i];

@@ -64,6 +64,12 @@ Keyboard::~Keyboard() {
 // ============================================================================
 void Keyboard::activate() {
     if (registered_) return;
+    // 未挂树（构造期/解析期）：根无层树接线，layersOf 为空——延迟到首次
+    // onLayout（父 layout 驱动，此刻接线有效）再注册，防构造期空解引用
+    if (!layersOf(this)) {
+        pendingActivate_ = true;
+        return;
+    }
     registered_ = true;
     drawnElsewhere_ = true;
     layersOf(this)->registerLayerView(this);
@@ -73,6 +79,7 @@ void Keyboard::activate() {
 }
 
 void Keyboard::deactivate() {
+    pendingActivate_ = false;    // 显式关闭撤销延迟激活（挂树前 visible true→false）
     if (!registered_) return;
     registered_ = false;
     // 根未接线（teardown 解除后的树析构期）时 layersOf 为空，跳过注销与
@@ -188,6 +195,10 @@ Size Keyboard::onMeasure(Constraints constraints) {
 }
 
 void Keyboard::onLayout() {
+    if (pendingActivate_) {
+        pendingActivate_ = false;
+        activate();    // 此刻已挂树（onLayout 由父 layout 驱动），接线有效
+    }
     if (registered_) frame = panelRect();    // dock 底部
 }
 

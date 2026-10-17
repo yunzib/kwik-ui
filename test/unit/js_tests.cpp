@@ -24,6 +24,11 @@ import kwik.element.view;
 import kwik.element.element_type;
 import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构注销行为锁直驱）
 import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
+import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
+import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
+import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校验行为锁）
+import kwik.core.props;             // DropdownProps / KeyboardProps
+import kwik.core.constraints;       // Constraints（Keyboard 布局驱动）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.core.log;
 
@@ -366,6 +371,74 @@ static void test_view_dtor_stops_animations() {
     teardown_callbacks();
 }
 
+// ── 行为锁: 组件状态机越界/悬空防线 ──
+// ① Dropdown items 缩短后 selectedIndex 夹紧（onDraw 按索引直取显示文本，
+//    越界即读）；
+// ④ G2D __g2d_ptr 缓存经存活登记校验——树销毁后 JS 绘制调用失效缓存安全
+//    no-op，不再使用悬空指针；无参工厂不再对 undefined 落 SetProperty；
+// ⑤ Keyboard 构造期 visible=true 不再立即激活（未挂树 layersOf 空解引用），
+//    延迟到 onLayout 补挂注册。
+static void test_component_state_machine_guards() {
+    reset_callbacks();
+
+    // ① Dropdown 夹紧：缩短/清空后索引落入合法域
+    {
+        DropdownProps init;
+        init.items = {"a", "b", "c", "d", "e"};
+        init.selectedIndex = 4;
+        Dropdown dp(ViewProps{}, init);
+        DropdownProps shrunk;
+        shrunk.items = {"a", "b"};
+        shrunk.selectedIndex = 4;
+        dp.applyDropdownProps(shrunk);
+        CHECK(dp.dropdownProps().selectedIndex == 1);    // 夹紧到新表末项
+        DropdownProps emptied;
+        emptied.selectedIndex = 0;
+        dp.applyDropdownProps(emptied);    // items 保持空
+        CHECK(dp.dropdownProps().selectedIndex == -1);    // 空表回未选中（走占位符分支）
+    }
+
+    // ⑤ Keyboard 延迟激活：构造不崩（修复前未挂树即空解引用）、挂树布局后补注册
+    {
+        LayerStack stack;
+        KeyboardProps kp;
+        kp.visible = true;
+        auto kb = std::make_unique<Keyboard>(ViewProps{}, kp);
+        kb->setTreeService(View::kSvcLayerStack, &stack);    // 未挂父：自身即根
+        CHECK(stack.layerCount() == 0);                      // 挂树前不注册
+        kb->measure(Constraints{0, 800, 0, 600});
+        kb->layout(Rect{0, 0, 800, 600});                    // onLayout → 补挂激活
+        CHECK(stack.layerCount() == 1);
+    }
+
+    // ④ G2D 句柄存活校验 + 无参工厂
+    {
+        registerG2DElement();    // G2D 类型与 JS 工厂注册（example main 平时做）
+        JSContext *c = g_ctx->getPtr();
+        CHECK(eval_module("g2d_guard_fixture.mjs",
+                          "import { G2D } from 'kwikui';\n"
+                          "globalThis.__g = G2D({ id: 'gg' });\n"
+                          "globalThis.__g.fillRect(0, 0, 10, 10);\n"    // eager 路径命令（挂树前直达 C++）
+                          "globalThis.__bare = G2D();\n"                 // 无参工厂：修复前留 pending exception
+                          "export default null;\n"));
+
+        // 树认领 eager 指针后销毁 → __g2d_ptr 悬空；再调绘制应失效缓存安全 no-op
+        JSValue global = JS_GetGlobalObject(c);
+        JSValue g = JS_GetPropertyStr(c, global, "__g");    // makeElementHelper 产物即树节点形态
+        JS_FreeValue(c, global);
+        {
+            JSValueRef ref(c, g);    // 接管所有权
+            auto v = ElementParser::parseNode(ref);    // createG2D 认领 eager 指针入树
+            CHECK(v != nullptr);
+        }    // v 析构 → G2D 销毁 → 存活登记注销
+        CHECK(eval_module("g2d_guard_after.mjs",
+                          "globalThis.__g.fillRect(0, 0, 10, 10);\n"    // 悬空缓存 → 校验失效 → no-op
+                          "export default null;\n"));    // 修复前：经悬空指针调用（UB）；无参工厂残留异常时 evalFile 失败
+    }
+
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -380,6 +453,7 @@ int main() {
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();
     test_view_dtor_stops_animations();
+    test_component_state_machine_guards();
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

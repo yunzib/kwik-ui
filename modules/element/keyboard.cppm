@@ -79,6 +79,7 @@ private:
 
     KeyboardProps kp_;
     bool registered_ = false;     // 是否已注册为图层
+    bool pendingActivate_ = false;    // 挂树前 visible=true 的延迟激活（onLayout 补挂）
     bool shiftSticky_ = false;    // text 布局 shift 粘滞态（大写切换）
 
     /// 当前活动 Keyboard 实例（v1 单实例，后构造覆盖前，日志告警）

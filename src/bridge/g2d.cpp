@@ -15,6 +15,7 @@ import kwik.bridge.element_parser; // ElementParser::registerExtension / applyBi
 import kwik.engine.context;        // QuickJSContext (getUserPointer)
 import kwik.core.color_parser;     // parseColor (setFillStyle / setStrokeStyle)
 import kwik.engine.js_value;
+import kwik.event;                 // TargetLiveness（缓存指针存活校验）
 
 import std;
 
@@ -22,17 +23,23 @@ import std;
 #define G2D_FROM_THIS(ctx, this_val)                                                                                   \
     [&]() -> G2D * {                                                                                                   \
         JSValue _p = JS_GetPropertyStr(ctx, this_val, "props");                                                        \
-        /* 优先读 __g2d_ptr（eager 创建 or 首次 findById 后缓存） */                                                   \
+        /* 优先读 __g2d_ptr（eager 创建 or 首次 findById 后缓存）；缓存须经存活         \
+           登记校验——树销毁（条件渲染删节点/reconcile 类型切换）后此处是悬空           \
+           地址，直接使用即 UAF */                                                                                     \
         JSValue _ptr = JS_GetPropertyStr(ctx, _p, "__g2d_ptr");                                                        \
         if (!JS_IsUndefined(_ptr)) {                                                                                   \
             double _v;                                                                                                 \
             JS_ToFloat64(ctx, &_v, _ptr);                                                                              \
-            JS_FreeValue(ctx, _ptr);                                                                                   \
-            JS_FreeValue(ctx, _p);                                                                                     \
-            return reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                                                \
+            auto *_cached = reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                                       \
+            if (TargetLiveness::instance().isAlive(_cached)) {                                                         \
+                JS_FreeValue(ctx, _ptr);                                                                               \
+                JS_FreeValue(ctx, _p);                                                                                 \
+                return _cached;                                                                                        \
+            }                                                                                                          \
+            JS_SetPropertyStr(ctx, _p, "__g2d_ptr", JS_UNDEFINED);    /* 悬空缓存清除，走重解析 */                     \
         }                                                                                                              \
         JS_FreeValue(ctx, _ptr);                                                                                       \
-        /* Fallback: findById（兼容树已建好但没有缓存的场景） */                                                       \
+        /* Fallback: findById（兼容树已建好但没有缓存的场景；树重建后同 id 命中新实例并回填缓存） */                   \
         JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                                                \
         const char *_idStr = JS_ToCString(ctx, _id);                                                                   \
         auto *_qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));                                         \
@@ -304,24 +311,28 @@ static void bindG2DMethods(JSContext *ctx, JSValue obj) {
 
 // ── JS 工厂 (自 bindings.cpp:1323 搬迁, 仅 makeElement → makeElementHelper) ──
 static JSValue js_g2d(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv) {
-    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
-    if (JS_IsObject(props)) {
-        JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
-        if (JS_IsUndefined(idVal)) {
-            static std::atomic<uint32_t> g2d_id_counter{0};
-            char buf[64];
-            std::snprintf(buf, sizeof(buf), "__g2d_%u", g2d_id_counter++);
-            JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
-        }
-        JS_FreeValue(ctx, idVal);
+    // 非对象/缺参时新建 props（归本函数所有，用毕释放）：原实现把 JS_UNDEFINED
+    // 传下去——id/__g2d_ptr 落在 undefined 上 SetProperty 留 pending exception，
+    // 且 eager G2D 永不被树认领（泄漏）
+    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? JS_DupValue(ctx, argv[0]) : JS_NewObject(ctx);
+    JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
+    if (JS_IsUndefined(idVal)) {
+        static std::atomic<uint32_t> g2d_id_counter{0};
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "__g2d_%u", g2d_id_counter.fetch_add(1));
+        JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
     }
-    JSValue obj = makeElementHelper(ctx, "G2D", props, JS_UNDEFINED);    // 改这里
-    bindG2DMethods(ctx, obj);
+    JS_FreeValue(ctx, idVal);
+    JSValue obj = makeElementHelper(ctx, "G2D", props, JS_UNDEFINED);
+    if (!JS_IsException(obj)) {
+        bindG2DMethods(ctx, obj);
 
-    // 立即创建 C++ G2D, 指针存到 props (命令式绘制在树建立前就要到达 C++)
-    auto *g2d = new G2D();
-    JS_SetPropertyStr(ctx, props, "__g2d_ptr",
-                      JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
+        // 立即创建 C++ G2D, 指针存到 props (命令式绘制在树建立前就要到达 C++)
+        auto *g2d = new G2D();
+        JS_SetPropertyStr(ctx, props, "__g2d_ptr",
+                          JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
+    }
+    JS_FreeValue(ctx, props);
     return obj;
 }
 
