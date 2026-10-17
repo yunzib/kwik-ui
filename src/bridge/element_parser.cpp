@@ -558,8 +558,11 @@ static struct InitBuiltinTypes {
 
         // ── TreeMenu ──
         ElementParser::registerType("TreeMenu", [](const JSValueRef &pv) {
-            PropsExtractor ex(pv);
+            TypedPropMap meta;
+            PropsExtractor ex(pv, &meta);
             auto v = std::make_unique<TreeMenu>(parseViewProps(ex), parseScrollViewProps(ex), parseTreeMenuProps(ex));
+            v->propMeta = std::move(meta);
+            applyBindings(v.get(), pv);    // ref 增量绑定（补齐与 LazyList 等其余 creator 同款三件套）
             return v;
         });
 

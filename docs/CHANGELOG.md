@@ -2,6 +2,7 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- TreeMenu 支持 ref 增量绑定（creator 补齐属性元数据记录与绑定应用）
 - Root 工厂支持 props 配置对象透传与数组子节点展开，children 中无 type
   的对象节点由静默跳过改为 warn 提示
 - 窗口尺寸 JS 暴露与 onResize 事件接通：kwikui 新增 getWindowSize/
