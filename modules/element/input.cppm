@@ -66,6 +66,19 @@ public:
     void focus();
     void blur();
 
+    /** @brief 点击定位光标（纯函数，合成字形可直测）：单行字形 + 本地 x → 光标字节位
+     *
+     * 中点规则：x 落第 i 个字形前半 → 边界在字形前；后半 → 边界在字形后；
+     * 边界序按源文本码点序换算字节偏移（与光标绘制 byteOffsetToGlyphIndex
+     * 的码点序口径一致）。密码模式：传 ● 掩码布局 glyphs（与源文本 1:1），
+     * text 传源文本。
+     * @param glyphs 排版字形（Input 正文布局或掩码布局的 glyphs）
+     * @param text 源文本（边界序 → 字节换算用）
+     * @param x 相对文本原点的本地横坐标
+     * @return UTF-8 字节偏移（对齐码点边界；文末 == text.size()）
+     */
+    static size_t tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x);
+
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
@@ -98,6 +111,11 @@ private:
     void moveCursorRight();
     void cursorToHome();
     void cursorToEnd();
+    // ── 点击定位光标 ──
+    /** Tap 坐标 → 光标字节位（与 onDraw 同口径排版；空文本恒 0，无字形退端点） */
+    size_t tapCursorByte(const DispatchEvent &event);
+    /** 聚焦并同时定位光标（Tap 用；focus() 保持"光标置文末"语义给键盘链） */
+    void focusWithCursor(size_t pos);
     // ── 渲染辅助 ──
     /** 字节偏移 → glyph 序号转换 */
     size_t byteOffsetToGlyphIndex(size_t byteOffset) const;

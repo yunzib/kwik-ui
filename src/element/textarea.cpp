@@ -147,6 +147,47 @@ int TextArea::lineForByte(size_t pos) const {
     return -1;
 }
 
+// ════════════════════════════════════════════════════════
+// 点击定位光标（纯函数族：合成字形可直测，免字体）
+// ════════════════════════════════════════════════════════
+int TextArea::lineIndexForY(const std::vector<TextLayoutLine> &lines, float y) {
+    float acc = 0;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        acc += lines[i].height;
+        if (y < acc) return (int)i;    // 落在第 i 行底边 → 归属下方行（半开区间）
+    }
+    return lines.empty() ? -1 : (int)lines.size() - 1;    // y 越过全部行 → 末行
+}
+
+// 行内中点规则（与 Input 同族，元素层互不 import 惯例下各自实现）：
+// x 落第 i 个字形前半 → 边界 i；后半 → 边界 i+1；越界 → 0 / count
+static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, float x) {
+    float acc = 0;
+    for (size_t i = 0; i < count; ++i) {
+        float mid = acc + glyphs[i].advanceX * 0.5f;
+        if (x < mid) return i;
+        acc += glyphs[i].advanceX;
+    }
+    return count;
+}
+
+size_t TextArea::tapByteOffsetForLine(const TextLayoutResult &layout, int lineIdx, float x, const std::string &text) {
+    if (lineIdx < 0 || lineIdx >= (int)layout.lines.size()) return 0;
+    auto &sl = layout.lines[lineIdx];
+    if (sl.glyphCount == 0) return sl.clusterStart;    // 空行：光标吸行首（lineForByte isEmpty 同款）
+    const ShapedGlyph *g = layout.glyphs.data() + sl.glyphStart;
+    size_t b = glyphBoundaryIndexForX(g, sl.glyphCount, x);
+    // 边界 → 码点边界：b==0 取行首字形 cluster；b<count 取第 b 字形 cluster；b==count 取行尾
+    size_t pos = (b == 0) ? (size_t)g[0].cluster
+                          : (b >= sl.glyphCount) ? (size_t)sl.clusterEnd : (size_t)g[b].cluster;
+    bool isLast = (lineIdx == (int)layout.lines.size() - 1);
+    // 行尾落点撞下一行行首（非末行 clusterEnd 已不再匹配本行）→ 码点安全收回本行；
+    // 末行放行至文末（pos == 尾字节是 lineForByte isLast 的合法匹配）
+    if (!isLast && pos >= sl.clusterEnd && pos > sl.clusterStart) skipBackward(text, pos);
+    if (pos > text.size()) pos = text.size();
+    return pos;
+}
+
 void TextArea::moveCursorUp() {
     int lineIdx = lineForByte(cursorBytePos_);
     if (lineIdx <= 0) {
@@ -191,14 +232,41 @@ void TextArea::moveCursorDown() {
 // focus / blur / setValue
 // ════════════════════════════════════════════════════════
 void TextArea::focus() {
+    focusWithCursor(text_.size());    // 键盘/FocusGained 聚焦：光标置文本末尾
+}
+
+// 聚焦并把光标定位到 pos（tap 点击定位专用；focus() 的旧"置文末"语义保留）
+void TextArea::focusWithCursor(size_t pos) {
     focused_ = true;
-    cursorBytePos_ = text_.size();    // 点击聚焦时光标置于文本末尾
+    cursorBytePos_ = pos;
     cursorVisible_ = true;
     lastBlinkTime_ =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
             .count();
     markDirty();
     if (blinkTimerId_ == 0) scheduleBlinkTick();
+}
+
+// ════════════════════════════════════════════════════════
+// tapCursorByte — Tap 坐标 → 光标字节
+// 与 onDraw 同口径排版（WordWrap/maxWidth 同源，防 measure/draw 漂移）；
+// 空文本/无行 → 0（光标吸行首）
+// ════════════════════════════════════════════════════════
+size_t TextArea::tapCursorByte(const DispatchEvent &event) {
+    Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
+    auto &pipe = TextRenderPipeline::instance();
+    float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
+    FontId fid = pipe.activeFont();
+    TextLayoutConfig cfg;
+    cfg.maxWidth = std::max(inner.width, 1.0f);
+    cfg.wrap = WrapMode::WordWrap;
+    if (!text_.empty() && (!textResult_ || !textResult_->matchesKey(text_, fid, fs, cfg))) {
+        textResult_ = pipe.layoutText(text_, fid, fs, cfg);
+    }
+    if (!textResult_ || textResult_->lines.empty()) return 0;
+    int lineIdx = lineIndexForY(textResult_->lines, event.globalY - inner.y);
+    if (lineIdx < 0) return 0;
+    return tapByteOffsetForLine(*textResult_, lineIdx, event.globalX - inner.x, text_);
 }
 void TextArea::blur() {
     if (blinkTimerId_ != 0) {
@@ -227,7 +295,8 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         return true;
     case DispatchEvent::Type::Tap:
         if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
-        if (!focused_) focus();
+        // 点击定位：行/列就近落在字形边界（focus() 置文末语义保留给键盘链）
+        focusWithCursor(tapCursorByte(event));
         return true;
     case DispatchEvent::Type::CharInput: {
         // readOnly/被过滤字符返回 false（与 Input 对齐——不消费则沿祖先链传播）

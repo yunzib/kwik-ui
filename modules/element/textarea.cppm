@@ -59,6 +59,26 @@ public:
     }
     void focus();
     void blur();
+
+    /** @brief tap 点击定位行（纯函数，合成字形可直测）：y → visual line 索引
+     *
+     * 行高单调累加（与 onDraw/光标绘制步进同源）；y 落第 i 行底边 → 归属下方行；
+     * y < 0 → 0；越过末行 → 末行。无行返回 -1。
+     */
+    static int lineIndexForY(const std::vector<TextLayoutLine> &lines, float y);
+
+    /** @brief 行内点击定位（纯函数）：行切片中点规则 → 光标字节
+     *
+     * x 落第 i 个字形前半 → 边界取该字形 cluster；后半 → 下一字形 cluster；
+     * 行尾边界 == clusterEnd 时：非末行码点安全收回本行末码点（lineForByte
+     * 行匹配语义要求），末行放行至文末（pos == 尾字节为 isLast 合法匹配）。
+     * @param layout 整段排版结果（需已含回填的行元数据）
+     * @param lineIdx visual line 索引（先经 lineIndexForY）
+     * @param x 相对文本原点的本地横坐标
+     * @param text 源文本（含 \n，码点安全回退用）
+     * @return UTF-8 字节偏移（已码点对齐）
+     */
+    static size_t tapByteOffsetForLine(const TextLayoutResult &layout, int lineIdx, float x, const std::string &text);
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char* name, const TypedProp& value) override;
 
@@ -102,4 +122,10 @@ private:
      * 文末光标（pos == text 尾字节 == 末行 clusterEnd）匹配末行。
      * @return 行索引，无匹配（未排版）返回 -1 */
     int lineForByte(size_t pos) const;
+
+    // ── 点击定位光标 ──
+    /** Tap 坐标 → 光标字节位（与 onDraw 同口径排版；空文本恒 0） */
+    size_t tapCursorByte(const DispatchEvent &event);
+    /** 聚焦并同时定位光标（Tap 用；focus() 保持"光标置文末"语义给键盘链） */
+    void focusWithCursor(size_t pos);
 };

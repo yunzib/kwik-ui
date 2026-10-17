@@ -26,6 +26,37 @@ import kwik.core.log;
 import kwik.core.timer;
 
 import std;
+// ── 光标点击定位辅助（纯函数族：合成字形可直测，免字体）──
+// 中点规则：x 落第 i 个字形前半 → 边界 i（字形之前）；后半 → 边界 i+1。
+// 越界：x ≤ 首字形前沿 → 0；x ≥ 全文宽 → count（末尾）。
+static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, float x) {
+    float acc = 0;
+    for (size_t i = 0; i < count; ++i) {
+        float mid = acc + glyphs[i].advanceX * 0.5f;
+        if (x < mid) return i;
+        acc += glyphs[i].advanceX;
+    }
+    return count;
+}
+// 码点序 → 字节偏移（光标绘制 byteOffsetToGlyphIndex 的逆函数，口径一致）
+static size_t codepointIndexToByteOffset(const std::string &text, size_t index) {
+    size_t byte = 0;
+    for (size_t k = 0; k < index && byte < text.size(); ++k) {
+        unsigned char c = static_cast<unsigned char>(text[byte]);
+        byte += (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
+    }
+    return std::min(byte, text.size());
+}
+// 源文本 → ● 掩码串（每码点一枚掩码；onDraw 密码绘制与 Tap 定位共用）
+static std::string buildMaskedText(const std::string &src) {
+    std::string masked;
+    for (size_t i = 0; i < src.size();) {
+        unsigned char c = static_cast<unsigned char>(src[i]);
+        i += (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
+        masked += "\xE2\x97\x8F";
+    }
+    return masked;
+}
 // ============================================================================
 // 构造
 // ============================================================================
@@ -151,23 +182,8 @@ void Input::onDraw(Graphics &graphics) {
         float textY = inner.y + (inner.height - textH) * 0.5f;
 
         if (input_.isPassword) {
-            // ── 密码模式 ──
-            size_t charCount = 0;
-            for (size_t i = 0; i < text_.size();) {
-                unsigned char c = static_cast<unsigned char>(text_[i]);
-                if ((c & 0xE0) == 0xC0)
-                    i += 2;
-                else if ((c & 0xF0) == 0xE0)
-                    i += 3;
-                else if ((c & 0xF8) == 0xF0)
-                    i += 4;
-                else
-                    i++;
-                charCount++;
-            }
-            std::string masked;
-            for (size_t i = 0; i < charCount; i++) masked += "\xE2\x97\x8F";
-            maskedResult = pipe.layoutText(masked, fid, fs, cfg);
+            // ── 密码模式（掩码串构造与 Tap 点击定位共用 buildMaskedText）──
+            maskedResult = pipe.layoutText(buildMaskedText(text_), fid, fs, cfg);
             pipe.ensureGlyphs(*maskedResult);
             graphics.save();
             graphics.translate(inner.x, textY);
@@ -227,7 +243,8 @@ bool Input::onEvent(const DispatchEvent &event) {
         Log::debug("[Input] TAP focused={}", focused_);
         // 触发 JS onClick（键盘弹窗等 JS 逻辑可由此挂接）
         if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
-        if (!focused_) focus();
+        // 点击定位：按点击横坐标就近落在字形边界（focus() 置文末语义保留给键盘链）
+        focusWithCursor(tapCursorByte(event));
         return true;
     case DispatchEvent::Type::CharInput: {
         Log::debug("[Input] CHAR cp={:#x} focused={}", event.charCode, focused_);
@@ -359,6 +376,38 @@ void Input::cursorToEnd() {
     cursorPos_ = text_.size();
 }
 
+/** @brief 边界序（= 光标前码点数）按源文本码点序换算字节偏移；
+ *         密码掩码布局与源文本 1:1，同一函数两用（掩码 glyphs + 源文本） */
+size_t Input::tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x) {
+    size_t boundary = glyphBoundaryIndexForX(glyphs.data(), glyphs.size(), x);
+    return codepointIndexToByteOffset(text, boundary);
+}
+
+// ── tapCursorByte — Tap 坐标 → 光标字节 ──
+// 与 onDraw 同口径排版（防 measure/draw maxWidth 不同源导致映射漂移）；
+// 空文本恒 0；密码模式喂掩码布局、text_ 传源文本走码点换算
+size_t Input::tapCursorByte(const DispatchEvent &event) {
+    Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
+                  frame.height - props.padding.vertical()};
+    auto &pipe = TextRenderPipeline::instance();
+    float fs = input_.fontSize <= 0 ? 16.0f : input_.fontSize;
+    FontId fid = pipe.activeFont();
+    TextLayoutConfig cfg;
+    cfg.maxWidth = std::max(inner.width, 1.0f);
+
+    std::shared_ptr<TextLayoutResult> res;
+    if (input_.isPassword) {
+        res = pipe.layoutText(buildMaskedText(text_), fid, fs, cfg);
+    } else if (!text_.empty()) {
+        if (!textResult_ || !textResult_->matchesKey(text_, fid, fs, cfg)) {
+            textResult_ = pipe.layoutText(text_, fid, fs, cfg);
+        }
+        res = textResult_;
+    }
+    if (!res || res->glyphs.empty()) return text_.empty() ? 0 : text_.size();    // 无字形：退回端点语义
+    return tapByteOffsetForX(res->glyphs, text_, event.globalX - inner.x);
+}
+
 size_t Input::byteOffsetToGlyphIndex(size_t byteOffset) const {
     size_t glyphIdx = 0;
     for (size_t i = 0; i < byteOffset && i < text_.size();) {
@@ -417,10 +466,15 @@ std::string Input::formatNumber(double v) {
     return std::string(buf, res.ptr);
 }
 
-// ── focus() ──
+// ── focus() / focusWithCursor() ──
 void Input::focus() {
+    focusWithCursor(text_.size());    // 键盘/FocusGained 聚焦：光标置文本末尾
+}
+
+// 聚焦并把光标定位到 pos（Tap 点击定位专用；focus() 的旧"置文末"语义保留）
+void Input::focusWithCursor(size_t pos) {
     focused_ = true;
-    cursorPos_ = text_.size();    // 点击聚焦时光标置于文本末尾
+    cursorPos_ = pos;
     cursorVisible_ = true;
     lastBlinkTime_ =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())

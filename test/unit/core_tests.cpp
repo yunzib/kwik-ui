@@ -22,6 +22,7 @@ import kwik.element.text;
 import kwik.element.lazy_list;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
+import kwik.element.textarea;
 import kwik.element.radiobutton;
 import kwik.element.tabs;
 import kwik.layout.grid_layout;
@@ -1154,6 +1155,83 @@ static void test_t07a_event_focus() {
     CHECK(nP->panBegins == 2);    // Cancel 清状态后新拖动能重新 PanBegin（原永无）
 }
 
+// ── 行为锁: tap 点击定位光标 ──
+// Input 单行：中点规则边界→源文本码点序字节（密码掩码布局与源文本 1:1 同函数）；
+// TextArea：y→visual line + 行内边界，行尾落点非末行收回本行末码点、末行放行文末。
+static void test_tap_caret_mapping() {
+    // ① 源文本 "a中b"（a=0(1字节) 中=1(3字节) b=4），等宽 10px：中点各 5/15/25
+    std::string text = "a中b";
+    std::vector<ShapedGlyph> gs;
+    auto single = [&gs](uint32_t cluster, uint8_t nb) {
+        ShapedGlyph g;
+        g.cluster = cluster;
+        g.numBytes = nb;
+        g.advanceX = 10;
+        g.fontSize = 16;
+        gs.push_back(g);
+    };
+    single(0, 1);
+    single(1, 3);
+    single(4, 1);
+    CHECK(Input::tapByteOffsetForX(gs, text, -10.0f) == 0);    // 左缘外 → 文首
+    CHECK(Input::tapByteOffsetForX(gs, text, 4.9f) == 0);      // 'a' 前半 → 'a' 前
+    CHECK(Input::tapByteOffsetForX(gs, text, 5.0f) == 1);      // 中点（含）归后半 → '中' 前（'a' 后）
+    CHECK(Input::tapByteOffsetForX(gs, text, 14.9f) == 1);     // '中' 前半 → '中' 前
+    CHECK(Input::tapByteOffsetForX(gs, text, 15.0f) == 4);     // '中' 后半 → 'b' 前
+    CHECK(Input::tapByteOffsetForX(gs, text, 25.1f) == 5);     // 右缘外 → 文末（text.size()）
+    CHECK(Input::tapByteOffsetForX({}, "", 7.0f) == 0);        // 空文本防御
+
+    // ② 密码掩码布局（每码点 8px ●；cluster 是掩码串字节位、不参与换算）+ 源文本 1:1
+    std::vector<ShapedGlyph> mask;
+    for (int i = 0; i < 3; ++i) {
+        ShapedGlyph g;
+        g.cluster = (uint32_t)(i * 3);
+        g.advanceX = 8;
+        g.fontSize = 16;
+        mask.push_back(g);
+    }
+    CHECK(Input::tapByteOffsetForX(mask, text, 3.9f) == 0);    // ● 前半 → 'a' 前
+    CHECK(Input::tapByteOffsetForX(mask, text, 4.0f) == 1);    // ● 中点归后半 → 'a' 后（'中' 前）
+    CHECK(Input::tapByteOffsetForX(mask, text, 12.0f) == 4);   // ● 后半 → 'b' 前（源文本字节 4）
+    CHECK(Input::tapByteOffsetForX(mask, text, 20.0f) == 5);   // 文末
+
+    // ③ y→visual line（行高 16*1.4；"ab\n\ncd" → 3 行，中间空行保留）
+    std::vector<ShapedGlyph> gs2;
+    auto mk2 = [&gs2](uint32_t cluster, bool nl) {
+        ShapedGlyph g;
+        g.cluster = cluster;
+        g.advanceX = nl ? 0 : 10;
+        g.fontSize = 16;
+        g.numBytes = 1;
+        g.isNewline = nl;
+        gs2.push_back(g);
+    };
+    mk2(0, false);
+    mk2(1, false);
+    mk2(2, true);
+    mk2(3, true);
+    mk2(4, false);
+    mk2(5, false);
+    TextLayout ly;
+    TextLayoutConfig cfg;
+    cfg.maxWidth = 1000;
+    cfg.wrap = WrapMode::WordWrap;
+    auto r = ly.layout(gs2, cfg);
+    CHECK(r.lines.size() == 3);
+    CHECK(TextArea::lineIndexForY(r.lines, -5.0f) == 0);      // 上缘外 → 首行
+    CHECK(TextArea::lineIndexForY(r.lines, 10.0f) == 0);
+    CHECK(TextArea::lineIndexForY(r.lines, 22.4f) == 1);      // 第 1 行底边 → 归属下方行
+    CHECK(TextArea::lineIndexForY(r.lines, 999.0f) == 2);     // 越过末行 → 末行
+    CHECK(TextArea::lineIndexForY({}, 3.0f) == -1);           // 无行防御
+
+    // ④ 行内边界：L0 "ab" [0,3) / L1 空行 [3,4) / L2 "cd" [4,6)
+    CHECK(TextArea::tapByteOffsetForLine(r, 0, 4.9f, "ab\n\ncd") == 0);    // 行首
+    CHECK(TextArea::tapByteOffsetForLine(r, 0, 5.0f, "ab\n\ncd") == 1);    // 'b' 前
+    CHECK(TextArea::tapByteOffsetForLine(r, 0, 999.0f, "ab\n\ncd") == 2);  // 非末行行尾 → 收回本行（\n 前）
+    CHECK(TextArea::tapByteOffsetForLine(r, 1, 0.0f, "ab\n\ncd") == 3);    // 空行 → clusterStart
+    CHECK(TextArea::tapByteOffsetForLine(r, 2, 999.0f, "ab\n\ncd") == 6);  // 末行行尾 → 放行文末
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -1173,6 +1251,7 @@ int main() {
     test_lazy_list_sizes_growth();
     test_radiobutton_no_untoggle();
     test_input_control_chars_and_home_end();
+    test_tap_caret_mapping();
     test_l1_isfinite_rejection();
     test_c3_visible_relayout();
     test_c1_align_measure_mirror();
