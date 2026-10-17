@@ -119,6 +119,10 @@ public:
     uint32_t canvasWidth() const { return swapchainExtent_.width; }
     uint32_t canvasHeight() const { return swapchainExtent_.height; }
 
+    /** @brief 当前帧槽（0..kMaxFramesInFlight-1，present 后轮转；resize 中
+     *  waitIdle 后归零）——staging 分槽渲染器据此对齐 fence 等待周期 */
+    uint32_t frameIndex() const { return frameIndex_; }
+
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     VkInstance vkInstance_ = VK_NULL_HANDLE;

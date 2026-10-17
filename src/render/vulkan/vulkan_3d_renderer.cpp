@@ -115,7 +115,7 @@ void MeshRenderer::drawMesh(VkCommandBuffer cmd, VkExtent2D extent, const Rect &
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
     VkDeviceSize dataSize = vertexCount * sizeof(Vertex3D);
-    if (writeOffset_ + dataSize > bufferCapacity_) return;
+    if (writeOffset_ + dataSize > curSlotBase_ + slotCapacity()) return;    // 本帧槽不足：丢弃（G3D 网格远小于单槽容量）
 
     memcpy(static_cast<char *>(mappedData_) + writeOffset_, vertices, dataSize);
 

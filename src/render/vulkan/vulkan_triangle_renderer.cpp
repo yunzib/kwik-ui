@@ -77,10 +77,10 @@ void TriangleRenderer::destroy() {
     if (oldMap) vkUnmapMemory(device_, oldMem);
     if (oldMem) vkFreeMemory(device_, oldMem, nullptr);
     if (oldVB) vkDestroyBuffer(device_, oldVB, nullptr);
-    // 清理延迟销毁队列（防泄漏）
+    // 清理延迟销毁队列（防泄漏；shutdown 前已 waitIdle，无在飞引用）
     for (auto &entry : pendingStaging_) {
-        if (entry.second != VK_NULL_HANDLE) vkFreeMemory(device_, entry.second, nullptr);
-        if (entry.first != VK_NULL_HANDLE) vkDestroyBuffer(device_, entry.first, nullptr);
+        if (std::get<1>(entry) != VK_NULL_HANDLE) vkFreeMemory(device_, std::get<1>(entry), nullptr);
+        if (std::get<0>(entry) != VK_NULL_HANDLE) vkDestroyBuffer(device_, std::get<0>(entry), nullptr);
     }
     pendingStaging_.clear();
 }
@@ -159,8 +159,8 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
     VkDeviceSize dataSize = vertexCount * sizeof(GpuVertex);
-    // 检测 staging buffer 剩余空间是否足够；不足时动态扩容重建（2× 递增），不再静默丢弃
-    if (writeOffset_ + dataSize > bufferCapacity_) {
+    // 检测本帧槽剩余空间是否足够；不足时动态扩容重建（2× 递增），不再静默丢弃
+    if (writeOffset_ + dataSize > curSlotBase_ + slotCapacity()) {
         if (!growStagingBuffer(dataSize)) {
             Log::warn("[triangle] staging 不足且扩容失败，丢弃命令 (需 {}B)", dataSize);
             return;
@@ -251,8 +251,8 @@ void TriangleRenderer::drawRing(VkCommandBuffer cmd, VkExtent2D extent, const Fi
         {x0, y1, x0, y1, 0.f, 0.f, 0.f, 0.f},
     };
     VkDeviceSize dataSize = sizeof(v);
-    // 与 drawTriangles 一致：不足时动态扩容，不再静默丢弃
-    if (writeOffset_ + dataSize > bufferCapacity_) {
+    // 与 drawTriangles 一致：本帧槽不足时动态扩容，不再静默丢弃
+    if (writeOffset_ + dataSize > curSlotBase_ + slotCapacity()) {
         if (!growStagingBuffer(dataSize)) {
             Log::warn("[triangle] ring 命令 staging 不足且扩容失败，丢弃");
             return;
@@ -302,8 +302,11 @@ void TriangleRenderer::drawRing(VkCommandBuffer cmd, VkExtent2D extent, const Fi
 }
 
 bool TriangleRenderer::growStagingBuffer(VkDeviceSize required) {
-    // 新容量 = max(2×当前, 本次所需总量)，2× 递增避免频繁重建
-    size_t newCap = std::max(bufferCapacity_ * 2, static_cast<size_t>(writeOffset_ + required));
+    // 需求按"本帧槽内用量"计：扩容后的单槽容量必须覆盖已写 + 本次需求，
+    // 总容量 = 槽需求 × 分槽数（否则新槽容量不足会连续扩容）
+    size_t usedInSlot = writeOffset_ - curSlotBase_;
+    size_t slotNeed = usedInSlot + static_cast<size_t>(required);
+    size_t newCap = std::max(bufferCapacity_ * 2, slotNeed * kFrameSlots);
     VkBuffer newBuf = VK_NULL_HANDLE;
     VkDeviceMemory newMem = VK_NULL_HANDLE;
     void *newMap = nullptr;
@@ -320,26 +323,37 @@ bool TriangleRenderer::growStagingBuffer(VkDeviceSize required) {
         Log::error("[triangle] staging 扩容映射内存失败 ({})", newCap);
         return false;
     }
-    // 保留本帧已写入的旧数据（writeOffset_ 之前的部分），偏移保持不变
-    if (writeOffset_ > 0 && mappedData_) std::memcpy(newMap, mappedData_, writeOffset_);
-    // 旧缓冲入延迟销毁队列：本帧已录制的 vkCmdBindVertexBuffers 仍引用它
-    if (stagingBuffer_ != VK_NULL_HANDLE) pendingStaging_.emplace_back(stagingBuffer_, stagingMemory_);
+    // 保留本帧槽内已写入数据（迁移到新容量同名槽位），槽内偏移保持不变
+    size_t newBase = slotBase(curSlot_);
+    if (usedInSlot > 0 && mappedData_)
+        std::memcpy(static_cast<char *>(newMap) + newBase, static_cast<char *>(mappedData_) + curSlotBase_, usedInSlot);
+    // 旧缓冲入延迟销毁队列（倒计时 kFrameSlots 帧）：在飞近 2 帧的命令缓冲
+    // 仍引用它，帧首 fence 只等 3 帧前提交——须等引用者全部执行完
+    if (stagingBuffer_ != VK_NULL_HANDLE) pendingStaging_.emplace_back(stagingBuffer_, stagingMemory_, kFrameSlots);
     if (mappedData_) vkUnmapMemory(device_, stagingMemory_);
     stagingBuffer_ = newBuf;
     stagingMemory_ = newMem;
     mappedData_ = newMap;
     bufferCapacity_ = newCap;
-    Log::warn("[triangle] staging 动态扩容 → {}B (需 {}B)", newCap, required);
+    curSlotBase_ = newBase;
+    writeOffset_ = newBase + usedInSlot;
+    Log::warn("[triangle] staging 动态扩容 → {}B (槽需 {}B)", newCap, slotNeed);
     return true;
 }
 
 void TriangleRenderer::flushPendingDestroy() {
-    // 帧 fence 已在 VulkanContext::beginFrame 内等待完成，
-    // 旧缓冲引用的绘制命令已执行完毕，可安全销毁
-    for (auto &entry : pendingStaging_) {
-        if (entry.second != VK_NULL_HANDLE) vkFreeMemory(device_, entry.second, nullptr);
-        if (entry.first != VK_NULL_HANDLE) vkDestroyBuffer(device_, entry.first, nullptr);
+    // 倒计时归零 = 扩容后第 3 帧首：引用旧缓冲的在飞帧此刻必然已被
+    // 对应 fence 等待覆盖（帧 M 首等待覆盖 M-3 提交），销毁安全
+    for (size_t i = 0; i < pendingStaging_.size();) {
+        if (--std::get<2>(pendingStaging_[i]) == 0) {
+            if (std::get<1>(pendingStaging_[i]) != VK_NULL_HANDLE)
+                vkFreeMemory(device_, std::get<1>(pendingStaging_[i]), nullptr);
+            if (std::get<0>(pendingStaging_[i]) != VK_NULL_HANDLE)
+                vkDestroyBuffer(device_, std::get<0>(pendingStaging_[i]), nullptr);
+            pendingStaging_.erase(pendingStaging_.begin() + static_cast<std::ptrdiff_t>(i));
+        } else {
+            ++i;
+        }
     }
-    pendingStaging_.clear();
 }
 

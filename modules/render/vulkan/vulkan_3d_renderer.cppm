@@ -23,6 +23,7 @@ export module kwik.render.vulkan.mesh_renderer;
 
 import kwik.core.types;
 import kwik.render.command;
+import kwik.render.vulkan.context;    // kMaxFramesInFlight（分槽唯一事实源）
 
 import std;
 
@@ -55,8 +56,15 @@ public:
     /** @brief 销毁 pipeline、layout 和 host-visible 顶点缓存 */
     void destroy();
 
-    /** @brief 重置每帧顶点写入偏移（由 VulkanBackend::beginFrame 调用） */
-    void resetOffset() { writeOffset_ = 0; }
+    /** @brief 开始一帧顶点写入（由 VulkanBackend::beginFrame 以 ctx 帧槽调用）：
+     *  staging 按 in-flight 帧分槽，写入区间 = [slotBase, slotBase+slotCapacity)，
+     *  帧首 fence 等待已保证上一次使用本槽的帧（3 帧前）GPU 执行完毕，CPU
+     *  重写不与在飞帧 GPU 读竞争（原每帧从 0 覆写，复用距 1 帧 < fence 距
+     *  3 帧，高负载下顶点数据花屏） */
+    void resetOffset(uint32_t frameSlot) {
+        curSlotBase_ = (frameSlot % kFrameSlots) * slotCapacity();
+        writeOffset_ = curSlotBase_;
+    }
 
     /**
      * @brief 绘制 3D 网格
@@ -87,7 +95,15 @@ private:
     VkBuffer stagingBuffer_ = VK_NULL_HANDLE;            ///< host-visible 顶点缓冲
     VkDeviceMemory stagingMemory_ = VK_NULL_HANDLE;      ///< 缓冲内存
     void *mappedData_ = nullptr;                         ///< 映射指针
-    size_t bufferCapacity_ = 0;                          ///< 缓冲容量
-    size_t writeOffset_ = 0;                             ///< 当前帧内顶点写入偏移
-    static constexpr size_t kDefaultCapacity = 65536;    ///< 默认 64KB
+    size_t bufferCapacity_ = 0;                          ///< 缓冲容量（全槽合计）
+    size_t writeOffset_ = 0;                             ///< 当前帧顶点写入偏移
+    size_t curSlotBase_ = 0;                             ///< 当前帧槽基址（resetOffset 设定）
+
+    static constexpr uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
+    /** @brief 单帧槽容量（向下对齐 16B：槽基址作 vkCmdBindVertexBuffers 偏移
+     *  须满足顶点格式对齐，整除三等分不保证 4B 对齐） */
+    size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~size_t(0xF); }
+
+    /// 默认 3×64KB：分槽后单帧仍保 64KB（G3D 网格顶点 24B/个，≈2700 顶点/帧）
+    static constexpr size_t kDefaultCapacity = 196608;
 };

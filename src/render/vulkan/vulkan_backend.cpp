@@ -119,8 +119,11 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     VkRect2D sc{{sx, sy}, {sw, sh}};
     vkCmdSetScissor(currentToken_->commandBuffer, 0, 1, &sc);
     clip_.beginFrame(currentToken_->extent, sc);
-    triangle_.resetOffset();
-    mesh_.resetOffset();
+    // 以 ctx 帧槽分槽重置顶点写入（fence 等待周期与槽轮转同源，槽复用
+    // 距 3 帧 = fence 距，CPU 重写不再与在飞帧 GPU 读竞争）
+    const uint32_t frameSlot = ctx_.frameIndex();
+    triangle_.resetOffset(frameSlot);
+    mesh_.resetOffset(frameSlot);
 
     ctx_.accumulateDirtyRect(Rect{(float)sx, (float)sy, (float)sw, (float)sh});
 

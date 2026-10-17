@@ -9,6 +9,7 @@
 module;
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <tuple>
 #include <vector>
 
 export module kwik.render.vulkan.triangle_renderer;
@@ -16,6 +17,7 @@ export module kwik.render.vulkan.triangle_renderer;
 import kwik.core.types;
 import kwik.core.path;
 import kwik.render.command;
+import kwik.render.vulkan.context;    // kMaxFramesInFlight（分槽唯一事实源）
 
 import std;
 
@@ -51,11 +53,16 @@ public:
     /** @brief 销毁 pipeline、layout 和 host-visible 顶点缓存 */
     void destroy();
 
-    /** @brief 重置每帧顶点写入偏移（由 VulkanBackend::beginFrame 调用）；
-     *  帧开始前销毁上一帧遗留的旧 staging 缓冲（此时 fence 已等待完成，命令不再引用旧缓冲） */
-    void resetOffset() {
+    /** @brief 开始一帧顶点写入（由 VulkanBackend::beginFrame 以 ctx 帧槽调用）：
+     *  staging 按 in-flight 帧分槽，写入区间 = [slotBase, slotBase+slotCapacity)，
+     *  帧首 fence 等待已保证上一次使用本槽的帧（3 帧前）GPU 执行完毕，CPU
+     *  重写不与在飞帧 GPU 读竞争（原每帧从 0 覆写，复用距 1 帧 < fence 距
+     *  3 帧，高负载下花屏）；同时回收到期的扩容旧缓冲 */
+    void resetOffset(uint32_t frameSlot) {
         flushPendingDestroy();
-        writeOffset_ = 0;
+        curSlot_ = frameSlot % kFrameSlots;
+        curSlotBase_ = curSlot_ * slotCapacity();
+        writeOffset_ = curSlotBase_;
     }
 
     /**
@@ -93,12 +100,22 @@ private:
     VkBuffer stagingBuffer_ = VK_NULL_HANDLE;          ///< host-visible 顶点缓冲
     VkDeviceMemory stagingMemory_ = VK_NULL_HANDLE;    ///< 缓冲内存
     void *mappedData_ = nullptr;                       ///< 映射指针
-    size_t bufferCapacity_ = 0;                        ///< 缓冲容量
-    size_t writeOffset_ = 0;                           ///< 当前帧内顶点写入偏移（每帧从 0 开始，逐命令累加）
+    size_t bufferCapacity_ = 0;                        ///< 缓冲容量（全槽合计）
+    size_t writeOffset_ = 0;                           ///< 当前帧顶点写入偏移（帧内逐命令累加）
+    size_t curSlotBase_ = 0;                           ///< 当前帧槽基址（resetOffset 设定）
+    uint32_t curSlot_ = 0;                             ///< 当前帧槽号（扩容迁移数据用）
 
-    /** @brief 延迟销毁队列：存扩容时被替换的旧 staging buffer
-     *  （本帧已录制的 vkCmdBindVertexBuffers 仍引用它，须等该帧命令执行完再销毁） */
-    std::vector<std::pair<VkBuffer, VkDeviceMemory>> pendingStaging_;
+    static constexpr uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
+    /** @brief 单帧槽容量（向下对齐 16B：槽基址作 vkCmdBindVertexBuffers 偏移
+     *  须满足顶点格式对齐，整除三等分不保证 4B 对齐） */
+    size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~size_t(0xF); }
+    /** @brief 帧槽基址（frameSlot 为 ctx 帧槽，取模防御异常入参） */
+    size_t slotBase(uint32_t frameSlot) const { return (frameSlot % kFrameSlots) * slotCapacity(); }
+
+    /** @brief 延迟销毁队列：存扩容时被替换的旧 staging buffer。
+     *  帧首 fence 等待只覆盖 3 帧前的提交——扩容时在飞的近 2 帧命令缓冲
+     *  仍引用旧缓冲，倒计时 kFrameSlots 帧后（此刻引用者必然已执行完）销毁 */
+    std::vector<std::tuple<VkBuffer, VkDeviceMemory, uint32_t>> pendingStaging_;
 
     /** @brief 扩容重建 staging 缓冲（容量 2× 递增，保留已写数据），失败返回 false */
     bool growStagingBuffer(VkDeviceSize required);
