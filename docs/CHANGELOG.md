@@ -2,6 +2,7 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- Slider 拖拽态支持 PointerCancel 复位（指针捕获被夺后不再永久保持拖拽）
 - animate() 注释消歧：返回值为裸 Promise（未附加控制方法），控制面
   pause/resume/seek/setDirection 引擎已实现、JS 暂未导出
 - TreeMenu 支持 ref 增量绑定（creator 补齐属性元数据记录与绑定应用）

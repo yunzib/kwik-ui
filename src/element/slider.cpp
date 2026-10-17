@@ -234,7 +234,8 @@ bool Slider::onEvent(const DispatchEvent &event) {
         return true;
     }
 
-    case DispatchEvent::Type::PointerUp: {
+    case DispatchEvent::Type::PointerUp:
+    case DispatchEvent::Type::PointerCancel: {    // 捕获被夺（Cancel）同 Up 复位，防永久拖拽态
         if (!isDragging_) break;
         isDragging_ = false;
         if (binding_) binding_->setFloat(bindKey_, sp_.value);
