@@ -30,6 +30,8 @@ import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校�
 import kwik.core.props;             // DropdownProps / KeyboardProps
 import kwik.core.constraints;       // Constraints（Keyboard 布局驱动）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
+import kwik.event;                  // DispatchEvent（onWindowResize 直投行为锁）
+import kwik.platform.window;        // PlatformWindow（StubWindow 夹具全虚面）
 import kwik.core.log;
 
 import std;
@@ -367,6 +369,9 @@ static void test_view_dtor_stops_animations() {
     engine.update(1.0, root.get());    // tick 复跑：无可触发动画，宿主存活
     CHECK(true);
 
+    // 服务指针先行离场（与运行时 teardown 同合同：先 detach 再销毁树；
+    // 缺失则 root 析构经 kSvcAnimEngine 直指已出栈 engine，越栈读）
+    root->setTreeService(View::kSvcAnimEngine, nullptr);
     g_ctx->setUserPointer(nullptr);
     teardown_callbacks();
 }
@@ -554,6 +559,106 @@ static void test_incremental_ref_raw_wire() {
     teardown_callbacks();
 }
 
+// ── 行为锁: 窗口/视口查询面 + 根 onWindowResize 直投 ──
+// 查询：getWindowSize/getViewport 经运行期静态窗钩读 GetSize/工作区，
+//       未挂窗 fail-soft undefined（headless 契约）。
+// 事件：dispatch 以根为唯一预设目标直投（窗口事件非坐标事件，不走
+//       hitTest），载荷经位置参数 x/y 传新宽/高，JS 收 {width, height}。
+class StubWindow : public PlatformWindow {
+public:
+    bool Create(const std::string &, int, int) override { return false; }
+    void Destroy() override {}
+    void Show() override {}
+    void Hide() override {}
+    void GetSize(int *w, int *h) const override { *w = 432; *h = 300; }
+    float GetDpiScale() const override { return 1.0f; }
+    void GetScreenWorkArea(int *w, int *h) override { *w = 968; *h = 1040; }
+    bool LockBackBuffer(void **, int *) override { return false; }
+    void UnlockBackBuffer() override {}
+    void Present() override {}
+    void *GetNativeHandle() const override { return nullptr; }
+    void PollEvents() override {}
+    void WaitEvents() override {}
+    void SetRawEventCallback(RawEventCallback) override {}
+    void SetDecoration(WindowDecoration) override {}
+    void SetShape(const std::vector<std::pair<int, int>> &) override {}
+    void SetShapeMask(const uint8_t *, int, int) override {}
+    void SetResizable(bool) override {}
+};
+
+static std::string jsGlobalStr(JSContext *c, const char *name) {
+    JSValue global = JS_GetGlobalObject(c);
+    JSValue v = JS_GetPropertyStr(c, global, name);
+    const char *s = JS_ToCString(c, v);
+    std::string r = s ? s : "";
+    JS_FreeCString(c, s);
+    JS_FreeValue(c, v);
+    JS_FreeValue(c, global);
+    return r;
+}
+
+static void test_window_viewport_surface() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    // ① 未挂窗：两侧查询 fail-soft（JSON.stringify(undefined) 即字符串 "undefined"）
+    CHECK(eval_module("win_probe_a.mjs",
+                      "import {getWindowSize, getViewport} from 'kwikui';\n"
+                      "globalThis.__w = JSON.stringify(getWindowSize());\n"
+                      "globalThis.__v = JSON.stringify(getViewport());\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__w") == "undefined");
+    CHECK(jsGlobalStr(c, "__v") == "undefined");
+
+    // ② 挂 stub 窗：客户区尺寸 / 工作区各归其位
+    StubWindow win;
+    setRegisteredWindow(&win);
+    CHECK(eval_module("win_probe_b.mjs",
+                      "import {getWindowSize, getViewport} from 'kwikui';\n"
+                      "globalThis.__w = JSON.stringify(getWindowSize());\n"
+                      "globalThis.__v = JSON.stringify(getViewport());\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__w") == "{\"width\":432,\"height\":300}");
+    CHECK(jsGlobalStr(c, "__v") == "{\"width\":968,\"height\":1040}");
+
+    // ③ 根 onWindowResize：dispatch 根直投（预设目标）→ onEvent → JS 收 {width,height}
+    CHECK(eval_module("win_cb.mjs",
+                      "globalThis.__sz = '';\n"
+                      "globalThis.__cb = function(e) { globalThis.__sz = e.width + 'x' + e.height; };\n"
+                      "export default null;\n"));
+    JSValue global = JS_GetGlobalObject(c);
+    JSValue cb = JS_GetPropertyStr(c, global, "__cb");
+    JSValue wprops = JS_NewObject(c);
+    JS_SetPropertyStr(c, wprops, "onWindowResize", cb);    // SetPropertyStr 消费 cb 引用
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
+    JS_SetPropertyStr(c, node, "props", wprops);          // 消费 wprops
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    JSValueRef ref(c, node);    // 接管 node 所有权（析构释放）
+    auto v = ElementParser::parseNode(ref);
+    CHECK(v && v->type() == ElementType::View);
+    CHECK(v->handlers.onWindowResize != nullptr);         // 挂接成立
+
+    DispatchEvent evt;
+    evt.type = DispatchEvent::Type::WindowResize;
+    evt.resizeWidth = 432;
+    evt.resizeHeight = 300;
+    evt.presetTarget = v.get();
+    JS_FreeValue(c, global);
+    CHECK(v->onEvent(evt));
+    CHECK(jsGlobalStr(c, "__sz") == "432x300");
+
+    // ④ 收尾：窗钩离场 → 查询回到 fail-soft
+    setRegisteredWindow(nullptr);
+    CHECK(eval_module("win_probe_c.mjs",
+                      "import {getWindowSize} from 'kwikui';\n"
+                      "globalThis.__w = JSON.stringify(getWindowSize());\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__w") == "undefined");
+
+    teardown_callbacks();
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -570,6 +675,7 @@ int main() {
     test_view_dtor_stops_animations();
     test_component_state_machine_guards();
     test_incremental_ref_raw_wire();
+    test_window_viewport_surface();
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

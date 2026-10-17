@@ -145,6 +145,7 @@ void KwikRuntime::teardownJsBoundRuntime() {
     // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
     // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）
     bindingRegistry_.clear();
+    setRegisteredWindow(nullptr);    // JS 视口查询面同步离场（窗口归属本运行时）
 }
 
 // ============================================================================
@@ -205,6 +206,7 @@ bool KwikRuntime::init() {
 
     // ⑤ 注册增量更新：绑定注册表
     setRegisteredRegistry(&bindingRegistry_);
+    setRegisteredWindow(&window_);    // JS 视口查询面（getWindowSize/getViewport）
 
     // ⑥ 解析 View 树
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
@@ -527,6 +529,7 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
 
     // 重新注册绑定注册表
     setRegisteredRegistry(&bindingRegistry_);
+    setRegisteredWindow(&window_);    // 幂等重挂（JS 视口查询面）
 
     // 解析 View 树（旧树已销毁，用 parse 而非 reconcile）
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());

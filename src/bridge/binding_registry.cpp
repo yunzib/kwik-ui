@@ -43,6 +43,13 @@ BindingRegistry *getRegisteredRegistry() {
     return s_activeRegistry;
 }
 
+// ── 运行期窗口钩（JS 视口查询面的 C++ 侧来源；void* 让桥面与平台层解耦）──
+static void *s_registeredWindow = nullptr;
+
+void setRegisteredWindow(void *window) { s_registeredWindow = window; }
+
+void *getRegisteredWindow() { return s_registeredWindow; }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // jsValueToTypedProp — JSValue → TypedProp 按类型转换
 //

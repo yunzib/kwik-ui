@@ -246,6 +246,17 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
     bindPointer("onHoverLeave", view.handlers.onHoverLeave);
     bindPointer("onContextMenu", view.handlers.onContextMenu);
 
+    // ── onWindowResize: 窗口尺寸变化（载荷 {width, height}）──
+    // dispatch 以根为唯一预设目标——仅根声明生效；位置参数 x/y 即新宽/高
+    if (auto h = dupHandler(ctx, props, "onWindowResize")) {
+        view.handlers.onWindowResize = [ctx, h](const PointerArgs &a) {
+            JSValue evt = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, evt, "width", JS_NewFloat64(ctx, a.x));
+            JS_SetPropertyStr(ctx, evt, "height", JS_NewFloat64(ctx, a.y));
+            return callJs1(ctx, h, evt, "onWindowResize");
+        };
+    }
+
     // ── onChange: 捕获 View*, 调用时按组件类型现场构造事件对象 ──
     // (View* 与 std::function 同属于该 View, 同生共死, 无悬垂)
     if (auto h = dupHandler(ctx, props, "onChange")) {

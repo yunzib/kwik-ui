@@ -103,6 +103,17 @@ private:
     std::unordered_multimap<BindingKey, Entry, BindingKeyHash> bindings_;
 };
 
+/**
+ * @brief 运行期窗口钩 — JS 查询面（getWindowSize/getViewport）与
+ *        视口尺寸查询的唯一来源
+ *
+ * KwikRuntime::init 时挂本树窗口，teardown 时清。多窗口 last-wins
+ * （Channel 全局单例同款已知限制，运行时文件头有注记）。
+ * 指针以 void* 传递（避免桥面模块依赖平台层：查询方自行转型解引用）
+ */
+export void setRegisteredWindow(void *window);
+export void *getRegisteredWindow();
+
 // ============================================================================
 // 工具函数 — JSValue → TypedProp 按类型转换
 // ============================================================================

@@ -78,8 +78,13 @@ public:
     bool closeRequested() const { return closeRequested_; }
 
     /** @brief 窗口尺寸变化入口（Application 的平台事件回调转发；
-     *         内部走 handleResize：swapchain 重建帧 + 全量重排重绘） */
-    void onWindowResize(int width, int height) { handleResize(width, height); }
+     *         内部走 handleResize：swapchain 重建帧 + 全量重排重绘；
+     *         并以根为预设目标补派 JS 视口感知事件——窗口事件非坐标
+     *         事件，绕过 dispatcher 的 hitTest 路径） */
+    void onWindowResize(int width, int height) {
+        handleResize(width, height);
+        eventRouter_.feedWindowResize(width, height);
+    }
 
     // ═══════════════ 访问器 ═══════════════
     QuickJSContext &jsContext() { return jsCtx_; }

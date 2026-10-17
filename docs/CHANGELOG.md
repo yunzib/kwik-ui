@@ -2,6 +2,12 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- 窗口尺寸 JS 暴露与 onResize 事件接通：kwikui 新增 getWindowSize/
+  getViewport 查询（未挂宿主窗口时返回 undefined 不抛错），WM_SIZE→
+  WindowResize 全链路打通至 JS——运行时挂接宿主窗口（热重载幂等重挂、
+  卸载清指针），事件经根节点直投至 View，仅根组件声明 onWindowResize
+  生效并收到 {width,height} 载荷；桥面模块图保持无向下依赖
+  （窗钩以 void* 传递，绑定库不再依赖平台模块）
 - raw 取值路径属性反绑接通：复杂形态属性（width/height 百分比双形态、
   padding/margin 多形态、transform、shadow/gradient、align/borderStyle 等）
   声明式 ref(state,"key") 此前仅初值生效、State 增量改动静默不更新——

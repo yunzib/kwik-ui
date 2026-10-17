@@ -560,6 +560,15 @@ public:
     void feedRawEvent(const RawEvent &raw);
 
     /**
+     * @brief 窗口尺寸变更专投——以根为预设目标直投
+     *
+     * 窗口事件非坐标事件：走 feedRawEvent 常规路径会按 (globalX, globalY)
+     * hitTest 误投 (0,0) 处元素；本入口预置根后由 dispatcher 阶段①直投根
+     * （无 hitTest、无冒泡），载荷走 DispatchEvent::resizeWidth/Height
+     */
+    void feedWindowResize(int width, int height);
+
+    /**
      * @brief 每帧轮询 (长按检测)
      */
     void poll();

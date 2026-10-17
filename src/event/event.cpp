@@ -592,6 +592,17 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     }
 }
 
+void EventRouter::feedWindowResize(int width, int height) {
+    if (!rootTarget_) return;
+    DispatchEvent evt;
+    evt.timestamp = nowMs();
+    evt.type = DispatchEvent::Type::WindowResize;
+    evt.resizeWidth = width;
+    evt.resizeHeight = height;
+    evt.presetTarget = rootTarget_;    // 根直投（阶段①）：不 hitTest、不冒泡
+    dispatcher_.dispatch(rootTarget_, evt);
+}
+
 void EventRouter::poll() {
     if (!rootTarget_) return;
 

@@ -29,6 +29,7 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
     case 2: slot = &onHoverEnter; break;    // HoverEnter
     case 3: slot = &onHoverLeave; break;    // HoverLeave
     case 28: slot = &onContextMenu; break;  // ContextMenu（与 dispatchEventTypeToCode 码 28 同源）
+    case 26: slot = &onWindowResize; break; // WindowResize（载荷=尺寸，X/Y 传递统一位置参数约定）
     default: return false;
     }
     if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
@@ -784,6 +785,12 @@ bool View::onEvent(const DispatchEvent &event) {
     }
     if (event.type == DispatchEvent::Type::CharInput) {
         return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.charCode), 0.0f);
+    }
+    if (event.type == DispatchEvent::Type::WindowResize) {
+        // 载荷为窗口新尺寸（resizeWidth/Height，非坐标）——KeyAction 以
+        // keyCode 充当 localX 的先例同源
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.resizeWidth),
+                                 static_cast<float>(event.resizeHeight));
     }
 
     // 指针/手势事件: 使用全局坐标转换

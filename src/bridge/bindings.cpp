@@ -29,6 +29,8 @@ import kwik.element.lazy_list_source;   // LazyListSource（工厂签名返回�
 import kwik.bridge.element_parser;
 import kwik.bridge.element_spec;
 import kwik.bridge.g2d;
+import kwik.platform.window;        // PlatformWindow（getWindowSize/getViewport 查询面）
+import kwik.bridge.binding_registry;    // getRegisteredWindow（运行期静态窗钩）
 
 import std;
 
@@ -1268,6 +1270,31 @@ static JSValue js_cancelAnimationFrame(JSContext *ctx, JSValueConst this_val, in
     return JS_UNDEFINED;
 }
 
+// ── 窗口/视口查询面 ──
+// 运行期静态窗钩由 KwikRuntime::init 挂上（teardown 清）；未挂窗
+// （headless/极早期）返回 undefined 而非报错，调用方自行回退默认布局。
+static JSValue js_getWindowSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *w = static_cast<PlatformWindow *>(getRegisteredWindow());
+    if (!w) return JS_UNDEFINED;
+    int width = 0, height = 0;
+    w->GetSize(&width, &height);    // 客户区逻辑尺寸（与帧缓冲经换链对齐）
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "width", JS_NewInt64(ctx, width));
+    JS_SetPropertyStr(ctx, obj, "height", JS_NewInt64(ctx, height));
+    return obj;
+}
+
+static JSValue js_getViewport(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *w = static_cast<PlatformWindow *>(getRegisteredWindow());
+    if (!w) return JS_UNDEFINED;
+    int width = 0, height = 0;
+    w->GetScreenWorkArea(&width, &height);    // 工作区（不含任务栏等系统保留区）
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "width", JS_NewInt64(ctx, width));
+    JS_SetPropertyStr(ctx, obj, "height", JS_NewInt64(ctx, height));
+    return obj;
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
 
@@ -1328,6 +1355,8 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("clearInterval", 1, js_clearTimeout),    // 同一 id 空间，复用清除逻辑
         JS_CFUNC_DEF("requestAnimationFrame", 1, js_requestAnimationFrame),
         JS_CFUNC_DEF("cancelAnimationFrame", 1, js_cancelAnimationFrame),
+        JS_CFUNC_DEF("getWindowSize", 0, js_getWindowSize),
+        JS_CFUNC_DEF("getViewport", 0, js_getViewport),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {
