@@ -9,7 +9,12 @@ import kwik.core.log;
 
     QuickJSRuntime::QuickJSRuntime() {
         runtime = JS_NewRuntime();
-        JS_SetMemoryLimit(runtime, 16 * 1024 * 1024);  // 16MB 上限，防止无限制膨胀
+        // 内存硬顶 256MB：日常 GC 频率由 quickjs 自适应 malloc_threshold
+        // 决定、与本值无关，这里只兜极端泄漏。原 16MB 在分配风暴（如微任务
+        // requeue 链积压 ~100K reaction job）下即被撞上，触发 quickjs-ng
+        // 0.13.0 内存压力强制 GC 路径的内部崩溃（无我方回调参与，纯引擎
+        // 数据结构损坏，86 号排查定案；放宽后触发面消除，上游升级另议）
+        JS_SetMemoryLimit(runtime, 256 * 1024 * 1024);
         // 执行看门狗：interrupt handler 在 JS 执行中周期回调，超预算返回 1
         // 使 QuickJS 抛异常终止当前段（死循环防护；回到宿主后自动解除）
         JS_SetInterruptHandler(runtime, &QuickJSRuntime::watchdogCb, this);
