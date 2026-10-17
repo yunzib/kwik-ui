@@ -2,6 +2,8 @@
 
 # 0.0.0 — 2026-10-17
 ### 修复
+- Root 工厂支持 props 配置对象透传与数组子节点展开，children 中无 type
+  的对象节点由静默跳过改为 warn 提示
 - 窗口尺寸 JS 暴露与 onResize 事件接通：kwikui 新增 getWindowSize/
   getViewport 查询（未挂宿主窗口时返回 undefined 不抛错），WM_SIZE→
   WindowResize 全链路打通至 JS——运行时挂接宿主窗口（热重载幂等重挂、

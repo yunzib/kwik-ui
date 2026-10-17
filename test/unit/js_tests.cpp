@@ -205,6 +205,88 @@ static void test_console_and_rejection_observability() {
     teardown_callbacks();
 }
 
+// ── 行为锁: Root props 透传 + 数组子节点直通 + 无 type 对象子节点诊断 ──
+// Root 类型工厂本就支持 props（RootView 走完整 parseViewProps+applyBindings），
+// js 侧工厂此前把所有参数塞 children——Root({width}) 等配置形态静默丢参。
+// 透传后：首参配置对象（非 {type} 元素形态、非数组）→ props；数组参数展开；
+// 杂散无 type 对象子节点 warn（条件渲染 null/false/undefined 值维持静默）。
+static void test_root_props_wired() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    // ① 首参对象 → props（宽度生效）；其余参数与数组展开为子节点
+    CHECK(eval_module("root_props_a.mjs",
+                      "import { Root, View, Text } from 'kwikui';\n"
+                      "globalThis.__node = Root({ width: 300 }, View({ id: 'a' }), [Text({ text: 't' })]);\n"
+                      "export default null;\n"));
+    {
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__node");
+        JSValueRef nv(c, n);
+        auto root = ElementParser::parseNode(nv);
+        CHECK(root && root->type() == ElementType::RootView);
+        CHECK(root->props.width.has_value() && *root->props.width == 300.0f);
+        CHECK(root->children.size() == 2);
+        if (root->children.size() == 2) {
+            CHECK(root->children[0]->props.id == "a");
+            CHECK(root->children[0]->type() == ElementType::View);
+            CHECK(root->children[1]->type() == ElementType::Text);
+        }
+        JS_FreeValue(c, gv);    // n 已由 nv 接管（析构释放），此处只收 gv
+    }
+
+    // ② 数组首参（纯子节点清单）
+    CHECK(eval_module("root_props_b.mjs",
+                      "import { Root, View } from 'kwikui';\n"
+                      "globalThis.__node = Root([View({ id: 'b0' }), View({ id: 'b1' })]);\n"
+                      "export default null;\n"));
+    {
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__node");
+        JSValueRef nv(c, n);
+        auto root = ElementParser::parseNode(nv);
+        CHECK(root && root->children.size() == 2);
+        if (root->children.size() == 2) {
+            CHECK(root->children[0]->props.id == "b0");
+            CHECK(root->children[1]->props.id == "b1");
+        }
+        JS_FreeValue(c, gv);    // n 已由 nv 接管
+    }
+
+    // ③ 手写元素形态对象（type 字段）仍归子节点，不误判为 props
+    CHECK(eval_module("root_props_c.mjs",
+                      "import { Root } from 'kwikui';\n"
+                      "globalThis.__node = Root({ type: 'Text', props: { id: 'manual', text: 'm' } });\n"
+                      "export default null;\n"));
+    {
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__node");
+        JSValueRef nv(c, n);
+        auto root = ElementParser::parseNode(nv);
+        CHECK(root && root->children.size() == 1);
+        if (root->children.size() == 1) {
+            CHECK(root->children[0]->props.id == "manual");
+            CHECK(root->children[0]->type() == ElementType::Text);
+        }
+        JS_FreeValue(c, gv);    // n 已由 nv 接管
+    }
+
+    // ④ 杂散无 type 对象子节点 → warn 出声 + 跳过，解析不爆
+    CHECK(eval_module("root_props_d.mjs",
+                      "globalThis.__node = { type: 'Root', props: {}, children: [{ width: 9 }] };\n"
+                      "export default null;\n"));
+    {
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__node");
+        JSValueRef nv(c, n);
+        auto root = ElementParser::parseNode(nv);
+        CHECK(root && root->children.empty());
+        JS_FreeValue(c, gv);    // n 已由 nv 接管
+    }
+
+    teardown_callbacks();
+}
+
 // ── 行为锁: 微任务消费预算（自 requeue 链不再无限循环）──
 // then 回调里再 then 自己会让 pending job 永不枯竭；processMicrotasks 无
 // 预算时本调用永不返回（修复前）。预算生效 = 调用有界返回，宿主存活。
@@ -669,6 +751,7 @@ int main() {
     test_state_update_enumerates_string_keys();
     test_l1_illegal_input_no_crash();
     test_console_and_rejection_observability();
+    test_root_props_wired();             // 须在 storm 之前：预算测试中断后续测试执行
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();

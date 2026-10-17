@@ -742,6 +742,12 @@ std::unique_ptr<View> ElementParser::parseNodeImpl(const JSValueRef &jsVal) {
     // 产生的 null/false 子节点 → 静默跳过（React 同款语义，car demo 状态栏即此写法），
     // 不视为错误；真缺 type 的畸形节点仍报错
     if (typeVal.isNull() || typeVal.isUndefined() || (type.empty() && typeVal.isBool() && !typeVal.toBool())) {
+        // 仅 null/false/undefined 标量属条件渲染惯例静默；无 type 的
+        // 对象节点几乎必是手误（props 误入 children 等），warn 出声
+        if (jsVal.isObject()) {
+            Log::warn("parseNode: children 中存在无 type 的对象节点（非 null/false 条件值）— 请求 import 元素工厂; node=\"{}\"",
+                      jsVal.toString().substr(0, 200));
+        }
         return nullptr;
     }
     if (type.empty()) {

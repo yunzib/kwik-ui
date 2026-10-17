@@ -287,11 +287,37 @@ static JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return makeElement(ctx, "View", props, children);
 }
 
-// Root(...children) — 应用入口容器，无 props，所有参数为子节点
+// Root(props?, ...children) — 应用入口容器：首参为配置对象（非手写
+// {type} 元素、非数组）时按 props 解析，其余参数与数组形态展开为子节点；
+// 此前所有参数一律塞 children（Root({width}) 静默丢参——Root 类型工厂
+// 实际支持 props，element_parser RootView 走完整 parseViewProps+applyBindings）
 static JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    JSValue props = JS_UNDEFINED;
+    int first = 0;
+    if (argc >= 1 && JS_IsObject(argv[0]) && !JS_IsArray(argv[0])) {
+        JSValue tv = JS_GetPropertyStr(ctx, argv[0], "type");
+        bool hasType = !JS_IsUndefined(tv);
+        JS_FreeValue(ctx, tv);
+        if (!hasType) { props = argv[0]; first = 1; }
+    }
     JSValue children = JS_NewArray(ctx);
-    for (int i = 0; i < argc; i++) { JS_SetPropertyUint32(ctx, children, i, JS_DupValue(ctx, argv[i])); }
-    JSValue result = makeElement(ctx, "Root", JS_UNDEFINED, children);
+    int n = 0;
+    for (int i = first; i < argc; i++) {
+        if (JS_IsArray(argv[i])) {
+            uint32_t len = 0;
+            JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+            for (uint32_t k = 0; k < len; ++k) {
+                JSValue elem = JS_GetPropertyUint32(ctx, argv[i], k);
+                JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, elem));
+                JS_FreeValue(ctx, elem);
+            }
+        } else {
+            JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, argv[i]));
+        }
+    }
+    JSValue result = makeElement(ctx, "Root", props, children);
     JS_FreeValue(ctx, children);
     return result;
 }
@@ -1103,14 +1129,16 @@ static JSValue js_tabs(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
  *
  * 用法:
  *   const myTheme = theme({ mode: "dark", colors: { primary: "#90CAF9" } });
- *   Root({ theme: myTheme }, [
+ *   ThemeProvider({ theme: myTheme }, [
  *     Button({ text: "保存", background: "@primary" }),
  *   ]);
  *
  * 解析规则:
  *   mode="dark" → 以 darkBase() 为基底, 否则 defaultTheme()
  *   传入的 colors/text/shape 字段逐一覆盖基底值,
- *   未传入的保留基底默认, 返回 opaque ThemeData 对象传给 ThemeProvider。
+ *   未传入的保留基底默认, 返回 opaque ThemeData 对象传给 ThemeProvider
+ *   （theme 字段的消费者是 ThemeProvider 类型——Root 不处理 theme,
+ *    此前文档示例误写为 Root({theme},...)）
  */
 static JSValue js_theme(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     ThemeData data = (argc >= 1 && JS_IsObject(argv[0])) ? parseTheme(ctx, argv[0]) : ThemeData::defaultTheme();
