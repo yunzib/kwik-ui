@@ -139,6 +139,61 @@ static void test_t06_data_driven() {
     teardown_callbacks();
 }
 
+// ── 行为锁: reconcile 原地换文排版缓存作废（applyTextContent）──
+// 机理：reconcile 复用路径裸赋 text_ 不作废 displayedText_ → ensureLayout
+// 命中条件（matchesKey 比对 displayedText_，text.cpp:49）恒真 → 旧字形
+// 永画——排版可用宽跨重建不变时（显式 width 的换行文本）必踩，docsite
+// index 特性卡实锚（语言切换 v 卡贴旧文案）。锁：text 变更 → 缓存必
+// 作废；text 未变 → 缓存保留（稳态快缓存不被每帧重建白耗）。ProbeText
+// 子类 seed 伪造缓存脏位（真排版 headless 无字体面，作废语义即锁点）。
+class ProbeText : public Text {
+public:
+    void seed(const std::string &s) { displayedText_ = s; text_.text = s; }    // 手植稳态缓存（text_ 与 displayedText_ 同源）
+};
+
+static void test_reconcile_text_flush() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+
+    auto textNode = [&](const char *text) {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Text"));
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "text", JS_NewString(c, text));
+        JS_SetPropertyStr(c, node, "props", props);
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+        return node;
+    };
+
+    // text 变更 → 复用实例 text_ 落新值 + 排版缓存必作废
+    {
+        auto t1 = std::make_unique<ProbeText>();
+        t1->seed("zh");
+        View *raw = t1.get();
+        JSValue node = textNode("en");
+        JSValueRef ref(c, node);    // 接管 handle 所有权（析构释放）
+        auto v2 = ElementParser::reconcile(c, node, std::move(t1));
+        CHECK(v2 && v2.get() == raw);              // 判型命中复用同一实例
+        auto *pt = static_cast<ProbeText *>(v2.get());
+        CHECK(std::strcmp(pt->textContent().text.c_str(), "en") == 0);    // 新文落地
+        CHECK(pt->displayedText().empty());        // 排版缓存已作废（旧串不得存活）
+    }
+
+    // text 未变 → 缓存保留（防 State 每帧重建下稳态快缓存被白白作废）
+    {
+        auto t3 = std::make_unique<ProbeText>();
+        t3->seed("keep");
+        View *raw3 = t3.get();
+        JSValue node = textNode("keep");
+        JSValueRef ref(c, node);
+        auto v3 = ElementParser::reconcile(c, node, std::move(t3));
+        CHECK(v3 && v3.get() == raw3);
+        CHECK(static_cast<ProbeText *>(v3.get())->displayedText() == "keep");
+    }
+
+    teardown_callbacks();
+}
+
 // ── 行为锁: State.update() 枚举字符串键（数据驱动批量回写）──
 // JS_GetOwnPropertyNames 若缺 JS_GPN_STRING_MASK 则恒 0 条属性，update
 // 的批量写入/逐键增量/全量判定三段全部落空。
@@ -1035,6 +1090,7 @@ int main() {
     test_focus_js_slots();               // 同上（storm 前保纯净 VM）
     test_prop_bus_typed_return();        // 同上
     test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
+    test_reconcile_text_flush();         // 同上（reconcile 原地换文排版缓存作废；纯解析无 storm 面）
     test_image_fit_parse();              // 同上（ImageFit "cover" 解析映射；纯解析无 storm 面）
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();

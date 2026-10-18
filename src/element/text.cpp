@@ -27,6 +27,25 @@ import std;
 // 故在 element 层拼接而非 layout 层）。displayedText_ 作为缓存匹配基准，
 // 否则截断串与原文本 hash 不同会导致每帧重排。
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// Text::applyTextContent — 复用重建文字写入（reconcile 原地更新）
+//
+// 与 setPropertyTyped("text") 三连同纪律：text 变更才重排 + relayout。
+// 裸赋值 text_ 时 displayedText_ 停留旧串 → ensureLayout 命中条件
+// （matchesKey 比对 displayedText_，text.cpp:49）恒真 → 旧字形永画——
+// 显式 width 的换行文本（排版可用宽跨重建不变）必踩，docsite index
+// 卡实锚。10-18 修复。
+// ═══════════════════════════════════════════════════════════════════════════
+void Text::applyTextContent(const TextContent &tc) {
+    if (tc.text != text_.text) {
+        layoutResult_.reset();    // 排版缓存废止，下次 ensureLayout 惰性重建
+        displayedText_.clear();
+        markDirty();
+        requestLayout();    // 文字变化影响尺寸，与 typed 口径同
+    }
+    text_ = tc;
+}
+
 void Text::ensureLayout(float maxW) {
     if (text_.text.empty()) {
         layoutResult_.reset();

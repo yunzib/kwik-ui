@@ -980,9 +980,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
 
     extractThemeTokens(oldView.get(), propsVal);
 
-    // ── 组件专有属性解析（text_ 已 public，直接赋值，复用 TypeCreator 同源解析函数）──
+    // ── 组件专有属性解析（applyTextContent 作废排版缓存，text 未变不重置）──
     switch (oldView->type()) {
-    case ElementType::Text: static_cast<Text *>(oldView.get())->text_ = parseTextContent(ex); break;
+    case ElementType::Text: static_cast<Text *>(oldView.get())->applyTextContent(parseTextContent(ex)); break;
     case ElementType::Button:
         static_cast<Button *>(oldView.get())->text_ = parseTextContent(ex);
         static_cast<Button *>(oldView.get())->button_ = parseButtonState(ex);

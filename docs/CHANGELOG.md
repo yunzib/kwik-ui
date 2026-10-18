@@ -26,6 +26,14 @@
   重渲染，行内即时显示帧统计，console 每 500ms 打印对照键入延迟尖峰
 
 ### 修复
+- 复用重建文字陈旧修复：reconcile 原地换文（element_parser Text 分支
+  裸赋 `text_`）不作废排版缓存——`ensureLayout` 命中键比对的是
+  `displayedText_`（陈旧串），排版可用宽跨重建不变时（显式 width 的
+  换行文本）旧字形恒命中被画，语言切换等 State 驱动换文场景受害
+  （docsite index 特性卡锚定）。Text 新增 `applyTextContent`（text 变更
+  才作废排版缓存 + relayout，同 `setPropertyTyped("text")` 三连纪律；
+  text 未变不重置保稳态快缓存），reconcile 分支接线；行为锁
+  js_tests::test_reconcile_text_flush（换文作废/未变保留两锁）
 - 单 Text 多行 `\n` 硬断行修复：换行判定从"字形层 gid==0"改为按源码点
   判定（cluster 还原）——实测 NotoSansSC 将 LF/CR 映射为 gid 1 的非零空
   字形，旧门槛永不命中致 `isNewline` 整链失效、多行文本塌成软断行段落；

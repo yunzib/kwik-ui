@@ -44,6 +44,21 @@ public:
     const TextContent &textContent() const { return text_; }
 
     /**
+     * @brief 文本内容原位写入（reconcile 复用路径唯一入口）
+     *
+     * text 变更时作废排版缓存（layoutResult_/displayedText_ 同
+     * setPropertyTyped("text") 三连纪律），防 stale-hit 持续画旧字形——
+     * 命中键比对的是 displayedText_（即便 text_ 换了新串），裸赋值下
+     * 可用宽恰好不变时（如显式 width 的换行文本）旧缓存永远命中。
+     * 其余字段（fontSize/color/wordWrap…）本就进入缓存键，自动 miss。
+     * text 未变不重置：State 每帧重建下稳态快缓存照常。
+     */
+    void applyTextContent(const TextContent &tc);
+
+    /** @brief 实际排版文本（调试/行为锁观测面：作废后为空直至下次排版回填） */
+    const std::string &displayedText() const { return displayedText_; }
+
+    /**
      * @brief 动画帧写入（覆写）
      *
      * textColor/fontSize 属 TextContent 不在 ViewProps，基类 PropMeta
