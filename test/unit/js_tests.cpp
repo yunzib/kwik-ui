@@ -22,6 +22,7 @@ import kwik.bridge.binding_registry;
 import kwik.bridge.element_parser;
 import kwik.element.view;
 import kwik.element.element_type;
+import kwik.element.image;          // Image（ImageFit 解析映射行为锁直驱）
 import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构注销行为锁直驱）
 import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
 import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
@@ -980,6 +981,28 @@ static void test_reconcile_token_resolve() {
 // ── 行为锁: g2d 数值参数校验（21⑧）──
 // 非数值/缺失参数此前 NaN 坐标直进绘制命令 + 转换挂起的 JS 异常被吞、
 // 延迟到下一个不相关调用错位冒出；现抛 TypeError 即时失败。
+// ── 行为锁: ImageFit "cover" 解析映射（20 号）──
+// 修复前 getEnum 表缺 "cover"——枚举默认值恰是 Cover，未知串静默落默认，
+// 显式写 'fit:"cover"' 反而被吞（实际可写合法值仅 fill/contain/none）。
+// 锁：描述符树 parse 后 imageProps().fit 收到 Cover 本体。
+static void test_image_fit_parse() {
+    JSContext *c = g_ctx->getPtr();
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Image"));
+    JSValue props = JS_NewObject(c);
+    JS_SetPropertyStr(c, props, "src", JS_NewString(c, "assets/demo.png"));
+    JS_SetPropertyStr(c, props, "fit", JS_NewString(c, "cover"));
+    JS_SetPropertyStr(c, props, "width", JS_NewFloat64(c, 100));
+    JS_SetPropertyStr(c, props, "height", JS_NewFloat64(c, 50));
+    JS_SetPropertyStr(c, node, "props", props);
+    JSValue empty = JS_NewArray(c);
+    JS_SetPropertyStr(c, node, "children", empty);
+    auto tree = ElementParser::parse(c, node);
+    JS_FreeValue(c, node);
+    auto *img = dynamic_cast<Image *>(tree.get());
+    CHECK(img && img->imageProps().fit == ImageFit::Cover);
+}
+
 static void test_g2d_numeric_args() {
     registerG2DElement();
     CHECK(eval_module("g2d_args_fixture.mjs",
@@ -1012,6 +1035,7 @@ int main() {
     test_focus_js_slots();               // 同上（storm 前保纯净 VM）
     test_prop_bus_typed_return();        // 同上
     test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
+    test_image_fit_parse();              // 同上（ImageFit "cover" 解析映射；纯解析无 storm 面）
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清

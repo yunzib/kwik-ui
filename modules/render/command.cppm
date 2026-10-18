@@ -65,7 +65,13 @@ export struct DrawImageCmd {
     Rect rect;
     float opacity;
     float cornerRadius;
-    Transform2D t;  
+    Transform2D t;
+    // ── 源纹理 UV 窗口（20 号 fit 语义：cover/none 裁剪用）──
+    // 默认满幅 [0,1]——既有调用方与旧聚合初始化零语义变化
+    float uvU0 = 0.0f;
+    float uvV0 = 0.0f;
+    float uvU1 = 1.0f;
+    float uvV1 = 1.0f;
 };
 export struct DrawGlyphCmd {
     FontId fontId;

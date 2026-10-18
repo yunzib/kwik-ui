@@ -470,6 +470,60 @@ static void test_image_upload_receipt_loop() {
     mgr.destroyBackend(&be);
 }
 
+// ── 行为锁: ImageFit 求解语义（20 号）──
+// 修复前全仓 ImageFit 零消费：onDraw 一律拉伸满幅，fit 仅在其一维未设时
+// 经 onMeasure 间接体现。锁四模式几何（resolveFit 纯函数）：
+//   Fill   满幅不变形（历史行为回归）
+//   Contain 等比缩至完全可见并居中（UV 恒满幅）
+//   Cover  dst=frame + 居中 UV 窗口裁长轴（宽图裁横轴/窄图裁纵轴/等比不动）
+//   None   原始尺寸居中（框大留白/框小溢出，溢出由绘制端裁剪收口）、UV 恒满幅
+//   零维    触发防御回退 = Fill 等价解
+static void test_image_fit_resolution() {
+    Rect frame{10, 20, 100, 50};    // 容器纵横比 2.0
+    auto sameRect = [](const Rect &a, const Rect &b) {
+        return std::abs(a.x - b.x) < 1e-4 && std::abs(a.y - b.y) < 1e-4
+               && std::abs(a.width - b.width) < 1e-4 && std::abs(a.height - b.height) < 1e-4;
+    };
+
+    // Fill：历史语义回归（拉伸满幅、UV 满）
+    auto s = Image::resolveFit(ImageFit::Fill, frame, 200.0f, 80.0f);
+    CHECK(sameRect(s.dst, frame) && s.u0 == 0 && s.v0 == 0 && s.u1 == 1 && s.v1 == 1);
+
+    // Contain：图纵横比 2.5 > 容器 2.0 → 以宽定缩放，纵轴居中留白
+    s = Image::resolveFit(ImageFit::Contain, frame, 200.0f, 80.0f);
+    CHECK(std::abs(s.dst.width - 100.0f) < 1e-4 && std::abs(s.dst.height - 40.0f) < 1e-4);
+    CHECK(std::abs(s.dst.x - 10.0f) < 1e-4 && std::abs(s.dst.y - 25.0f) < 1e-4);    // 居中
+    CHECK(s.u0 == 0 && s.u1 == 1);
+
+    // Cover 宽图（2.5 > 2.0）：dst=frame，横轴居中裁剪窗口 [0.1, 0.9]
+    s = Image::resolveFit(ImageFit::Cover, frame, 200.0f, 80.0f);
+    CHECK(sameRect(s.dst, frame));
+    CHECK(std::abs(s.u0 - 0.10f) < 1e-4 && std::abs(s.u1 - 0.90f) < 1e-4);
+    CHECK(s.v0 == 0 && s.v1 == 1);
+
+    // Cover 窄图（0.75 < 2.0）：dst=frame，纵轴居中裁剪窗口 [0.3125, 0.6875]
+    s = Image::resolveFit(ImageFit::Cover, frame, 60.0f, 80.0f);
+    CHECK(sameRect(s.dst, frame));
+    CHECK(s.u0 == 0 && s.u1 == 1);
+    CHECK(std::abs(s.v0 - 0.3125f) < 1e-4 && std::abs(s.v1 - 0.6875f) < 1e-4);
+
+    // None 框大：原始尺寸居中留白（UV 满）
+    Rect big{0, 0, 300, 200};
+    s = Image::resolveFit(ImageFit::None, big, 100.0f, 50.0f);
+    CHECK(s.dst.x == 100 && s.dst.y == 75 && s.dst.width == 100 && s.dst.height == 50);
+    CHECK(s.u1 == 1 && s.v1 == 1);
+
+    // None 框小：原始尺寸居中溢出（200×80 入 100×50 框 → 负坐标溢出），
+    // 溢出区域由绘制端 clip(frame) 裁除，UV 恒满幅
+    s = Image::resolveFit(ImageFit::None, frame, 200.0f, 80.0f);
+    CHECK(s.dst.x == -40 && s.dst.y == 5 && s.dst.width == 200 && s.dst.height == 80);
+    CHECK(s.u0 == 0 && s.v1 == 1);
+
+    // 零维防御：任一边 ≤0 → Fill 等价解
+    s = Image::resolveFit(ImageFit::Cover, frame, 0.0f, 80.0f);
+    CHECK(sameRect(s.dst, frame) && s.u1 == 1);
+}
+
 
 // ── 行为锁: 超大字形不触发图集整页淘汰风暴 ──
 // packedW/H > kAtlasSize(512) 的字形永远装不进图集：原实现每帧新建页直至
@@ -1938,6 +1992,7 @@ int main() {
     test_4b_list_hittest_and_boundary();
     test_4b_playlist_scroll_to_end();
     test_image_upload_receipt_loop();
+    test_image_fit_resolution();
     test_damage_overflow_children();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;

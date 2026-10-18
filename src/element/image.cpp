@@ -139,6 +139,7 @@ void Image::loadFromSvg(const std::string &path) {
     decodedHeight_ = svg.height;
     pixels_ = std::move(svg.pixels);
     loaded_ = true;
+    svgLoaded_ = true;    // 20 号连带：SVG 源（显式尺寸变更重光栅化判据）
 }
 // ============================================================================
 // loadFromBuffer — 从 ImageProps::data 构造像素
@@ -164,6 +165,62 @@ void Image::loadFromBuffer() {
     pixels_ = imageProps_.data;
     loaded_ = true;
 }
+// ============================================================================
+// resolveFit — ImageFit 求解（纯函数）：把 iw×ih 图像入 frame 容器
+//   Fill     拉伸满幅（历史语义，不变）
+//   Contain  等比缩至完全可见，容器内居中（可能留空）
+//   Cover    等比扩至完全覆盖（UV 窗口居中裁长轴），dst=frame
+//   None     原始尺寸；框含得下居中（UV 满），框小则 1:1 居中裁剪窗口
+// 零维输入退回 Fill 等价解（防御）。
+// ============================================================================
+ImageFitSolution Image::resolveFit(ImageFit fit, Rect frame, float iw, float ih) {
+    ImageFitSolution s;
+    if (frame.width <= 0 || frame.height <= 0 || iw <= 0 || ih <= 0) {
+        s.dst = frame;
+        return s;    // 零维防御：等价 Fill（满幅 UV）
+    }
+    switch (fit) {
+    case ImageFit::Contain: {
+        float scale = std::min(frame.width / iw, frame.height / ih);
+        s.dst.width = iw * scale;
+        s.dst.height = ih * scale;
+        s.dst.x = frame.x + (frame.width - s.dst.width) * 0.5f;
+        s.dst.y = frame.y + (frame.height - s.dst.height) * 0.5f;
+        break;    // UV 满幅
+    }
+    case ImageFit::Cover: {
+        s.dst = frame;
+        float window = (iw / ih > frame.width / frame.height)    // 图更宽 → 裁横轴
+                           ? (frame.width / frame.height) / (iw / ih)
+                           : (frame.height / frame.width) / (ih / iw);
+        if (window < 1.0f) {    // 全轴满幅时不动（图纵横比恰等）
+            float inset = (1.0f - window) * 0.5f;
+            if (iw / ih > frame.width / frame.height) {
+                s.u0 = inset;
+                s.u1 = 1.0f - inset;
+            } else {
+                s.v0 = inset;
+                s.v1 = 1.0f - inset;
+            }
+        }
+        break;
+    }
+    case ImageFit::None: {
+        // 缩放因子恒 1：dst = 原始尺寸在容器内居中（可整体溢出，超框
+        // 部分由绘制端 clip(frame) 裁除——与 CSS replaced content 一致）
+        s.dst.x = frame.x + (frame.width - iw) * 0.5f;
+        s.dst.y = frame.y + (frame.height - ih) * 0.5f;
+        s.dst.width = iw;
+        s.dst.height = ih;    // UV 满幅
+        break;
+    }
+    case ImageFit::Fill:
+        s.dst = frame;
+        break;    // 满幅 UV（默认值）
+    }
+    return s;
+}
+
 // ============================================================================
 // onMeasure — 基于图像尺寸和 ViewProps 计算期望尺寸
 // ============================================================================
@@ -202,7 +259,47 @@ void Image::onDraw(Graphics &graphics) {
     else confirmUpload();    // 异步上传回执：落地释放像素；失败重试或弃传
     if (textureId_ == 0) return;
     float opacity = imageProps_.imageOpacity * props.opacity;
-    graphics.drawImage(textureId_, frame, opacity, props.borderRadius);
+    // 20 号：fit 语义落地——按模式求解目标矩形 + 源 UV 窗口；None 允许
+    // dst 溢出 frame（原始尺寸居中），超框部分由圆角裁剪包住（CSS
+    // replaced content 裁剪语义；Fill/Contain/Cover 无溢出不必裁剪）
+    auto sol = resolveFit(imageProps_.fit, frame, static_cast<float>(decodedWidth_),
+                          static_cast<float>(decodedHeight_));
+    if (imageProps_.fit == ImageFit::None) {
+        graphics.clipRoundedRect(frame, props.borderRadius);
+        graphics.drawImageUv(textureId_, sol.dst, sol.u0, sol.v0, sol.u1, sol.v1, opacity,
+                             props.borderRadius);
+        graphics.resetClip();
+    } else {
+        graphics.drawImageUv(textureId_, sol.dst, sol.u0, sol.v0, sol.u1, sol.v1, opacity,
+                             props.borderRadius);
+    }
+}
+
+// ============================================================================
+// onLayout — SVG 显式尺寸运行期变更重光栅化（20 号连带）
+// ============================================================================
+void Image::onLayout() {
+    View::onLayout();
+    if (!svgLoaded_) return;
+    if (!props.width.has_value() || !props.height.has_value()) return;    // auto 尺寸不重光栅化（防布局刷写）
+    int tw = static_cast<int>(*props.width);
+    int th = static_cast<int>(*props.height);
+    if (tw <= 0 || th <= 0) return;
+    if (decodedWidth_ == tw && decodedHeight_ == th) return;    // 尺寸未变（光栅后帧相等即停，无回环）
+    int beforeW = decodedWidth_, beforeH = decodedHeight_;
+    loadFromSvg(imageProps_.src);
+    if (loaded_) {
+        // 尺寸实质变化才有效率收益，防御空转（解码失败保持旧像素不折腾）
+        if (decodedWidth_ == beforeW && decodedHeight_ == beforeH) return;
+        // 光栅已随宽度/分尺寸变化：纹理须换——旧纹入队销毁 + 重置上传态
+        if (textureId_ != 0) {
+            TextureManager::instance().destroyTexture(
+                static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
+            textureId_ = 0;
+        }
+        uploadConfirmed_ = false;
+        uploadRetries_ = 0;
+    }
 }
 
 // ============================================================================

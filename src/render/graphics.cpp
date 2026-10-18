@@ -286,6 +286,17 @@ void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, fl
     appendCmd(DrawImageCmd{textureId, rect, opacity, cornerRadius, currentState_.m});
 }
 
+void Graphics::drawImageUv(uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
+                           float opacity, float cornerRadius) {
+    if (!recording_) return;
+    DrawImageCmd cmd{textureId, rect, opacity, cornerRadius, currentState_.m};
+    cmd.uvU0 = u0;
+    cmd.uvV0 = v0;
+    cmd.uvU1 = u1;
+    cmd.uvV1 = v1;
+    appendCmd(std::move(cmd));
+}
+
 // ════════════════════════════════════════════
 // 路径（三角剖分 → FillTriangles / StrokeTriangles）
 // ════════════════════════════════════════════

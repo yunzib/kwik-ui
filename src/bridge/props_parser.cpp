@@ -306,6 +306,7 @@ ImageProps parseImageProps(PropsExtractor &ex) {
                {
                    {"fill", ImageFit::Fill},
                    {"contain", ImageFit::Contain},
+                   {"cover", ImageFit::Cover},    // 20 号：此前未知串静默落枚举默认值，显式 "cover" 写不进
                    {"none", ImageFit::None},
                });
     ex.get("opacity", result.imageOpacity);

@@ -98,6 +98,11 @@ public:
                   const Color &color);
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
     void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
+    /** @brief 带 UV 源窗口绘图像（20 号 ImageFit 裁剪语义）：
+     *         [u0,v0]-[u1,v1] 为源纹理裁剪窗口（cover 裁长轴 / none 1:1 裁剪），
+     *         dst 仍为落笔矩形；fill/contain 走满幅窗口等价 drawImage */
+    void drawImageUv(uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
+                     float opacity = 1.0f, float cornerRadius = 0.0f);
     void fillPath(const Path &path, const Color &color);
     void strokePath(const Path &path, const Color &color, float lineWidth);
     /** @brief 渐变弧带（Sweep 角度渐变：color0 在 a0、color1 在 a1，模拟 SweepGradient） */

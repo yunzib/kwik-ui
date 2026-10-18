@@ -21,6 +21,17 @@ import std;
  *   Image({ src: "assets/logo.png", fit: "contain", width: 200, height: 100 })
  *   Image({ data: rawBuffer, width: 256, height: 256 })
  */
+/**
+ * @brief ImageFit 求解结果（20 号 fit 语义）
+ *
+ * dst：视频目标落笔矩形；uv0..uv1：源纹理裁剪窗口（cover 裁长轴 /
+ * none 超框 1:1 裁剪；contain/fill 为满幅窗口）。fill 的 dst==frame。
+ */
+export struct ImageFitSolution {
+    Rect dst;
+    float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+};
+
 export class Image : public View {
 public:
     Image() = default;
@@ -40,9 +51,17 @@ public:
     void uploadTexture();
     const std::string &error() const { return errorMsg_; }
 
+    /**
+     * @brief ImageFit 求解（纯函数，核心测试可达）：按 fit 模式把
+     *        iw×ih 图像入 frame 容器——返回绝对目标矩形与源 UV 窗口。
+     *        图像或容器有零边时退回 Fill 等价解（dst=frame 满幅窗口）。
+     */
+    static ImageFitSolution resolveFit(ImageFit fit, Rect frame, float iw, float ih);
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
+    void onLayout() override;
 
 private:
     ImageProps imageProps_;
@@ -50,6 +69,7 @@ private:
     int decodedWidth_ = 0;
     int decodedHeight_ = 0;
     bool loaded_ = false;
+    bool svgLoaded_ = false;          // SVG 源（显式尺寸变更重光栅化判据，20 号）
     std::string errorMsg_;
     uint32_t textureId_ = 0;    // GPU 纹理句柄 (0=未上传)
     bool uploadConfirmed_ = false;    // 17 号：当前 id 已确认落地（落地才释放 pixels_，失败重试需源数据）
