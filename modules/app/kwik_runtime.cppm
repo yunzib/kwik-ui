@@ -103,6 +103,15 @@ public:
     /** @brief HMR 文件轮询（仅 enableHotReload 时；每 tick 调用） */
     void pollHotReload();
 
+    /**
+     * @brief 加载失败内置错误页：JS 入口加载/树构建失败不再闪退/冻结——
+     *  以 C++ 侧静态错误页（红底 + 标题 + 详情文本）接管树，进程存活等待
+     *  修补后的 HMR 重载（成功后 reconcile 以错误页为旧树重建 JS 树）。
+     *  置 errorPageMode_，tick 内 JS 面全停仅响应 resize。
+     */
+    void buildErrorPageTree(const std::string &title, const std::string &detail);
+    bool errorPageMode() const { return errorPageMode_; }
+
 private:
     PlatformWindow &window_;
     Config config_;
@@ -126,6 +135,7 @@ private:
     Rect dirtyRect_;                     // 脏矩形累加器（每帧被 Graphics 写入）
     bool needsRedraw_ = true;            // 首帧要画
     bool closeRequested_ = false;
+    bool errorPageMode_ = false;         // 加载失败降级模式（JS 面全停，静态错误页）
     bool teardownDone_ = false;         // teardown 幂等防护
     std::chrono::steady_clock::time_point lastFileCheck_;    // HMR 上次轮询时间戳
     std::unordered_map<std::string, std::filesystem::file_time_type> fileWatchCache_;    // HMR 文件时间戳缓存

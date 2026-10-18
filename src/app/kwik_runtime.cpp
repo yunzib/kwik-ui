@@ -23,6 +23,8 @@ import kwik.render.command_queue;
 import kwik.render.command_buffer;    // DisplayList（复合根清单）
 import kwik.event;
 import kwik.element.view;
+import kwik.element.text;              // Text（错误页文本）
+import kwik.core.props;                // ViewProps / TextContent / EdgeInsets（错误页构造）
 import kwik.element.clipboard_service;    // ClipboardService（树服务槽适配）
 import kwik.element.layer_view;    // LayerStack（阶段 2-2 前仍为全局单例形态）
 import kwik.bridge.element_parser;
@@ -182,25 +184,49 @@ bool KwikRuntime::init() {
     // ③ 注册 kwikui C 模块（在 evalFile 之前，确保 JS import 'kwikui' 能找到）
     if (!register_kwikui_module(jsCtx_)) {
         Log::error("kwikui C module registration failed");
-        return false;
+        buildErrorPageTree("运行时初始化失败", "kwikui C 模块注册失败（内部缺陷或资源不足）");
+        relayoutTree(layoutSize());
+        errorPageMode_ = true;
+        // Channel 对称初始化（teardown 释放路径期望有绑定实例）
+        Channel::init(
+            jsCtx_.getPtr(),
+            [this](std::function<void()> task) { if (taskQueue_) taskQueue_->post(std::move(task)); },
+            taskQueue_);
+        needsRedraw_ = true;
+        return true;
     }
 
-    // ④ 加载 JS（文件系统=开发 / 字节码=生产）
+    // ④ 加载 JS（文件系统=开发 / 字节码=生产）。任一失败不再闪退——
+    //    渲染内置错误页后以降级模式存活（tick 跳过 JS 面，页静态重绘）。
+    auto degradeToErrorPage = [&](const std::string &title, const std::string &detail) {
+        buildErrorPageTree(title, detail);
+        relayoutTree(layoutSize());
+        errorPageMode_ = true;
+        // Channel 仍初始化：teardown 对称释放 + 错误页模式 tick 不触碰其面
+        Channel::init(
+            jsCtx_.getPtr(),
+            [this](std::function<void()> task) { if (taskQueue_) taskQueue_->post(std::move(task)); },
+            taskQueue_);
+        needsRedraw_ = true;
+        return true;
+    };
     if (config_.enableHotReload) {
         if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
             Log::error("JS 加载失败: {}", config_.jsPath);
-            return false;
+            return degradeToErrorPage("JS 入口加载失败", "文件: " + config_.jsPath);
         }
         lastFileCheck_ = std::chrono::steady_clock::now();
     } else {
         if (!s_bytecodeModules || s_bytecodeModuleCount == 0) {
             Log::error("生产模式需要嵌入字节码，请在 CMake 中添加 kwik_js()");
-            return false;
+            return degradeToErrorPage("构建错误：缺少嵌入字节码",
+                                      "CMake 需添加 kwik_js() 嵌入 JS 模块（生产模式）");
         }
         jsCtx_.registerBytecodeModules(s_bytecodeModules, s_bytecodeModuleCount);
         if (!jsCtx_.evalBytecodeModule(s_bytecodeModules[0].name.data())) {
             Log::error("JS bytecode 加载失败");
-            return false;
+            return degradeToErrorPage("JS 模块初始化失败",
+                                      "字节码计算/顶层执行失败（常见：顶层抛异常，详见启动日志）");
         }
     }
 
@@ -212,7 +238,8 @@ bool KwikRuntime::init() {
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     if (!tree_) {
         Log::error("UI parsing failed!");
-        return false;
+        return degradeToErrorPage("UI 构建失败",
+                                  "根视图解析失败（常见：creator 抛异常，详见启动日志）");
     }
     jsCtx_.setUserPointer(tree_.get());
     layers_.setBase(tree_.get());    // 多图层管理器：base 指向主树根
@@ -257,8 +284,21 @@ bool KwikRuntime::init() {
 // ============================================================================
 bool KwikRuntime::tick(bool hotReloadEnabled) {
     jsCtx_.resetExecWatchdog();    // 本帧全部 JS（dispatch/rAF/微任务/工厂）共享 1s 预算，防死循环冻结
-    // Debug 热重载：JS 文件轮询（内部 300ms 节流；此前从未接线，HMR 不可达）
+    // Debug 热重载：JS 文件轮询（内部 300ms 节流；此前从未接线，HMR 不可达）。
+    // 错误页降级模式下也跑——修补后的文件经 HMR 成功路径接管错误页
     if (hotReloadEnabled) pollHotReload();
+    // 错误页降级模式：JS 引擎面全停（ctx 为空/树为静态错误页），仅响应
+    // resize 重排与其余重绘请求，页不再有任何动态行为
+    if (errorPageMode_) {
+        if (pendingResizeW_ <= 0 && !needsRedraw_) return false;
+        if (pendingResizeW_ > 0) {
+            relayoutTree(layoutSize());
+            needsRedraw_ = true;
+        }
+        needsRedraw_ = false;
+        renderFrame();
+        return true;
+    }
     // ② Channel flush（C++→JS dispatch + 帧合并 + 定时器）
     Channel::flush(jsCtx_.getPtr());
     // rAF: 每帧回调（flush 后、微任务前——回调内改 State 经下方 isRenderNeeded
@@ -339,6 +379,51 @@ void KwikRuntime::rebuildTree() {
     treeStructureChanged_ = true;
     // 生命周期: reconcile 新建节点挂载通知（复用节点无 pending 标记，不重触发）
     if (tree_) ElementParser::firePendingMounts(tree_.get());
+}
+
+// ============================================================================
+// buildErrorPageTree — 加载失败内置错误页（红底 + 标题 + 详情）
+//
+// JS 入口不可用（启动 evalFile/字节码失败、树解析失败、HMR 三失败点）时
+// 以纯 C++ 静态页接管树：进程不再闪退/冻结，屏上可见错误。下一次成功
+// HMR 重载将以本页为旧树经 reconcile 被 JS 树整体替换（errorPageMode_
+// 由成功路径复位）。
+// ============================================================================
+void KwikRuntime::buildErrorPageTree(const std::string &title, const std::string &detail) {
+    Size sz = layoutSize();
+    auto root = std::make_unique<View>(ViewProps{});
+    root->props.background = Color{0x9B, 0x1B, 0x1B, 255};    // 深红底（错误强对照）
+    root->props.width = sz.width;
+    root->props.height = sz.height;
+    root->props.padding = EdgeInsets(24);
+
+    TextContent tc;
+    tc.text = title;
+    tc.fontSize = 20.0f;
+    tc.textColor = Color{255, 255, 255, 255};
+    tc.wordWrap = true;
+    auto titleText = std::make_unique<Text>(ViewProps{}, tc);
+
+    TextContent dc;
+    dc.text = detail;
+    dc.fontSize = 13.0f;
+    dc.textColor = Color{255, 170, 170, 255};
+    dc.wordWrap = true;
+    auto detailText = std::make_unique<Text>(ViewProps{}, dc);
+
+    root->addChild(std::move(titleText));
+    root->addChild(std::move(detailText));
+
+    tree_ = std::move(root);
+    layers_.setBase(tree_.get());    // base 指向错误页（LayerStack 单例形态切换跟进）
+    tree_->setTreeService(View::kSvcLayerStack, &layers_);
+    tree_->setTreeService(View::kSvcAnimEngine, &animations_);
+    tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
+    tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    eventRouter_.setRootTarget(&layers_);
+    eventRouter_.reset();
+    eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
+    needsRedraw_ = true;
 }
 
 // ============================================================================
@@ -515,15 +600,24 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
         [this](std::function<void()> task) { if (taskQueue_) taskQueue_->post(std::move(task)); },
         taskQueue_);
 
-    // 重新注册 kwikui C 模块（新 context）
+    // 重新注册 kwikui C 模块（新 context）。失败点改渲染错误页降级
+    // 存活（此前 return：tree_ 已在 reload 前销毁，tick 空转画面冻结）
+    auto hmrDegrade = [&](const std::string &title, const std::string &detail) {
+        errorPageMode_ = true;
+        buildErrorPageTree(title, detail);
+        relayoutTree(layoutSize());
+        needsRedraw_ = true;
+    };
     if (!register_kwikui_module(jsCtx_)) {
         Log::error("[HMR] kwikui 模块注册失败");
+        hmrDegrade("热重载失败（模块注册）", config_.jsPath);
         return;
     }
 
     // 重新加载 JS 入口文件
     if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
         Log::error("[HMR] JS 重载失败");
+        hmrDegrade("热重载失败（JS 编译/执行）", config_.jsPath);
         return;
     }
 
@@ -535,8 +629,10 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
     if (!tree_) {
         Log::error("[HMR] UI 解析失败");
+        hmrDegrade("热重载失败（UI 树构建）", config_.jsPath);
         return;
     }
+    errorPageMode_ = false;    // 重载成功退出错误页降级（旧错误页树被 parse 整体替换）
 
     jsCtx_.setUserPointer(tree_.get());
 
