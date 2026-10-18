@@ -19,6 +19,7 @@ import kwik.render.text.font.manager;
 import kwik.render.text.cache;
 import kwik.element.view;
 import kwik.element.text;
+import kwik.element.image;    // Image（异步上传回执行为锁）
 import kwik.element.lazy_list;
 import kwik.element.table;    // Table（显式高度/幻影行行为锁）
 import kwik.element.table_data_source;
@@ -350,6 +351,125 @@ static void test_texture_manager_domain_isolation() {
     mgr.destroyBackend(&backendC);
     CHECK(backendC.destroyed.empty());
 }
+
+// ── 行为锁: 图像异步上传回执闭环（17 号）──
+// 修复前：入队即释放源像素 + 渲染线程上传失败 id 不入 textures_（对上层
+// 不可见）→ textureId_ 非零永不再试，永久白块；换 src 只换 pixels_ 不动
+// textureId_ → 新像素永不入队，画面永久旧图。
+// 锁五点：①在途回执不释放源像素（可重试前提）②失败回执→复位重试
+// ③落地回执→释放源像素 ④超限弃传 onError 恰一次且不再入队
+// ⑤换 src 销毁旧纹并重新入队。
+namespace {
+struct ScriptedBackend : CountingBackend {
+    int answer = 0;    // 脚本应答：0=在途 1=落地 2=失败；应答一次后回零（单次领取）
+    RenderBackend::TextureUploadStatus imageTextureResult(uint32_t) override {
+        if (answer == 0) return RenderBackend::TextureUploadStatus::Pending;
+        int r = answer;
+        answer = 0;
+        return r == 1 ? RenderBackend::TextureUploadStatus::Landed
+                      : RenderBackend::TextureUploadStatus::Failed;
+    }
+};
+}    // namespace
+
+static void test_image_upload_receipt_loop() {
+    ScriptedBackend be;
+    auto &mgr = TextureManager::instance();
+    mgr.registerBackend(&be);
+
+    ImageProps ip;
+    ip.source = ImageSource::Buffer;
+    ip.bufferWidth = 2;
+    ip.bufferHeight = 2;
+    ip.data.assign(2 * 2 * 4, 100);
+    Image img{ViewProps{}, std::move(ip)};
+    img.setTreeService(View::kSvcRenderBackend, &be);    // 独立即根，直塞可接线
+    img.props.width = 2.0f;
+    img.props.height = 2.0f;
+    img.layout({0, 0, 50, 50});
+    int errCount = 0;
+    img.handlers.onError = [&](std::string) { ++errCount; };
+
+    Graphics g;
+    auto frame = [&]() {
+        img.markAllDirty();
+        g.beginFrame();
+        img.draw(g);
+        g.endFrame();
+    };
+
+    // ①在途：入队成功但渲染线程尚未处理——源像素必须保留（可重试前提）
+    frame();
+    CHECK(be.created.size() == 1);
+    CHECK(!img.pixelsEmpty());    // 修复前此处已 clear → 失败即永久白块
+
+    // ②失败回执→复位重试：失败确认落在当前帧，重入队落在下一帧
+    be.answer = 2;
+    frame();    // 渲染线程上传失败 → confirmUpload 复位 tid=0
+    frame();    // 重入队（重试 1/3）
+    CHECK(be.created.size() == 2 && !img.pixelsEmpty());
+
+    // ③第 2、3 轮失败仍在重试窗口内；第 4 轮超限 → 弃传 onError 恰一次
+    auto failCycle = [&]() {
+        be.answer = 2;
+        frame();    // 确认当前 id 上传失败（弃传轮则不再有重入队）
+        frame();    // 重入队
+    };
+    failCycle();    // 重试 2/3
+    failCycle();    // 重试 3/3
+    CHECK(be.created.size() == 4 && errCount == 0);    // 重试窗口内无错误上报
+    failCycle();    // 第 4 次失败 → uploadRetries_>3 → 弃传
+    CHECK(errCount == 1);
+    CHECK(img.error().find("upload failed") != std::string::npos);
+    frame();    // 稳态：弃传后不再入队、不再上报
+    CHECK(be.created.size() == 4 && errCount == 1);
+    CHECK(errCount == 1);
+    CHECK(img.error().find("upload failed") != std::string::npos);
+    be.answer = 0;
+    frame();
+    CHECK(be.created.size() == 4 && errCount == 1);    // 弃传后稳定：不再重试、不上报
+
+    // ③落地回执→释放源像素（新图走成功路径）
+    ImageProps ipb;
+    ipb.source = ImageSource::Buffer;
+    ipb.bufferWidth = 2;
+    ipb.bufferHeight = 2;
+    ipb.data.assign(2 * 2 * 4, 150);
+    Image img2{ViewProps{}, std::move(ipb)};
+    img2.setTreeService(View::kSvcRenderBackend, &be);
+    img2.props.width = 2.0f;
+    img2.props.height = 2.0f;
+    img2.layout({0, 0, 50, 50});
+    auto frame2 = [&]() {
+        img2.markAllDirty();
+        g.beginFrame();
+        img2.draw(g);
+        g.endFrame();
+    };
+    frame2();                  // 入队（在途）
+    be.answer = 1;             // 渲染线程上传成功
+    frame2();                  // 回执落地 → 释放源像素
+    CHECK(img2.pixelsEmpty());
+    be.answer = 1;
+    frame2();                  // 已确认：不再重复领取/释放
+    CHECK(be.created.size() == 5);    // img(4) + img2(1)
+
+    // ⑤换 src 销毁旧纹并重新入队（并批①：修复前旧纹理滞留 → 永久旧图）
+    ImageProps ipc;
+    ipc.source = ImageSource::Buffer;
+    ipc.bufferWidth = 2;
+    ipc.bufferHeight = 2;
+    ipc.data.assign(2 * 2 * 4, 200);
+    img2.applyImageProps(std::move(ipc));
+    CHECK(be.destroyed.size() == 1);           // 旧纹理已走延迟销毁通道
+    CHECK(be.destroyed[0] == be.created[4]);   // 销毁的正是 img2 的旧 id
+    frame2();                                  // 新像素重新入队
+    CHECK(be.created.size() == 6);
+
+    // 收尾摘键，防域残留影响后续测试
+    mgr.destroyBackend(&be);
+}
+
 
 // ── 行为锁: 超大字形不触发图集整页淘汰风暴 ──
 // packedW/H > kAtlasSize(512) 的字形永远装不进图集：原实现每帧新建页直至
@@ -1817,6 +1937,7 @@ int main() {
     test_c4_grid_measure_children();
     test_4b_list_hittest_and_boundary();
     test_4b_playlist_scroll_to_end();
+    test_image_upload_receipt_loop();
     test_damage_overflow_children();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;

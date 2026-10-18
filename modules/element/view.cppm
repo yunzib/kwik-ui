@@ -92,6 +92,7 @@ export struct ViewEventHandlers {
     std::function<void()> onBlur;                             ///< 失去焦点（同上）
     std::function<void()> onMount;                            ///< 挂载后回调（树构建完成，仅本轮新建节点触发）
     std::function<void()> onUnmount;                          ///< 卸载前回调（reconcile 拆除、析构前；HMR 整树重建不触发）
+    std::function<void(std::string)> onError;                 ///< 资源失败上报（Image：解码/装载/上传失败；参数为错误描述，与 error() 一致）
 
     /**
      * @brief 根据事件码分发到对应的指针事件处理器

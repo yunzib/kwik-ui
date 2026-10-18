@@ -62,6 +62,17 @@ public:
     }
 
     /**
+     * @brief 查询某 id 的异步上传回执（17 号资源通道；UI 线程轮询 Image 侧调用）
+     *
+     * 直通转发 backend->imageTextureResult（命中即摘除该 id 回执——
+     * 回执单次领取，重复查询返回 Pending，调用方须自持终态）。
+     */
+    RenderBackend::TextureUploadStatus pollTextureResult(RenderBackend *backend, uint32_t id) {
+        if (!backend) return RenderBackend::TextureUploadStatus::Pending;    // 后端未知（防御）
+        return backend->imageTextureResult(id);
+    }
+
+    /**
      * @brief 销毁指定域的全部纹理并摘除该域（每棵 UI 树 teardown 时调用）
      *
      * 只清本树域：原 destroyAll 遍历全部域，多树下会静默销毁他树活跃

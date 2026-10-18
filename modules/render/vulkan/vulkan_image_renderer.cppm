@@ -27,6 +27,9 @@ public:
     /** @brief 消费挂起的创建/销毁作业（渲染线程调用，须在帧首 fence 等待之后）
      *         @param frameNo 单调递增帧号——retire 队列回收帧距的基准 */
     void drainResources(const DeviceContext &dc, uint64_t frameNo);
+    /** @brief 查询某 id 的异步上传结果（UI 线程调用，查询即摘除该 id 回执）
+     *         @return 0=在途 1=已落地（源像素可释放） 2=上传失败（可重试） */
+    int queryUploadResult(uint32_t id);
     void drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
                    const Transform2D &t);
     void drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
@@ -70,6 +73,13 @@ private:
     std::vector<uint32_t> pendingDestroys_;     // 待销毁（同上）
     std::deque<RetiredTexture> retired_;        // 退役中：帧距未满不释放（仅渲染线程）
     std::atomic<uint32_t> nextId_{1};           // id 分配（UI 线程无锁递增）
+
+    // ── 上传回执（渲染线程在 drainResources 写入，UI 线程执行 query）──
+    // 查询即摘除。渲染线程不入 textures_ 的失败 id 也在此留痕，调用方
+    // 得以复用源像素重新入队（此前失败 id 凭空落地、源像素已被释放——
+    // 永久白块不可重试的根源）
+    std::vector<uint32_t> landedIds_;     // 创建成功回执（源像素可释放）
+    std::vector<uint32_t> failedCreates_; // 创建失败回执（调用方重试）
 
     /** @brief 设备端创建+上传（drain 内执行，id 由入队时预分配）
      *         @return id 成功；0 失败（id 作废，drawImage 查不到即跳过） */

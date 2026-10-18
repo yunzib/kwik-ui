@@ -26,6 +26,8 @@ void ImageRenderer::destroy() {
         std::lock_guard<std::mutex> lock(jobsMutex_);
         pendingCreates_.clear();
         pendingDestroys_.clear();
+        landedIds_.clear();     // 17 号：上传回执一并清场
+        failedCreates_.clear();
     }
     for (auto &r : retired_) freeTexture(r.tex);
     retired_.clear();
@@ -349,6 +351,22 @@ void ImageRenderer::enqueueDestroy(uint32_t id) {
     pendingDestroys_.push_back(id);
 }
 
+// ================================================================
+// queryUploadResult — 查询某 id 的异步上传结果（UI 线程；查询即摘除）
+// ================================================================
+int ImageRenderer::queryUploadResult(uint32_t id) {
+    std::lock_guard<std::mutex> lock(jobsMutex_);
+    if (auto it = std::find(failedCreates_.begin(), failedCreates_.end(), id); it != failedCreates_.end()) {
+        failedCreates_.erase(it);
+        return 2;
+    }
+    if (auto it = std::find(landedIds_.begin(), landedIds_.end(), id); it != landedIds_.end()) {
+        landedIds_.erase(it);
+        return 1;
+    }
+    return 0;    // 在途：渲染线程尚未 drain 或无回执
+}
+
 void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     // ① 交接挂起作业（锁内只做 swap，执行段无锁）
     std::vector<PendingCreate> creates;
@@ -358,9 +376,33 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
         creates.swap(pendingCreates_);
         destroys.swap(pendingDestroys_);
     }
-    // ② 执行创建：设备上传（渲染线程串行，队列不再与 UI 线程并发）
-    for (auto &c : creates) {
-        createTextureWithId(dc, c.id, c.pixels.data(), c.width, c.height);    // 失败：id 不落地，draw 跳过
+    // ② 执行创建：设备上传（渲染线程串行，队列不再与 UI 线程并发）。
+    // 17 号：成败均录回执——成功 id 供调用方确认落地后释放源像素；
+    // 失败 id 供调用方置 0 重试（此前失败 id 不入 textures_ 对上层不可见）
+    {
+        std::vector<uint32_t> landed, failed;
+        for (auto &c : creates) {
+            if (createTextureWithId(dc, c.id, c.pixels.data(), c.width, c.height) != 0) {
+                landed.push_back(c.id);
+            } else {
+                failed.push_back(c.id);
+            }
+        }
+        if (!landed.empty() || !failed.empty()) {
+            std::lock_guard<std::mutex> lock(jobsMutex_);
+            // 回执堆积上限：调用方永不领取的回执（上传途中图被销毁等）
+            // 按 FIFO 截断，防长期运行无限增长
+            constexpr size_t kMaxReceipts = 4096;
+            if (landedIds_.size() + landed.size() > kMaxReceipts) {
+                landedIds_.erase(landedIds_.begin(), landedIds_.begin() + static_cast<long>(landedIds_.size() / 2));
+            }
+            if (failedCreates_.size() + failed.size() > kMaxReceipts) {
+                failedCreates_.erase(failedCreates_.begin(),
+                                     failedCreates_.begin() + static_cast<long>(failedCreates_.size() / 2));
+            }
+            landedIds_.insert(landedIds_.end(), landed.begin(), landed.end());
+            failedCreates_.insert(failedCreates_.end(), failed.begin(), failed.end());
+        }
     }
     // ③ 执行销毁：移入 retire 队列——被销毁纹理的 descSet/sampler 可能仍被
     //    在飞帧（≤ frameNo-1）的命令缓冲引用，立即释放违规；退役纹理在

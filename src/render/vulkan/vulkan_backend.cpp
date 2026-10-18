@@ -214,6 +214,15 @@ uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t w, uint
     return image_.enqueueTexture(rgba, w, h);    // 通道入队，渲染线程帧首上传
 }
 
+// 17 号：异步上传回执查询（UI 线程轮询；查询即摘除该 id 回执，0=在途 1=落地 2=失败）
+RenderBackend::TextureUploadStatus VulkanBackend::imageTextureResult(uint32_t id) {
+    switch (image_.queryUploadResult(id)) {
+    case 1: return RenderBackend::TextureUploadStatus::Landed;
+    case 2: return RenderBackend::TextureUploadStatus::Failed;
+    default: return RenderBackend::TextureUploadStatus::Pending;
+    }
+}
+
 void VulkanBackend::destroyImageTexture(uint32_t id) {
     image_.enqueueDestroy(id);    // 通道入队，渲染线程延迟释放（不阻塞 UI 线程）
 }

@@ -52,8 +52,15 @@ private:
     bool loaded_ = false;
     std::string errorMsg_;
     uint32_t textureId_ = 0;    // GPU 纹理句柄 (0=未上传)
+    bool uploadConfirmed_ = false;    // 17 号：当前 id 已确认落地（落地才释放 pixels_，失败重试需源数据）
+    int uploadRetries_ = 0;           // 17 号：异步上传失败重试计数（超限弃传，防每帧刷写）
+    bool errorPending_ = false;       // 17 号：装载失败待报（构造期 onError 槽未接线时挂起，首帧补发）
+    static constexpr int kMaxUploadRetries = 3;
     void loadImage();
     void loadFromFile(const std::string &path);
     void loadFromBuffer();
     void loadFromSvg(const std::string &path);    // SVG 矢量解码 (nanosvg)
+    void confirmUpload();    // 17 号：拉取异步上传回执（落地释放像素 / 失败重试或弃传）
+    void failUpload(const std::string &msg);    // 17 号：上传终态失败收场（弃传 + 置白 + onError）
+    void fireError();    // 17 号：onError 出口（槽未接线时转挂起，接线后首帧补发一次）
 };

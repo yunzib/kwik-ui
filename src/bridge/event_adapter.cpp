@@ -290,6 +290,13 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         view.handlers.onBlur = [ctx, h]() { callJs0(ctx, h, "onBlur"); };
     }
 
+    // ── onError (资源失败上报, 参数 = 错误描述字符串; Image 装载/上传失败) ──
+    if (auto h = dupHandler(ctx, props, "onError")) {
+        view.handlers.onError = [ctx, h](std::string msg) {
+            callJs1(ctx, h, JS_NewString(ctx, msg.c_str()), "onError");
+        };
+    }
+
     // ── onMount / onUnmount (通用生命周期, 无参) ──
     // onMount: 树构建完成后由 ElementParser::firePendingMounts 触发（仅新建节点）
     // onUnmount: reconcile 拆除路径在析构前触发；HMR 整树重建不触发

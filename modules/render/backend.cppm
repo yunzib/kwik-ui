@@ -123,6 +123,27 @@ public:
     virtual void destroyImageTexture(uint32_t id) = 0;
 
     /**
+     * @brief 图像纹理异步上传回执状态（UI 线程查询用，资源通道）
+     */
+    enum class TextureUploadStatus {
+        Pending,    ///< 在途（已入队，渲染线程尚未处理或无回执）
+        Landed,     ///< 已落地（纹理已可绘制，源像素可释放）
+        Failed,     ///< 上传失败（id 作废，需调用方复用源像素重新入队）
+    };
+
+    /**
+     * @brief 查询某 id 的异步上传结果（UI 线程轮询，资源通道回执）
+     *
+     * 命中即摘除：同一 id 的终态回执只被领取一次，重复查询退化为 Pending
+     * （调用方应自己记住终态）。默认 Landed——同步创建的后端没有异步回执
+     * 通道，createImageTexture 返回非零即已上传完成。
+     */
+    virtual TextureUploadStatus imageTextureResult(uint32_t id) {
+        (void)id;
+        return TextureUploadStatus::Landed;
+    }
+
+    /**
      * @brief 推入圆角矩形裁剪（局部坐标 + 矩阵，stencil 掩码旋转裁剪；clipRect 为物理 AABB 供 scissor）
      */
     virtual void pushClipRoundedRect(const Rect &rect, float radius, const Transform2D &t, const Rect &clipRect) = 0;

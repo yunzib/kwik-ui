@@ -49,6 +49,7 @@ public:
     void drawImage(const DrawImageCmd &cmd) override;
     uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
     void destroyImageTexture(uint32_t id) override;
+    RenderBackend::TextureUploadStatus imageTextureResult(uint32_t id) override;
     void pushClipRoundedRect(const Rect &rect, float radius, const Transform2D &t, const Rect &clipRect) override;
     void popState() override;
     BackendType getType() const override { return BackendType::Vulkan; }

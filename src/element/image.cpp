@@ -39,10 +39,21 @@ bool isSvgExtension(const std::string &path) {
 // loadImage — 根据来源类型分派加载
 // ============================================================================
 void Image::loadImage() {
+    errorMsg_.clear();    // 失败重装载：清除上一轮错误，防过期误报
     switch (imageProps_.source) {
     case ImageSource::File: loadFromFile(imageProps_.src); break;
     case ImageSource::Buffer: loadFromBuffer(); break;
     case ImageSource::Url: errorMsg_ = "URL image source not yet implemented"; break;
+    }
+    if (!errorMsg_.empty()) fireError();    // 17 并批②：装载失败 → onError 出口
+}
+void Image::fireError() {
+    if (errorMsg_.empty()) return;
+    if (handlers.onError) {
+        handlers.onError(errorMsg_);
+        errorPending_ = false;
+    } else {
+        errorPending_ = true;    // 构造期槽未接线（attachJsHandlers 在构造后）——首帧补发
     }
 }
 // ============================================================================
@@ -65,7 +76,19 @@ void Image::applyImageProps(ImageProps ip) {
         }
     }
     imageProps_ = std::move(ip);
-    if (reload) loadImage();
+    if (reload) {
+        // 17 并批①：内容更换须换纹——旧 textureId_ 不入队销毁并复位的话，
+        // onDraw 的 textureId_ 非零守卫使新解码像素永不入队，画面永久停在旧图。
+        // destroyTexture 走延迟释放通道（在飞帧引用安全），UI 线程不等待
+        if (textureId_ != 0) {
+            TextureManager::instance().destroyTexture(
+                static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
+            textureId_ = 0;
+        }
+        uploadConfirmed_ = false;
+        uploadRetries_ = 0;
+        loadImage();
+    }
 }
 // ============================================================================
 // loadFromFile — 扩展名分派: .svg → nanosvg, 其余 → stb_image
@@ -167,9 +190,16 @@ Size Image::onMeasure(Constraints constraints) {
 // ============================================================================
 void Image::onDraw(Graphics &graphics) {
     View::onDraw(graphics);  // ← 绘制 background / shadow / border
+    if (errorPending_ && handlers.onError) {
+        // 17 并批②：构造期装载失败的挂起错误在此补发（槽构造后才接线）
+        errorPending_ = false;
+        handlers.onError(errorMsg_);
+    }
     if (!loaded_) return;
-    // 兜底延迟上传 (若 preloadImageTextures 未覆盖)
-    if (textureId_ == 0 && !pixels_.empty()) uploadTexture();
+    // 兜底延迟上传 (若 preloadImageTextures 未覆盖)；17 号：上传失败复位后
+    // 由 textureId_==0 同一入口重试（源像素于确认落地前保留）
+    if (textureId_ == 0) uploadTexture();
+    else confirmUpload();    // 异步上传回执：落地释放像素；失败重试或弃传
     if (textureId_ == 0) return;
     float opacity = imageProps_.imageOpacity * props.opacity;
     graphics.drawImage(textureId_, frame, opacity, props.borderRadius);
@@ -189,6 +219,10 @@ Image::~Image() {
 // ============================================================================
 // uploadTexture — 经资源通道入队纹理创建（任意时机线程安全；GPU 上传由
 // 渲染线程帧首批量执行，返回的 id 立即可用于绘制引用）
+//
+// 17 号：入队后源像素保留至落地回执确认（失败重试需源数据）——
+// 原实现入队即 clear：渲染线程上传失败 id 永不入 textures_（对上层
+// 不可见），且源像素已丢 → 永久白块不可重试。
 // ============================================================================
 void Image::uploadTexture() {
     if (textureId_ != 0 || pixels_.empty()) return;
@@ -196,6 +230,52 @@ void Image::uploadTexture() {
         static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)),
         pixels_.data(), static_cast<uint32_t>(decodedWidth_),
                                                           static_cast<uint32_t>(decodedHeight_));
+    if (textureId_ == 0) {
+        auto *backend = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
+        if (!backend) return;    // 服务槽未接线（早于 runtime 接线的首帧）——留待后续帧重试
+        // 同步拒收：未注册域 / 尺寸非法——重试无意义，弃传报错（并批② 出口）
+        failUpload("texture creation rejected (backend domain or invalid size)");
+        return;
+    }
+    // 异步通道已入队：像素保留，confirmUpload 收回执
+}
+
+// ============================================================================
+// confirmUpload — 拉取异步上传回执（每帧 onDraw 于 textureId_ 非零时调用）
+//   Landed → 置落地标记 + 释放源像素（上传成功后源数据使命完成）
+//   Failed → textureId_ 复位 0，下一帧重新入队重试；超限弃传（防超大纹理
+//            等永久性失败每帧刷写渲染线程）
+//   Pending → 在途，继续等
+// ============================================================================
+void Image::confirmUpload() {
+    if (textureId_ == 0 || uploadConfirmed_) return;
+    auto st = TextureManager::instance().pollTextureResult(
+        static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
+    switch (st) {
+    case RenderBackend::TextureUploadStatus::Landed:
+        uploadConfirmed_ = true;
+        pixels_.clear();
+        pixels_.shrink_to_fit();
+        break;
+    case RenderBackend::TextureUploadStatus::Failed:
+        textureId_ = 0;
+        if (++uploadRetries_ > kMaxUploadRetries) {
+            failUpload("GPU texture upload failed after retries");
+        }
+        break;
+    case RenderBackend::TextureUploadStatus::Pending:
+        break;
+    }
+}
+
+// ============================================================================
+// failUpload — 上传终态失败收场：textureId_ 复位 + 错误置底 + onError（一次）
+// pixels_ 一并释放（弃传后源数据再无用途；用户换 src 重装载时按需重建）
+// ============================================================================
+void Image::failUpload(const std::string &msg) {
+    textureId_ = 0;
+    errorMsg_ = msg;
+    if (handlers.onError) handlers.onError(msg);
     pixels_.clear();
     pixels_.shrink_to_fit();
 }
