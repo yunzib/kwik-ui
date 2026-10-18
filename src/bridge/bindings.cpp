@@ -16,6 +16,7 @@ import kwik.engine.js_value;    // JSValueRef（定时器/rAF 回调托管）
 import kwik.animation.engine;
 import kwik.engine.vm_callbacks;
 import kwik.element.view;       // View
+import kwik.element.clipboard_service;    // ClipboardService（setClipboardText 出口）
 import kwik.core.types;         // TypedProp
 import kwik.animation.easing;   // parseEasing
 import kwik.animation.animator; // AnimationTarget
@@ -31,7 +32,7 @@ import kwik.bridge.element_spec;
 import kwik.bridge.g2d;
 import kwik.platform.window;        // PlatformWindow（getWindowSize/getViewport 查询面）
 import kwik.render.render_thread;   // RenderThread（frameStats 帧统计出口）
-import kwik.bridge.binding_registry;    // getRegisteredWindow/getRegisteredFrameStats（运行期静态钩）
+import kwik.bridge.binding_registry;    // getRegisteredWindow/getRegisteredFrameStats/getRegisteredClipboard（运行期静态钩）
 
 import std;
 
@@ -1315,6 +1316,20 @@ static JSValue js_getViewport(JSContext *ctx, JSValueConst this_val, int argc, J
     return obj;
 }
 
+// ── 剪贴板出口（复制代码卡等 JS 场景）──
+// 服务由 KwikRuntime::init 挂上（teardown 清）；未挂（headless/极早期）
+// 返回 false，调用方自行处理失败面。
+static JSValue js_setClipboardText(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 1 || !JS_IsString(argv[0])) return JS_FALSE;
+    size_t len = 0;
+    const char *text = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!text) return JS_FALSE;
+    auto *svc = static_cast<ClipboardService *>(getRegisteredClipboard());
+    bool ok = svc && svc->setText(std::string(text, len));
+    JS_FreeCString(ctx, text);
+    return ok ? JS_TRUE : JS_FALSE;
+}
+
 // ── 帧统计出口（性能打点：EMA 帧毫秒/帧数/掉帧/键入→渲染提交延迟）──
 // 统计源由 KwikRuntime::init 挂上（teardown 清）；未挂（headless/极早期）
 // 返回 undefined，调用方自行回退。
@@ -1393,6 +1408,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("getWindowSize", 0, js_getWindowSize),
         JS_CFUNC_DEF("getViewport", 0, js_getViewport),
         JS_CFUNC_DEF("frameStats", 0, js_frameStats),
+        JS_CFUNC_DEF("setClipboardText", 1, js_setClipboardText),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

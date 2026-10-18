@@ -2,6 +2,13 @@
 
 # 0.0.0 — 2026-10-18
 ### 新增
+- 剪贴板 JS 出口 kwikui.setClipboardText(text)→bool：ClipboardService 树
+  服务槽经运行期静态钩暴露 QuickJS（init 挂 / teardown 清 / 重根幂等
+  重挂，frameStats 同模式；未接线返回 false 自兜底），docsite 代码卡
+  复制钮即用例
+- docsite 示例代码卡重做：复制/展开收起双钮（复制态即时翻转、收起只
+  留标题条），卡片态模块级缓存跨重建复用；正文按源文本逐行 Text 渲染
+  保真源格式（行数缩进严格等源、空行占位、恒定行高）
 - 文档手册重构
 - 窗口缩放响应式重排：客户区逻辑尺寸（设计稿 px）由平台窗口出口
   GetSize 动态跟随窗口（物理 ÷ 屏固有系数 S₀），不再取 Create 冻结的

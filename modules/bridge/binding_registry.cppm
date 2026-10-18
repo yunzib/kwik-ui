@@ -123,6 +123,16 @@ export void *getRegisteredWindow();
 export void setRegisteredFrameStats(void *source);
 export void *getRegisteredFrameStats();
 
+/**
+ * @brief 运行期剪贴板服务钩 — JS 剪贴板出口（setClipboardText）的 C++ 侧来源
+ *
+ * KwikRuntime::init 时挂本树的 ClipboardService（RuntimeClipboardService
+ * 适配窗钩），teardown 时清、重根幂等重挂。指针以 void* 传递（避免桥面
+ * 模块依赖元素层：查询方自行转型解引用）。
+ */
+export void setRegisteredClipboard(void *svc);
+export void *getRegisteredClipboard();
+
 // ============================================================================
 // 工具函数 — JSValue → TypedProp 按类型转换
 // ============================================================================

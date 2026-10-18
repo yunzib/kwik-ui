@@ -57,6 +57,14 @@ void setRegisteredFrameStats(void *source) { s_registeredFrameStats = source; }
 
 void *getRegisteredFrameStats() { return s_registeredFrameStats; }
 
+// ── 运行期剪贴板服务钩（JS setClipboardText 的 C++ 侧来源；void* 让桥面
+//    与元素层解耦，使用方转型 ClipboardService）──
+static void *s_registeredClipboard = nullptr;
+
+void setRegisteredClipboard(void *svc) { s_registeredClipboard = svc; }
+
+void *getRegisteredClipboard() { return s_registeredClipboard; }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // jsValueToTypedProp — JSValue → TypedProp 按类型转换
 //

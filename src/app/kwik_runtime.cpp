@@ -149,6 +149,7 @@ void KwikRuntime::teardownJsBoundRuntime() {
     bindingRegistry_.clear();
     setRegisteredWindow(nullptr);    // JS 视口查询面同步离场（窗口归属本运行时）
     setRegisteredFrameStats(nullptr);    // JS 帧统计出口同步离场
+    setRegisteredClipboard(nullptr);    // JS 剪贴板出口同步离场
 }
 
 // ============================================================================
@@ -235,6 +236,7 @@ bool KwikRuntime::init() {
     setRegisteredRegistry(&bindingRegistry_);
     setRegisteredWindow(&window_);    // JS 视口查询面（getWindowSize/getViewport）
     setRegisteredFrameStats(&renderThread_);    // JS 帧统计出口（frameStats）
+    setRegisteredClipboard(clipSvc_.get());    // JS 剪贴板出口（setClipboardText，树服务槽适配器）
 
     // ⑥ 解析 View 树
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
@@ -641,6 +643,7 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     setRegisteredRegistry(&bindingRegistry_);
     setRegisteredWindow(&window_);    // 幂等重挂（JS 视口查询面）
     setRegisteredFrameStats(&renderThread_);    // 幂等重挂（JS 帧统计出口）
+    setRegisteredClipboard(clipSvc_.get());    // 幂等重挂（JS 剪贴板出口）
 
     // 解析 View 树（旧树已销毁，用 parse 而非 reconcile）
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
