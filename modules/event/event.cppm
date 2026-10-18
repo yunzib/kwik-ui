@@ -261,6 +261,18 @@ public:
     virtual bool scrollable() const { return false; }
 
     /**
+     * @brief 深层后代消费 Tap 后的状态同步通知（非冒泡）
+     * @param descendant 消费 Tap 的后代目标
+     *
+     * 分发器在最深目标消费 Tap 后沿祖先链逐层调用（默认空实现）。
+     * 与冒泡的区别：后代已声明消费（祖先不应再触发自身 Tap 处理），
+     * 仅用于祖先容器的状态同步旁路——RadioGroup 覆写以在子项
+     * RadioButton 消费 Tap 后同步组选中值（此前依赖子项 Tap 冒泡，
+     * 消费语义收紧后改由此钩子接续）。
+     */
+    virtual void onDescendantTapConsumed(EventTarget *descendant) { (void)descendant; }
+
+    /**
      * @brief 应用滚动
      * @param dx 水平偏移量
      * @param dy 垂直偏移量

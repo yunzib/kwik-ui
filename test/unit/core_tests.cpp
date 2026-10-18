@@ -25,6 +25,9 @@ import kwik.element.table_data_source;
 import kwik.element.dropdown;    // Dropdown（菜单视口翻转行为锁）
 import kwik.element.line;        // Line（重排请求行为锁）
 import kwik.element.progressring;
+import kwik.element.checkbox;    // Tap 消费行为锁
+import kwik.element.radiobutton;
+import kwik.layout.radio_group;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.textarea;
@@ -1521,6 +1524,78 @@ static void test_line_relayout_and_ring_string_prop() {
     CHECK(ring2.getProperty("trackThickness") == std::to_string(6.0));
 }
 
+// ── 行为锁: Checkbox/RadioButton Tap 消费 + RadioGroup 消费通知同步（21③）──
+// 此前子项改状态后返回 false 继续冒泡：点一下 Checkbox/RadioButton，祖先
+// 容器 onClick 被连带触发（双触发）；RadioGroup 又依赖子项冒泡更新 selected，
+// 不能简单让子项返 true——现为"子项消费 + 分发器沿祖先链调
+// onDescendantTapConsumed 通知"（RadioGroup 覆写同步选中，祖先不再触发）。
+static void test_tap_consume_and_group_sync() {
+    // 树: View(onClick 计数) > RadioGroup > RadioButton×2，radio layout 到可命中区
+    View card;
+    int cardClicks = 0;
+    card.handlers.onClick = [&cardClicks](const PointerArgs &) {
+        ++cardClicks;
+        return true;
+    };
+    auto group = std::make_unique<RadioGroup>(ViewProps{}, RadioGroupProps{});
+    RadioGroup *grp = group.get();
+    RadioButtonProps rp1;
+    rp1.value = "a";
+    rp1.group = "sz";    // 同组互斥按 group 名（真实解析路径同源）
+    auto rb1 = std::make_unique<RadioButton>(ViewProps{}, TextContent{}, rp1);
+    RadioButtonProps rp2;
+    rp2.value = "b";
+    rp2.group = "sz";
+    auto rb2 = std::make_unique<RadioButton>(ViewProps{}, TextContent{}, rp2);
+    RadioButton *r1 = rb1.get();
+    RadioButton *r2 = rb2.get();
+    group->addChild(std::move(rb1));
+    group->addChild(std::move(rb2));
+    card.addChild(std::move(group));
+    card.layout(Rect{0, 0, 200, 100});
+    r1->layout(Rect{5, 5, 90, 40});
+    r2->layout(Rect{5, 55, 90, 40});
+
+    // feed 左键 Down+Up 于 rb1 → Tap：rb1 选中 + 组 selected 同步 + 祖先 onClick 零触发
+    EventRouter router;
+    router.setRootTarget(&card);
+    feedB(router, RawEvent::Action::Down, 50, 25, 0);
+    feedB(router, RawEvent::Action::Up, 50, 25, 0);
+    CHECK(r1->getProperty("checked") == "true");
+    CHECK(grp->getProperty("selected") == "a");    // 消费通知路径同步组选中
+    CHECK(cardClicks == 0);                        // 双触发根除（修复前 1）
+
+    // 点击已选中项：保持选中（radio 语义）且仍消费
+    feedB(router, RawEvent::Action::Down, 50, 25, 0);
+    feedB(router, RawEvent::Action::Up, 50, 25, 0);
+    CHECK(grp->getProperty("selected") == "a");
+    CHECK(cardClicks == 0);
+
+    // 切到 rb2：组 selected 跟随
+    feedB(router, RawEvent::Action::Down, 50, 75, 0);
+    feedB(router, RawEvent::Action::Up, 50, 75, 0);
+    CHECK(grp->getProperty("selected") == "b");
+
+    // Checkbox 同款：祖先 onClick 零触发 + 自身翻转
+    View card2;
+    int card2Clicks = 0;
+    card2.handlers.onClick = [&card2Clicks](const PointerArgs &) {
+        ++card2Clicks;
+        return true;
+    };
+    auto cb = std::make_unique<Checkbox>(ViewProps{}, TextContent{}, CheckboxProps{});
+    Checkbox *cbRaw = cb.get();
+    card2.addChild(std::move(cb));
+    card2.layout(Rect{0, 0, 200, 50});
+    cbRaw->layout(Rect{5, 5, 190, 40});
+    EventRouter router2;
+    router2.setRootTarget(&card2);
+    feedB(router2, RawEvent::Action::Down, 50, 25, 0);
+    feedB(router2, RawEvent::Action::Up, 50, 25, 0);
+    CHECK(cbRaw->getProperty("checked") == "true");
+    CHECK(card2Clicks == 0);    // 双触发根除（修复前 1）
+}
+
 static void test_right_button_dispatch() {
     // ① 路由层：button 透传 + 右/中键不产 Tap + ContextMenu 合成
     EventRouter router;
@@ -1671,6 +1746,7 @@ int main() {
     test_table_measure_and_hit();
     test_dropdown_viewport_flip();
     test_line_relayout_and_ring_string_prop();
+    test_tap_consume_and_group_sync();
     test_clipboard_wire();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();

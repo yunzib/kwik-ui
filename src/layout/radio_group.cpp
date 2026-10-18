@@ -32,35 +32,42 @@ void RadioGroup::onLayout() {
 }
 
 // ============================================================================
-// onEvent — Tap 冒泡时更新选中值 + 自动更新绑定 + 触发 onChange
+// onEvent / onDescendantTapConsumed — 子项点击后同步组选中
 //
-// 事件流: Tap → 子 RadioButton::onEvent (切换自身 checked)
-//         → 冒泡至 RadioGroup::onEvent (更新 selected)
+// 事件流（子项消费语义收紧后）: Tap → 子 RadioButton::onEvent 消费（切自身
+// checked + onChange，返回 true 不冒泡）→ 分发器沿祖先链调
+// onDescendantTapConsumed → 本组扫子项 checked 更新 selected。
+// onEvent 的 Tap 分支保留：事件直接命中组自身（手写 dispatch 等）时的
+// 防御路径，两入口共用 syncSelectedFromChildren。
 // ============================================================================
-bool RadioGroup::onEvent(const DispatchEvent &event) {
-    if (event.type == DispatchEvent::Type::Tap) {
-        std::string newSelected;
-        for (auto &child : children) {
-            if (child->type() != ElementType::RadioButton) continue;
-            if (child->getProperty("checked") == "true") {
-                newSelected = child->getProperty("value");
-                break;
-            }
-        }
-
-        if (!newSelected.empty() && newSelected != group_.selected) {
-            group_.selected = newSelected;
-            markDirty();
-
-            // ① 双向绑定：自动更新 State
-            if (binding_) {
-                binding_->setString(bindKey_, group_.selected);
-            }
-
-            // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { value: string }
-            if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{group_.selected}}); }
+void RadioGroup::syncSelectedFromChildren() {
+    std::string newSelected;
+    for (auto &child : children) {
+        if (child->type() != ElementType::RadioButton) continue;
+        if (child->getProperty("checked") == "true") {
+            newSelected = child->getProperty("value");
+            break;
         }
     }
+
+    if (!newSelected.empty() && newSelected != group_.selected) {
+        group_.selected = newSelected;
+        markDirty();
+
+        // ① 双向绑定：自动更新 State
+        if (binding_) {
+            binding_->setString(bindKey_, group_.selected);
+        }
+
+        // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { value: string }
+        if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{group_.selected}}); }
+    }
+}
+
+void RadioGroup::onDescendantTapConsumed(EventTarget * /*descendant*/) { syncSelectedFromChildren(); }
+
+bool RadioGroup::onEvent(const DispatchEvent &event) {
+    if (event.type == DispatchEvent::Type::Tap) { syncSelectedFromChildren(); }
     return View::onEvent(event);
 }
 

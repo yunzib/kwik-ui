@@ -86,6 +86,9 @@ bool RadioButton::onEvent(const DispatchEvent &event) {
                 handlers.onChange(ChangeArgs{TypedProp{radio_.checked}});
             }
         }
+        // 已消费不冒泡（祖先 onClick 不再双触发）；所属 RadioGroup 经
+        // onDescendantTapConsumed 通知同步组选中（不再依赖 Tap 冒泡）
+        return true;
     }
     return View::onEvent(event);
 }

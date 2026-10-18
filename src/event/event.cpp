@@ -450,7 +450,16 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
 
     // ── 阶段①: 预设目标 (HoverEnter / HoverLeave) ──
     if (event.presetTarget) {
-        if (fireOnTarget(event.presetTarget, event)) { return true; }
+        if (fireOnTarget(event.presetTarget, event)) {
+            // Tap 被最深目标消费 → 祖先链状态同步通知（非冒泡：祖先不再
+            // 触发自身 Tap 处理；RadioGroup 等容器经此同步派生状态）
+            if (event.type == DispatchEvent::Type::Tap) {
+                for (EventTarget *v = event.presetTarget->parent(); v; v = v->parent()) {
+                    v->onDescendantTapConsumed(event.presetTarget);
+                }
+            }
+            return true;
+        }
         // 点击类手势(Tap/LongPress): 最深目标未消费 → 沿祖先链冒泡
         if (event.type == DispatchEvent::Type::Tap || event.type == DispatchEvent::Type::LongPress) {
             for (EventTarget *v = event.presetTarget->parent(); v; v = v->parent()) {

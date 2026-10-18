@@ -65,7 +65,14 @@ public:
 protected:
     void onLayout() override;
     bool onEvent(const DispatchEvent &event) override;
+    /** 子 RadioButton 消费 Tap 后的状态同步（此前依赖子项 Tap 冒泡到本组，
+     *  子项消费语义收紧后改经分发器的消费通知钩子接续） */
+    void onDescendantTapConsumed(EventTarget *descendant) override;
 
 private:
+    /** 扫子 RadioButton 的 checked → 更新 selected + 绑定 + onChange
+     *  （onEvent Tap 防御路径与 onDescendantTapConsumed 共用） */
+    void syncSelectedFromChildren();
+
     RadioGroupProps group_;
 };

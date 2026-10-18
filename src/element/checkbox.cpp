@@ -83,6 +83,9 @@ bool Checkbox::onEvent(const DispatchEvent &event) {
 
         // ② 显式 onChange 回调（向下兼容）, JS 侧收到 { checked: bool }
         if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{check_.checked}}); }
+        // 状态已切换 = 已消费：不再冒泡（此前返回 false，祖先容器 onClick
+        // 被连带触发——点一下 Checkbox 祖先 Tap 双触发）
+        return true;
     }
     return View::onEvent(event);
 }
