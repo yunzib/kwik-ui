@@ -81,6 +81,10 @@ if(KWIK_BUILD_EXAMPLES)
     )
     add_test(NAME js_tests COMMAND kwik_js_tests)
 
+    # shaper_probe — 诊断探针（不入测试集）：TextShaper 对 \n / \r\n 塑形实况
+    add_executable(shaper_probe unit/shaper_probe.cpp)
+    target_link_libraries(shaper_probe PRIVATE kwik_render kwik_core)
+
      # vk_smoke — 裸 Vulkan 内存冒烟测试（诊断工具, 不链接 kwik, 仅 Win32）
     if(WIN32)
         add_executable(vk_smoke ${CMAKE_CURRENT_SOURCE_DIR}/vk_smoke.cpp)

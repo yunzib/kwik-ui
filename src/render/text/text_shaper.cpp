@@ -124,19 +124,29 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         const float yOff = static_cast<float>(glyphPos[i].y_offset) / 64.0f;
         const float xAdv = static_cast<float>(glyphPos[i].x_advance) / 64.0f;
 
-        // ── \n 换行符检测 ──────────────────────────────────
-        if (gid == 0 && glyphInfo[i].cluster < UINT32_MAX) {
+        // ── \n / \r 换行符检测（按源码点判定，不看 gid）────────────
+        // 旧实现门槛是 gid==0（假定字体把 LF 映射为 notdef / 丢弃字形）——
+        // 实测 NotoSansSC（本仓库唯一内置字体）把 U+000A/U+000D 都映射成
+        // 非 notdef 的空字形（gid 1，走行 ~3.6px），旧门槛永不命中，
+        // isNewline 全军覆没：单 Text 多行文本塌成一段软断行段落。
+        // cluster 始终还原源码点，按它判定对任意 cmap 映射都成立。
+        //
+        //   \n → 发 isNewline 标记字形（advance 0，渲染管线跳过、不占宽）
+        //   \r → 直接吞掉（CRLF 由随后的 \n 断行；孤立 CR 无渲染语义，
+        //        旧实现里它是带步进的空字形，白白占横向空间）
+        if (glyphInfo[i].cluster < UINT32_MAX) {
             uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
-            if (cp == '\n') {
-                ShapedGlyph sg;
-                sg.fontId = fontId;
-                sg.cluster = glyphInfo[i].cluster;
-                sg.numBytes = 1;    // \n 恒 1 字节
-                sg.fontSize = fontSize;    // 空行行高按标准行高算，须携带字号
-                sg.isNewline = true;
-                sg.advanceX = 0;
-                result.push_back(sg);
-                cursorX += xAdv;
+            if (cp == '\n' || cp == '\r') {
+                if (cp == '\n') {
+                    ShapedGlyph sg;
+                    sg.fontId = fontId;
+                    sg.cluster = glyphInfo[i].cluster;
+                    sg.numBytes = 1;    // \n 恒 1 字节
+                    sg.fontSize = fontSize;    // 空行行高按标准行高算，须携带字号
+                    sg.isNewline = true;
+                    sg.advanceX = 0;
+                    result.push_back(sg);
+                }
                 continue;
             }
         }
