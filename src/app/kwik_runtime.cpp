@@ -705,9 +705,12 @@ float KwikRuntime::renderScale() {
 }
 
 Size KwikRuntime::layoutSize() {
-    // 布局空间恒为设计稿坐标系（px=设计稿像素）
+    // 布局空间=设计稿坐标系（px=设计稿像素）。客户区逻辑尺寸由平台窗口
+    // 出口 GetSize（物理 ÷ 屏固有系数 S₀）动态跟随窗口：resize → 逻辑
+    // 尺寸伸缩 → 树真正重排（响应式核心）。旧实现取 Create 冻结的
+    // designWidth_，resize 后布局/事件载荷恒为初始值 → 内容锚定旧尺寸不跟窗
     int dw, dh;
-    window_.GetDesignSize(&dw, &dh);
+    window_.GetSize(&dw, &dh);
     return Size{static_cast<float>(dw), static_cast<float>(dh)};
 }
 

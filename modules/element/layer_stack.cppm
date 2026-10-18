@@ -60,7 +60,14 @@ public:
 
     // ── EventTarget 实现（事件路由根）──
     EventTarget *hitTest(Point point) override;
-    bool onEvent(const DispatchEvent &event) override { return false; }
+    /** WindowResize 根直投转发：全局视口事实 → base 树根（RootView 声明
+     *  onWindowResize 的唯一落点）。指针/手势类事件不经此函数——走 hitTest
+     *  穿透（阶段③自行寻目标）；焦点走 FocusManager presetTarget 直投。
+     *  浮层不转发——浮层根生命周期由弹层自管，且窗口尺寸事实以 base 为准 */
+    bool onEvent(const DispatchEvent &event) override {
+        if (event.type == DispatchEvent::Type::WindowResize && base_) { return base_->onEvent(event); }
+        return false;
+    }
     EventTarget *parent() const override { return nullptr; }
 
     /** H6 ESC 显式查询：图层顶→底逐层下探（四类浮层组件均注册为图层），

@@ -93,7 +93,10 @@ public:
     virtual void Hide() = 0;
 
     /**
-     * @brief 获取窗口大小
+     * @brief 获取窗口客户区逻辑尺寸（设计稿 px）
+     *
+     * 随窗口缩放动态变化的"当前设计稿尺寸"：物理客户区 ÷ 屏固有系数 S₀。
+     * JS 布局坐标系与 getWindowSize 查询、onWindowResize 载荷均经此对齐
      */
     virtual void GetSize(int *width, int *height) const = 0;
 

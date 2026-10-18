@@ -83,7 +83,11 @@ public:
      *         事件，绕过 dispatcher 的 hitTest 路径） */
     void onWindowResize(int width, int height) {
         handleResize(width, height);
-        eventRouter_.feedWindowResize(width, height);
+        // JS 视口感知事件的载荷转设计稿坐标（与 layoutSize 同源）：
+        // 各件均为物理像素，DPI>1 时比布局空间大 scale 倍，直喂会造成
+        // JS 侧尺寸错位（main.js 的 winSize 是布局 px 语义）
+        Size ls = layoutSize();
+        eventRouter_.feedWindowResize(static_cast<int>(ls.width), static_cast<int>(ls.height));
     }
 
     // ═══════════════ 访问器 ═══════════════

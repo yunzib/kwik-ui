@@ -144,8 +144,27 @@ void PlatformWindowWin32::Hide() {
 }
 
 void PlatformWindowWin32::GetSize(int *width, int *height) const {
-    if (width) *width = width_;
-    if (height) *height = height_;
+    // 客户区逻辑尺寸（设计稿 px）：物理客户区 width_/height_ ÷ 屏固有
+    // 系数 S₀（工作区÷基准屏，与 Create/RefitToNearestMonitor 同源，是
+    // client=design×S₀ 的逆运算）。对外唯一消费方 js_getWindowSize 的
+    // 注释契约即逻辑 px；窗口缩放 → 逻辑尺寸动态伸缩（响应式重排依据）。
+    // 物理客户区内部另有 width_/height_ 原值，swapchain 同步不经过此处
+    if (!hwnd_) {
+        if (width) *width = width_;
+        if (height) *height = height_;
+        return;
+    }
+    HMONITOR hMon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi{sizeof(mi)};
+    float s = 1.0f;
+    if (hMon && GetMonitorInfoW(hMon, &mi)) {
+        float sw = float(mi.rcWork.right - mi.rcWork.left) / kBaselineScreenW;
+        float sh = float(mi.rcWork.bottom - mi.rcWork.top) / kBaselineScreenH;
+        s = sw < sh ? sw : sh;
+    }
+    int w = width_ / s, h = height_ / s;    // 静态截断即可：物理客户区本为整数 px，S₀ 误差 <1px 无感
+    if (width) *width = w < 1 ? 1 : w;
+    if (height) *height = h < 1 ? 1 : h;
 }
 
 // ============================================================================
