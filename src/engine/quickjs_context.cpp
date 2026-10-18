@@ -495,7 +495,16 @@ JSModuleDef *QuickJSContext::moduleLoader(JSContext *ctx, const char *module_nam
     if (strcmp(module_name, "kwikui") == 0) return self->kwikuiModule_;
 
     // ③ 文件回退（Debug）
-    std::string filePath = self->baseDir_ + "/" + module_name;
+    // module_name 是 quickjs 按入口模块名归一化的结果：入口相对 cwd 时它
+    // 已是相对 cwd 的完整路径（可含 ../ 段），再拼 baseDir_ 会双层叠加
+    // 错位（多文件模块 main.js import './lang.js' 解析失败根因）——含
+    // 路径分隔符的名字与入口同口径直接打开；裸名仍按 baseDir_ 拼接。
+    std::string filePath;
+    if (std::strchr(module_name, '/') != nullptr || std::strchr(module_name, '\\') != nullptr) {
+        filePath = module_name;
+    } else {
+        filePath = self->baseDir_ + "/" + module_name;
+    }
     std::ifstream file(filePath);
     if (!file.is_open()) {
         filePath += ".js";
