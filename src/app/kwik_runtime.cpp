@@ -148,6 +148,7 @@ void KwikRuntime::teardownJsBoundRuntime() {
     // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）
     bindingRegistry_.clear();
     setRegisteredWindow(nullptr);    // JS 视口查询面同步离场（窗口归属本运行时）
+    setRegisteredFrameStats(nullptr);    // JS 帧统计出口同步离场
 }
 
 // ============================================================================
@@ -233,6 +234,7 @@ bool KwikRuntime::init() {
     // ⑤ 注册增量更新：绑定注册表
     setRegisteredRegistry(&bindingRegistry_);
     setRegisteredWindow(&window_);    // JS 视口查询面（getWindowSize/getViewport）
+    setRegisteredFrameStats(&renderThread_);    // JS 帧统计出口（frameStats）
 
     // ⑥ 解析 View 树
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());
@@ -371,8 +373,12 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->setTreeService(View::kSvcAnimEngine, &animations_);      // 新根重接线
     if (tree_) tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     if (tree_) tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    // 焦点跨展开保留：State 驱动的 reconcile 复用聚焦节点（原位更新），
+    // reset 后按活性恢复——打字触发的连续重渲染不再丢焦点（键入即断）
+    EventTarget *prevFocus = eventRouter_.focusManager().focused();
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
+    if (prevFocus) eventRouter_.focusManager().restoreFocus(prevFocus);
     jsCtx_.clearRenderFlag();
     if (tree_) tree_->markAllDirty();
     jsCtx_.setUserPointer(tree_.get());
@@ -447,6 +453,16 @@ void KwikRuntime::renderFrame() {
     layers_.drawAll(canvas, &dirtyRect_);    // 多图层统一绘制
 
     canvas.endFrame();    // 帧会话关闭 + 平衡校验
+
+    // 键入→渲染提交延迟打点：有键入在途（戳未消费）时记录本次帧提交为
+    // 链路终点。近似口径——同帧若由其他动效触发，延迟含同帧合并的误差；
+    // 超过 500ms 的陈旧戳（键入被丢弃、无渲染跟随）不计
+    if (int64_t stampNs = eventRouter_.consumeInputStampNs(); stampNs > 0) {
+        auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch()).count();
+        double ms = static_cast<double>(nowNs - stampNs) / 1e6;
+        if (ms >= 0.0 && ms < 500.0) renderThread_.updateInputLatency(static_cast<float>(ms));
+    }
 
     // 脏矩形处理：dirtyRect_ 已由 View::draw 中的 accumulateDirtyRect 收集完毕
     Rect dr = dirtyRect_;
@@ -624,6 +640,7 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     // 重新注册绑定注册表
     setRegisteredRegistry(&bindingRegistry_);
     setRegisteredWindow(&window_);    // 幂等重挂（JS 视口查询面）
+    setRegisteredFrameStats(&renderThread_);    // 幂等重挂（JS 帧统计出口）
 
     // 解析 View 树（旧树已销毁，用 parse 而非 reconcile）
     tree_ = ElementParser::parse(jsCtx_.getPtr(), jsCtx_.getRootView());

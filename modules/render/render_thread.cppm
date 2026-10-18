@@ -120,9 +120,15 @@ public:
         uint64_t droppedFrames = 0;
         float averageFrameTimeMs = 0.0f;
         size_t maxQueueDepth = 0;
+        float lastInputToFrameMs = 0.0f;    // 最近一次键入到渲染提交的间隔（性能打点，近似口径）
     };
 
     FrameStats getFrameStats() const;
+
+    /**
+     * @brief 写入最近键入→渲染提交延迟（UI 线程打点；渲染出方读取）
+     */
+    void updateInputLatency(float ms);
 
     /**
      * @brief 重置帧统计信息

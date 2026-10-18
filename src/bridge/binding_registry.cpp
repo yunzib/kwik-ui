@@ -50,6 +50,13 @@ void setRegisteredWindow(void *window) { s_registeredWindow = window; }
 
 void *getRegisteredWindow() { return s_registeredWindow; }
 
+// ── 运行期帧统计源钩（JS 帧统计出口的 C++ 侧来源；void* 让桥面与渲染层解耦）──
+static void *s_registeredFrameStats = nullptr;
+
+void setRegisteredFrameStats(void *source) { s_registeredFrameStats = source; }
+
+void *getRegisteredFrameStats() { return s_registeredFrameStats; }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // jsValueToTypedProp — JSValue → TypedProp 按类型转换
 //

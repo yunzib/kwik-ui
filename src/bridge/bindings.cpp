@@ -30,7 +30,8 @@ import kwik.bridge.element_parser;
 import kwik.bridge.element_spec;
 import kwik.bridge.g2d;
 import kwik.platform.window;        // PlatformWindow（getWindowSize/getViewport 查询面）
-import kwik.bridge.binding_registry;    // getRegisteredWindow（运行期静态窗钩）
+import kwik.render.render_thread;   // RenderThread（frameStats 帧统计出口）
+import kwik.bridge.binding_registry;    // getRegisteredWindow/getRegisteredFrameStats（运行期静态钩）
 
 import std;
 
@@ -1314,6 +1315,21 @@ static JSValue js_getViewport(JSContext *ctx, JSValueConst this_val, int argc, J
     return obj;
 }
 
+// ── 帧统计出口（性能打点：EMA 帧毫秒/帧数/掉帧/键入→渲染提交延迟）──
+// 统计源由 KwikRuntime::init 挂上（teardown 清）；未挂（headless/极早期）
+// 返回 undefined，调用方自行回退。
+static JSValue js_frameStats(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *rt = static_cast<RenderThread *>(getRegisteredFrameStats());
+    if (!rt) return JS_UNDEFINED;
+    auto s = rt->getFrameStats();
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "avgMs", JS_NewFloat64(ctx, s.averageFrameTimeMs));
+    JS_SetPropertyStr(ctx, obj, "total", JS_NewInt64(ctx, (int64_t)s.totalFrames));
+    JS_SetPropertyStr(ctx, obj, "dropped", JS_NewInt64(ctx, (int64_t)s.droppedFrames));
+    JS_SetPropertyStr(ctx, obj, "lastInputLatencyMs", JS_NewFloat64(ctx, s.lastInputToFrameMs));
+    return obj;
+}
+
 bool register_kwikui_module(QuickJSContext &qctx) {
     JSContext *ctx = qctx.getPtr();
 
@@ -1376,6 +1392,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("cancelAnimationFrame", 1, js_cancelAnimationFrame),
         JS_CFUNC_DEF("getWindowSize", 0, js_getWindowSize),
         JS_CFUNC_DEF("getViewport", 0, js_getViewport),
+        JS_CFUNC_DEF("frameStats", 0, js_frameStats),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

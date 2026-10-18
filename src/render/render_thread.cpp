@@ -102,6 +102,11 @@ void RenderThread::resetFrameStats() {
     frameStats_ = FrameStats{};
 }
 
+void RenderThread::updateInputLatency(float ms) {
+    std::lock_guard<std::mutex> lock(statsMutex_);
+    frameStats_.lastInputToFrameMs = ms;
+}
+
 // ============================================================================
 // 私有方法实现
 // ============================================================================

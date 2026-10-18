@@ -23,6 +23,7 @@ module;
 #include <unordered_map>
 #include <functional>
 #include <chrono>
+#include <atomic>
 
 export module kwik.event;
 
@@ -472,6 +473,18 @@ public:
      */
     void reset() { focused_ = nullptr; }
 
+    /**
+     * @brief 跨树展开恢复焦点：目标仍存活才接纳（L4 活性闸）
+     *
+     * State 驱动的整树 reconcile 复用既有节点（增量写回原位更新），
+     * 聚焦元素大概率同址存活——展开侧捕获旧焦点并在 reset 后按活性
+     * 恢复，键入驱动的连续重渲染不再打断输入焦点。指针已被销毁/地址
+     * 已换新者不接纳（标签元素误聚焦亦无实害）。
+     */
+    void restoreFocus(EventTarget *target) {
+        if (target && focused_ != target && TargetLiveness::instance().isAlive(target)) focused_ = target;
+    }
+
 private:
     EventTarget *focused_ = nullptr;
     EventTarget *root_ = nullptr;
@@ -590,6 +603,15 @@ public:
      */
     void reset();
 
+    /**
+     * @brief 取走最近键入时间戳（纳秒，steady_clock 时基；取走即清）
+     *
+     * 键入→首帧延迟打点源：feedRawEvent 在 Keyboard KeyDown/TextInput
+     * 到达时记录到达时刻；渲染提交方（KwikRuntime::renderFrame）取走
+     * 计算延迟。非键入帧取走返回 0。无有效戳即无键入在途。
+     */
+    int64_t consumeInputStampNs();
+
     // ── 子模块访问 ──
     FocusManager &focusManager() { return focusManager_; }
 
@@ -598,6 +620,8 @@ private:
     float offsetX_ = 0.0f;
     float offsetY_ = 0.0f;
     EventTarget *rootTarget_ = nullptr;
+
+    std::atomic<int64_t> inputStampNs_{0};    // 最近键入到达时刻（ns；0=无）
 
     PointerTracker pointerTracker_;
     GestureRecognizer gestureRecognizer_;

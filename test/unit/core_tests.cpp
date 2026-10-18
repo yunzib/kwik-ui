@@ -1958,6 +1958,68 @@ static void test_tap_caret_mapping() {
     CHECK(TextArea::tapByteOffsetForLine(r, 2, 999.0f, "ab\n\ncd") == 6);  // 末行行尾 → 放行文末
 }
 
+// ============================================================================
+// 键入→首帧延迟打点：EventRouter 键事件时间戳源（取走即清/非键不打）
+// ============================================================================
+static void test_input_latency_stamp() {
+    View root;
+    EventRouter router;
+    router.setRootTarget(&root);
+
+    // ① 初始无戳：无键入在途
+    CHECK(router.consumeInputStampNs() == 0);
+
+    // ② 指针事件不打戳（键入→首帧口径只针对键盘）
+    feed(router, RawEvent::Device::Mouse, RawEvent::Action::Down, 10, 10);
+    CHECK(router.consumeInputStampNs() == 0);
+
+    // ③ KeyDown 打戳，取走即清
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 'A');
+    int64_t s1 = router.consumeInputStampNs();
+    CHECK(s1 > 0);
+    CHECK(router.consumeInputStampNs() == 0);
+
+    // ④ TextInput（字符输入）同样打戳；连打后一戳覆盖前一戳
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::TextInput, 0, 0, 'a');
+    int64_t s2 = router.consumeInputStampNs();
+    CHECK(s2 >= s1);
+
+    // ⑤ 消费不干扰事件分发本身：KeyUp 不打戳，但键路由照常执行（无崩溃/无残留）
+    feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyUp, 0, 0, 'A');
+    CHECK(router.consumeInputStampNs() == 0);
+}
+
+// ============================================================================
+// 跨树展开焦点保留：FocusManager 活性闸恢复（State 驱动 reconcile 不打断键入）
+// ============================================================================
+static void test_focus_preserved_across_reset() {
+    // ① 活节点：reset 清空后 restoreFocus 恢复同一指针
+    {
+        FocusManager fm;
+        auto v = std::make_unique<View>();
+        fm.focus(v.get());
+        CHECK(fm.focused() == v.get());
+        fm.reset();    // reconcile 展开侧调用
+        CHECK(fm.focused() == nullptr);
+        fm.restoreFocus(v.get());
+        CHECK(fm.focused() == v.get());
+    }
+
+    // ② 悬空（已析构）：restoreFocus 不接纳（L4 活性闸——树换代旧指针拒绝）
+    {
+        FocusManager fm;
+        EventTarget *dying = nullptr;
+        {
+            auto v = std::make_unique<View>();
+            dying = v.get();
+            fm.focus(v.get());
+        }    // 销毁：L4 撤销活性登记
+        CHECK(fm.focused() == nullptr);    // 悬空视同无焦点
+        fm.restoreFocus(dying);
+        CHECK(fm.focused() == nullptr);    // 陈旧指针不落笔
+    }
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -1994,6 +2056,8 @@ int main() {
     test_image_upload_receipt_loop();
     test_image_fit_resolution();
     test_damage_overflow_children();
+    test_input_latency_stamp();
+    test_focus_preserved_across_reset();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

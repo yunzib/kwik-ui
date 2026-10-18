@@ -545,6 +545,15 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
         break;
     }
     case RawEvent::Device::Keyboard: {
+        // 键入→首帧延迟打点源：KeyDown/TextInput 一进来就记到达时刻
+        // （在焦点判定/分发丢弃之前——无焦点的丢键不会有后续渲染帧，
+        // 残留戳由渲染提交方的时效窗口一并丢弃）
+        if (scaled.action == RawEvent::Action::KeyDown
+            || scaled.action == RawEvent::Action::TextInput) {
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          std::chrono::steady_clock::now().time_since_epoch()).count();
+            inputStampNs_.store(ns, std::memory_order_relaxed);
+        }
         keyboardHandler_.process(scaled, events);
         // H6 键盘投递修正：无焦点丢弃 Key/Char（原无 presetTarget 落
         // hitTest(0,0) 误投左上角元素）；ESC 显式查询优先于聚焦控件——
@@ -630,6 +639,13 @@ void EventRouter::reset() {
     gestureRecognizer_.reset();
     keyboardHandler_.reset();    // 清代理对重组寄存器（树重建后不残留悬空半代理）
     focusManager_.reset();
+}
+
+// ============================================================================
+// consumeInputStampNs — 取走最近键入时间戳（查询即清）
+// ============================================================================
+int64_t EventRouter::consumeInputStampNs() {
+    return inputStampNs_.exchange(0, std::memory_order_relaxed);
 }
 
 // ============================================================================

@@ -114,6 +114,15 @@ private:
 export void setRegisteredWindow(void *window);
 export void *getRegisteredWindow();
 
+/**
+ * @brief 运行期帧统计源钩 — JS 帧统计出口（frameStats）的 C++ 侧来源
+ *
+ * KwikRuntime::init 时挂本运行时的渲染线程，teardown 时清。指针以
+ * void* 传递（避免桥面模块依赖渲染层：查询方自行转型解引用）。
+ */
+export void setRegisteredFrameStats(void *source);
+export void *getRegisteredFrameStats();
+
 // ============================================================================
 // 工具函数 — JSValue → TypedProp 按类型转换
 // ============================================================================

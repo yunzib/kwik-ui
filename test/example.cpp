@@ -89,6 +89,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "stack") return "../../test/ui/stack.js";
         if (arg == "image") return "../../test/ui/image.js";
         if (arg == "input") return "../../test/ui/input.js";
+        if (arg == "bench") return "../../test/ui/bench.js";
         if (arg == "example") return "../../test/ui/example.js";
         if (arg == "radiobutton") return "../../test/ui/radiobutton.js";
         if (arg == "checkbox") return "../../test/ui/checkbox.js";

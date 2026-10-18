@@ -27,7 +27,7 @@ constexpr const char* exports[] = {
     "ProgressRing", "SpinBox", "G2D",
     /* ── 工具函数 ── */
     "getProp", "setProp", "ref", "animate", "stop", "isAnimating",
-    "theme", "ThemeProvider", "getWindowSize", "getViewport",
+    "theme", "ThemeProvider", "getWindowSize", "getViewport", "frameStats",
     /* ── 宿主定时器 / rAF ── */
     "setTimeout", "clearTimeout", "setInterval", "clearInterval",
     "requestAnimationFrame", "cancelAnimationFrame",
