@@ -100,6 +100,9 @@ public:
      */
     auto consumeUploads() -> std::vector<UploadJob>;
 
+    /** @brief 上传失败批次重入队（转发 TextCache；渲染线程失败路径调用） */
+    void requeueUploads(std::vector<UploadJob> &jobs) { cache_.requeueUploads(jobs); }
+
     /** @brief 单例 */
     static TextRenderPipeline &instance();
 

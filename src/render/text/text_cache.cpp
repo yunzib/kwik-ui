@@ -42,6 +42,10 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
             if (!entry.packed || entry.pageGeneration != pages_[entry.pageIndex].generation) {
                 if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
                 packGlyph(entry);
+            } else {
+                // hit 路径同样更新 LRU 时钟：仅打包路径更新时，持续使用的
+                // 活跃热页会被误判最旧整页淘汰（淘汰即缺字重打包抖动放大）
+                pages_[entry.pageIndex].lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
             }
         }
 
@@ -273,4 +277,13 @@ auto TextCache::consumeUploads() -> std::vector<UploadJob> {
         out.swap(uploads_);
     }
     return out;
+}
+
+void TextCache::requeueUploads(std::vector<UploadJob> &jobs) {
+    if (jobs.empty()) return;
+    std::lock_guard<std::mutex> lock(uploadsMutex_);
+    // 队头插入（insert + move）：重试批先于下一帧新产生的上传消费
+    uploads_.insert(uploads_.begin(), std::make_move_iterator(jobs.begin()),
+                    std::make_move_iterator(jobs.end()));
+    jobs.clear();
 }

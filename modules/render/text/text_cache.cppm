@@ -40,6 +40,11 @@ public:
     /** @brief 消费待上传队列（Vulkan 后端每帧调用；与 UI 线程 packGlyph 并发，内部互斥） */
     auto consumeUploads() -> std::vector<UploadJob>;
 
+    /** @brief 上传失败的批次重入队（渲染线程 staging 分配/提交失败时调用，
+     *         像素已在 consumeUploads 被取走且缓存已标 packed——不重入队
+     *         该批字形永久缺失；队头插入下一帧重试） */
+    void requeueUploads(std::vector<UploadJob> &jobs);
+
     /** @brief 图集尺寸（512² = 1MB/页，上限 16MB） */
     static constexpr uint32_t kAtlasSize = 512;
 

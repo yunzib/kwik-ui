@@ -267,16 +267,21 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     VkDeviceMemory stagingMem;
     if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice, totalSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     staging, stagingMem))
+                                     staging, stagingMem)) {
+        // 像素已被取走且缓存已标 packed——重入队下一帧重试（否则永久缺字）
+        Log::error("uploadPendingGlyphs: staging 分配失败 ({} bytes)，批次重入队", static_cast<uint64_t>(totalSize));
+        TextRenderPipeline::instance().requeueUploads(jobs);
         return;
+    }
 
     void *map = nullptr;
     if (vkMapMemory(dc.device, stagingMem, 0, totalSize, 0, &map) != VK_SUCCESS) {
         // map 失败时 map 指针无效，继续 memcpy 即野指针写——释放 staging、
-        // 丢弃本批字形（像素已被 consumeUploads 取走，重试另行处理）
-        Log::error("uploadPendingGlyphs: vkMapMemory failed ({} bytes)", static_cast<uint64_t>(totalSize));
+        // 批次重入队重试（不重入队则该批字形永久缺失）
+        Log::error("uploadPendingGlyphs: vkMapMemory failed ({} bytes)，批次重入队", static_cast<uint64_t>(totalSize));
         vkDestroyBuffer(dc.device, staging, nullptr);
         vkFreeMemory(dc.device, stagingMem, nullptr);
+        TextRenderPipeline::instance().requeueUploads(jobs);
         return;
     }
 
@@ -319,7 +324,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
                                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT :
                                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
-    VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
+    const bool uploaded = VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
         vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
         vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                (uint32_t)regions.size(), regions.data());
@@ -330,7 +335,14 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                              nullptr, 1, &barrier);
     });
-    atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // 一次性提交失败：拷贝未执行——不落 layout 语义位（图集仍处上传前
+    // 布局，barrier 源下次仍正确）且批次重入队（同 staging 失败口径）
+    if (uploaded) {
+        atlasLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    } else {
+        Log::error("uploadPendingGlyphs: 一次性提交失败，批次重入队");
+        TextRenderPipeline::instance().requeueUploads(jobs);
+    }
 
     vkDestroyBuffer(dc.device, staging, nullptr);
     vkFreeMemory(dc.device, stagingMem, nullptr);
