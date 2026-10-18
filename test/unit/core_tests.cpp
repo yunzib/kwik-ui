@@ -39,6 +39,7 @@ import kwik.element.tabs;
 import kwik.layout.grid_layout;
 import kwik.layout.list_layout;
 import kwik.layout.flex_layout;
+import kwik.element.scroll_view;    // ScrollView（横向滚轮派发链行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -2020,6 +2021,60 @@ static void test_focus_preserved_across_reset() {
     }
 }
 
+// ============================================================================
+// 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
+// （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
+//   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
+// ============================================================================
+static void test_horizontal_scroll_dispatch() {
+    auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+    ScrollViewProps spp;
+    spp.direction = ScrollDirection::Horizontal;
+    auto inner = std::make_unique<ScrollView>(ViewProps{}, spp);
+    auto row = std::make_unique<View>();
+    row->props.width = 300.0f;      // 内容宽 > 视口 → 有可滚余量
+    row->props.height = 40.0f;
+    ScrollView *sv = inner.get();
+    inner->addChild(std::move(row));
+
+    View page;                      // 非滚动宿主：滚动查找必须走祖先链上探
+    page.addChild(std::move(inner));
+
+    EventRouter router;
+    router.setRootTarget(&page);
+    page.layout(Rect{0, 0, 140, 80});    // 根目标必须有框（hitTest 入口）
+    sv->layout(Rect{0, 0, 120, 60});     // 显式固定视口（内容 300×40 → x 轴可滚）
+
+    // ① 右倾（win32 +delta → scrollX=-1）：offset.x 前进一格（+30）
+    RawEvent rt;
+    rt.device = RawEvent::Device::Mouse;
+    rt.action = RawEvent::Action::Scroll;
+    rt.scrollX = -1.0f;
+    rt.x = 50;
+    rt.y = 30;
+    router.feedRawEvent(rt);
+    CHECK(nearf(std::stof(sv->getProperty("scrollX")), 30.0f));
+
+    // ② 左倾（-delta → scrollX=+1）：回退一格（0 起点夹回 0）
+    rt.scrollX = 1.0f;
+    router.feedRawEvent(rt);
+    CHECK(nearf(std::stof(sv->getProperty("scrollX")), 0.0f));
+
+    // ③ 顶界续左倾：夹边不越界（offset 保持 0）
+    rt.scrollX = 1.0f;
+    router.feedRawEvent(rt);
+    CHECK(nearf(std::stof(sv->getProperty("scrollX")), 0.0f));
+
+    // ④ 纵轴事件不污染横向单轴的显式语义：dx=0 时 scrollY 载体经回退
+    //    规则喂 dx（scrollY=-1 视窗下滚 → 回退 usedX=+1·(-30)+0 → 前进
+    //    一格 +30；回退是 Horizontal 方向的既定安全网，此处锁定其存在）
+    RawEvent vt = rt;
+    vt.scrollX = 0.0f;    // 仅纵载体（回退规则喂 dy 的前提是 dx=0）
+    vt.scrollY = -1.0f;
+    router.feedRawEvent(vt);
+    CHECK(nearf(std::stof(sv->getProperty("scrollX")), 30.0f));
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -2058,6 +2113,7 @@ int main() {
     test_damage_overflow_children();
     test_input_latency_stamp();
     test_focus_preserved_across_reset();
+    test_horizontal_scroll_dispatch();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

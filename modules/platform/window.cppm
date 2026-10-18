@@ -158,6 +158,17 @@ public:
     virtual void SetRawEventCallback(RawEventCallback callback) = 0;
 
     /**
+     * @brief 模态循环精简泵注入点（win32 拖动/缩放专用）
+     *
+     * 系统拖动/缩放进入模态消息循环会吞掉应用主循环——tick 面全停
+     * （Channel flush/定时器/rAF/动画冻结）。平台侧以 ~16ms 定时器在
+     * 拖动模态循环内回收调本泵，驱动完整 tick（幂等：静止帧不
+     * 渲染）。其余平台无模态循环语义，默认空实现不接线。
+     */
+    using ModalLoopPump = std::function<void()>;
+    virtual void SetModalLoopPump(ModalLoopPump pump) {}
+
+    /**
      * @brief 设置窗口装饰风格
      */
     virtual void SetDecoration(WindowDecoration decoration) = 0;

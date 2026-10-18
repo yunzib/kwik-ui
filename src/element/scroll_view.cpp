@@ -297,7 +297,7 @@ bool ScrollView::applyScroll(float dx, float dy) {
     float usedX = 0, usedY = 0;    // 期望位移（含步长因子）
     switch (sp_.direction) {
     case ScrollDirection::Horizontal:
-        // 单轴横向：优先 dx；win32 无水平滚轮（dx 恒 0）→ 回退 dy，对齐 ListLayout
+        // 单轴横向：优先 dx；无水平滚轮的平台（dx 恒 0）→ 回退 dy，对齐 ListLayout
         usedX = (dx != 0 ? dx : dy) * -sp_.scrollStep;
         setScroll(scrollOffset_.x + usedX, scrollOffset_.y);
         break;

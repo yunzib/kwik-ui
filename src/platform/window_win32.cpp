@@ -18,6 +18,9 @@ import kwik.event;
 // 全局窗口映射：HWND -> 对象指针
 static std::map<HWND, PlatformWindowWin32 *> g_windowMap;
 
+// 模态循环精简泵定时器 ID（WM_TIMER 过滤用；文件局部常量避免污染公共面）
+static constexpr UINT_PTR kModalPumpTimerId_ = 2;
+
 // ============================================================================
 // 构造与析构
 // ============================================================================
@@ -387,10 +390,9 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     }
 
-    // 鼠标滚轮
     // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
-    // 鼠标滚轮 (lParam 为屏幕坐标, 需转客户区)
-    case WM_MOUSEWHEEL: {
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL: {
         e.type = Event::Type::MouseWheel;
         e.wheelDelta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;
         POINT pt = {(int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam)};
@@ -547,6 +549,9 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         grabRelY_ = std::max(0.0f, std::min(1.0f, grabRelY_));
         inMoveLoop_ = true;
         lastSizingTick_ = 0;    // 放大限速基准重置：新拖动会话从当前尺寸起算
+        // 模态循环精简泵：系统模态循环吞掉应用主循环（tick 面冻结），
+        // 以 ~16ms 定时器驱动注入泵维持 flush/rAF/定时器/动画/渲染活着
+        SetTimer(hwnd_, kModalPumpTimerId_, 16, nullptr);
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
     // 拖边缘缩放：撤销纠偏（系统语义是"对边固定"）+ 放大方向限速——
@@ -592,7 +597,19 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         lastSizingH_ = r->bottom - r->top;
         return modified ? TRUE : DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
+    // 模态循环精简泵定时器：拖动/缩放期间驱动注入 tick（帧率下限 ~60Hz；
+    // 只吞本定时器消息，其余定时器透传默认）
+    case WM_TIMER: {
+        if (wParam == kModalPumpTimerId_) {
+            if (inMoveLoop_ && modalPump_) modalPump_();
+            return 0;    // 不落默认：避免落入事件构造尾段
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
     case WM_EXITSIZEMOVE: {
+        // 模态循环泵停表 + 兜尾帧（退出瞬间可能有未泵的建议帧）
+        KillTimer(hwnd_, kModalPumpTimerId_);
+        if (modalPump_) modalPump_();
         // 本次循环中尺寸未变 ⇒ 纯位置拖动 → 交由 Refit 跨屏重算占屏；
         // 尺寸被用户改变 ⇒ 手动缩放结果，完全尊重，不回弹
         RECT now{};
@@ -638,7 +655,12 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         break;
     case Event::Type::MouseWheel:
         raw.action = RawEvent::Action::Scroll;
-        raw.scrollY = GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
+        // 纵轮→scrollY / 横轮→scrollX（同 Event::Type::MouseWheel，按来源消息分轴）
+        if (msg == WM_MOUSEHWHEEL) {
+            raw.scrollX = GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
+        } else {
+            raw.scrollY = GET_WHEEL_DELTA_WPARAM(wParam) / 120.0f;
+        }
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;

@@ -99,6 +99,13 @@ int Application::run() {
     int frameCount = 0;
     Log::info("渲染循环已启动（{} 个运行时）", runtimes_.size());
 
+    // 模态循环泵接线：win32 拖动/缩放进系统模态循环吞主循环，平台侧
+    // 以 ~16ms 定时器回调本泵驱动完整 tick（幂等，静止帧不渲染）
+    for (auto &rt : runtimes_) {
+        auto *rtRaw = rt.get();
+        rt->window().SetModalLoopPump([rtRaw]() { (void)rtRaw->tick(true); });
+    }
+
     while (running_) {
         // 消息泵：泵一次即覆盖全部窗口（PeekMessage 不过滤 HWND）；
         // 逐树轮询事件（长按检测等）

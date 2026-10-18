@@ -44,6 +44,8 @@ public:
 
     void SetRawEventCallback(PlatformWindow::RawEventCallback callback) override;
 
+    void SetModalLoopPump(PlatformWindow::ModalLoopPump pump) override { modalPump_ = std::move(pump); }
+
     // 剪贴板
     bool GetClipboardText(std::string &out) override;
     void SetClipboardText(const std::string &text) override;
@@ -58,6 +60,7 @@ private:
     void *bitmapBits_ = nullptr;    // 位图像素数据
     int width_ = 0;                 // 窗口宽度
     int height_ = 0;                // 窗口高度
+    PlatformWindow::ModalLoopPump modalPump_;    // 拖动/缩放模态循环精简泵
     int designWidth_ = 800;         // Create() 传入的原始逻辑宽度（缩放前）
     int designHeight_ = 600;        // Create() 传入的原始逻辑高度（缩放前）
     WindowDecoration decoration_ = WindowDecoration::Normal;
