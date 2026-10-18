@@ -687,7 +687,15 @@ float DateTimePicker::panelHeight() const {
 Rect DateTimePicker::panelRect() const {
     float x = frame.x + props.padding.left;
     float y = frame.y + frame.height;    // 触发区正下方
-    return {x, y, panelWidth(), panelHeight()};
+    float ph = panelHeight();
+    // 视口底边 clamp：面板超出根 frame（=视口）时翻转到触发控件上方；
+    // 上下都放不下时贴底（可见最大化）
+    const Rect &vp = rootFrame();
+    if (vp.height > 0 && y + ph > vp.y + vp.height) {
+        float aboveY = frame.y - ph;
+        y = (aboveY >= vp.y) ? aboveY : std::max(vp.y, vp.y + vp.height - ph);
+    }
+    return {x, y, panelWidth(), ph};
 }
 
 Size DateTimePicker::onMeasure(Constraints constraints) {

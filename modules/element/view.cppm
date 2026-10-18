@@ -216,6 +216,18 @@ public:
      *         （如 FlexLayout 行主轴容量从该约束重算，消除量行/排行分叉） */
     const Constraints &lastLayoutConstraints() const { return lastLayoutC_; }
 
+    /**
+     * @brief 沿祖先链取根节点 frame（根节点由 runtime 布局到窗口客户区，
+     *        即当前视口；未挂树时返回自身 frame）
+     * @return 根 frame 引用
+     * 浮层定位（Dropdown 菜单/DatePicker 面板等）据此做视口边界 clamp。
+     */
+    const Rect &rootFrame() const {
+        const View *v = this;
+        while (v->parent_) { v = v->parent_; }
+        return v->frame;
+    }
+
     // ==================== 子控件管理 ====================
     /**
      * @brief 获取父节点指针

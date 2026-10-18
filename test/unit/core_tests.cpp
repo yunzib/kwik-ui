@@ -22,6 +22,7 @@ import kwik.element.text;
 import kwik.element.lazy_list;
 import kwik.element.table;    // Table（显式高度/幻影行行为锁）
 import kwik.element.table_data_source;
+import kwik.element.dropdown;    // Dropdown（菜单视口翻转行为锁）
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.textarea;
@@ -1447,6 +1448,49 @@ static void test_table_measure_and_hit() {
     }
 }
 
+// ── 行为锁: Dropdown 菜单视口底边 clamp（21⑤）──
+// 菜单此前恒定位触发控件正下方——控件贴视口底时菜单整块溢出不可见。
+// 现按根 frame（=视口）判定：超出底边翻转到上方，上下都放不下贴底。
+static void test_dropdown_viewport_flip() {
+    DropdownProps dp;
+    dp.items = {"a", "b", "c"};
+    dp.itemHeight = 32.0f;    // 菜单高 = 3×32 = 96
+
+    // ① 底部场景：视口 600 高，Dropdown 在 y=550 → 550+40+96 溢出 → 翻转上方
+    {
+        View root;
+        auto dd = std::make_unique<Dropdown>(ViewProps{}, dp);
+        Dropdown *raw = dd.get();
+        root.addChild(std::move(dd));
+        root.layout(Rect{0, 0, 300, 600});
+        raw->layout(Rect{10, 550, 200, 40});    // 挂树后手工定位（触发区 40 高）
+        Rect mr = raw->menuRect();
+        CHECK(mr.y == 550.0f - 96.0f);          // 翻转到触发控件上方
+        CHECK(mr.height == 96.0f);
+    }
+
+    // ② 顶部场景：y=20 → 下方空间充足 → 维持正下方
+    {
+        View root;
+        auto dd = std::make_unique<Dropdown>(ViewProps{}, dp);
+        Dropdown *raw = dd.get();
+        root.addChild(std::move(dd));
+        root.layout(Rect{0, 0, 300, 600});
+        raw->layout(Rect{10, 20, 200, 40});
+        Rect mr = raw->menuRect();
+        CHECK(mr.y == 60.0f);
+    }
+
+    // ③ 贴底分支：未挂树时 rootFrame 退化为自身 frame（高 40 的伪视口），
+    // 上下都放不下 → 贴底 max(vp.y, vp.bottom - mh)
+    {
+        Dropdown dd(ViewProps{}, dp);
+        dd.layout(Rect{10, 550, 200, 40});
+        Rect mr = dd.menuRect();
+        CHECK(mr.y == 550.0f);    // max(550, 590-96)=550
+    }
+}
+
 static void test_right_button_dispatch() {
     // ① 路由层：button 透传 + 右/中键不产 Tap + ContextMenu 合成
     EventRouter router;
@@ -1595,6 +1639,7 @@ int main() {
     test_input_control_chars_and_home_end();
     test_tap_caret_mapping();
     test_table_measure_and_hit();
+    test_dropdown_viewport_flip();
     test_clipboard_wire();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();

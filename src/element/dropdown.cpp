@@ -257,7 +257,15 @@ Rect Dropdown::menuRect() const {
     float contentX = frame.x + props.padding.left;
     float contentY = frame.y + frame.height;
     float contentW = frame.width - props.padding.horizontal();
-    return {contentX, contentY, contentW, menuHeight()};
+    float mh = menuHeight();
+    // 视口底边 clamp：菜单超出根 frame（=视口）时翻转到触发控件上方；
+    // 上下都放不下时贴底（顶部控件 + 超高菜单，可见最大化）
+    const Rect &vp = rootFrame();
+    if (vp.height > 0 && contentY + mh > vp.y + vp.height) {
+        float aboveY = frame.y - mh;
+        contentY = (aboveY >= vp.y) ? aboveY : std::max(vp.y, vp.y + vp.height - mh);
+    }
+    return {contentX, contentY, contentW, mh};
 }
 
 // ════════════════════════════════════════════════════════
