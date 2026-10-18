@@ -234,8 +234,13 @@ void View::draw(Graphics &graphics) {
         listDirty_ = subtreeDirty_ = false;
         if (publishedList_) {
             // 首次经过：父级重建引用段时本节点从清单消失，最近绘制区域
-            // 无人重画 → 报为伤害由带内重放填补，并摘除残留快照
-            if (!lastPaintBounds_.isEmpty()) graphics.accumulateDirtyRect(lastPaintBounds_);
+            // 无人重画 → 报为伤害由带内重放填补，并摘除残留快照。
+            // 伤害并集取发布清单 bounds（含子级越界——hitTest 明文
+            // overflow:visible 语义下子级可画在 frame 外，仅报自身
+            // lastPaintBounds_ 会漏掉越界子级区域留残影）∪ lastPaintBounds_
+            Rect stale = publishedList_->bounds();
+            if (!lastPaintBounds_.isEmpty()) stale = stale.unionRect(lastPaintBounds_);
+            if (!stale.isEmpty()) graphics.accumulateDirtyRect(stale);
             lastPaintBounds_ = {};
             publishedList_.reset();
         }
@@ -443,11 +448,18 @@ void View::encodeList(Graphics &graphics) {
 // 弹层关闭等场景：复合根仍引用本节点清单，不清空则旧内容（遮罩/弹框）
 // 每帧继续被渲染线程画出（"关不掉/区域不刷新"）。置 listDirty_ 保证
 // 重新激活时强制重编。
-// 伤害：本节点最近绘制区域（lastPaintBounds_∪paintBounds）并入累加器——
-// 摘除后该区域无人重画，必须让渲染线程重放 base 清单填补，否则残留旧像素。
+// 伤害：本节点最近绘制区域（lastPaintBounds_∪paintBounds）∪ 发布清单
+// bounds（含子级越界，见函数体内注释）并入累加器——摘除后该区域无人
+// 重画，必须让渲染线程重放 base 清单填补，否则残留旧像素。
 // ============================================================================
 void View::publishEmptyList(Graphics &graphics) {
+    // 16：摘除后该区域无人重画，须让渲染线程重放 base 清单填补。
+    // 伤害并集除自身 lastPaintBounds_∪paintBounds 外，还须并入发布清单
+    // bounds（含子级越界——hitTest 明文 overflow:visible 语义下子级可画在
+    // frame 外，弹层列表溢出掩码框等场景仅报自身会残留越界子级像素）。
+    // 稳态安全：本函数发布空快照后后续帧 bounds 为空，不再重复报区域
     Rect stale = lastPaintBounds_.isEmpty() ? paintBounds() : lastPaintBounds_.unionRect(paintBounds());
+    if (publishedList_ && !publishedList_->bounds().isEmpty()) stale = stale.unionRect(publishedList_->bounds());
     if (!stale.isEmpty()) graphics.accumulateDirtyRect(stale);
     if (!pendingList_) pendingList_ = std::make_unique<DisplayList>();
     pendingList_->clear();

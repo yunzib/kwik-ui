@@ -753,6 +753,67 @@ static void test_4b_playlist_scroll_to_end() {
     verify_leaf_matrices(200);                 // 顶部：孙级烘焙矩阵锁（旧快照在此暴露）
 }
 
+// ── 行为锁: 伤害残影——隐藏/摘除节点溢出子级并入伤害 ──
+// hitTest 明文 overflow:visible 语义（子级可画在父 frame 外，view.cpp），
+// 父级隐藏/摘除时伤害若只报自身 lastPaintBounds_∪frame，越界子级区域
+// 无人重画 → 残影。两写点：①View::draw 不可见分支（并集含发布清单
+// bounds）；②publishEmptyList（LayerView 关闭摘除同源路径）。
+static void test_damage_overflow_children() {
+    View root{ViewProps{}};
+    auto parent = std::make_unique<View>();
+    parent->props.background = Color{200, 0, 0, 255};
+    parent->props.width = 50;
+    parent->props.height = 50;
+    auto child = std::make_unique<View>();
+    child->props.background = Color{0, 200, 0, 255};
+    child->props.width = 50;
+    child->props.height = 50;
+    child->props.hasExplicitX = true;    // 显式 x 越出父 frame 右缘（overflow:visible 可见）
+    child->props.x = 20;
+    parent->addChild(std::move(child));
+    root.addChild(std::move(parent));
+    root.layout({0, 0, 200, 200});
+
+    // 夹具失真防御：child 确实越出父 frame 右缘 ≥ 10px（属性未生效则本锁空转）
+    auto *p = root.children[0].get();
+    CHECK(p && p->children.size() == 1);
+    float overflowRight =
+        p->children[0]->frame.x + p->children[0]->frame.width - (p->frame.x + p->frame.width);
+    CHECK(overflowRight > 10.0f);
+    float childRight = p->children[0]->frame.x + p->children[0]->frame.width;
+
+    Rect accum;
+    Graphics g;
+    g.setDirtyRectAccum(&accum);
+    g.beginFrame();
+    root.draw(g);
+    g.endFrame();
+
+    // 锁①：父隐藏 → 不可见分支伤害并集须覆盖子级越界区
+    // （仅自身 lastPaintBounds_∪frame 最多报到父 frame 右缘，越界段漏报）
+    p->props.visible = false;
+    p->markDirty();    // 模拟 setProp('visible', false) 的脏路径
+    accum = {};
+    g.beginFrame();
+    root.draw(g);
+    g.endFrame();
+    CHECK(!accum.isEmpty());
+    CHECK(accum.x + accum.width >= childRight);    // 越界段已并入伤害
+
+    // 锁②：publishEmptyList（LayerView 关闭摘除同源路径）伤害含子级越界。
+    // 先恢复可见重编，让 publishedList_ 再持有含越界子级的清单，再摘除
+    p->props.visible = true;
+    p->markDirty();
+    accum = {};
+    g.beginFrame();
+    root.draw(g);
+    g.endFrame();
+    accum = {};
+    p->publishEmptyList(g);
+    CHECK(!accum.isEmpty());
+    CHECK(accum.x + accum.width >= childRight);    // 摘除伤害覆盖越界子级
+}
+
 // ── 行为锁: RadioButton radio 语义 ──
 // 点击已选中项必须保持选中：取消会致组内全空，且与 RadioGroup::selected
 // 回填互相打架。
@@ -1756,6 +1817,7 @@ int main() {
     test_c4_grid_measure_children();
     test_4b_list_hittest_and_boundary();
     test_4b_playlist_scroll_to_end();
+    test_damage_overflow_children();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }
