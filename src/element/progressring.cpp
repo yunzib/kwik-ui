@@ -101,6 +101,7 @@ std::string ProgressRing::getProperty(const char *name) const {
     if (std::strcmp(name, "value") == 0) { return std::to_string(pp_.value); }
     if (std::strcmp(name, "min") == 0) { return std::to_string(pp_.min); }
     if (std::strcmp(name, "max") == 0) { return std::to_string(pp_.max); }
+    if (std::strcmp(name, "trackThickness") == 0) { return std::to_string(pp_.trackThickness); }
     return View::getProperty(name);
 }
 
@@ -127,20 +128,14 @@ bool ProgressRing::setPropertyTyped(const char *name, const TypedProp &value) {
         return false;
     }
     if (std::strcmp(name, "trackThickness") == 0) {
-        if (auto *f = std::get_if<double>(&value)) {
-            pp_.trackThickness = static_cast<float>(*f);
-            markDirty();
-            return true;
-        }
-        return false;
+        // typedToFloat 覆盖 double/string 双形态——命令式 setProp 传
+        // '4' 字符串此前被 get_if<double> 拒绝（静默无效）
+        auto v = typedToFloat(value);
+        if (!v) { return false; }
+        pp_.trackThickness = *v;
+        markDirty();
+        return true;
     }
-    if (std::strcmp(name, "value") == 0) {
-		auto v = typedToFloat(value);
-		if (!v) { return false; }
-		pp_.value = *v;
-		markDirty();
-		return true;
-	}
     // min / max：自旧字符串版平移（typed 原缺失）
 	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0) {
 		auto v = typedToFloat(value);

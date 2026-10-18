@@ -23,6 +23,8 @@ import kwik.element.lazy_list;
 import kwik.element.table;    // Table（显式高度/幻影行行为锁）
 import kwik.element.table_data_source;
 import kwik.element.dropdown;    // Dropdown（菜单视口翻转行为锁）
+import kwik.element.line;        // Line（重排请求行为锁）
+import kwik.element.progressring;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.textarea;
@@ -1491,6 +1493,34 @@ static void test_dropdown_viewport_flip() {
     }
 }
 
+// ── 行为锁: Line 重排请求 + ProgressRing trackThickness 字符串变体（21⑥⑦）──
+// direction/strokeWidth 均改自然尺寸，此前写入只 markDirty 不请求重排；
+// trackThickness 此前仅认 double——命令式 setProp 传字符串被静默拒绝。
+static void test_line_relayout_and_ring_string_prop() {
+    // ① Line：写入后须有布局请求（hasLayoutRequest 消费方同款判定）
+    Line line(ViewProps{}, LineProps{});
+    line.setProperty("strokeWidth", "8");
+    CHECK(line.hasLayoutRequest());
+    CHECK(line.getProperty("strokeWidth") == std::to_string(8.0f));
+
+    Line line2(ViewProps{}, LineProps{});
+    line2.setProperty("direction", "vertical");
+    CHECK(line2.hasLayoutRequest());
+
+    // ② ProgressRing：字符串数值变体接受（此前 get_if<double> 拒绝）
+    ProgressRing ring(ViewProps{}, ProgressRingProps{});
+    CHECK(ring.setProperty("trackThickness", "4"));
+    CHECK(ring.getProperty("trackThickness") == std::to_string(4.0f));
+    // 原生 double 形态保持（ref 增量路径）——setPropertyTyped 提升直驱
+    struct RingProbe : ProgressRing {
+        using ProgressRing::ProgressRing;
+        using ProgressRing::setPropertyTyped;
+    };
+    RingProbe ring2(ViewProps{}, ProgressRingProps{});
+    CHECK(ring2.setPropertyTyped("trackThickness", TypedProp{6.0}));
+    CHECK(ring2.getProperty("trackThickness") == std::to_string(6.0));
+}
+
 static void test_right_button_dispatch() {
     // ① 路由层：button 透传 + 右/中键不产 Tap + ContextMenu 合成
     EventRouter router;
@@ -1640,6 +1670,7 @@ int main() {
     test_tap_caret_mapping();
     test_table_measure_and_hit();
     test_dropdown_viewport_flip();
+    test_line_relayout_and_ring_string_prop();
     test_clipboard_wire();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();

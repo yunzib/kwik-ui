@@ -80,6 +80,7 @@ bool Line::setPropertyTyped(const char *name, const TypedProp &value) {
 		if (!s) { return false; }
 		lp_.direction = *s;
 		markDirty();
+		requestLayout();    // 横↔竖改自然尺寸，仅 markDirty 不重排会留旧尺寸
 		return true;
 	}
 	if (std::strcmp(name, "strokeWidth") == 0) {
@@ -87,6 +88,7 @@ bool Line::setPropertyTyped(const char *name, const TypedProp &value) {
 		if (!v) { return false; }
 		lp_.strokeWidth = *v;
 		markDirty();
+		requestLayout();    // 粗细即自然尺寸（另一维），同上
 		return true;
 	}
 	return View::setPropertyTyped(name, value);
