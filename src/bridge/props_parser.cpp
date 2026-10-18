@@ -552,6 +552,7 @@ TableProps parseTableProps(PropsExtractor &ex) {
     ex.get("sortArrowColor", tp.sortArrowColor);
     ex.get("headerHeight", tp.headerHeight);
     ex.get("rowHeight", tp.rowHeight);
+    if (tp.rowHeight <= 0) tp.rowHeight = 32.0f;    // 显式 0/负值回退默认：行绘制步进与命中换算均以此做乘除，源头消除除零
     ex.get("fontSize", tp.fontSize);
     ex.get("borderWidth", tp.borderWidth);
     ex.get("showHeader", tp.showHeader);

@@ -20,6 +20,8 @@ import kwik.render.text.cache;
 import kwik.element.view;
 import kwik.element.text;
 import kwik.element.lazy_list;
+import kwik.element.table;    // Table（显式高度/幻影行行为锁）
+import kwik.element.table_data_source;
 import kwik.element.lazy_list_source;
 import kwik.element.input;
 import kwik.element.textarea;
@@ -1371,6 +1373,80 @@ static void feedB(EventRouter &router, RawEvent::Action act, float x, float y, u
     router.feedRawEvent(raw);
 }
 
+// ── 行为锁: Table 显式高度 + 命中限于已绘制行（21①②）──
+// 显式高度此前读了仍无条件叠加 rowCount*rowHeight（读而无效）；命中此前
+// 只查 rowIndex < 总行数，点击未绘制区（表格无滚动、装不下的行不可见）
+// 触发"幻影行" onRowClick；rowHeight=0 时除法得 ±inf，cast 整型 UB。
+static void test_table_measure_and_hit() {
+    struct FixedSrc : TableDataSource {
+        int rows;
+        int rowCount() const override { return rows; }
+        std::string cellText(int row, const std::string &) const override { return "r" + std::to_string(row); }
+    };
+    // onMeasure/onEvent 为 protected——子类提升直测（测量断言需要 Constraints 直驱）
+    struct TableProbe : Table {
+        using Table::Table;
+        using Table::onMeasure;
+        using Table::onEvent;
+    };
+    auto mkSrc = [](int n) {
+        auto s = std::make_unique<FixedSrc>();
+        s->rows = n;
+        return s;
+    };
+
+    // ① 显式高度：onMeasure 不再叠加行高（修复前 120+50×32 被 constrain 顶到 1000）
+    {
+        ViewProps vp;
+        vp.height = 120.0f;
+        TableProps tp;
+        tp.columns = {{"名", "k", 200, 0, "left"}};
+        TableProbe t(vp, tp);
+        t.setData(mkSrc(50));
+        auto sz = t.onMeasure(Constraints{0, 1000, 0, 1000});
+        CHECK(sz.height == 120.0f);
+    }
+
+    // ② 幻影行：frame 高 140 = header36 + 3×32 + 尾巴 8px（第 4 行区域存在于
+    // frame 内但未绘制——visRows=3），数据 50 行
+    {
+        TableProps tp;
+        tp.columns = {{"名", "k", 200, 0, "left"}};
+        auto t = std::make_unique<TableProbe>(ViewProps{}, tp);
+        t->setData(mkSrc(50));
+        int clicked = -1;
+        t->handlers.onRowClick = [&clicked](const RowArgs &a) { clicked = a.index; };
+        t->layout(Rect{0, 0, 300, 140});
+
+        DispatchEvent tap;
+        tap.type = DispatchEvent::Type::Tap;
+        tap.globalX = 150;
+        tap.globalY = 36 + 2 * 32 + 5;    // 第 3 行内（已绘制）→ row 2
+        CHECK(t->onEvent(tap));
+        CHECK(clicked == 2);
+
+        clicked = -1;
+        tap.globalY = 139;                // 第 4 行区域（frame 内未绘制）→ 幻影行不再触发
+        CHECK(t->onEvent(tap));
+        CHECK(clicked == -1);
+    }
+
+    // ③ rowHeight=0 防御：直接构造绕过解析（解析侧已 clamp），命中不除零不崩
+    {
+        TableProps tp;
+        tp.rowHeight = 0.0f;
+        tp.columns = {{"名", "k", 200, 0, "left"}};
+        auto t = std::make_unique<TableProbe>(ViewProps{}, tp);
+        t->setData(mkSrc(5));
+        t->layout(Rect{0, 0, 300, 200});
+        DispatchEvent tap;
+        tap.type = DispatchEvent::Type::Tap;
+        tap.globalX = 150;
+        tap.globalY = 100;
+        CHECK(t->onEvent(tap));    // 抵达此处即无除零 UB（修复前 inf cast UB）
+    }
+}
+
 static void test_right_button_dispatch() {
     // ① 路由层：button 透传 + 右/中键不产 Tap + ContextMenu 合成
     EventRouter router;
@@ -1518,6 +1594,7 @@ int main() {
     test_radiobutton_no_untoggle();
     test_input_control_chars_and_home_end();
     test_tap_caret_mapping();
+    test_table_measure_and_hit();
     test_clipboard_wire();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();

@@ -82,7 +82,9 @@ Size Table::onMeasure(Constraints constraints) {
     float h = tp_.showHeader ? tp_.headerHeight : 0;
     h += tp_.borderWidth;
     if (props.height.has_value()) h = *props.height;
-    if (data_) { h += data_->rowCount() * tp_.rowHeight; }
+    // 显式高度=用户指定总高，行高不再累加（此前读了显式 h 仍无条件
+    // 叠加 rowCount*rowHeight，显式高度读而无效）
+    if (!props.height.has_value() && data_) { h += data_->rowCount() * tp_.rowHeight; }
     h += props.padding.vertical();
     return constraints.constrain({w, h});
 }
@@ -305,10 +307,18 @@ bool Table::onEvent(const DispatchEvent &event) {
 
         // 只处理数据行点击，表头点击不处理
         if (localY >= headerEnd && localX >= x0 && localX < x0 + contentWidth_) {
-            float rowStart = headerEnd;
-            int rowIndex = static_cast<int>((localY - rowStart) / tp_.rowHeight);
-            int total = rowCount();
-            if (rowIndex >= 0 && rowIndex < total) { fireRowClick(rowIndex); }
+            // 幻影行消除：命中必须落在已绘制的行内——可视行数与 onDraw
+            // 绘制条件同源（yy+rowHeight <= y0+contentH）；rowHeight<=0
+            // 直接不命中（解析处已回退默认值，此处为防御，除法除零源）
+            if (tp_.rowHeight > 0) {
+                float contentH = frame.height - props.padding.vertical();
+                float headerH = headerEnd - y0;
+                int visRows = static_cast<int>((contentH - headerH) / tp_.rowHeight);
+                float rowStart = headerEnd;
+                int rowIndex = static_cast<int>((localY - rowStart) / tp_.rowHeight);
+                int total = rowCount();
+                if (rowIndex >= 0 && rowIndex < total && rowIndex < visRows) { fireRowClick(rowIndex); }
+            }
             return true;
         }
 
