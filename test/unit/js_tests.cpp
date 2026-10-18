@@ -977,6 +977,27 @@ static void test_reconcile_token_resolve() {
     JS_FreeValue(c, global);
 }
 
+// ── 行为锁: g2d 数值参数校验（21⑧）──
+// 非数值/缺失参数此前 NaN 坐标直进绘制命令 + 转换挂起的 JS 异常被吞、
+// 延迟到下一个不相关调用错位冒出；现抛 TypeError 即时失败。
+static void test_g2d_numeric_args() {
+    registerG2DElement();
+    CHECK(eval_module("g2d_args_fixture.mjs",
+                      "import { G2D } from 'kwikui';\n"
+                      "const g = G2D({ id: 'ga' });\n"
+                      "globalThis.__caught = 0;\n"
+                      "try { g.fillRect('x', 0, 10, 10); } catch (e) { globalThis.__caught = 1; }\n"
+                      "globalThis.__t2 = 0;\n"
+                      "try { g.moveTo(5); } catch (e) { globalThis.__t2 = 1; }\n"    // 参数不足同样抛
+                      "g.fillRect(0, 0, 10, 10);\n"    // 异常即时收场，无残留影响后续调用
+                      "globalThis.__alive = 1;\n"
+                      "export default null;\n"));
+    JSContext *c = g_ctx->getPtr();
+    CHECK(jsGlobalStr(c, "__caught") == "1");
+    CHECK(jsGlobalStr(c, "__t2") == "1");
+    CHECK(jsGlobalStr(c, "__alive") == "1");
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -991,6 +1012,7 @@ int main() {
     test_focus_js_slots();               // 同上（storm 前保纯净 VM）
     test_prop_bus_typed_return();        // 同上
     test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
+    test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();

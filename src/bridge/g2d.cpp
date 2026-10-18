@@ -55,40 +55,58 @@ import std;
         return _r;                                                                                                     \
     }()
 
+// ── 数值参数提取 ──
+// 此前各回调内联 lambda 不查 JS_ToFloat64 返回值与参数个数：非数值参数
+// 得 NaN 坐标直进绘制命令（污染 path/矩形），失败挂起的 JS 异常被吞、
+// 延迟到下一个不相关的 JS 调用错位冒出。统一走此处：数量不足/非有限
+// 数值即抛 TypeError 中止本次绘制调用。
+static std::optional<float> g2dNumArg(JSContext *ctx, int argc, JSValueConst *argv, int i) {
+    if (i >= argc) {
+        JS_ThrowTypeError(ctx, "g2d: 缺少第 %d 个数值参数", i + 1);
+        return std::nullopt;
+    }
+    double v;
+    if (JS_ToFloat64(ctx, &v, argv[i]) != 0 || !std::isfinite(v)) {
+        JS_ThrowTypeError(ctx, "g2d: 第 %d 个参数不是有限数值", i + 1);
+        return std::nullopt;
+    }
+    return static_cast<float>(v);
+}
+
+/// 提取 n 个数值参数到局部数组 _a（任一非法即 return JS_EXCEPTION，
+/// 不残留 NaN 坐标或半截路径）
+#define G2D_NUM_ARGS(n)                                                                                          \
+    float _a[(n)];                                                                                               \
+    do {                                                                                                         \
+        for (int _i = 0; _i < (n); ++_i) {                                                                       \
+            auto _v = g2dNumArg(ctx, argc, argv, _i);                                                            \
+            if (!_v) { return JS_EXCEPTION; }                                                                    \
+            _a[_i] = *_v;                                                                                        \
+        }                                                                                                        \
+    } while (0)
+
 // ── 各方法回调 ──
 static JSValue js_g2d_fillRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->fillRect(f(0), f(1), f(2), f(3));
+    G2D_NUM_ARGS(4);
+    g2d->fillRect(_a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_strokeRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->strokeRect(f(0), f(1), f(2), f(3));
+    G2D_NUM_ARGS(4);
+    g2d->strokeRect(_a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_clearRect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->clearRect(f(0), f(1), f(2), f(3));
+    G2D_NUM_ARGS(4);
+    g2d->clearRect(_a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
@@ -102,74 +120,50 @@ static JSValue js_g2d_beginPath(JSContext *ctx, JSValueConst this_val, int argc,
 static JSValue js_g2d_moveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->moveTo(f(0), f(1));
+    G2D_NUM_ARGS(2);
+    g2d->moveTo(_a[0], _a[1]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_lineTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->lineTo(f(0), f(1));
+    G2D_NUM_ARGS(2);
+    g2d->lineTo(_a[0], _a[1]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_quadraticCurveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->quadraticCurveTo(f(0), f(1), f(2), f(3));
+    G2D_NUM_ARGS(4);
+    g2d->quadraticCurveTo(_a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_bezierCurveTo(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->bezierCurveTo(f(0), f(1), f(2), f(3), f(4), f(5));
+    G2D_NUM_ARGS(6);
+    g2d->bezierCurveTo(_a[0], _a[1], _a[2], _a[3], _a[4], _a[5]);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_arc(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
+    G2D_NUM_ARGS(5);
     bool ccw = argc > 5 ? JS_ToBool(ctx, argv[5]) != 0 : false;
-    g2d->arc(f(0), f(1), f(2), f(3), f(4), ccw);
+    g2d->arc(_a[0], _a[1], _a[2], _a[3], _a[4], ccw);
     return JS_UNDEFINED;
 }
 
 static JSValue js_g2d_ellipse(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
+    G2D_NUM_ARGS(7);
     bool ccw = argc > 7 ? JS_ToBool(ctx, argv[7]) != 0 : false;
-    g2d->ellipse(f(0), f(1), f(2), f(3), f(4), f(5), f(6), ccw);
+    g2d->ellipse(_a[0], _a[1], _a[2], _a[3], _a[4], _a[5], _a[6], ccw);
     return JS_UNDEFINED;
 }
 
@@ -218,14 +212,15 @@ static JSValue js_g2d_restore(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue js_g2d_drawImage(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
-    double texId;
-    JS_ToFloat64(ctx, &texId, argv[0]);
-    auto f = [&](int i) {
-        double v;
-        JS_ToFloat64(ctx, &v, argv[i]);
-        return float(v);
-    };
-    g2d->drawImage(uint32_t(texId), f(1), f(2), f(3), f(4));
+    auto texId = g2dNumArg(ctx, argc, argv, 0);    // texId 也走有限数值校验
+    if (!texId) return JS_EXCEPTION;
+    float _a[4];
+    for (int _i = 1; _i <= 4; ++_i) {              // 矩形 4 参（下标 1..4）
+        auto v = g2dNumArg(ctx, argc, argv, _i);
+        if (!v) { return JS_EXCEPTION; }
+        _a[_i - 1] = *v;
+    }
+    g2d->drawImage(uint32_t(*texId), _a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
