@@ -2,6 +2,9 @@
 
 # 0.0.0 — 2026-10-24
 ### 新增
+- 新增 Expansion 可展开容器组件：children[0] 即头行内容（任意元素组合，
+  显式提供），其余子级为 body；受控（open/onToggle）与非受控
+  （defaultOpen）双模式开合；含 demo、单测行为锁与组件册
 - Input/TextArea 选区全链（此前无选区状态模型，Ctrl+C 为整值复制）：
   拖选出高亮（Input 单行贴墨迹带、TextArea 跨行逐行分段+行尾截断）、
   双击选词、Ctrl+A 全选、Ctrl+X 剪选区（onChange 触发）；Ctrl+C 升级

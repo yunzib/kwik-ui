@@ -104,6 +104,7 @@ static struct InitElementTypeNames {
         registerElementType(ElementType::Chart, "Chart");
         registerElementType(ElementType::ProgressRing, "ProgressRing");
         registerElementType(ElementType::SpinBox, "SpinBox");
+        registerElementType(ElementType::Expansion, "Expansion");
 
         // ── JS 别名 (仅反向查表) ──
         registerElementTypeAlias("Root", ElementType::RootView);

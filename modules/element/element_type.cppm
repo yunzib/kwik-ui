@@ -55,6 +55,7 @@ export enum class ElementType : std::uint32_t {
     Chart,
     ProgressRing,
     SpinBox,
+    Expansion,
 };
 
 /** @brief 运行时扩展类型 id 起始值 (避开内置枚举值 0..35) */

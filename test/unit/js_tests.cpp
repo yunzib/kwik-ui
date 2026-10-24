@@ -29,6 +29,8 @@ import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
 import kwik.element.text;           // Text（reconcile @token 解析行为锁直驱）
 import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
 import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校验行为锁）
+import kwik.element.expansion;      // Expansion（可展开容器三锁直驱）
+import kwik.bridge.expansion;       // registerExpansionElement（spec 自注册首例）
 import kwik.core.props;             // DropdownProps / KeyboardProps
 import kwik.core.theme;             // ThemeData::defaultTheme（@token 期望值同源求取）
 import kwik.core.constraints;       // Constraints（Keyboard 布局驱动）
@@ -191,6 +193,201 @@ static void test_reconcile_text_flush() {
         CHECK(static_cast<ProbeText *>(v3.get())->displayedText() == "keep");
     }
 
+    teardown_callbacks();
+}
+
+// ── 行为锁: Expansion 可展开容器原子（头行显式化：children[0] 即头行）──
+// 锁面（headless 无布局相位，收敛口径 = 同构 props 再喂一次；真帧内
+// measure 相位 syncBodyVisibility 同帧兜底，见 expansion.cpp onMeasure）：
+//   ① 非受控：defaultOpen 仅构造期吃——重喂不回灌内部态；toggle 翻转 +
+//     body 子级（children[1..]）保活隐藏（visible 即刻翻转，flex 两相跳过，
+//     flex_layout.cpp:69/152）；头行（children[0]）恒不随开合波及
+//   ② 受控：open 值随 props 驱动 + onToggle 仅在用户动作时发
+//     {open:bool}；受控下 toggle 只通报不改内部态（状态归调用方）
+//   ③ 互斥：open 与 defaultOpen 同配 → 受控优先（defaultOpen 被忽略）
+//   ④ 头行结构：children[0] 即头行（零内建装配）——头行描述符类型切换走
+//     常规 reconcileChildren 重建，body（id 匹配）原地保留
+static int g_expToggleCalls = 0;
+static bool g_expToggleLast = false;
+
+static JSValue js_expansion_toggle_stub(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void) this_val;
+    if (argc >= 1) {
+        JSValue o = JS_GetPropertyStr(ctx, argv[0], "open");
+        int32_t v = 0;
+        JS_ToInt32(ctx, &v, o);
+        JS_FreeValue(ctx, o);
+        g_expToggleLast = v != 0;
+        g_expToggleCalls++;
+    }
+    return JS_UNDEFINED;
+}
+
+static void test_expansion_uncontrolled_state() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+    registerExpansionElement();    // 幂等（真进程由 register_kwikui_module 调）
+
+    // 子级描述符 helper：textNode（Text；id 可选——body 带 id 供锁④匹配）
+    auto textNode = [&](const char *text, const char *id) {
+        JSValue n = JS_NewObject(c);
+        JS_SetPropertyStr(c, n, "type", JS_NewString(c, "Text"));
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "text", JS_NewString(c, text));
+        if (id) JS_SetPropertyStr(c, props, "id", JS_NewString(c, id));
+        JS_SetPropertyStr(c, n, "props", props);
+        JS_SetPropertyStr(c, n, "children", JS_NewArray(c));
+        return n;
+    };
+    auto expansionNode = [&](JSValue props, JSValue children) {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Expansion"));
+        JS_SetPropertyStr(c, node, "props", props);
+        JS_SetPropertyStr(c, node, "children", children);
+        return node;
+    };
+
+    // 创路径：默认收起 → toggle 翻转 → body（children[1]）保活隐藏 → 重喂同构 props 不回灌
+    {
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "defaultOpen", JS_NewBool(c, 0));
+        JSValue children = JS_NewArray(c);
+        JS_SetPropertyUint32(c, children, 0, textNode("H", nullptr));       // children[0] = 头行
+        JS_SetPropertyUint32(c, children, 1, textNode("body", "b1"));       // children[1] = body
+        JSValue node = expansionNode(props, children);
+        JSValueRef held(c, node);    // RAII 接管所有权（reconcile 内部 Dup；析构释放，防运行时 gc 断言）
+
+        auto old = std::make_unique<Expansion>();
+        View *raw = old.get();
+        auto v = ElementParser::reconcile(c, node, std::move(old));
+        CHECK(v && v.get() == raw);                                  // 分发命中 spec 复用
+        auto *e = static_cast<Expansion *>(v.get());
+        CHECK(!e->expanded());                                       // 默认收起
+        CHECK(e->children.size() == 2 && e->headerView() == e->children[0].get());    // children[0] 即头行
+        CHECK(e->children[0]->props.visible);                        // 头行恒可见（开合不波及）
+        e->toggle();
+        CHECK(e->expanded());                                        // 非受控内部翻转
+        CHECK(e->children[1]->props.visible);                        // 隐藏保活=可见性翻转（body）
+        CHECK(e->children[0]->props.visible);                        // 头行不随开合波及
+        e->toggle();
+        CHECK(!e->expanded() && e->children[1]->props.visible == false);    // 收起即刻隐藏
+        e->toggle();    // 复位为展开态（"内部态保持"断言的基准态）
+
+        // 锁①核心：defaultOpen=false 重喂（同构 props）不得回灌已翻开的内部态
+        JSValue props2 = JS_NewObject(c);
+        JS_SetPropertyStr(c, props2, "defaultOpen", JS_NewBool(c, 0));
+        JSValue children2 = JS_NewArray(c);
+        JS_SetPropertyUint32(c, children2, 0, textNode("H", nullptr));
+        JS_SetPropertyUint32(c, children2, 1, textNode("body", "b1"));
+        JSValue node2 = expansionNode(props2, children2);
+        JSValueRef held2(c, node2);
+        auto v2 = ElementParser::reconcile(c, node2, std::move(v));
+        CHECK(v2.get() == raw);
+        CHECK(static_cast<Expansion *>(v2.get())->expanded());    // 内部态保持
+    }
+
+    // 锁④：头行 = children[0]（零内建装配）——空子级即无头行；头行描述符
+    // 类型切换走常规 reconcileChildren 重建，body（id 匹配）原地保留
+    {
+        // 空子级 = 无头行（合法边界：纯开合容器）
+        {
+            JSValue node = expansionNode(JS_NewObject(c), JS_NewArray(c));
+            JSValueRef hold(c, node);
+            auto v = ElementParser::reconcile(c, hold.raw(), nullptr);
+            auto *e = static_cast<Expansion *>(v.get());
+            CHECK(e->headerView() == nullptr);
+        }
+        // 头行类型切换（Text→Button）→ children[0] 重建；body id 匹配原地保留
+        {
+            JSValue ch = JS_NewArray(c);
+            JS_SetPropertyUint32(c, ch, 0, textNode("H", nullptr));
+            JS_SetPropertyUint32(c, ch, 1, textNode("body", "b1"));
+            JSValue node = expansionNode(JS_NewObject(c), ch);
+            JSValueRef hold(c, node);
+            auto v = ElementParser::reconcile(c, hold.raw(), nullptr);
+            auto *e = static_cast<Expansion *>(v.get());
+            View *oldHdr = e->children[0].get();
+            View *oldBody = e->children[1].get();
+
+            JSValue btn = JS_NewObject(c);    // 换头行：Text → Button
+            JS_SetPropertyStr(c, btn, "type", JS_NewString(c, "Button"));
+            JS_SetPropertyStr(c, btn, "props", JS_NewObject(c));
+            JS_SetPropertyStr(c, btn, "children", JS_NewArray(c));
+            JSValue ch2 = JS_NewArray(c);
+            JS_SetPropertyUint32(c, ch2, 0, btn);
+            JS_SetPropertyUint32(c, ch2, 1, textNode("body", "b1"));
+            JSValue node2 = expansionNode(JS_NewObject(c), ch2);
+            JSValueRef hold2(c, node2);
+            auto v2 = ElementParser::reconcile(c, hold2.raw(), std::move(v));
+            auto *e2 = static_cast<Expansion *>(v2.get());
+            CHECK(e2->children[0].get() != oldHdr);    // 头行类型切换 → 重建
+            CHECK(e2->children[1].get() == oldBody);    // body id 匹配 → 原地保留
+        }
+    }
+    teardown_callbacks();
+}
+
+// ── 行为锁: Expansion 受控模式 + 双模式互斥规约（②③钉）──
+static void test_expansion_controlled_and_mutex() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+    registerExpansionElement();
+
+    g_expToggleCalls = 0;
+    g_expToggleLast = false;
+
+    auto expansionNode = [&](JSValue props) {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Expansion"));
+        JS_SetPropertyStr(c, node, "props", props);
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+        return node;
+    };
+    auto toggleFn = [&]() { return JS_NewCFunction(c, js_expansion_toggle_stub, "stub", 1); };
+
+    // ② 受控：open 值落地；toggle 只通报（不改内部态）；reconcile 不自发事件
+    {
+        auto old = std::make_unique<Expansion>();
+        View *raw = old.get();
+
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "open", JS_NewBool(c, 1));
+        JS_SetPropertyStr(c, props, "onToggle", toggleFn());
+        JSValue node = expansionNode(props);
+        JSValueRef held(c, node);    // RAII 接管
+        auto v = ElementParser::reconcile(c, node, std::move(old));
+        CHECK(v.get() == raw);
+        auto *e = static_cast<Expansion *>(v.get());
+        CHECK(e->expanded());                        // 受控初值 open=true 落地
+        CHECK(g_expToggleCalls == 0);                // reconcile 不自发事件
+
+        e->toggle();
+        CHECK(e->expanded());                        // 受控：内部态不动（等 State 回灌）
+        CHECK(g_expToggleCalls == 1 && !g_expToggleLast);    // 通报 {open:false} 恰一次
+
+        // open:false 回灌 → 收起；再喂 open:true → 再展开（事件仍不发）
+        JSValue p2 = JS_NewObject(c);
+        JS_SetPropertyStr(c, p2, "open", JS_NewBool(c, 0));
+        JSValue node2 = expansionNode(p2);
+        JSValueRef held2(c, node2);
+        auto v2 = ElementParser::reconcile(c, node2, std::move(v));
+        CHECK(v2.get() == raw);
+        CHECK(!static_cast<Expansion *>(v2.get())->expanded());
+        CHECK(g_expToggleCalls == 1);                // 纯回灌零事件
+    }
+
+    // ③ 互斥：受控 open 与 defaultOpen 同配 → 受控优先（defaultOpen 被忽略）
+    {
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "open", JS_NewBool(c, 0));
+        JS_SetPropertyStr(c, props, "defaultOpen", JS_NewBool(c, 1));    // 同配挑衅
+        JSValue node = expansionNode(props);
+        JSValueRef held(c, node);
+        // 创路径（null oldView → creator）：defaultOpen 不得越权把卡展开
+        auto v = ElementParser::reconcile(c, node, nullptr);
+        CHECK(v && v->type() == ElementType::Expansion);
+        CHECK(!static_cast<Expansion *>(v.get())->expanded());    // 受控 open=false 优先
+    }
     teardown_callbacks();
 }
 
@@ -1091,6 +1288,8 @@ int main() {
     test_prop_bus_typed_return();        // 同上
     test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
     test_reconcile_text_flush();         // 同上（reconcile 原地换文排版缓存作废；纯解析无 storm 面）
+    test_expansion_uncontrolled_state();    // 同上（Expansion ①：defaultOpen 不回灌 + 保活隐藏；纯解析无 storm 面）
+    test_expansion_controlled_and_mutex();  // 同上（Expansion ②③：受控 onToggle 通报专用无固写 + 互斥规约）
     test_image_fit_parse();              // 同上（ImageFit "cover" 解析映射；纯解析无 storm 面）
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();

@@ -30,6 +30,7 @@ import kwik.element.lazy_list_source;   // LazyListSource（工厂签名返回�
 import kwik.bridge.element_parser;
 import kwik.bridge.element_spec;
 import kwik.bridge.g2d;
+import kwik.bridge.expansion;
 import kwik.platform.window;        // PlatformWindow（getWindowSize/getViewport 查询面）
 import kwik.render.render_thread;   // RenderThread（frameStats 帧统计出口）
 import kwik.bridge.binding_registry;    // getRegisteredWindow/getRegisteredFrameStats/getRegisteredClipboard（运行期静态钩）
@@ -1356,6 +1357,9 @@ bool register_kwikui_module(QuickJSContext &qctx) {
     // G2D 插件式注册显式调用 (内置组件, 显式引用制造强链接, 避免静态库丢弃;
     // 必须在 JS_NewCModule 之前, 使 ElementRegistry 含 G2D → 扩展导出循环把它加入 kwikui 导出)
     registerG2DElement();
+
+    // Expansion 自注册（内部必备件，G2D 同款强链；spec 四钩子见 src/bridge/expansion.cpp）
+    registerExpansionElement();
 
     static const JSCFunctionListEntry ui_exports[] = {
         JS_CFUNC_DEF("View", 1, js_view),

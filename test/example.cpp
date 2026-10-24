@@ -118,6 +118,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "g3d") return "../../test/ui/g3d.js";
         if (arg == "scrollview") return "../../test/ui/scrollview.js";
         if (arg == "treemenu") return "../../test/ui/treemenu.js";
+        if (arg == "expansion") return "../../test/ui/expansion.js";    // Expansion 可展开容器原子（A1）
         if (arg == "lazylist") return "../../test/ui/lazylist.js";
         if (arg == "keyboard") return "../../test/ui/keyboard.js";
         if (arg == "datepicker") return "../../test/ui/datepicker.js";

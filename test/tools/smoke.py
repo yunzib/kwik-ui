@@ -23,6 +23,7 @@ DEMOS = [
     "theme", "layer", "animation", "transition", "rotate", "scrollview",
     "lazylist", "gauge", "progressring", "spinbox", "glass", "timer",
     "chart", "datepicker", "car", "g2d", "example", "selectable", "docs",
+    "expansion",
 ]
 # 已知不稳定(退出段错误,非确定性): image —— 退出竞态待查(可用 llvm-mingw 的 lldb 取栈),
 # 修复前不进默认集,详见 docs/当前优化任务清单.md §七
