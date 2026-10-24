@@ -10,6 +10,7 @@ module;
 
 export module kwik.element.textarea;
 import kwik.element.view;
+import kwik.element.selection;    // Selectable / 选区服务（全局互斥登记）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -35,7 +36,7 @@ import std;
  *       onChange: (value) => console.log("value:", value)
  *   })
  */
-export class TextArea : public View {
+export class TextArea : public View, public Selectable {
 public:
     TextArea() = default;
     explicit TextArea(ViewProps vp, TextAreaProps tp) : View(std::move(vp)), props_(std::move(tp)) {
@@ -84,6 +85,15 @@ public:
 
     void applyTextAreaProps(const TextAreaProps &p);
 
+    // ── Selectable 接口（选区状态自持于 selectionStart_/cursorBytePos_；
+    //    经服务只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠）──
+    size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
+    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    void requestRedraw() override;
+    void onSelectionEvicted() override;
+    bool alive() const override;
+
 protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
@@ -95,8 +105,13 @@ private:
     std::string text_;    // 含 \n 的完整文本
     bool focused_ = false;
     size_t cursorBytePos_ = 0;    // 光标位置 (UTF-8 字节偏移)
+    size_t selectionStart_ = 0;    // 选区锚点（= cursorBytePos_ 时无选区）
     bool cursorVisible_ = false;
     uint64_t lastBlinkTime_ = 0;
+    bool draggingSelection_ = false;    // 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
+    uint64_t lastTapMs_ = 0;    // 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
+    float lastTapX_ = 0;
+    float lastTapY_ = 0;
     // ── 排版结果（元素自己持有，无全局缓存） ─────────
     std::shared_ptr<TextLayoutResult> textResult_;
     std::shared_ptr<TextLayoutResult> placeholderResult_;

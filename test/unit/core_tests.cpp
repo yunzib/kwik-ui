@@ -2325,6 +2325,70 @@ static void test_baking_container_subtree_reencode() {
     CHECK(t2->draws > child0 && wrap->draws == parent0);    // 子编父不编
 }
 
+// 行为锁：Input 选区——Ctrl+A 全选 / Ctrl+C 复制选区 / Ctrl+X 剪切折叠；
+// 键入/导航折叠选区（编辑即清）；全局互斥驱逐（他处开选区折叠本组件）
+static void test_input_selection() {
+    RecordingClipboard clip;
+    TextSelectionService svc;
+    Input in;
+    in.setTreeService(View::kSvcClipboard, &clip);
+    in.setTreeService(View::kSvcSelection, &svc);
+
+    View &vb = in;
+    auto feedKey = [&](uint32_t vk) {
+        DispatchEvent k;
+        k.type = DispatchEvent::Type::KeyAction;
+        k.keyCode = vk;
+        k.modifiers = 0x01;    // bit0=Ctrl
+        vb.onEvent(k);
+    };
+    auto feedChar = [&](uint32_t cp) {
+        DispatchEvent c;
+        c.type = DispatchEvent::Type::CharInput;
+        c.charCode = cp;
+        vb.onEvent(c);
+    };
+
+    // 焦点 + 键入 "hello"
+    DispatchEvent focus;
+    focus.type = DispatchEvent::Type::FocusGained;
+    vb.onEvent(focus);
+    for (char ch : std::string("hello")) feedChar(ch);
+    CHECK(in.value() == "hello");
+
+    // Ctrl+A → 全选（服务登记 + 模型 [0,5)）
+    feedKey(0x41);
+    CHECK(svc.activeOn(&in));
+    CHECK(svc.modelFor(&in) != nullptr && svc.modelFor(&in)->range().first == 0
+          && svc.modelFor(&in)->range().second == 5);
+
+    // Ctrl+C → 复制选区
+    feedKey(0x43);
+    CHECK(clip.lastSet == "hello");
+
+    // Ctrl+X → 剪切：值清空、光标折叠、onChange 触发
+    int fires = 0;
+    in.handlers.onChange = [&](ChangeArgs) { ++fires; };
+    feedKey(0x58);
+    CHECK(in.value().empty() && clip.lastSet == "hello" && fires >= 1);
+
+    // 重建内容 + Ctrl+A 后键入 → 编辑即折叠（选区消失，服务侧被清）
+    for (char ch : std::string("abc")) feedChar(ch);
+    feedKey(0x41);
+    CHECK(svc.activeOn(&in));
+    feedChar('x');    // CharInput 编辑 → insertAtCursor 折叠（服务侧登记未清，
+                      // 组件内 selectionStart_==cursorPos_——无独立观测面，经
+                      // Ctrl+C 复制"全值"旁证折叠）
+    clip.lastSet.clear();
+    feedKey(0x43);
+    CHECK(clip.lastSet == "abcx");    // 无选区 → 旧语义复制全值
+
+    // 全局互斥驱逐：他处开选区 → Input 登记被挤（后续 Ctrl+C 走全值语义）
+    FakeSelectable other;
+    svc.begin(&other, 0);
+    CHECK(!svc.activeOn(&in));
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -2367,6 +2431,7 @@ int main() {
     test_text_selection();
     test_text_selection_dispatch();
     test_baking_container_subtree_reencode();
+    test_input_selection();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

@@ -10,6 +10,7 @@ module;
 #include <memory>
 export module kwik.element.input;
 import kwik.element.view;
+import kwik.element.selection;    // Selectable / 选区服务（全局互斥登记）/ wordRangeAtText
 import kwik.core.props;
 import kwik.core.types;
 import kwik.render.graphics;
@@ -39,7 +40,7 @@ import std;
  *   Input({ placeholder:"请输入", fontSize:16, width:300, height:40 })
  *   Input({ type:"password", value:"1234", width:200, height:36 })
  */
-export class Input : public View {
+export class Input : public View, public Selectable {
 public:
     Input();
     explicit Input(ViewProps vp, InputProps ip = {});
@@ -58,6 +59,7 @@ public:
     void setValue(const std::string &val) {
         text_ = val;
         cursorPos_ = val.length();
+        selectionStart_ = cursorPos_;    // 换值选区失效（偏移随旧文本作废）
     }
     bool isFocused() const { return focused_; }
 
@@ -65,6 +67,16 @@ public:
 
     void focus();
     void blur();
+
+    // ── Selectable 接口（选区状态自持于 selectionStart_/cursorPos_；经服务
+    //    只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠本组件选区。
+    //    密码模式不参与选区）──
+    size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
+    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    void requestRedraw() override;
+    void onSelectionEvicted() override;
+    bool alive() const override;
 
     /** @brief 点击定位光标（纯函数，合成字形可直测）：单行字形 + 本地 x → 光标字节位
      *
@@ -94,8 +106,13 @@ private:
     std::string text_;    // 实际文本缓冲区 (与 input_.value 初始同步)
     bool focused_ = false;
     size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
+    size_t selectionStart_ = 0;    // 选区锚点（= cursorPos_ 时无选区；密码模式恒折叠）
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
+    bool draggingSelection_ = false;    // 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
+    uint64_t lastTapMs_ = 0;    // 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
+    float lastTapX_ = 0;
+    float lastTapY_ = 0;
 
     std::shared_ptr<TextLayoutResult> textResult_;           // 文字排版结果
     std::shared_ptr<TextLayoutResult> placeholderResult_;    // 占位符排版结果

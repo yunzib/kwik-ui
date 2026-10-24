@@ -12,6 +12,8 @@ module;
 module kwik.element.textarea;
 import kwik.element.view;
 import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/V 的源与目标）
+import kwik.element.selection;    // 选区服务 / Selectable 契约 / wordRangeAtText
+import kwik.element.text;    // Text::penOfBoundaryAt（逐行选区几何复用）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -111,12 +113,14 @@ void TextArea::insertAtCursor(const std::string &utf8) {
     cursorBytePos_ = std::min(cursorBytePos_, text_.size());    // 越界光标防御（新-5）
     text_.insert(cursorBytePos_, utf8);
     cursorBytePos_ += utf8.size();
+    selectionStart_ = cursorBytePos_;    // 编辑即折叠选区
 }
 void TextArea::deleteBeforeCursor() {
     if (cursorBytePos_ == 0 || text_.empty()) return;
     size_t old = cursorBytePos_;
     skipBackward(text_, cursorBytePos_);
     text_.erase(cursorBytePos_, old - cursorBytePos_);
+    selectionStart_ = cursorBytePos_;
 }
 void TextArea::deleteAfterCursor() {
     if (cursorBytePos_ >= text_.size()) return;
@@ -124,12 +128,15 @@ void TextArea::deleteAfterCursor() {
     skipForward(text_, cursorBytePos_);
     text_.erase(start, cursorBytePos_ - start);
     cursorBytePos_ = start;
+    selectionStart_ = cursorBytePos_;
 }
 void TextArea::moveCursorLeft() {
     skipBackward(text_, cursorBytePos_);
+    selectionStart_ = cursorBytePos_;    // 键盘导航即折叠（Shift 扩展选区另行建立）
 }
 void TextArea::moveCursorRight() {
     skipForward(text_, cursorBytePos_);
+    selectionStart_ = cursorBytePos_;
 }
 
 // ════════════════════════════════════════════════════════
@@ -198,6 +205,7 @@ void TextArea::moveCursorUp() {
     int lineIdx = lineForByte(cursorBytePos_);
     if (lineIdx <= 0) {
         cursorBytePos_ = 0;
+        selectionStart_ = cursorBytePos_;
         return;
     }
     // 上一行同列位置（字节列）
@@ -212,12 +220,14 @@ void TextArea::moveCursorUp() {
     // 落在行尾（== clusterEnd）行匹配会跳到下一行 → 回退一个码点保持本行
     if (target >= prev.clusterEnd && target > prev.clusterStart) skipBackward(text_, target);
     cursorBytePos_ = std::min(target, text_.size());
+    selectionStart_ = cursorBytePos_;
 }
 
 void TextArea::moveCursorDown() {
     int lineIdx = lineForByte(cursorBytePos_);
     if (lineIdx < 0 || lineIdx >= (int)textResult_->lines.size() - 1) {
         cursorBytePos_ = text_.size();
+        selectionStart_ = cursorBytePos_;
         return;
     }
     // 下一行同列位置（字节列）
@@ -232,6 +242,7 @@ void TextArea::moveCursorDown() {
     if (target >= next.clusterEnd && target > next.clusterStart && target < text_.size())
         skipBackward(text_, target);
     cursorBytePos_ = std::min(target, text_.size());
+    selectionStart_ = cursorBytePos_;
 }
 
 // ════════════════════════════════════════════════════════
@@ -241,10 +252,12 @@ void TextArea::focus() {
     focusWithCursor(text_.size());    // 键盘/FocusGained 聚焦：光标置文本末尾
 }
 
-// 聚焦并把光标定位到 pos（tap 点击定位专用；focus() 的旧"置文末"语义保留）
+// 聚焦并把光标定位到 pos（Tap 点击定位/PointerDown 落锚共用；focus() 的
+// 旧"置文末"语义保留给键盘链）
 void TextArea::focusWithCursor(size_t pos) {
     focused_ = true;
     cursorBytePos_ = pos;
+    selectionStart_ = cursorBytePos_;    // 定位即折叠（拖选扩展走 PanMove 直写）
     cursorVisible_ = true;
     lastBlinkTime_ =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -287,6 +300,7 @@ void TextArea::blur() {
 void TextArea::setValue(const std::string &val) {
     text_ = val;
     cursorBytePos_ = text_.size();
+    selectionStart_ = cursorBytePos_;    // 换值选区失效（偏移随旧文本作废）
 }
 // ════════════════════════════════════════════════════════
 // onEvent — 键盘 + 点击 + 焦点 (DispatchEvent)
@@ -294,13 +308,70 @@ void TextArea::setValue(const std::string &val) {
 bool TextArea::onEvent(const DispatchEvent &event) {
     switch (event.type) {
     case DispatchEvent::Type::FocusGained:
-        if (!focused_) focus();
+        // 拖选落锚后聚焦到达（事件序 PointerDown→FocusGained）：保持锚点
+        // 位置，不回落"置文末"语义
+        if (!focused_) {
+            if (draggingSelection_) focusWithCursor(cursorBytePos_);
+            else focus();
+        }
         return View::onEvent(event);    // 透传触发 JS onFocus 槽（基类统一焦点分发）
     case DispatchEvent::Type::FocusLost:
         if (focused_) blur();
+        draggingSelection_ = false;    // 拖选中失焦（弹层抢焦点等）即止
         return View::onEvent(event);    // 透传触发 JS onBlur 槽
+    case DispatchEvent::Type::PointerDown: {
+        // 拖选落锚；不消费——Tap/聚焦链照常，单击定位由 Tap 完成
+        size_t off = tapCursorByte(event);
+        cursorBytePos_ = selectionStart_ = off;
+        draggingSelection_ = true;
+        if (auto *svc = selectionOf(*this)) svc->begin(this, off);
+        return View::onEvent(event);
+    }
+    case DispatchEvent::Type::PanMove: {
+        // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
+        if (!draggingSelection_) return View::onEvent(event);
+        size_t off = tapCursorByte(event);
+        if (off != cursorBytePos_) {
+            cursorBytePos_ = off;
+            markDirty();
+        }
+        if (auto *svc = selectionOf(*this)) svc->extend(this, off);
+        return true;
+    }
+    case DispatchEvent::Type::PointerUp:
+    case DispatchEvent::Type::PointerCancel:
+    case DispatchEvent::Type::PanEnd:
+        if (draggingSelection_) {
+            draggingSelection_ = false;
+            if (auto *svc = selectionOf(*this)) svc->end();
+        }
+        return View::onEvent(event);
     case DispatchEvent::Type::Tap:
         if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
+        // 双击选词（连续 Tap 间隔 <400ms 且位移 <6px，事件层 DoubleTap 为
+        // 预留类型无生成点，组件内自检同 Text/Input/TextView）
+        {
+            size_t off = tapCursorByte(event);
+            bool dbl = lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
+                       && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
+            lastTapMs_ = event.timestamp;
+            lastTapX_ = event.globalX;
+            lastTapY_ = event.globalY;
+            if (dbl) {
+                lastTapMs_ = 0;    // 消费后清零：三连击重新计锚不连锁
+                auto [ws, we] = wordRangeAtText(text_, off);
+                selectionStart_ = ws;
+                cursorBytePos_ = we;
+                draggingSelection_ = false;
+                if (auto *svc = selectionOf(*this)) {
+                    svc->begin(this, ws);
+                    svc->extend(this, we);
+                    svc->end();
+                }
+                markDirty();
+                return true;
+            }
+        }
         // 点击定位：行/列就近落在字形边界（focus() 置文末语义保留给键盘链）
         focusWithCursor(tapCursorByte(event));
         return true;
@@ -341,11 +412,48 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         case 0x27: moveCursorRight(); break;
         case 0x26: moveCursorUp(); break;
         case 0x28: moveCursorDown(); break;
-        case 0x24: cursorBytePos_ = 0; break;               // VK_HOME → 行首
-        case 0x23: cursorBytePos_ = text_.size(); break;    // VK_END → 行尾
-        case 0x43:    // 'C' — Ctrl 组合复制全值（无选区状态模型；未接线/空值跳过）
+        case 0x24:    // VK_HOME → 行首
+            cursorBytePos_ = 0;
+            selectionStart_ = cursorBytePos_;
+            break;
+        case 0x23:    // VK_END → 行尾
+            cursorBytePos_ = text_.size();
+            selectionStart_ = cursorBytePos_;
+            break;
+        case 0x41:    // 'A' — Ctrl 组合全选
+            if (ctrl && !text_.empty()) {
+                selectionStart_ = 0;
+                cursorBytePos_ = text_.size();
+                if (auto *svc = selectionOf(*this)) {
+                    svc->begin(this, 0);
+                    svc->extend(this, cursorBytePos_);
+                    svc->end();
+                }
+                markDirty();
+            }
+            break;
+        case 0x43:    // 'C' — Ctrl 组合复制：有选区复制选区，无选区复制全值（旧语义）
             if (ctrl) {
-                if (auto *clip = clipOf(*this); clip && !text_.empty()) clip->setText(text_);
+                if (auto *clip = clipOf(*this); clip) {
+                    if (selectionStart_ != cursorBytePos_) {
+                        size_t s = std::min(selectionStart_, cursorBytePos_);
+                        size_t e = std::max(selectionStart_, cursorBytePos_);
+                        clip->setText(text_.substr(s, e - s));
+                    } else if (!text_.empty()) {
+                        clip->setText(text_);
+                    }
+                }
+            }
+            break;
+        case 0x58:    // 'X' — Ctrl 组合剪选区（严格语义：无选区/只读不操作）
+            if (ctrl && !props_.readOnly && selectionStart_ != cursorBytePos_) {
+                size_t s = std::min(selectionStart_, cursorBytePos_);
+                size_t e = std::max(selectionStart_, cursorBytePos_);
+                if (auto *clip = clipOf(*this); clip) clip->setText(text_.substr(s, e - s));
+                text_.erase(s, e - s);
+                cursorBytePos_ = selectionStart_ = s;
+                markDirty();
+                fireChange();
             }
             break;
         case 0x56:    // 'V' — Ctrl 组合光标处粘贴（readOnly/未接线/剪贴板空跳过）
@@ -425,6 +533,27 @@ void TextArea::onDraw(Graphics &graphics) {
         // ── 逐 visual line 渲染（步进用 layout 行高，与 totalHeight 一致）──
         float yCursor = inner.y;
         for (auto &sl : textResult_->lines) {
+            // 选区高亮：本行与选区的字节交集，贴字形墨迹带（文字之下）
+            if (selectionStart_ != cursorBytePos_) {
+                size_t selS = std::min(selectionStart_, cursorBytePos_);
+                size_t selE = std::max(selectionStart_, cursorBytePos_);
+                size_t s = std::max(selS, static_cast<size_t>(sl.clusterStart));
+                size_t e = std::min(selE, static_cast<size_t>(sl.clusterEnd));
+                if (s < e) {
+                    float xs = Text::penOfBoundaryAt(textResult_->glyphs, sl, s);
+                    float xe = Text::penOfBoundaryAt(textResult_->glyphs, sl, e);
+                    float inkBottom = 0;
+                    size_t gEnd = sl.glyphStart + sl.glyphCount;
+                    for (size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
+                        auto &g = textResult_->glyphs[gi];
+                        inkBottom = std::max(inkBottom, g.y + g.height);
+                    }
+                    if (xe > xs && inkBottom > 0) {
+                        graphics.drawRect({inner.x + xs, yCursor, xe - xs, inkBottom},
+                                          Color{0x25, 0x63, 0xEB, 77});    // #2563EB 30%（同 Text）
+                    }
+                }
+            }
             auto seg = std::vector<ShapedGlyph>(textResult_->glyphs.begin() + sl.glyphStart,
                                                 textResult_->glyphs.begin() + sl.glyphStart + sl.glyphCount);
             graphics.save();
@@ -552,6 +681,62 @@ void TextArea::applyTextAreaProps(const TextAreaProps &p) {
     // 光标越界防御：文本变短后越界光标会使 insertAtCursor 抛 out_of_range
     // 穿 WndProc terminate
     cursorBytePos_ = std::min(cursorBytePos_, text_.size());
+    selectionStart_ = std::min(selectionStart_, text_.size());    // 换值选区同钳（偏移随旧文本）
     markDirty();
     requestLayout();
+}
+// ════════════════════════════════════════════════════════
+// Selectable 接口 — 选区状态自持（selectionStart_/cursorBytePos_），服务
+// 只做全局互斥登记；几何复用 Text::penOfBoundaryAt（整段排版含行元数据）
+// ════════════════════════════════════════════════════════
+size_t TextArea::hitOffset(float globalX, float globalY) {
+    DispatchEvent probe;    // tapCursorByte 只读坐标载荷
+    probe.globalX = globalX;
+    probe.globalY = globalY;
+    return tapCursorByte(probe);
+}
+
+std::vector<Rect> TextArea::selectionRects(size_t startOff, size_t endOff) {
+    std::vector<Rect> out;
+    startOff = clampToUtf8Boundary(text_, startOff);
+    endOff = clampToUtf8Boundary(text_, endOff);
+    if (startOff >= endOff || !textResult_ || textResult_->lines.empty()) return out;
+    Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
+    float yCursor = inner.y;
+    for (auto &sl : textResult_->lines) {
+        size_t s = std::max(startOff, static_cast<size_t>(sl.clusterStart));
+        size_t e = std::min(endOff, static_cast<size_t>(sl.clusterEnd));
+        if (s < e) {
+            float xs = Text::penOfBoundaryAt(textResult_->glyphs, sl, s);
+            float xe = Text::penOfBoundaryAt(textResult_->glyphs, sl, e);
+            float inkBottom = 0;
+            size_t gEnd = sl.glyphStart + sl.glyphCount;
+            for (size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
+                auto &g = textResult_->glyphs[gi];
+                inkBottom = std::max(inkBottom, g.y + g.height);
+            }
+            if (xe > xs && inkBottom > 0) out.push_back({inner.x + xs, yCursor, xe - xs, inkBottom});
+        }
+        yCursor += sl.height;
+    }
+    return out;
+}
+
+std::string TextArea::selectedBytes(size_t startOff, size_t endOff) {
+    startOff = clampToUtf8Boundary(text_, startOff);
+    endOff = clampToUtf8Boundary(text_, endOff);
+    if (startOff >= endOff) return {};
+    return text_.substr(startOff, endOff - startOff);
+}
+
+void TextArea::requestRedraw() { markDirty(); }
+
+void TextArea::onSelectionEvicted() {
+    // 他处开新选区：折叠本组件选区（光标位置保留）
+    selectionStart_ = cursorBytePos_;
+}
+
+bool TextArea::alive() const {
+    // View 为首基类——static_cast 唯一解析到 EventTarget 子对象
+    return TargetLiveness::instance().isAlive(static_cast<const EventTarget *>(this));
 }

@@ -51,6 +51,20 @@ Input({ type:"number", min:0, max:100, step:5,
         value: ref(form, "level"), onChange: (v) => console.log(v) })
 ```
 
+## 选区与鼠标交互
+
+- **点击定位**：单击按字形边界放置光标
+- **拖选**：按住左键拖动出选区高亮，拖动被消费（祖先滚动容器不滚）；
+  双向拖动均正确
+- **双击选词**：连续两次点击（间隔 <400ms 且位移 <6px）选中一个词
+- **Ctrl+A** 全选 / **Ctrl+X** 剪选区（无选区不操作；onChange 触发）
+- **Ctrl+C**：有选区复制选区，无选区复制全值（旧语义兼容）
+- 编辑/键盘导航（方向键、Home/End、输入、删除）即折叠选区
+- 与 Text `selectable` / TextView / TextArea 共用全树唯一选区（他处开
+  新选区时自动折叠）
+- **密码模式（type:"password"）不参与选区**（拖选/双击/Ctrl+A/X 跳过，
+  防掩码串复制歧义）
+
 ## 关联
 
 - demo：`test/ui/input.js`（`example.exe input`）
