@@ -1,5 +1,37 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-24
+### 新增
+- 展示文本选区能力（Text `selectable` 属性）：拖选出高亮、双击选词、
+  Ctrl+C 复制到系统剪贴板、Ctrl+A 全选本段；全树同时唯一选区。新增
+  selection 模块三件套——SelectionModel 纯模型（anchor/focus 字节偏移，
+  UTF-8 边界钳制）/ Selectable 组件能力接口（hitOffset 几何映射 +
+  selectionRects + 取文，后续编辑组件实现同接口即并入全局选区）/
+  TextSelectionService 树级服务（树服务槽 4，TargetLiveness 判死自愈，
+  跨树重建选区随复用节点自然存活）。事件层零改动：拖选事件经
+  pressTarget 直投、PanMove 消费即止抑制祖先拖动滚动（滚轮不受影响）、
+  Ctrl+C 经焦点路由（selectable Text 可聚焦）；选区随焦点，焦点转移
+  即清。docsite 代码卡正文与 selectable demo 即用例
+- 双击选词（Text 组件内连续 Tap 自检：间隔 <400ms 且位移 <6px 判双击，
+  三连击不连锁；单击 onClick 不受影响——事件层 DoubleTap 为预留类型
+  无生成点，组件内自检替代）
+- smoke 默认示例集收录 selectable 与 docs（38 → 40）
+
+### 修复
+- 树服务槽容量硬编码上界：setTreeService/treeService 边界检查
+  写死 `slot >= 4` 且 treeSvc_ 定长 4——新增槽位（选区服务槽 4）接线
+  静默失效无任何告警，五处接线全部无效。kSvcSlotCount 常量化驱动数组
+  与双边界检查（加槽只改一处）
+- 滚动容器内子级变更不随帧显示（拖选高亮需滚轮触发才出现）双根因：
+  ① drawForced 强制录制后脏标志不清——烘焙链中间层容器的
+  subtreeDirty_ 永不消费，残留标志吞掉后续子级 markDirty 冒泡（冒泡
+  循环遇已脏祖先即中途截止），滚动容器永不知晓后代变化；修复为录制
+  后就地清脏（含不可见分支）。② ScrollView/ListLayout 子级经 drawForced
+  烘焙进自身 onDraw 的 clip/translate 域，View::draw"仅子树脏→引用段
+  重建"分支无这些状态（子级引用挂到未裁剪/未平移位置）；新增
+  bakesChildrenDraw 虚钩子（默认 false 行为不变），烘焙容器子树脏
+  强制整体重编，对齐 setScroll markAllDirty 既有口径
+
 # 0.0.0 — 2026-10-18
 ### 新增
 - 剪贴板 JS 出口 kwikui.setClipboardText(text)→bool：ClipboardService 树

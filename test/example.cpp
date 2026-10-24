@@ -81,6 +81,8 @@ static std::string resolveDemo(int argc, char *argv[]) {
         std::string arg = argv[1];
         // docs — 组件文档站（test/docsite/js，双栏导航 + 实况示例 + 集中示例代码 + 双语）
         if (arg == "docs") return "../../test/docsite/js/main.js";
+        // selectable — Text 文字选区（拖选/双击选词/Ctrl+C 复制/滚动容器内仲裁）
+        if (arg == "selectable") return "../../test/ui/selectable.js";
         if (arg == "channel") return "../../test/ui/channel.js";
         if (arg == "view") return "../../test/ui/view.js";
         if (arg == "text") return "../../test/ui/text.js";

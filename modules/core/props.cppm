@@ -123,6 +123,7 @@ export struct TextContent {
     bool ellipsis = true;                   ///< 超 maxLines 时行尾补省略号
     float lineHeight = 0;                   ///< 固定行高 px（0=自动 = fontSize*1.4）
     TextVerticalAlign verticalAlign = TextVerticalAlign::Top;  ///< 容器内垂直对齐
+    bool selectable = false;                ///< 文字可选中（拖选/双击选词/Ctrl+C 复制，经选区服务）
 };
 
 /**

@@ -33,6 +33,7 @@ import kwik.render.graphics;
 import kwik.event;
 import kwik.element.view;
 import kwik.element.clipboard_service;    // ClipboardService（树服务槽 3 适配）
+import kwik.element.selection;    // TextSelectionService（树服务槽 4 适配）
 import kwik.element.layer_stack;
 import kwik.animation.engine;
 import kwik.bridge.binding_registry;
@@ -122,6 +123,7 @@ private:
     RenderThread renderThread_;
     QuickJSContext jsCtx_;
     std::unique_ptr<ClipboardService> clipSvc_;    // 剪贴板服务（每树一份，适配本树窗口）
+    std::unique_ptr<TextSelectionService> selectionSvc_;    // 文本选区服务（每树一份，槽 4 接线）
     std::unique_ptr<View> tree_;
     EventRouter eventRouter_;
     LayerStack layers_;                  // 本树层树（S2-2 每树一份；根节点服务槽接线）

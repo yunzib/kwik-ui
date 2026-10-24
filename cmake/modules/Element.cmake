@@ -12,6 +12,7 @@ target_sources(kwik_element
             modules/element/typed_prop.cppm
             modules/element/view.cppm
             modules/element/clipboard_service.cppm
+            modules/element/selection.cppm
             modules/element/rootview.cppm
             modules/element/text.cppm
             modules/element/button.cppm

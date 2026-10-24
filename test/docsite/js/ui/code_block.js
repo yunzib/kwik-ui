@@ -63,6 +63,7 @@ export const codeBlock = (t, codeText, height = 320, w = 880) => {
             lines.map((ln) => Text({
                 text: ln.length ? ln : ' ',
                 width: innerW, height: 19, fontSize: 12.5, color: '#C9D6F0',
+                selectable: true,    // 行内拖选/双击选词/Ctrl+C（与标题条复制钮互补）
             }))),
     ])] : [];
 

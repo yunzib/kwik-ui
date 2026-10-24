@@ -46,6 +46,9 @@ public:
 
     ElementType type() const override { return ElementType::ScrollView; }
 
+    /// 子级经 drawForced 烘焙进 onDraw 的 clip/translate 域——子树脏须整体重编（见 View::draw）
+    bool bakesChildrenDraw() const override { return true; }
+
     /// @brief 当前滚动专有属性（reconcile 用）
     const ScrollViewProps &scrollProps() const { return sp_; }
 

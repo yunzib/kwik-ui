@@ -6,6 +6,8 @@ module;
 module kwik.element.text;
 
 import kwik.element.view;
+import kwik.element.selection;    // 选区服务 / Selectable 契约 / clampToUtf8Boundary
+import kwik.element.clipboard_service;    // ClipboardService（Ctrl+C 出口）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.prop_meta;
@@ -16,8 +18,14 @@ import kwik.render.text.pipeline;
 import kwik.element.typed_prop;
 import kwik.core.log;
 import kwik.core.color_parser;
+import kwik.event;    // DispatchEvent / TargetLiveness
 
 import std;
+
+// ── 本树剪贴板取用（槽 3；input/textview 同款局部惯例）──
+static ClipboardService *clipOf(const View &v) {
+    return static_cast<ClipboardService *>(v.treeService(View::kSvcClipboard));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Text::ensureLayout — 排版（缓存命中跳过 + maxLines 截断/省略号）
@@ -38,6 +46,7 @@ import std;
 // ═══════════════════════════════════════════════════════════════════════════
 void Text::applyTextContent(const TextContent &tc) {
     if (tc.text != text_.text) {
+        clearSelectionIfHosted();    // 选区偏移随旧文本失效，文本变更先行清空
         layoutResult_.reset();    // 排版缓存废止，下次 ensureLayout 惰性重建
         displayedText_.clear();
         markDirty();
@@ -152,18 +161,20 @@ void Text::onDraw(Graphics &graphics) {
     // 行高步进与布局一致：逐行用 layout 行高（= max(标准行高, ink 高)）——
     // 固定 fontSize*1.4 在高字形（emoji）行与布局 totalHeight 分叉 → 行重叠
 
-    // 垂直对齐：在 padding 后内容区（frame.height - padding.vertical()）内整体下移
-    float contentH = layoutResult_->totalHeight;
-    float availH = frame.height - props.padding.vertical();
-    float drawY = frame.y + props.padding.top;
-    if (text_.verticalAlign != TextVerticalAlign::Top && availH > contentH) {
-        float extra = availH - contentH;
-        drawY += extra * (text_.verticalAlign == TextVerticalAlign::Center ? 0.5f : 1.0f);
+    // 选区高亮：本节点为选区宿主时画在字形之下（背景之上），服务槽 4
+    if (auto *svc = selectionOf(*this)) {
+        if (const SelectionModel *sel = svc->modelFor(this)) {
+            auto [selS, selE] = sel->range();
+            for (const auto &r : selectionRects(selS, selE)) {
+                graphics.drawRect(r, Color{0x25, 0x63, 0xEB, 77});    // #2563EB 30%
+            }
+        }
     }
 
-    // 逐 visual line 渲染（layoutWordWrap 的 glyph.y 为行局部坐标，必须逐行 translate）
-    float x0 = frame.x + props.padding.left;
-    float yCursor = drawY;
+    // 内容原点（verticalAlign 偏移后；onDraw 与 hitOffset/selectionRects 几何共源）
+    Point origin = contentOrigin();
+    float x0 = origin.x;
+    float yCursor = origin.y;
     for (auto &sl : layoutResult_->lines) {
         auto seg = std::vector<ShapedGlyph>(layoutResult_->glyphs.begin() + sl.glyphStart,
                                             layoutResult_->glyphs.begin() + sl.glyphStart + sl.glyphCount);
@@ -181,6 +192,7 @@ void Text::onDraw(Graphics &graphics) {
 bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "text") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
+            if (*s != text_.text) clearSelectionIfHosted();    // 选区偏移随旧文本失效
             text_.text = *s;
             layoutResult_.reset();    // ← 排版结果废止，下次 onDraw 时惰性重建
             markDirty();
@@ -356,5 +368,223 @@ void Text::resolveThemeDefaults() {
     auto it = props.themeTokens.find("color");
     if (it != props.themeTokens.end()) {
         if (auto v = theme().resolveToken(it->second)) { text_.textColor = *v; }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 文本选区 — selectable 交互与 Selectable 接口实现
+//
+// 事件链依赖（事件层零改动的前提）：
+//   PointerDown/PanMove/Up 均带 presetTarget=pressTarget 直投本节点
+//   （拖出边界事件仍到达）；PanMove 消费即止不冒泡 → 祖先 ScrollView
+//   拖动滚动被抑制（滚轮链独立，不受影响）；KeyAction 只投焦点 →
+//   acceptsFocus 后 Ctrl+C/A 天然到达。
+// ═══════════════════════════════════════════════════════════════════════════
+bool Text::acceptsFocus() const { return text_.selectable; }
+
+bool Text::onEvent(const DispatchEvent &event) {
+    if (!text_.selectable) return View::onEvent(event);    // 非可选文本走基类（现状零变化）
+    switch (event.type) {
+    case DispatchEvent::Type::PointerDown: {
+        // 落锚不消费：Tap/onClick 与 FocusManager 聚焦链照常
+        if (auto *svc = selectionOf(*this)) svc->begin(this, hitOffset(event.globalX, event.globalY));
+        return View::onEvent(event);
+    }
+    case DispatchEvent::Type::PanMove: {
+        // 拖选扩展并消费（抑制祖先拖动滚动；滚轮不受影响）
+        auto *svc = selectionOf(*this);
+        if (!svc) return View::onEvent(event);
+        svc->extend(this, hitOffset(event.globalX, event.globalY));
+        return true;
+    }
+    case DispatchEvent::Type::PointerUp:
+    case DispatchEvent::Type::PointerCancel:
+    case DispatchEvent::Type::PanEnd:
+        if (auto *svc = selectionOf(*this)) svc->end();
+        return View::onEvent(event);
+    case DispatchEvent::Type::Tap: {
+        // 双击选词：连续 Tap 间隔 <400ms 且位移 <6px 判双击（事件层
+        // DoubleTap 为预留类型无生成点，组件内自检）；单击走基类 onClick 链
+        auto *svc = selectionOf(*this);
+        bool dbl = svc && lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
+                   && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
+        lastTapMs_ = event.timestamp;
+        lastTapX_ = event.globalX;
+        lastTapY_ = event.globalY;
+        if (dbl) {
+            lastTapMs_ = 0;    // 消费后清零：三连击重新计锚不连锁
+            auto [ws, we] = wordRangeAt(hitOffset(event.globalX, event.globalY));
+            svc->begin(this, ws);
+            svc->extend(this, we);
+            svc->end();
+            return true;
+        }
+        return View::onEvent(event);    // 单击：JS onClick 照常
+    }
+    case DispatchEvent::Type::FocusLost:
+        // 焦点转移（点别处）即清选区；JS onBlur 槽照常
+        if (auto *svc = selectionOf(*this)) svc->clear();
+        return View::onEvent(event);
+    case DispatchEvent::Type::KeyAction: {
+        // 仅聚焦时到达（键盘只投焦点）——Ctrl+C 复制选区 / Ctrl+A 全选本段
+        bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl（Input 同款填法）
+        auto *svc = selectionOf(*this);
+        if (!ctrl || !svc || !svc->activeOn(this)) return View::onEvent(event);
+        const SelectionModel *m = svc->modelFor(this);
+        if (event.keyCode == 0x43 && m && !m->empty()) {    // 'C' — 空选区不消费
+            if (auto *clip = clipOf(*this)) {
+                if (clip->setText(selectedBytes(m->range().first, m->range().second))) return true;
+            }
+        } else if (event.keyCode == 0x41) {    // 'A' — 全选本段（截断文本选可见部分）
+            svc->begin(this, 0);
+            svc->extend(this, clampToUtf8Boundary(displayedText_, displayedText_.size()));
+            svc->end();
+            return true;
+        }
+        return View::onEvent(event);    // 其余键位走 JS dispatch
+    }
+    default:
+        return View::onEvent(event);
+    }
+}
+
+// ── Selectable 接口 — 几何映射（只读 layoutResult_ 缓存，零布局触发）──
+size_t Text::hitOffset(float globalX, float globalY) {
+    if (!layoutResult_ || layoutResult_->lines.empty()) return 0;
+    Point origin = contentOrigin();
+    // 定位行：累加行高首个覆盖 globalY 的行（越界取首/末行，自然收敛）
+    float yTop = origin.y;
+    const TextLayoutLine *hitLine = &layoutResult_->lines.front();
+    for (auto &sl : layoutResult_->lines) {
+        hitLine = &sl;
+        if (globalY < yTop + sl.height) break;
+        yTop += sl.height;
+    }
+    return lineHitOffsetForX(layoutResult_->glyphs, *hitLine, globalX - origin.x);
+}
+
+std::vector<Rect> Text::selectionRects(size_t startOff, size_t endOff) {
+    std::vector<Rect> out;
+    if (!layoutResult_ || startOff >= endOff) return out;
+    // 双端钳制（UTF-8 边界 + 超界收拢——cluster 值天然合法，此处为外部
+    // 来源兜底；对齐 displayedText_ 空间）
+    startOff = clampToUtf8Boundary(displayedText_, startOff);
+    endOff = clampToUtf8Boundary(displayedText_, endOff);
+    if (startOff >= endOff) return out;
+    Point origin = contentOrigin();
+    float yTop = origin.y;
+    for (auto &sl : layoutResult_->lines) {
+        // 本行与选区的字节区间交集（[clusterStart, clusterEnd) 为行覆盖）
+        size_t s = std::max(startOff, static_cast<size_t>(sl.clusterStart));
+        size_t e = std::min(endOff, static_cast<size_t>(sl.clusterEnd));
+        if (s < e) {
+            float xs = penOfBoundaryAt(layoutResult_->glyphs, sl, s);    // 边界落笔 = 选区起点
+            float xe = penOfBoundaryAt(layoutResult_->glyphs, sl, e);    // 下一边界落笔 = 终点
+            if (xe > xs) out.push_back({origin.x + xs, yTop, xe - xs, sl.height});
+        }
+        yTop += sl.height;
+    }
+    return out;
+}
+
+std::string Text::selectedBytes(size_t startOff, size_t endOff) {
+    startOff = clampToUtf8Boundary(displayedText_, startOff);
+    endOff = clampToUtf8Boundary(displayedText_, endOff);
+    if (startOff >= endOff) return {};
+    return displayedText_.substr(startOff, endOff - startOff);
+}
+
+void Text::requestRedraw() { markDirty(); }
+
+bool Text::alive() const {
+    // View 为首基类——static_cast 唯一解析到 EventTarget 子对象
+    // （TargetLiveness 构造登记/析构注销，地址即登记键）
+    return TargetLiveness::instance().isAlive(static_cast<const EventTarget *>(this));
+}
+
+// ── 私有几何辅助 ──
+Point Text::contentOrigin() const {
+    float contentH = layoutResult_ ? layoutResult_->totalHeight : 0.0f;
+    float availH = frame.height - props.padding.vertical();
+    float drawY = frame.y + props.padding.top;
+    if (text_.verticalAlign != TextVerticalAlign::Top && availH > contentH) {
+        float extra = availH - contentH;
+        drawY += extra * (text_.verticalAlign == TextVerticalAlign::Center ? 0.5f : 1.0f);
+    }
+    return {frame.x + props.padding.left, drawY};
+}
+
+// ── 纯几何函数（静态，行为锁单测入口；glyphs 为全排版扁平数组，行内索引自 sl）──
+size_t Text::lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, float localX) {
+    size_t gEnd = sl.glyphStart + sl.glyphCount;
+    if (gEnd <= sl.glyphStart) return sl.clusterStart;    // 空行（硬断行）
+    // 最近边界扫描：各字形落笔位置（对齐偏移已烘焙进 x）+ 行尾末笔
+    size_t bestOff = sl.clusterStart;
+    float bestDist = std::numeric_limits<float>::max();
+    for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+        if (glyphs[i].isNewline) continue;    // 换行标记不产生可视边界
+        float d = std::abs(localX - glyphs[i].x);
+        if (d < bestDist) {
+            bestDist = d;
+            bestOff = glyphs[i].cluster;    // cluster = 字节偏移，天然 UTF-8 边界
+        }
+    }
+    const auto &last = glyphs[gEnd - 1];
+    float dEnd = std::abs(localX - (last.x + last.advanceX));
+    if (dEnd < bestDist) bestOff = sl.clusterEnd;
+    return bestOff;
+}
+
+float Text::penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, size_t off) {
+    size_t gEnd = sl.glyphStart + sl.glyphCount;
+    for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+        // 首个 cluster >= off 的字形落笔即边界位置（换行标记跳过）
+        if (!glyphs[i].isNewline && glyphs[i].cluster >= off) return glyphs[i].x;
+    }
+    if (gEnd > sl.glyphStart) {
+        const auto &last = glyphs[gEnd - 1];
+        return last.x + last.advanceX;    // 越过行尾：末字形末笔
+    }
+    return 0.0f;    // 空行
+}
+
+std::pair<size_t, size_t> Text::wordRangeAt(size_t off) const {
+    const std::string &s = displayedText_;
+    if (s.empty()) return {0, 0};
+    off = clampToUtf8Boundary(s, std::min(off, s.size()));
+    // 码点步进（UTF-8 安全：跨连续字节回退/前进）
+    auto stepBack = [&](size_t p) {
+        if (p == 0) return p;
+        --p;
+        while (p > 0 && (static_cast<unsigned char>(s[p]) & 0xC0) == 0x80) --p;
+        return p;
+    };
+    auto stepFwd = [&](size_t p) {
+        if (p >= s.size()) return p;
+        ++p;
+        while (p < s.size() && (static_cast<unsigned char>(s[p]) & 0xC0) == 0x80) ++p;
+        return p;
+    };
+    // ASCII 空白/标点为词界；非 ASCII（含 CJK）连续段整体选中（简化分词）
+    auto isSep = [&](size_t p) {
+        unsigned char c = static_cast<unsigned char>(s[p]);
+        if (c >= 0x80) return false;
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || (c >= 0x21 && c <= 0x2F)
+               || (c >= 0x3A && c <= 0x40) || (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E);
+    };
+    if (isSep(off)) return {off, stepFwd(off)};    // 命中分隔符：就近一个码点
+    size_t a = off, b = off;
+    while (a > 0) {
+        size_t p = stepBack(a);
+        if (isSep(p)) break;
+        a = p;
+    }
+    while (b < s.size() && !isSep(b)) b = stepFwd(b);
+    return {a, b};
+}
+
+void Text::clearSelectionIfHosted() {
+    if (auto *svc = selectionOf(*this)) {
+        if (svc->activeOn(this)) svc->clear();
     }
 }

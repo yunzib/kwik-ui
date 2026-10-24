@@ -34,6 +34,7 @@ import kwik.element.input;
 import kwik.element.textarea;
 import kwik.element.textview;
 import kwik.element.clipboard_service;
+import kwik.element.selection;    // SelectionModel / TextSelectionService / clampToUtf8Boundary
 import kwik.element.radiobutton;
 import kwik.element.tabs;
 import kwik.layout.grid_layout;
@@ -2075,6 +2076,242 @@ static void test_horizontal_scroll_dispatch() {
     CHECK(nearf(std::stof(sv->getProperty("scrollX")), 30.0f));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 文本选区 — 纯模型 / UTF-8 钳制 / 服务状态机（互斥·判死自愈）/ Text 纯几何
+// ═══════════════════════════════════════════════════════════════════════════
+// 测试替身：几何实现为线性串（服务只认 Selectable 接口，不依赖真实排版）
+struct FakeSelectable : Selectable {
+    std::string content = "hello 中文 world";
+    int redraws = 0;
+    bool live = true;
+    size_t hitOffset(float, float) override { return 0; }
+    std::vector<Rect> selectionRects(size_t, size_t) override { return {}; }
+    std::string selectedBytes(size_t s, size_t e) override {
+        s = clampToUtf8Boundary(content, s);
+        e = clampToUtf8Boundary(content, e);
+        return s < e ? content.substr(s, e - s) : std::string{};
+    }
+    void requestRedraw() override { ++redraws; }
+    bool alive() const override { return live; }
+};
+
+static void test_text_selection() {
+    // ① SelectionModel：折叠态 / 有序区间 / 反向拖
+    SelectionModel m;
+    CHECK(m.empty());
+    m.reset(3);
+    CHECK(m.empty() && m.anchor == 3 && m.focus == 3);
+    m.extendTo(9);
+    auto r1 = m.range();
+    CHECK(!m.empty() && r1.first == 3 && r1.second == 9);
+    m.extendTo(1);    // 反向拖过锚点：区间仍有序
+    auto r2 = m.range();
+    CHECK(r2.first == 1 && r2.second == 3);
+
+    // ② clampToUtf8Boundary："a中b"（'中' 占字节 1..4 连续段）切中间回退首字节
+    std::string t = "a中b";
+    CHECK(clampToUtf8Boundary(t, 0) == 0);
+    CHECK(clampToUtf8Boundary(t, 1) == 1);     // '中' 首字节，合法
+    CHECK(clampToUtf8Boundary(t, 2) == 1);     // '中' 中间字节 → 回退
+    CHECK(clampToUtf8Boundary(t, 4) == 4);     // 'b' 前，合法
+    CHECK(clampToUtf8Boundary(t, 99) == 5);    // 超界收拢文末
+    CHECK(clampToUtf8Boundary("", 3) == 0);
+
+    // ③ 服务状态机：互斥（切宿主清旧+旧宿主重绘）/ 非宿主扩展忽略 / 判死自愈
+    TextSelectionService svc;
+    FakeSelectable a, b;
+    svc.begin(&a, 2);
+    svc.extend(&a, 10);
+    CHECK(svc.activeOn(&a) && !svc.activeOn(&b));
+    CHECK(svc.modelFor(&a) != nullptr && svc.modelFor(&a)->range().second == 10);
+    CHECK(svc.modelFor(&b) == nullptr);
+    int redrawsBefore = a.redraws;
+    svc.begin(&b, 0);    // 切宿主：a 的会话互斥清空
+    CHECK(!svc.activeOn(&a) && svc.activeOn(&b));
+    CHECK(a.redraws > redrawsBefore);    // 旧宿主收到重绘（擦高亮）
+    svc.extend(&a, 5);                   // 非宿主扩展被忽略
+    CHECK(svc.modelFor(&b)->empty());
+    b.live = false;                      // 宿主死亡 → 判死自愈
+    CHECK(!svc.activeOn(&b) && !svc.activeOn(&a));
+    svc.begin(&a, 0);                    // 清空后可重新开（死节点无残留）
+    CHECK(svc.activeOn(&a) && svc.modelFor(&a)->empty());
+
+    // ④ Text 纯几何：手搭 "a中b" 等宽字形（'a'/'中'/'b' 各 10px，Input
+    // tapByteOffsetForX 测试同款数据），验证最近边界扫描与边界落笔
+    std::vector<ShapedGlyph> gs;
+    auto single = [&](uint32_t cluster, uint8_t nb, float x) {
+        ShapedGlyph g;
+        g.cluster = cluster;
+        g.numBytes = nb;
+        g.advanceX = 10;
+        g.fontSize = 16;
+        g.x = x;
+        gs.push_back(g);
+    };
+    single(0, 1, 0);    // 'a'
+    single(1, 3, 10);   // '中'
+    single(4, 1, 20);   // 'b'
+    TextLayoutLine sl;
+    sl.glyphStart = 0;
+    sl.glyphCount = 3;
+    sl.clusterStart = 0;
+    sl.clusterEnd = 5;
+    // 最近边界扫描（候选落笔 0/10/20/末笔 30）
+    CHECK(Text::lineHitOffsetForX(gs, sl, -5.0f) == 0);     // 左缘外 → 文首
+    CHECK(Text::lineHitOffsetForX(gs, sl, 4.9f) == 0);      // 'a' 前半 → 'a' 前
+    CHECK(Text::lineHitOffsetForX(gs, sl, 5.1f) == 1);      // 'a' 后半 → '中' 前
+    CHECK(Text::lineHitOffsetForX(gs, sl, 14.9f) == 1);     // '中' 前半 → '中' 前
+    CHECK(Text::lineHitOffsetForX(gs, sl, 15.1f) == 4);     // '中' 后半 → 'b' 前
+    CHECK(Text::lineHitOffsetForX(gs, sl, 25.1f) == 5);     // 近末笔 → 行尾 clusterEnd
+    // 空行防御（硬断行）
+    TextLayoutLine empty;
+    empty.clusterStart = 7;
+    CHECK(Text::lineHitOffsetForX(gs, empty, 3.0f) == 7);
+    // 边界落笔：起点=该字形 x；终点=下一字形 x；越行尾=末笔
+    CHECK(Text::penOfBoundaryAt(gs, sl, 0) == 0);
+    CHECK(Text::penOfBoundaryAt(gs, sl, 1) == 10);
+    CHECK(Text::penOfBoundaryAt(gs, sl, 4) == 20);
+    CHECK(Text::penOfBoundaryAt(gs, sl, 5) == 30);
+}
+
+// 链路复现：EventRouter → GR（阈值后 PanMove presetTarget 直投）→ 分发 →
+// Text::onEvent → 选区服务。独立 Text 作根（setTreeService 直塞可接线）。
+// 无字体环境 layoutResult_ 为空 → hitOffset 恒 0 → 选区折叠态；本测试
+// 锁「事件链到达与会话状态机」，几何正确性由纯函数测试覆盖。
+static void test_text_selection_dispatch() {
+    Text t;
+    TextContent tc;
+    tc.text = "hello world";
+    tc.selectable = true;
+    t.applyTextContent(tc);
+    t.layout(Rect{0, 0, 300, 40});    // 独立根：显式 frame（hitTest 需要）
+
+    TextSelectionService svc;
+    t.setTreeService(View::kSvcSelection, &svc);
+
+    EventRouter router;
+    router.setRootTarget(&t);
+
+    int ts = 100;
+    auto feed = [&](RawEvent::Action a, float x, float y) {
+        RawEvent e;
+        e.device = RawEvent::Device::Mouse;
+        e.action = a;
+        e.x = x;
+        e.y = y;
+        e.button = 1;    // 左键
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+    };
+
+    // ① 按下 → 落锚（折叠会话，宿主为 t）
+    feed(RawEvent::Action::Down, 10, 20);
+    CHECK(svc.activeOn(&t));
+    CHECK(svc.modelFor(&t) != nullptr && svc.modelFor(&t)->empty());
+
+    // ② 跨阈值拖动（30px+）→ PanMove 到达且扩展（折叠态：hitOffset=0）
+    feed(RawEvent::Action::Move, 45, 20);
+    feed(RawEvent::Action::Move, 90, 20);
+    CHECK(svc.activeOn(&t));
+
+    // ③ 抬起 → 选区驻留
+    feed(RawEvent::Action::Up, 90, 20);
+    CHECK(svc.activeOn(&t));
+    CHECK(svc.modelFor(&t) != nullptr);
+
+    // ④ Ctrl+C 折叠态不消费（空选区）；Ctrl+A 全选本段——范围 = displayedText
+    //（无字体环境未排版为空串 → 0；真实环境 = 全文，语义"选可见文本"）
+    View &vb = t;
+    DispatchEvent key;
+    key.type = DispatchEvent::Type::KeyAction;
+    key.keyCode = 0x41;    // 'A'
+    key.modifiers = 0x01;    // bit0=Ctrl
+    vb.onEvent(key);
+    CHECK(svc.modelFor(&t) != nullptr && svc.modelFor(&t)->range().second == t.displayedText().size());
+
+    // ⑤ FocusLost → 清会话
+    DispatchEvent blur;
+    blur.type = DispatchEvent::Type::FocusLost;
+    vb.onEvent(blur);
+    CHECK(!svc.activeOn(&t));
+}
+
+// 行为锁：烘焙型容器（ScrollView/ListLayout，bakesChildrenDraw）子树脏
+// 必须整体重编——View::draw"仅子树脏→引用段重建"分支无 onDraw 内的
+// clip/translate 状态，子级（如拖选高亮的 Text）变更挂错位置，表现为
+// 拖选高亮不随帧显示、滚动后才出现。锁"子级标脏 → 容器重跑自身 onDraw"。
+static void test_baking_container_subtree_reencode() {
+    struct CountText final : Text {
+        Size onMeasure(Constraints) override { return {100, 20}; }    // 免字体测量
+        int draws = 0;
+        void onDraw(Graphics &g) override {
+            ++draws;
+            Text::onDraw(g);
+        }
+    };
+    struct CountSV final : ScrollView {
+        int draws = 0;
+        void onDraw(Graphics &g) override {
+            ++draws;
+            ScrollView::onDraw(g);
+        }
+    };
+
+    // ScrollView → Flex → Text 三层（demo 同构）；手排 frame（免字体）
+    auto sv = std::make_unique<CountSV>();
+    sv->props.width = 200;
+    sv->props.height = 100;
+    auto flex = std::make_unique<FlexLayout>(ViewProps{}, ContainerProps{});
+    auto txt = std::make_unique<CountText>();
+    CountText *t = txt.get();
+    t->text_.selectable = true;
+    flex->addChild(std::move(txt));
+    sv->addChild(std::move(flex));
+
+    Graphics g;
+    g.beginFrame();
+    sv->measure(Constraints::loose(Size{200, 100}));
+    sv->layout(Rect{0, 0, 200, 100});
+    sv->draw(g);
+    g.endFrame();
+    CHECK(t->draws >= 1);    // 首帧全编码
+
+    // 子级标脏（选区变化路径 requestRedraw→markDirty）→ 再绘一帧：
+    // 烘焙容器须重跑自身 onDraw（drawForced 把子级带进 clip/translate 域）
+    t->markDirty();
+    g.beginFrame();
+    sv->draw(g);
+    g.endFrame();
+    CHECK(t->draws >= 2);
+
+    // 对照：普通 View（非烘焙）子树脏走引用段重建——子级 listDirty 仍重编
+    // 自身，但父 onDraw 不重跑（引用段路径，父图元缓存复用）
+    struct CountView final : View {
+        int draws = 0;
+        void onDraw(Graphics &gg) override {
+            ++draws;
+            View::onDraw(gg);
+        }
+    };
+    auto wrap = std::make_unique<CountView>();
+    wrap->props.width = 200;
+    wrap->props.height = 100;
+    auto txt2 = std::make_unique<CountText>();
+    CountText *t2 = txt2.get();
+    wrap->addChild(std::move(txt2));
+    g.beginFrame();
+    wrap->measure(Constraints::loose(Size{200, 100}));
+    wrap->layout(Rect{0, 0, 200, 100});
+    wrap->draw(g);
+    g.endFrame();
+    int parent0 = wrap->draws, child0 = t2->draws;
+    t2->markDirty();
+    g.beginFrame();
+    wrap->draw(g);
+    g.endFrame();
+    CHECK(t2->draws > child0 && wrap->draws == parent0);    // 子编父不编
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -2114,6 +2351,9 @@ int main() {
     test_input_latency_stamp();
     test_focus_preserved_across_reset();
     test_horizontal_scroll_dispatch();
+    test_text_selection();
+    test_text_selection_dispatch();
+    test_baking_container_subtree_reencode();
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

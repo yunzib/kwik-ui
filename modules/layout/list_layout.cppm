@@ -33,6 +33,9 @@ public:
 
     ElementType type() const override { return ElementType::ListLayout; }
 
+    /// 行子级经 drawForced 烘焙进 onDraw 的 clip/translate 域——子树脏须整体重编（见 View::draw）
+    bool bakesChildrenDraw() const override { return true; }
+
     // ─── 首尾固定子控件 ───────────────────────────────
     std::unique_ptr<View> header;
     std::unique_ptr<View> footer;

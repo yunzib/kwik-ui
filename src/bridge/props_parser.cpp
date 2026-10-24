@@ -228,6 +228,7 @@ TextContent parseTextContent(PropsExtractor &ex) {
                    {"center", TextVerticalAlign::Center},
                    {"bottom", TextVerticalAlign::Bottom},
                });
+    ex.get("selectable", result.selectable);
     return result;
 }
 

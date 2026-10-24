@@ -247,7 +247,9 @@ void View::draw(Graphics &graphics) {
         return;
     }
 
-    if (listDirty_ || !pendingList_) {
+    // 烘焙型容器（bakesChildrenDraw，如滚动容器）子树脏必须整体重编：
+    // 引用段重建域无 onDraw 内的裁剪/平移状态，子级引用会挂错位置
+    if (listDirty_ || !pendingList_ || (subtreeDirty_ && bakesChildrenDraw())) {
         encodeList(graphics);
     } else if (subtreeDirty_) {
         subtreeDirty_ = false;
@@ -570,13 +572,13 @@ View::~View() {
 }
 
 void View::setTreeService(int slot, void *svc) {
-    if (slot < 0 || slot >= 4) return;
+    if (slot < 0 || slot >= kSvcSlotCount) return;
     if (parent_) return;    // 仅根节点接线（子节点槽恒空，上行到根取）
     treeSvc_[slot] = svc;
 }
 
 void *View::treeService(int slot) const {
-    if (slot < 0 || slot >= 4) return nullptr;
+    if (slot < 0 || slot >= kSvcSlotCount) return nullptr;
     const View *v = this;
     while (v->parent_) v = v->parent_;    // 上行到根
     return v->treeSvc_[slot];

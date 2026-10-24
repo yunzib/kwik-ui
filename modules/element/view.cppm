@@ -213,6 +213,16 @@ public:
      */
     virtual void draw(Graphics &graphics);
 
+    /**
+     * @brief 子级绘制是否烘焙进自身 onDraw（子树脏时必须整体重编）
+     *
+     * 滚动类容器（ScrollView/ListLayout）在 onDraw 的 clip/translate 域内
+     * 经 drawForced 画子级——View::draw 的"仅子树脏→重建引用段"分支没有
+     * 这些状态（子级引用会挂到未裁剪/未平移位置），此类容器子树脏必须
+     * 走 encodeList 整体重编（对齐 setScroll markAllDirty 的既有口径）。
+     */
+    virtual bool bakesChildrenDraw() const { return false; }
+
     /** @brief 布局相最近一次测量约束——容器 onLayout 与测量同源换算用
      *         （如 FlexLayout 行主轴容量从该约束重算，消除量行/排行分叉） */
     const Constraints &lastLayoutConstraints() const { return lastLayoutC_; }
@@ -432,10 +442,17 @@ public:
      * @brief 强制录制（跳过脏判断，供 ListLayout 等滚动容器调用）
      *
      * 始终走录制模式，由调用方保证子节点已独立判定是否需要重绘。
+     * 录制后就地清脏：本节点内容已并入调用方清单、自身清单不再发布，
+     * 残留 subtreeDirty_ 会吞掉后续子级 markDirty 的冒泡（中途截断，
+     * 烘焙容器永不知晓后代变化——滚动容器内拖选高亮不随帧显示的根因）。
      */
     void drawForced(Graphics &g) {
-        if (!props.visible) return;
-        onDraw(g);    // 强制编码：跳过脏判断，子级经各自 draw 挂引用入当前 sink
+        if (!props.visible) {
+            listDirty_ = subtreeDirty_ = false;    // 不可见同样须清（防标志卡死）
+            return;
+        }
+        onDraw(g);    // 强制编码：子级经各自 draw 挂引用入当前 sink
+        listDirty_ = subtreeDirty_ = false;
     }
 
     /**
@@ -564,6 +581,7 @@ public:
     static constexpr int kSvcAnimEngine = 1;   // 槽 1：AnimationEngine*（bridge 侧取用）
     static constexpr int kSvcRenderBackend = 2; // 槽 2：RenderBackend*（Image 纹理路由用）
     static constexpr int kSvcClipboard = 3;     // 槽 3：ClipboardService*（文本组件 Ctrl+C/V/X）
+    static constexpr int kSvcSelection = 4;     // 槽 4：TextSelectionService*（展示文本选区，selection.cppm）
 
     /** @brief 根节点接线（KwikRuntime::init 调用；非根调用无效果） */
     void setTreeService(int slot, void *svc);
@@ -582,7 +600,8 @@ private:
     void encodeList(Graphics &graphics);
 
     std::shared_ptr<const DisplayList> publishedList_;   ///< 已发布快照（render 线程只读）
-    void *treeSvc_[4] = {nullptr, nullptr, nullptr, nullptr};    ///< 树级服务槽（仅根节点有效，见 setTreeService）
+    static constexpr int kSvcSlotCount = 5;    // 槽容量（加槽同步扩容 treeSvc_，见下）
+    void *treeSvc_[kSvcSlotCount] = {};    ///< 树级服务槽（仅根节点有效，见 setTreeService）
     std::unique_ptr<DisplayList> pendingList_;           ///< 编码草稿（UI 线程私有）
     bool listDirty_ = true;                              ///< 视觉变化后待重编
 

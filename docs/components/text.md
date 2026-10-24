@@ -24,7 +24,8 @@ docsite: 无（待同步）
     "maxLines": "number",                // 最大行数 (默认 0=不限; 超出截断)
     "ellipsis": "boolean",               // 超 maxLines 时行尾补省略号 "…" (默认 true)
     "lineHeight": "number",              // 固定行高 px (默认 0=自动 fontSize*1.4)
-    "verticalAlign": "\"top\" | \"center\" | \"bottom\""   // 垂直对齐 (默认 "top")
+    "verticalAlign": "\"top\" | \"center\" | \"bottom\"",   // 垂直对齐 (默认 "top")
+    "selectable": "boolean"              // 文字可选中 (默认 false)
 }
 ```
 
@@ -47,6 +48,30 @@ docsite: 无（待同步）
 
 有空格时词间拉伸，纯 CJK 无空格时字间均分；文本末行与 \n 硬断行不拉伸。
 
+## 文字选区（selectable）
+
+`selectable: true` 开启后，本段文字进入全树选区体系（树级选区服务，
+全树同时最多一个选区，后开清先开）：
+
+- **拖选**：按住左键拖动出高亮，双向拖动均正确；拖出组件边界事件仍
+  直投本段（拖选连续不中断）
+- **双击选词**：连续两次点击（间隔 <400ms 且位移 <6px）选中一个词——
+  ASCII 以空白/标点为界，中文等非 ASCII 连续段整体选中
+- **Ctrl+C**：复制选区到系统剪贴板（经树服务槽的 ClipboardService，
+  空选区不消费）
+- **Ctrl+A**：全选本段（maxLines 截断文本选可见部分）
+- **选区随焦点**：点击处转移焦点即清选区——selectable Text 可聚焦
+  （键盘只投焦点），点选其他区域/按钮时选区自然清除
+- **滚动容器内**：拖选期间拖动被选区消费（ScrollView 不滚动），滚轮
+  滚动不受影响
+- **UTF-8 安全**：所有选区边界钳制到字形边界（中文三字节/emoji 四字节
+  不会切出非法串）；跨整树重建（State 驱动 reconcile）时选区随复用
+  节点自然存活
+
+选区限定在单段内（跨段连续选区暂不支持）。富文本编辑选区
+（textview.md / input.md）为各组件独立的键盘选区模型，后续经
+Selectable 接口并入统一选区体系。
+
 ## 通用 ViewProps 支持
 
 支持[通用 ViewProps](view.md)：background/borderRadius/border/
@@ -58,5 +83,6 @@ padding/width/height（含 `"50%"` 百分比；满宽时 textAlign center/right 
 
 ## 关联
 
-- demo：`test/ui/text_flow.js`（`example.exe textflow`）
+- demo：`test/ui/text_flow.js`（`example.exe textflow`）；文字选区
+  `test/ui/selectable.js`（`example.exe selectable`）
 - 通用属性与数据类型格式：[View 篇（通用属性完备实例）](view.md)

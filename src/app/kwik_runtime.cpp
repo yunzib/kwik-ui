@@ -26,6 +26,7 @@ import kwik.element.view;
 import kwik.element.text;              // Text（错误页文本）
 import kwik.core.props;                // ViewProps / TextContent / EdgeInsets（错误页构造）
 import kwik.element.clipboard_service;    // ClipboardService（树服务槽适配）
+import kwik.element.selection;    // TextSelectionService（树服务槽 4 适配）
 import kwik.element.layer_view;    // LayerStack（阶段 2-2 前仍为全局单例形态）
 import kwik.bridge.element_parser;
 import kwik.core.types;
@@ -99,7 +100,8 @@ KwikRuntime::KwikRuntime(PlatformWindow &window, const Config &config)
                         },
                     }),
       jsCtx_{},
-      clipSvc_(std::make_unique<RuntimeClipboardService>(window)) {}
+      clipSvc_(std::make_unique<RuntimeClipboardService>(window)),
+      selectionSvc_(std::make_unique<TextSelectionService>()) {}
 
 KwikRuntime::~KwikRuntime() { teardown(); }
 
@@ -142,7 +144,10 @@ void KwikRuntime::teardownJsBoundRuntime() {
         tree_->setTreeService(View::kSvcLayerStack, nullptr);
         tree_->setTreeService(View::kSvcAnimEngine, nullptr);
         tree_->setTreeService(View::kSvcClipboard, nullptr);
+        tree_->setTreeService(View::kSvcSelection, nullptr);
     }
+    // 树即将销毁：选区宿主随之悬空，显式清空会话（pruneIfDead 之外的双保险）
+    selectionSvc_->clear();
     // 整树即将重建/销毁：绑定注册表的 View* 条目全部随之悬空，必须清空
     // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
     // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）
@@ -254,6 +259,7 @@ bool KwikRuntime::init() {
     tree_->setTreeService(View::kSvcAnimEngine, &animations_);
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
 
     // px = 逻辑像素：布局空间与文字密度统一跟随 S 因子
     TextRenderPipeline::instance().setDpiScale(renderScale());
@@ -375,6 +381,7 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->setTreeService(View::kSvcAnimEngine, &animations_);      // 新根重接线
     if (tree_) tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     if (tree_) tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    if (tree_) tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
     // 焦点跨展开保留：State 驱动的 reconcile 复用聚焦节点（原位更新），
     // reset 后按活性恢复——打字触发的连续重渲染不再丢焦点（键入即断）
     EventTarget *prevFocus = eventRouter_.focusManager().focused();
@@ -428,6 +435,7 @@ void KwikRuntime::buildErrorPageTree(const std::string &title, const std::string
     tree_->setTreeService(View::kSvcAnimEngine, &animations_);
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
     eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
@@ -661,6 +669,7 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     tree_->setTreeService(View::kSvcAnimEngine, &animations_);
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());    // 新根重接线服务槽
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
+    tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
 
