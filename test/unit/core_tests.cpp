@@ -2136,7 +2136,20 @@ static void test_text_selection() {
     svc.begin(&a, 0);                    // 清空后可重新开（死节点无残留）
     CHECK(svc.activeOn(&a) && svc.modelFor(&a)->empty());
 
-    // ④ Text 纯几何：手搭 "a中b" 等宽字形（'a'/'中'/'b' 各 10px，Input
+    // ⑤ wordRangeAtText（展示/编辑组件共享）：ASCII 词界 / 中文连续段 /
+    // 分隔符就近 / 文末回退（越界读回归锁）
+    auto wr = wordRangeAtText("hello 世界 abc", 2);
+    CHECK(wr.first == 0 && wr.second == 5);    // 'l' → "hello"
+    wr = wordRangeAtText("hello 世界 abc", 7);
+    CHECK(wr.first == 6 && wr.second == 12);    // '世'中段 → "世界"（6..12 连续段）
+    wr = wordRangeAtText("hello 世界 abc", 5);
+    CHECK(wr.first == 5 && wr.second == 6);    // 空格分隔符 → 就近一个码点
+    wr = wordRangeAtText("hello 世界 abc", 16);    // 文末（=size，曾越界读）
+    CHECK(wr.first == 13 && wr.second == 16);      // → 末词 "abc"
+    wr = wordRangeAtText("", 3);
+    CHECK(wr.first == 0 && wr.second == 0);        // 空文本防御
+
+    // ⑥ Text 纯几何：手搭 "a中b" 等宽字形（'a'/'中'/'b' 各 10px，Input
     // tapByteOffsetForX 测试同款数据），验证最近边界扫描与边界落笔
     std::vector<ShapedGlyph> gs;
     auto single = [&](uint32_t cluster, uint8_t nb, float x) {

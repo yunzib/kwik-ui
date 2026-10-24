@@ -81,6 +81,15 @@ public:
 	/** @brief 请求重绘（markDirty 封装——选区变化由服务回调） */
 	virtual void requestRedraw() = 0;
 
+	/**
+	 * @brief 选区被驱逐回调（全局互斥：他处开新选区挤掉本节点时）
+	 *
+	 * 状态在服务的展示组件（Text）无需覆写（默认空——服务清状态即清画）；
+	 * 自持选区模型的编辑组件（TextView 等）覆写以折叠内部选区，
+	 * 保证全树同时只有一处高亮。
+	 */
+	virtual void onSelectionEvicted() {}
+
 	/** @brief 节点是否存活（TargetLiveness 查询——服务持裸指针防悬空） */
 	virtual bool alive() const = 0;
 };
@@ -132,7 +141,10 @@ public:
 
 	/** @brief 清空会话（FocusLost/文本变更；宿主在则重绘擦除高亮） */
 	void clear() {
-		if (host_) host_->requestRedraw();
+		if (host_) {
+			host_->onSelectionEvicted();    // 自持选区的编辑组件折叠内部选区
+			host_->requestRedraw();
+		}
 		host_ = nullptr;
 		model_ = {};
 		dragging_ = false;
@@ -183,4 +195,47 @@ export inline size_t clampToUtf8Boundary(const std::string &text, size_t off) {
 	// 停在首字节（0xxx/11xx）上：连续字节 10xx 时回退
 	while (off > 0 && (static_cast<unsigned char>(text[off]) & 0xC0) == 0x80) --off;
 	return off;
+}
+
+/**
+ * @brief 双击选词区间（简化分词：ASCII 空白/标点为界，非 ASCII 连续段整体）
+ *
+ * 选中文本与编辑组件（Text/TextView）共用的纯函数；命中分隔符时就近
+ * 取一个码点区间（避免空选区）。
+ * @param text 目标文本（组件的 displayedText/plainText）
+ * @param off  起始字节偏移（内部钳 UTF-8 边界 + 超界收拢）
+ */
+export inline std::pair<size_t, size_t> wordRangeAtText(const std::string &text, size_t off) {
+	if (text.empty()) return {0, 0};
+	off = clampToUtf8Boundary(text, std::min(off, text.size()));
+	// 码点步进（UTF-8 安全：跨连续字节回退/前进）
+	auto stepBack = [&](size_t p) {
+		if (p == 0) return p;
+		--p;
+		while (p > 0 && (static_cast<unsigned char>(text[p]) & 0xC0) == 0x80) --p;
+		return p;
+	};
+	auto stepFwd = [&](size_t p) {
+		if (p >= text.size()) return p;
+		++p;
+		while (p < text.size() && (static_cast<unsigned char>(text[p]) & 0xC0) == 0x80) ++p;
+		return p;
+	};
+	// ASCII 空白/标点为词界；非 ASCII（含 CJK）连续段整体选中
+	auto isSep = [&](size_t p) {
+		unsigned char c = static_cast<unsigned char>(text[p]);
+		if (c >= 0x80) return false;
+		return c == ' ' || c == '\t' || c == '\n' || c == '\r' || (c >= 0x21 && c <= 0x2F)
+		       || (c >= 0x3A && c <= 0x40) || (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E);
+	};
+	if (off >= text.size()) off = stepBack(off);    // 文末：末码点参与选词（防 text[off] 越界读）
+	if (isSep(off)) return {off, stepFwd(off)};    // 命中分隔符：就近一个码点
+	size_t a = off, b = off;
+	while (a > 0) {
+		size_t p = stepBack(a);
+		if (isSep(p)) break;
+		a = p;
+	}
+	while (b < text.size() && !isSep(b)) b = stepFwd(b);
+	return {a, b};
 }

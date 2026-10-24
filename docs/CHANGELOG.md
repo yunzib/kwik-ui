@@ -2,6 +2,13 @@
 
 # 0.0.0 — 2026-10-24
 ### 新增
+- TextView 鼠标交互：点击按字形边界定位光标（此前无任何鼠标交互）、
+  拖选出选区（拖动消费抑制祖先滚动）、双击选词（连续 Tap 自检，
+  <400ms/<6px）；以 Selectable 接口身份接入全局选区互斥——选区状态
+  仍自持于组件（编辑操作零改动），他处开新选区时经 onSelectionEvicted
+  驱逐钩子折叠（全树同时唯一高亮）
+- 选词纯函数 wordRangeAtText 提升至 selection 模块（展示 Text 与编辑
+  TextView 共享；ASCII 空白/标点为界、非 ASCII 连续段整体）
 - 展示文本选区能力（Text `selectable` 属性）：拖选出高亮、双击选词、
   Ctrl+C 复制到系统剪贴板、Ctrl+A 全选本段；全树同时唯一选区。新增
   selection 模块三件套——SelectionModel 纯模型（anchor/focus 字节偏移，
@@ -18,6 +25,16 @@
 - smoke 默认示例集收录 selectable 与 docs（38 → 40）
 
 ### 修复
+- Text 选区高亮下坠：换行行带高 rowH=max(lineHeight, 墨迹高) 且字形
+  烘焙后墨迹贴行带顶部，高亮按整行带绘制——lineHeight 26/墨迹 21 时
+  底边比文字低约 5px；改按行内字形实算墨迹底截取
+- TextView 选区高亮偏上 + 整 run 近似：原高亮为"有选区即整 run 按行
+  带涂亮"（逐字形判定为空实现的近似），行带居中记账与字形烘焙 y 不
+  一致产生视觉偏移；重写为 run 字节区间与选区精确交集 + 高亮带直接
+  取 batch 字形实际 y 区间（与墨迹在数学上不可错位），只亮真正选中
+  的字节段
+- 选词文末越界读：wordRangeAt(off == text.size()) 时 isSep(text[off])
+  越界（自 Text 原实现带出的隐患）；文末回退一码点参与选词，附回归锁
 - 树服务槽容量硬编码上界：setTreeService/treeService 边界检查
   写死 `slot >= 4` 且 treeSvc_ 定长 4——新增槽位（选区服务槽 4）接线
   静默失效无任何告警，五处接线全部无效。kSvcSlotCount 常量化驱动数组

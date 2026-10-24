@@ -138,9 +138,6 @@ private:
     /** @brief 内容绘制原点 {x0, drawY}（onDraw 与选区几何共源，含 verticalAlign 偏移） */
     Point contentOrigin() const;
 
-    /** @brief 双击选词区间（简化分词：ASCII 空白/标点为界，非 ASCII 连续段整体） */
-    std::pair<size_t, size_t> wordRangeAt(size_t off) const;
-
     /** @brief 文本变更时清本节点会话（若为选区宿主）——防 reconcile 换文后偏移越界 */
     void clearSelectionIfHosted();
 };

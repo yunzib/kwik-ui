@@ -20,6 +20,7 @@ module kwik.element.textview;
 
 import kwik.element.view;
 import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/X/V 的源与目标）
+import kwik.element.selection;    // 选区服务（全局互斥登记）/ wordRangeAtText
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -413,6 +414,7 @@ void TextView::onDraw(Graphics &graphics) {
 
             // 收集同 run 连续 glyphs（此时 UV 已就绪）
             std::vector<ShapedGlyph> batch;
+            size_t gi0 = gi;    // batch 首字形（选区交集判定用）
             float runStartX = inner.x + line.glyphs[gi].x;
             while (gi < line.glyphs.size() && line.glyphs[gi].runIndex == lg.runIndex) {
                 auto &lg2 = line.glyphs[gi];
@@ -425,14 +427,27 @@ void TextView::onDraw(Graphics &graphics) {
             }
             float runEndX = batch.empty() ? runStartX : batch.back().x + batch.back().advanceX;
 
-            // ── 选区高亮 ──
-            if (selectionStart_ != cursorPos_) {
+            // ── 选区高亮（run 字节区间与选区交集；带高贴合字形墨迹带——
+            //    baseY 的居中偏移以字形实迹为准，整行带高亮会偏移失真）──
+            if (selectionStart_ != cursorPos_ && gi > gi0) {
                 size_t selS = std::min(selectionStart_, cursorPos_);
                 size_t selE = std::max(selectionStart_, cursorPos_);
-                for (auto &sg : batch) {
-                    // 近似判断 glyph 在选区内：通过全局字节序
+                size_t runFirstByte = line.glyphs[gi0].byteOffset;
+                size_t runLastEnd = line.glyphs[gi - 1].byteOffset + line.glyphs[gi - 1].byteLen;
+                size_t s2 = std::max(selS, runFirstByte);
+                size_t e2 = std::min(selE, runLastEnd);
+                if (s2 < e2) {
+                    float xs = (s2 == runFirstByte) ? runStartX : inner.x + xForByte_(s2);
+                    float xe = (e2 == runLastEnd) ? runEndX : inner.x + xForByte_(e2);
+                    float inkTop = batch.front().y, inkBottom = batch.front().y + batch.front().height;
+                    for (auto &sg : batch) {
+                        inkTop = std::min(inkTop, sg.y);
+                        inkBottom = std::max(inkBottom, sg.y + sg.height);
+                    }
+                    if (xe > xs && inkBottom > inkTop) {
+                        graphics.drawRect({xs, inkTop, xe - xs, inkBottom - inkTop}, tvp_.selectionColor);
+                    }
                 }
-                graphics.drawRect({runStartX, drawY, runEndX - runStartX, lh}, tvp_.selectionColor);
             }
 
             graphics.save();
@@ -513,9 +528,62 @@ bool TextView::onEvent(const DispatchEvent &event) {
         if (focused_) {
             focused_ = false;
             cursorVisible_ = false;
+            draggingSelection_ = false;    // 拖选中失焦（弹层抢焦点等）即止
             markDirty();
         }
         return View::onEvent(event);    // 透传触发 JS onBlur 槽
+    }
+    // ── 鼠标交互（拖选/点击定位/双击选词；选区状态自持，服务只管全局互斥）──
+    if (event.type == DispatchEvent::Type::PointerDown) {
+        // 落锚 + 点击定位光标；不消费（Tap/聚焦链照常）
+        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        cursorPos_ = selectionStart_ = off;
+        draggingSelection_ = true;
+        if (auto *svc = selectionOf(*this)) svc->begin(this, off);
+        markDirty();
+        return View::onEvent(event);
+    }
+    if (event.type == DispatchEvent::Type::PanMove) {
+        // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
+        if (!draggingSelection_) return View::onEvent(event);
+        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        if (off != cursorPos_) {
+            cursorPos_ = off;
+            markDirty();
+        }
+        if (auto *svc = selectionOf(*this)) svc->extend(this, off);
+        return true;
+    }
+    if (event.type == DispatchEvent::Type::PointerUp || event.type == DispatchEvent::Type::PointerCancel
+        || event.type == DispatchEvent::Type::PanEnd) {
+        draggingSelection_ = false;
+        if (auto *svc = selectionOf(*this)) svc->end();
+        return View::onEvent(event);
+    }
+    if (event.type == DispatchEvent::Type::Tap) {
+        // 双击选词（连续 Tap 间隔 <400ms 且位移 <6px；事件层 DoubleTap 为
+        // 预留类型无生成点，组件内自检同 Text）；单击已由 PointerDown 定位
+        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        bool dbl = lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
+                   && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
+        lastTapMs_ = event.timestamp;
+        lastTapX_ = event.globalX;
+        lastTapY_ = event.globalY;
+        if (dbl) {
+            lastTapMs_ = 0;    // 消费后清零：三连击重新计锚不连锁
+            auto [ws, we] = wordRangeAtText(plainText_, off);
+            selectionStart_ = ws;
+            cursorPos_ = we;
+            draggingSelection_ = false;
+            if (auto *svc = selectionOf(*this)) {
+                svc->begin(this, ws);
+                svc->extend(this, we);
+                svc->end();
+            }
+            markDirty();
+            return true;
+        }
+        return View::onEvent(event);    // 单击：JS onClick 照常（定位已由 PointerDown 完成）
     }
     if (event.type == DispatchEvent::Type::KeyAction) {
         if (!focused_) return false;
@@ -944,6 +1012,86 @@ float TextView::xForByte_(size_t pos) const {
         if (pos <= end) return lg.x + lg.advance;
     }
     return line.width;
+}
+
+// ============================================================================
+// 鼠标命中 — 点 → 最近字形边界的字节偏移（拖选/点击定位，与 onDraw 同几何：
+// inner 内容原点 + 逐行高度步进；LineGlyph.x 为行内落笔、byteOffset 为
+// plainText_ 字节偏移，天然 UTF-8 边界）
+// ============================================================================
+size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
+    if (lines_.empty() || plainText_.empty()) return 0;
+    float innerX = frame.x + props.padding.left;
+    float innerY = frame.y + props.padding.top;
+    float localX = globalX - innerX;
+    // y → 行：累加行高首个覆盖行（越界取首/末行，自然收敛）
+    size_t li = 0;
+    float y = innerY;
+    for (li = 0; li < lines_.size(); ++li) {
+        if (globalY < y + lines_[li].height) break;
+        y += lines_[li].height;
+    }
+    if (li >= lines_.size()) li = lines_.size() - 1;
+    const auto &line = lines_[li];
+    if (line.glyphs.empty()) return line.startByte;
+    // x → 最近边界扫描：各字形落笔 + 行尾末笔（宽度边界）
+    size_t bestOff = line.startByte;
+    float bestDist = std::numeric_limits<float>::max();
+    for (const auto &lg : line.glyphs) {
+        float d = std::abs(localX - lg.x);
+        if (d < bestDist) {
+            bestDist = d;
+            bestOff = lg.byteOffset;
+        }
+    }
+    const auto &lastGlyph = line.glyphs.back();
+    float dEnd = std::abs(localX - (lastGlyph.x + lastGlyph.advance));
+    if (dEnd < bestDist) bestOff = line.endByte;
+    return bestOff;
+}
+
+// ── Selectable 接口（选区状态自持；服务只做全局互斥登记）──
+size_t TextView::hitOffset(float globalX, float globalY) { return hitByteForPoint_(globalX, globalY); }
+
+std::vector<Rect> TextView::selectionRects(size_t startOff, size_t endOff) {
+    std::vector<Rect> out;
+    startOff = clampToUtf8Boundary(plainText_, startOff);
+    endOff = clampToUtf8Boundary(plainText_, endOff);
+    if (startOff >= endOff || lines_.empty()) return out;
+    float innerX = frame.x + props.padding.left;
+    float innerY = frame.y + props.padding.top;
+    float y = innerY;
+    for (const auto &line : lines_) {
+        // 本行与选区的字节交集（xForByte_ 返回行内坐标）
+        size_t s = std::max(startOff, line.startByte);
+        size_t e = std::min(endOff, line.endByte);
+        if (s < e) {
+            float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
+            float xe = (e >= line.endByte) ? line.width : xForByte_(e);
+            if (xe > xs) out.push_back({innerX + xs, y, xe - xs, line.height});
+        }
+        y += line.height;
+    }
+    return out;
+}
+
+std::string TextView::selectedBytes(size_t startOff, size_t endOff) {
+    startOff = clampToUtf8Boundary(plainText_, startOff);
+    endOff = clampToUtf8Boundary(plainText_, endOff);
+    if (startOff >= endOff) return {};
+    return plainText_.substr(startOff, endOff - startOff);
+}
+
+void TextView::requestRedraw() { markDirty(); }
+
+void TextView::onSelectionEvicted() {
+    // 他处开新选区：折叠本组件内部选区（全树同时唯一高亮；光标位置保留）
+    selectionStart_ = cursorPos_;
+}
+
+bool TextView::alive() const {
+    // View 为首基类——static_cast 唯一解析到 EventTarget 子对象
+    return TargetLiveness::instance().isAlive(static_cast<const EventTarget *>(this));
 }
 
 // ============================================================================

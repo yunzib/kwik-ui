@@ -21,6 +21,7 @@ module;
 export module kwik.element.textview;
 
 import kwik.element.view;
+import kwik.element.selection;    // Selectable / 选区服务（全局互斥登记）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -91,7 +92,7 @@ struct RunShape {
  *
  * 焦点管理由 Application 统一维护（同 Input / TextArea）。
  */
-export class TextView : public View {
+export class TextView : public View, public Selectable {
 public:
     TextView();
     explicit TextView(ViewProps vp, TextViewProps tvp);
@@ -129,6 +130,15 @@ public:
 
     ElementType type() const override { return ElementType::TextView; }
     const TextViewProps &textViewProps() const { return tvp_; }
+
+    // ── Selectable 接口（选区状态自持于 selectionStart_/cursorPos_；经服务
+    //    只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠本组件选区）──
+    size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
+    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    void requestRedraw() override;
+    void onSelectionEvicted() override;
+    bool alive() const override;
 
     // ── 焦点 ──
     void focus();
@@ -182,6 +192,10 @@ private:
     size_t selectionStart_ = 0;     ///< 选区起点（= cursorPos_ 时无选区）
     bool cursorVisible_ = true;     ///< 光标闪烁可见
     uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
+    bool draggingSelection_ = false;    ///< 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
+    uint64_t lastTapMs_ = 0;        ///< 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
+    float lastTapX_ = 0;
+    float lastTapY_ = 0;
 
     // ── 内部方法 ──
     static float lh_(float fs) { return std::ceil(fs * 1.4f); }    ///< 计算行高
@@ -215,6 +229,7 @@ private:
     // 坐标换算
     size_t lineForByte_(size_t pos) const;
     float xForByte_(size_t pos) const;
+    size_t hitByteForPoint_(float globalX, float globalY) const;    ///< 点→最近字形边界字节（拖选/点击定位）
 
     void fireChange_();
     bool updateCursorBlink_();

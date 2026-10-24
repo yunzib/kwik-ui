@@ -413,7 +413,8 @@ bool Text::onEvent(const DispatchEvent &event) {
         lastTapY_ = event.globalY;
         if (dbl) {
             lastTapMs_ = 0;    // 消费后清零：三连击重新计锚不连锁
-            auto [ws, we] = wordRangeAt(hitOffset(event.globalX, event.globalY));
+            // 选词分词为展示/编辑组件共享纯函数（wordRangeAtText）
+            auto [ws, we] = wordRangeAtText(displayedText_, hitOffset(event.globalX, event.globalY));
             svc->begin(this, ws);
             svc->extend(this, we);
             svc->end();
@@ -480,7 +481,17 @@ std::vector<Rect> Text::selectionRects(size_t startOff, size_t endOff) {
         if (s < e) {
             float xs = penOfBoundaryAt(layoutResult_->glyphs, sl, s);    // 边界落笔 = 选区起点
             float xe = penOfBoundaryAt(layoutResult_->glyphs, sl, e);    // 下一边界落笔 = 终点
-            if (xe > xs) out.push_back({origin.x + xs, yTop, xe - xs, sl.height});
+            // 高度贴字形墨迹底（y 已烘焙 baseline，墨迹自 0 起）：行带
+            // rowH=max(lineHeight, 墨迹) 时墨迹贴顶，整行带高亮会下坠
+            float inkBottom = 0;
+            size_t gEnd = sl.glyphStart + sl.glyphCount;
+            for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+                auto &gph = layoutResult_->glyphs[i];
+                inkBottom = std::max(inkBottom, gph.y + gph.height);
+            }
+            if (xe > xs && inkBottom > 0) {
+                out.push_back({origin.x + xs, yTop, xe - xs, inkBottom});
+            }
         }
         yTop += sl.height;
     }
@@ -546,41 +557,6 @@ float Text::penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLa
         return last.x + last.advanceX;    // 越过行尾：末字形末笔
     }
     return 0.0f;    // 空行
-}
-
-std::pair<size_t, size_t> Text::wordRangeAt(size_t off) const {
-    const std::string &s = displayedText_;
-    if (s.empty()) return {0, 0};
-    off = clampToUtf8Boundary(s, std::min(off, s.size()));
-    // 码点步进（UTF-8 安全：跨连续字节回退/前进）
-    auto stepBack = [&](size_t p) {
-        if (p == 0) return p;
-        --p;
-        while (p > 0 && (static_cast<unsigned char>(s[p]) & 0xC0) == 0x80) --p;
-        return p;
-    };
-    auto stepFwd = [&](size_t p) {
-        if (p >= s.size()) return p;
-        ++p;
-        while (p < s.size() && (static_cast<unsigned char>(s[p]) & 0xC0) == 0x80) ++p;
-        return p;
-    };
-    // ASCII 空白/标点为词界；非 ASCII（含 CJK）连续段整体选中（简化分词）
-    auto isSep = [&](size_t p) {
-        unsigned char c = static_cast<unsigned char>(s[p]);
-        if (c >= 0x80) return false;
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || (c >= 0x21 && c <= 0x2F)
-               || (c >= 0x3A && c <= 0x40) || (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E);
-    };
-    if (isSep(off)) return {off, stepFwd(off)};    // 命中分隔符：就近一个码点
-    size_t a = off, b = off;
-    while (a > 0) {
-        size_t p = stepBack(a);
-        if (isSep(p)) break;
-        a = p;
-    }
-    while (b < s.size() && !isSep(b)) b = stepFwd(b);
-    return {a, b};
 }
 
 void Text::clearSelectionIfHosted() {
