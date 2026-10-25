@@ -25,6 +25,15 @@
   （docsite View 页滚到顶 hover 按钮即现深色块/「收起」覆盖）
 - View 百分比尺寸挂 View 流式父容器下被内容自适应覆写吞掉；覆写条件
   排除 widthPct/heightPct
+- Slider（及一切 Pan 拖拽控件）绑定 State 后拖不动：每次回写 State 都在
+  下一帧触发 rebuildTree，而该路径整表 EventRouter::reset() 把
+  PointerTracker 与 pan 标志一并清空——按下状态与 pressTarget 在首帧后
+  蒸发，后续 Move 的 ps 为 null，既不识别 Pan 也不进 Hover 分支，表现为
+  「鼠标拖动只动一下，单击仍正常」（单击每次重新 Down 建条目）；新增
+  EventRouter::resetForTreeRebuild() 软复位：只清悬空 hover 缓存、键盘
+  半代理寄存器与焦点（由调用方按活性恢复），指针按压状态与 pan 进度跨
+  重建保留，悬空 pressTarget 仍由分发期 TargetLiveness 闸门丢弃；
+  rebuildTree 改走软复位（HMR/错误页仍整表 reset）
 ### 新增
 - docsite 左导航改两级折叠菜单（Expansion 嵌套，导航条目结合 docs/
   手册目录建全量）；View 页改七个示例小节（演示紧随代码），属性表

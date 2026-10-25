@@ -642,6 +642,29 @@ void EventRouter::reset() {
 }
 
 // ============================================================================
+// resetForTreeRebuild — 树重建软复位（保留进行中的指针手势）
+//
+// 与 reset() 的区别仅在于 PointerTracker 与 pan 标志不清：
+//   · 拖拽 Slider 等控件时每次回写 State 都会触发 rebuildTree，整表清空
+//     会让按下状态在第一帧后蒸发 → 后续 Move 的 ps 为 null，既不识别 Pan
+//     也不产生 HoverEnter/Leave，控件"拖一下就停在原地"，而单击（每次
+//     重新 Down 建条目）始终正常。
+//   · 指针条目里的 pressTarget 指向 reconcile 复用的节点（同址原位更新），
+//     跨重建仍有效；未复用的节点由分发期 TargetLiveness 闸门丢弃其事件，
+//     不会打到已析构对象。
+// 清空的只有：悬空 hover 缓存、键盘半代理寄存器、焦点（调用方 restoreFocus）。
+// ============================================================================
+void EventRouter::resetForTreeRebuild(EventTarget *root) {
+    if (root) {
+        rootTarget_ = root;
+        focusManager_.setRootTarget(root);
+    }
+    gestureRecognizer_.pruneDeadHoverTarget();
+    keyboardHandler_.reset();
+    focusManager_.reset();
+}
+
+// ============================================================================
 // consumeInputStampNs — 取走最近键入时间戳（查询即清）
 // ============================================================================
 int64_t EventRouter::consumeInputStampNs() {

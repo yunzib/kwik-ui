@@ -382,11 +382,12 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     if (tree_) tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     if (tree_) tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
-    // 焦点跨展开保留：State 驱动的 reconcile 复用聚焦节点（原位更新），
-    // reset 后按活性恢复——打字触发的连续重渲染不再丢焦点（键入即断）
+    // 焦点/指针跨展开保留：State 驱动的 reconcile 复用聚焦节点（原位更新），
+    // reset 后按活性恢复——打字触发的连续重渲染不再丢焦点（键入即断）。
+    // 走软复位：拖拽中的指针按压/pan 状态必须跨帧存活，整表 reset 会让
+    // Slider 等拖动控件每帧只吃到一个 PanMove（"拖一下就停"）。
     EventTarget *prevFocus = eventRouter_.focusManager().focused();
-    eventRouter_.setRootTarget(&layers_);
-    eventRouter_.reset();
+    eventRouter_.resetForTreeRebuild(&layers_);
     if (prevFocus) eventRouter_.focusManager().restoreFocus(prevFocus);
     jsCtx_.clearRenderFlag();
     if (tree_) tree_->markAllDirty();

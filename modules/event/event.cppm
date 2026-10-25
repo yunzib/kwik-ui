@@ -389,6 +389,17 @@ public:
      */
     void reset() { lastHoverTarget_ = nullptr;  panStarted_.clear();}
 
+    /**
+     * @brief 仅剪除已销毁的 hover 缓存（树重建路径专用）
+     *
+     * reconcile 重建后 lastHoverTarget_ 可能指向未复用而析构的节点。此处按
+     * 活性剪除：存活目标保留（多数节点被复用，避免重建后重复 HoverEnter），
+     * 悬空者清空由下一次 Move 重新命中。pan 标志与拖拽无关，一律不动。
+     */
+    void pruneDeadHoverTarget() {
+        if (lastHoverTarget_ && !TargetLiveness::instance().isAlive(lastHoverTarget_)) { lastHoverTarget_ = nullptr; }
+    }
+
 private:
     EventTarget *lastHoverTarget_ = nullptr;
     std::unordered_map<int32_t, bool> panStarted_;
@@ -602,6 +613,21 @@ public:
      * @brief 清空所有内部状态 (树重建后调用)
      */
     void reset();
+
+    /**
+     * @brief 树重建软复位——保留进行中的指针手势
+     *
+     * State 变更触发的 reconcile 重建树每帧都可能发生。若此时整表 reset，
+     * PointerTracker 与 pan 标志被清空：拖拽类控件（Slider/Pan 驱动控件）
+     * 的按下状态与 pressTarget 丢失，后续 Move 既不产生 Pan 也不再冒泡，
+     * 表现为"按下能改值、拖动只动一下"。本入口只清与树身份绑定的缓存
+     * （悬空 hover 缓存 / 键盘半代理 / 焦点，焦点由调用方按活性恢复），
+     * 指针按压状态与 pan 进度原样保留——悬空 pressTarget 由分发期
+     * TargetLiveness 闸门兜底丢弃。
+     *
+     * @param root 新树根（LayerStack 复合根；为空时沿用原根）
+     */
+    void resetForTreeRebuild(EventTarget *root);
 
     /**
      * @brief 取走最近键入时间戳（纳秒，steady_clock 时基；取走即清）
