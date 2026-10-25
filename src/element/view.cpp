@@ -428,19 +428,23 @@ void View::encodeList(Graphics &graphics) {
     DisplayList &list = *pendingList_;
     list.clear();    // 重编码前清空（容量复用）——不清空则逐帧追加，清单线性膨胀
 
-    // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画），含特效外延
-    // bounds 换算到屏幕逻辑域（经当前用户变换、剥离 dpi）：滚动容器内本节点
-    // 被 clip+translate 后重编，effectBounds() 原值是未平移的内容域，而伤害带
-    // 与回放剔除按屏幕逻辑域比对——错位的 bounds 进清单/伤害会把视口内子树
-    // 整棵误剔（增量重绘帧内容消失）；恒等变换时与原值同域零变化
-    Rect bounds = graphics.transformRectAABBLogical(effectBounds());
+    // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画），含特效外延。
+    // 两用途拆分（域不同）：
+    //   ① 伤害报告/lastPaintBounds_ 保持原值域（内容坐标）——伤害带偏保守
+    //     （大带）：回放的叶子指令（如全屏背景矩形）不做带裁剪，重画会
+    //     覆盖带外像素，大带保证被覆盖区域也在重放域内（滚动中带外固定
+    //     元素如顶栏按钮不被闪没的兼容前提）；
+    //   ② 清单 bounds（回放剔除判定）换算屏幕逻辑域（经当前用户变换、
+    //     剥 dpi）——滚动容器内重编节点原值是未平移内容域，与伤害带比对
+    //     错位会把视口内子树整棵误剔（增量重绘帧内容消失）；恒等时同域零变化
+    Rect boundsRaw = effectBounds();
     if (!lastPaintBounds_.isEmpty()) {
-        graphics.accumulateDirtyRect(lastPaintBounds_.unionRect(bounds));
+        graphics.accumulateDirtyRect(lastPaintBounds_.unionRect(boundsRaw));
     } else {
-        graphics.accumulateDirtyRect(bounds);
+        graphics.accumulateDirtyRect(boundsRaw);
     }
-    lastPaintBounds_ = bounds;
-    list.unionBounds(bounds);
+    lastPaintBounds_ = boundsRaw;
+    list.unionBounds(graphics.transformRectAABBLogical(boundsRaw));
 
     graphics.save();                  // 三明治：快照调用方状态
     graphics.pushSink(&list);

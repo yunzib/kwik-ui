@@ -321,13 +321,21 @@ bool ScrollView::applyScroll(float dx, float dy) {
 // 内部工具
 // ============================================================================
 
-/// @brief 约束滚动偏移不过界
+/// @brief 约束滚动偏移不过界（实际收紧才标脏）
 void ScrollView::clampScroll() {
     Rect vp = viewport();
     float maxX = std::max(0.0f, contentSize_.width - vp.width);
     float maxY = std::max(0.0f, contentSize_.height - vp.height);
-    scrollOffset_.x = std::clamp(scrollOffset_.x, 0.0f, maxX);
-    scrollOffset_.y = std::clamp(scrollOffset_.y, 0.0f, maxY);
+    float nx = std::clamp(scrollOffset_.x, 0.0f, maxX);
+    float ny = std::clamp(scrollOffset_.y, 0.0f, maxY);
+    if (nx == scrollOffset_.x && ny == scrollOffset_.y) return;
+    scrollOffset_.x = nx;
+    scrollOffset_.y = ny;
+    // 静默改 offset 的缺陷：resize 缩短内容后 onLayout 末尾 clamp 砍掉
+    // 偏移，滚动子树快照停留旧偏移位置——后续小伤害帧重放陈旧清单，
+    // 内容按旧偏移画出溢出视口、覆盖视口外元素（缩放后 hover 顶栏按钮
+    // 被内容区覆盖的根因）。对齐 setScroll 的 markAllDirty 口径
+    markAllDirty();
 }
 
 /// @brief 设置偏移 + clamp + markDirty（scrollOffset 变更的统一入口）
