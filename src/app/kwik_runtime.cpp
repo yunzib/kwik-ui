@@ -458,7 +458,7 @@ void KwikRuntime::renderFrame() {
     // 帧槽只携带复合根快照引用 + 伤害带（背压由 currentFrame 的 waitWritable 承担）
     canvas.setDirtyRectAccum(&dirtyRect_);
     canvas.beginFrame(structural);
-    canvas.scale(S, S);
+    canvas.setRenderScale(S);    // 等价 scale(S,S) + 记录基准（清单 bounds 逻辑域换算剥离 dpi 用）
 
     layers_.drawAll(canvas, &dirtyRect_);    // 多图层统一绘制
 

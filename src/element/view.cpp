@@ -138,8 +138,12 @@ Size View::onMeasure(Constraints constraints) {
                 totalChildHeight += ch;
             }
         }
-        if (!props.width.has_value()) w = maxChildWidth + props.padding.horizontal();
-        if (!props.height.has_value()) h = std::max(totalChildHeight, maxExplicitBottom) + props.padding.vertical();
+        // 百分比口径优先：widthPct/heightPct 已在 resolveEffectiveSize 定尺寸，
+        // 不再被内容自适应覆写（"50%" 挂 View 流式父下且带子级时被吞成
+        // 内容宽的根因——仅无任何显式尺寸声明时才回退内容自适应）
+        if (!props.width.has_value() && !props.widthPct.has_value()) w = maxChildWidth + props.padding.horizontal();
+        if (!props.height.has_value() && !props.heightPct.has_value())
+            h = std::max(totalChildHeight, maxExplicitBottom) + props.padding.vertical();
     }
     return constraints.constrain({w, h});
 }
@@ -425,7 +429,11 @@ void View::encodeList(Graphics &graphics) {
     list.clear();    // 重编码前清空（容量复用）——不清空则逐帧追加，清单线性膨胀
 
     // 伤害 = 旧位置 ∪ 新位置（移动/缩放两侧都要重画），含特效外延
-    Rect bounds = effectBounds();
+    // bounds 换算到屏幕逻辑域（经当前用户变换、剥离 dpi）：滚动容器内本节点
+    // 被 clip+translate 后重编，effectBounds() 原值是未平移的内容域，而伤害带
+    // 与回放剔除按屏幕逻辑域比对——错位的 bounds 进清单/伤害会把视口内子树
+    // 整棵误剔（增量重绘帧内容消失）；恒等变换时与原值同域零变化
+    Rect bounds = graphics.transformRectAABBLogical(effectBounds());
     if (!lastPaintBounds_.isEmpty()) {
         graphics.accumulateDirtyRect(lastPaintBounds_.unionRect(bounds));
     } else {

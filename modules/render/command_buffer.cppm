@@ -42,7 +42,9 @@ public:
 
     /** @brief 追加子树清单：在当前插入位置嵌套回放 child（递归展开）。
      *  child 的子树包含盒并入本清单 bounds —— 回放剔除按包含盒判断，
-     *  父级不含子级范围会把带内子树误剔为带外 */
+     *  父级不含子级范围会把带内子树误剔为带外。
+     *  bounds 域契约：child 编码时已在自身 encodeList 内经当时矩阵换算到
+     *  屏幕逻辑域（与回放剔除/伤害带同域），此处直接并集、零变换 */
     void appendSubtree(std::shared_ptr<const DisplayList> child) {
         if (child && !child->bounds().isEmpty()) unionBounds(child->bounds());
         subtrees_.push_back({commands_.size(), std::move(child)});

@@ -134,6 +134,21 @@ public:
 
     void rotate(float angle);
 
+    // ── 坐标域换算（清单装配专用）──
+    /** @brief 矩形经用户变换栈的 AABB，剥离帧渲染基础缩放（屏幕逻辑域）。
+     *  子树 bounds 与伤害带（dirtyRectLogical / 回放剔除）均为逻辑域——
+     *  直接用物理域变换会带入 dpi 倍率错位（伤害带覆盖不全 = 滚动/切页
+     *  残留）；恒等变换且无 dpi 时与原值同域（现有场景零变化）*/
+    Rect transformRectAABBLogical(const Rect &rect) const {
+        Rect a = transformRectAABB(rect);
+        if (baseScale_ == 1.0f) return a;
+        return {a.x / baseScale_, a.y / baseScale_, a.width / baseScale_, a.height / baseScale_};
+    }
+
+    /** @brief 设定帧渲染基础缩放——renderFrame 最外层 canvas.scale 的替代口：
+     *  内部转调 scale 并记录倍率（供逻辑域换算剥离 dpi）。勿在别处调用 */
+    void setRenderScale(float s);
+
 private:
     // ── 显示清单 sink 栈 ──
     // 空栈 = 无落笔目标（drawAll 之外不应有落笔）；View 编码期间 push 自身清单指针。
@@ -156,10 +171,11 @@ private:
     std::vector<State> stateStack_;
     State currentState_;
 
-    Rect transformRectAABB(const Rect &rect) const;    ///< 变换后 AABB（浮点，不取整）
+    Rect transformRectAABB(const Rect &rect) const;    ///< 变换后 AABB（浮点，不取整；物理域，含 dpi）
     Rect transformRect(const Rect &rect) const;
     Color applyOpacity(const Color &color) const;
 
     bool recording_ = false;
     Rect *dirtyRectAccum_ = nullptr;
+    float baseScale_ = 1.0f;    // 帧渲染基础缩放（setRenderScale 记录；逻辑域换算剥离用）
 };

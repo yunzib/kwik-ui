@@ -1,5 +1,18 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-25
+### 修复
+- 滚动容器内增量重绘内容消失：子树清单 bounds 停留内容坐标，与回放
+  剔除的屏幕域伤害带错位，hover 等小伤害帧把视口内子树整棵误剔；
+  encodeList 的 bounds/伤害统一换算到屏幕逻辑域（挂接侧保持零变换）
+- View 百分比尺寸挂 View 流式父容器下被内容自适应覆写吞掉；覆写条件
+  排除 widthPct/heightPct
+### 新增
+- docsite 左导航改两级折叠菜单（Expansion 嵌套，导航条目结合 docs/
+  手册目录建全量）；View 页改七个示例小节（演示紧随代码），属性表
+  支持分组小节、类型列加宽 + 全列换行，padding/margin 顺序说明更正
+  为 CSS 顺时针（上/右/下/左）
+
 # 0.0.0 — 2026-10-24
 ### 新增
 - 新增 Expansion 可展开容器组件：children[0] 即头行内容（任意元素组合，
@@ -35,6 +48,10 @@
 - smoke 默认示例集收录 selectable 与 docs（38 → 40）
 
 ### 修复
+- View 百分比尺寸挂流式父容器下失效：widthPct/heightPct 已在
+  resolveEffectiveSize 解析，但 onMeasure 的"无显式 width 按内容自适应"
+  覆写未排除百分比口径——带子级的百分比块被吞成内容宽（"50%"/"25%"
+  视觉等宽）；覆写条件补 widthPct/heightPct 排除
 - Text 选区高亮下坠：换行行带高 rowH=max(lineHeight, 墨迹高) 且字形
   烘焙后墨迹贴行带顶部，高亮按整行带绘制——lineHeight 26/墨迹 21 时
   底边比文字低约 5px；改按行内字形实算墨迹底截取

@@ -76,7 +76,15 @@ void Graphics::popSink() {
 
 void Graphics::attachList(const std::shared_ptr<const DisplayList> &child) {
     if (!child) return;
+    // 子级 bounds 已在其 encodeList 内换算到屏幕逻辑域（见彼处注释），
+    // 挂接直接并集——此处若再经矩阵换算会对已换算值二次变换（滚动容器
+    // 内产生平移错位 = 滚动边缘/切页残留），故保持零变换
     if (auto *s = sink()) s->appendSubtree(child);
+}
+
+void Graphics::setRenderScale(float s) {
+    baseScale_ = s;
+    scale(s, s);    // 与原 renderFrame 的 canvas.scale(S, S) 等价，仅多记录基准
 }
 
 void Graphics::appendCmd(DrawCommand cmd) {
