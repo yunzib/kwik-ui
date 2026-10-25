@@ -150,8 +150,15 @@ export default () => Root(
   </tr>
 </table>
 
-- 更多示例可参考:  examples/
-- 更多组件相关参考:  [docs/1.kwik-ui 组件.md](docs/1.kwik-ui%20组件.md)
+- 更多示例可参考:  test/
+- 更多组件相关参考:  [docs/0. 快速上手.md](docs/0.%20快速上手.md)
+- 文档示例参考：test\docsite， 示例如下：
+<table>
+  <tr>
+    <td><img src="docs/image/docsite.png" alt="图片描述1" width="50%"></td>
+  </tr>
+</table>
+
 
 ## 3.3 Channel 通信示例
 

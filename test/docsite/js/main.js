@@ -5,7 +5,8 @@
 // 左导航结构 = docs/ 手稿目录的镜像：
 //   一级组（Expansion）：开始 / 指南 / 组件
 //   二级分类（Expansion 嵌套，"组件"组内）：基础/表单/布局/数据/高级
-//   条目（菜单行）：切页；实况页按 id 关联 PAGES，其余占位并标注手稿路径
+//   条目（菜单行）：切页；每个条目按 id 关联一个实况页（pages/<id>.js，
+//   契约同 view/propbus：导出 meta + content），不再有占位页
 // 开合态 openGroups 扁平单源（受控）；切页自动展开所在层级（navTo）。
 // 语言切换写 langState、切页写 nav——均为 State 写 → 框架整树 reconcile，
 // 读过这些态的节点随扩展翻转。
@@ -13,12 +14,63 @@ import {
     Root, View, Text, Button, Flex, ScrollView, State, Expansion, getWindowSize,
 } from 'kwikui';
 import { langState, switchLang, t } from './lang.js';
+// 每个菜单项一个页面文件（与 view.js / propbus.js 同契约：meta + content）。
+// 文件名按 NAV.id 镜像：连字符 id 用下划线文件名（layout-sys → layout_sys.js）。
 import * as indexPage from './pages/index.js';
+import * as statePage from './pages/state.js';
+import * as propbusPage from './pages/propbus.js';
+import * as channelPage from './pages/channel.js';
+import * as animationPage from './pages/animation.js';
+import * as themePage from './pages/theme.js';
+import * as layoutSysPage from './pages/layout_sys.js';
+import * as runtimePage from './pages/runtime.js';
 import * as viewPage from './pages/view.js';
+import * as textPage from './pages/text.js';
 import * as buttonPage from './pages/button.js';
+import * as imagePage from './pages/image.js';
+import * as linePage from './pages/line.js';
+import * as inputPage from './pages/input.js';
+import * as textareaPage from './pages/textarea.js';
+import * as checkboxPage from './pages/checkbox.js';
+import * as switchPage from './pages/switch.js';
+import * as radioButtonPage from './pages/radiobutton.js';
+import * as radioGroupPage from './pages/radiogroup.js';
+import * as sliderPage from './pages/slider.js';
+import * as dropdownPage from './pages/dropdown.js';
+import * as spinBoxPage from './pages/spinbox.js';
+import * as dateTimePickerPage from './pages/datetimepicker.js';
+import * as keyboardPage from './pages/keyboard.js';
+import * as flexPage from './pages/flex.js';
+import * as gridPage from './pages/grid.js';
+import * as stackPage from './pages/stack.js';
+import * as listPage from './pages/list.js';
+import * as scrollViewPage from './pages/scrollview.js';
+import * as lazyListPage from './pages/lazylist.js';
+import * as stackIndexPage from './pages/stackindex.js';
+import * as layerPage from './pages/layer.js';
+import * as expansionPage from './pages/expansion.js';
+import * as tablePage from './pages/table.js';
+import * as tabsPage from './pages/tabs.js';
+import * as chartPage from './pages/chart.js';
+import * as treeMenuPage from './pages/treemenu.js';
+import * as textViewPage from './pages/textview.js';
+import * as progressBarPage from './pages/progressbar.js';
+import * as progressRingPage from './pages/progressring.js';
+import * as spinnerPage from './pages/spinner.js';
 
 // 实况页模块（有 content() 的页面）；导航条目不依赖此表（NAV 单源）
-const PAGES = [indexPage, viewPage, buttonPage];
+const PAGES = [
+    indexPage, statePage, propbusPage, channelPage, animationPage,
+    themePage, layoutSysPage, runtimePage,
+    viewPage, textPage, buttonPage, imagePage, linePage,
+    inputPage, textareaPage, checkboxPage, switchPage, radioButtonPage,
+    radioGroupPage, sliderPage, dropdownPage, spinBoxPage,
+    dateTimePickerPage, keyboardPage,
+    flexPage, gridPage, stackPage, listPage, scrollViewPage,
+    lazyListPage, stackIndexPage, layerPage, expansionPage,
+    tablePage, tabsPage, chartPage, treeMenuPage,
+    textViewPage, progressBarPage, progressRingPage, spinnerPage,
+];
 const PAGE_BY_ID = Object.fromEntries(PAGES.map(p => [p.meta.id, p]));
 
 // ── 导航层级词典 ──

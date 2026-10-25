@@ -1,4 +1,4 @@
-import { Root, View, Text, Slider, State, ref, setProp, Flex } from 'kwikui';
+import { Root, View, Text, Slider, State, ref, Flex } from 'kwikui';
 
 // ─── 模块级 State ───
 const form = new State({ volume: 42, brightness: 80 });
@@ -65,23 +65,26 @@ function LabelledSlider({ label, value, stateKey, min, max, step, onChange }) {
 }
 
 // ─── 颜色混合器 ───
-function SettingsPage() {
-    const updateColors = () => {
-        const toHex = (n) => n.toString(16).padStart(2, "0");
-        setProp("colorPreview", "background",
-            `#${toHex(settings.red)}${toHex(settings.green)}${toHex(settings.blue)}`);
-    };
+// 色块背景由 settings 派生：拖动滑杆写 State → 整树重建时重放当轮 rgb，
+// 颜色随滑杆实时变化。
+// 这里不用 setProp 命令式改背景——命令式写入落在 props 上，而同一次 State
+// 写入会在同一帧触发 rebuildTree，reconcile 按 JS 字面量整体重放 ViewProps，
+// 写入连一帧都活不到。
+const toHex = (n) => Math.round(n).toString(16).padStart(2, "0");
+const mixColor = () => `#${toHex(settings.red)}${toHex(settings.green)}${toHex(settings.blue)}`;
+const onMixChange = (e) => console.log(`混合: ${e.value} → ${mixColor()}`);
 
+function SettingsPage() {
     return View({ padding: 20, gap: 16 }, [
         Text({ text: "颜色混合器", fontSize: 18, fontWeight: "bold" }),
-        LabelledSlider({ label: "R", value: settings, stateKey: "red", min: 0, max: 255, step: 1, onChange: updateColors }),
-        LabelledSlider({ label: "G", value: settings, stateKey: "green", min: 0, max: 255, step: 1, onChange: updateColors }),
-        LabelledSlider({ label: "B", value: settings, stateKey: "blue", min: 0, max: 255, step: 1, onChange: updateColors }),
+        LabelledSlider({ label: "R", value: settings, stateKey: "red", min: 0, max: 255, step: 1, onChange: onMixChange }),
+        LabelledSlider({ label: "G", value: settings, stateKey: "green", min: 0, max: 255, step: 1, onChange: onMixChange }),
+        LabelledSlider({ label: "B", value: settings, stateKey: "blue", min: 0, max: 255, step: 1, onChange: onMixChange }),
         View({
-            id: "colorPreview",
-            background: "rgb(128,128,128)",
+            background: mixColor(),
             height: 60, borderRadius: 8, margin: [12, 0],
         }),
+        Text({ text: `当前 ${mixColor()}`, fontSize: 13, color: "#666" }),
     ]);
 }
 

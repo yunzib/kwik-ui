@@ -26,6 +26,7 @@ import kwik.element.table_data_source;
 import kwik.element.dropdown;    // Dropdown（菜单视口翻转行为锁）
 import kwik.element.line;        // Line（重排请求行为锁）
 import kwik.element.progressring;
+import kwik.element.slider;    // Slider（拖拽跨树重建行为锁）
 import kwik.element.checkbox;    // Tap 消费行为锁
 import kwik.element.radiobutton;
 import kwik.layout.radio_group;
@@ -2022,6 +2023,89 @@ static void test_focus_preserved_across_reset() {
     }
 }
 
+// 拖拽跨树重建：State 回写每帧触发 rebuildTree，指针按压/pan 状态必须存活。
+// 锁「Slider 拖动只动一下」的回归——整表 reset 会清 PointerTracker，后续
+// Move 的 ps 为空，既不识别 Pan 也不进 Hover 分支，拖动链在第一帧断掉。
+static void test_pan_survives_tree_rebuild() {
+    struct PanCounter final : View {
+        int pans = 0;
+        bool onEvent(const DispatchEvent &e) override {
+            if (e.type == DispatchEvent::Type::PanBegin || e.type == DispatchEvent::Type::PanMove) ++pans;
+            return View::onEvent(e);
+        }
+    };
+
+    PanCounter v;
+    v.layout(Rect{0, 0, 300, 40});    // 独立根：显式 frame（hitTest 需要）
+
+    EventRouter router;
+    router.setRootTarget(&v);
+
+    int ts = 100;
+    auto feed = [&](RawEvent::Action a, float x) {
+        RawEvent e;
+        e.device = RawEvent::Device::Mouse;
+        e.action = a;
+        e.x = x;
+        e.y = 20;
+        e.button = 1;    // 左键
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+    };
+
+    // ① 按下 + 跨阈值拖动 → PanBegin/PanMove 抵达
+    feed(RawEvent::Action::Down, 10);
+    feed(RawEvent::Action::Move, 40);
+    int afterDrag = v.pans;
+    CHECK(afterDrag >= 2);
+
+    // ② 软复位（rebuildTree 每帧路径）→ 拖动链不断
+    router.resetForTreeRebuild(&v);
+    feed(RawEvent::Action::Move, 80);
+    CHECK(v.pans > afterDrag);
+
+    // ③ 对照：整表 reset（HMR/错误页路径）→ 同一 Move 不再产生 Pan
+    router.reset();
+    int afterReset = v.pans;
+    feed(RawEvent::Action::Move, 120);
+    CHECK(v.pans == afterReset);
+
+    // ④ 抬起后条目清理：再次按下可重新起拖（不复用陈旧 pressTarget）
+    feed(RawEvent::Action::Up, 120);
+    feed(RawEvent::Action::Down, 20);
+    int afterRepress = v.pans;
+    feed(RawEvent::Action::Move, 60);
+    CHECK(v.pans > afterRepress);
+
+    // ⑤ 真实 Slider 现场：拖拽中每帧 State 回写触发重建，值必须继续跟手
+    {
+        Slider sl;
+        sl.layout(Rect{0, 0, 300, 20});    // thumbSize=20 → 轨道 10..290，step=1
+        EventRouter r2;
+        r2.setRootTarget(&sl);
+        auto feed2 = [&](RawEvent::Action a, float x) {
+            RawEvent e;
+            e.device = RawEvent::Device::Mouse;
+            e.action = a;
+            e.x = x;
+            e.y = 10;
+            e.button = 1;
+            e.timestamp = ++ts;
+            r2.feedRawEvent(e);
+        };
+
+        feed2(RawEvent::Action::Down, 30);
+        feed2(RawEvent::Action::Move, 40);    // 跨阈值 → pan 已起
+        float during = sl.value();
+        CHECK(during > 0.0f && during < 20.0f);
+
+        r2.resetForTreeRebuild(&sl);    // 拖拽中的一帧：reconcile 后软复位
+        feed2(RawEvent::Action::Move, 150);
+        CHECK(sl.value() > 40.0f);    // 旧路径（整表 reset）此处停在 during
+        CHECK(sl.value() < 60.0f);
+    }
+}
+
 // ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
@@ -2427,6 +2511,7 @@ int main() {
     test_damage_overflow_children();
     test_input_latency_stamp();
     test_focus_preserved_across_reset();
+    test_pan_survives_tree_rebuild();
     test_horizontal_scroll_dispatch();
     test_text_selection();
     test_text_selection_dispatch();
