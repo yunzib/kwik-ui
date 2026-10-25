@@ -602,8 +602,13 @@ void *View::treeService(int slot) const {
 void View::markDirty() {
     listDirty_ = true;       // 视觉可能变化：清单待重编
     subtreeDirty_ = true;    // 自身也置位：根节点无父可冒泡，帧门（hasDirtySubtree）才能打开
+    // 冒泡始终走根，不做「碰到已脏祖先即停」的早退：祖先残留 subtreeDirty_
+    // 而本帧未将其重编码（被剔除/未画到）时，早退吞掉后续 markDirty 的冒泡
+    // ——根不知情，帧门 hasDirtySubtree 永久关闭，滚动容器内输入键入/光标
+    // 闪烁全部冻结，直到下一次全量重建（State 写）才复活。一次 markDirty
+    // 多写几个祖先字段，代价可忽略。
     View *p = parent_;
-    while (p && !p->subtreeDirty_) {
+    while (p) {
         p->subtreeDirty_ = true;
         p = p->parent_;
     }
