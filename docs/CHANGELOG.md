@@ -10,6 +10,12 @@
   标脏，滚动子树快照停留旧偏移位置——后续小伤害帧重放陈旧清单，内容
   按旧偏移溢出视口覆盖顶栏元素（缩放后 hover 顶栏按钮被内容区覆盖）；
   clamp 实际收紧时对齐 setScroll 的 markAllDirty 口径
+- Vulkan 裁剪收紧：ClipManager 嵌套 clip 由「替换」改「求交」语义——新
+  裁剪只能缩小当前可画区（栈存生效矩形，pop 自然回退父级约束），伤害带
+  scissor 进场后不再被子树越界矩形整个顶掉；所有 scissor 生产点对渲染区
+  求交收口（float 域防 uint 回卷，AA 边缘保守展开，空交集空剪）。修复
+  陈旧在途快照借越界 scissor 把代码卡深色标题条画进顶栏语言按钮区
+  （docsite View 页滚到顶 hover 按钮即现深色块/「收起」覆盖）
 - View 百分比尺寸挂 View 流式父容器下被内容自适应覆写吞掉；覆写条件
   排除 widthPct/heightPct
 ### 新增

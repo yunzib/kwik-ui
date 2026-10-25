@@ -33,4 +33,5 @@ private:
     float globalAlpha_ = 1.0f;
     std::vector<float> alphaSaveStack_;
     VkRect2D initialScissor_ = {{0, 0}, {0, 0}};
+    VkExtent2D renderExtent_ = {0, 0};    // 渲染区上界（beginFrame 记录，scissor 收口求交基准）
 };
