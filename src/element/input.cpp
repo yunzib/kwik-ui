@@ -522,8 +522,14 @@ size_t Input::tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const st
 // 与 onDraw 同口径排版（防 measure/draw maxWidth 不同源导致映射漂移）；
 // 空文本恒 0；密码模式喂掩码布局、text_ 传源文本走码点换算
 size_t Input::tapCursorByte(const DispatchEvent &event) {
+    // 事件 global 是滚动视口域，inner 是未滚动 frame 域——上溯滚动容器补偏移
+    //（Tap/双击/hitOffset 都经本函数，scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
+    float gx = event.globalX + comp.x;
+    float gy = event.globalY + comp.y;
     Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
                   frame.height - props.padding.vertical()};
+    (void)gy;    // Input 单行：定位仅用 X（Y 供调试/未来多行扩展）
     auto &pipe = TextRenderPipeline::instance();
     float fs = input_.fontSize <= 0 ? 16.0f : input_.fontSize;
     FontId fid = pipe.activeFont();
@@ -540,7 +546,7 @@ size_t Input::tapCursorByte(const DispatchEvent &event) {
         res = textResult_;
     }
     if (!res || res->glyphs.empty()) return text_.empty() ? 0 : text_.size();    // 无字形：退回端点语义
-    return tapByteOffsetForX(res->glyphs, text_, event.globalX - inner.x);
+    return tapByteOffsetForX(res->glyphs, text_, gx - inner.x);
 }
 
 size_t Input::byteOffsetToGlyphIndex(size_t byteOffset) const {

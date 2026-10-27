@@ -452,6 +452,11 @@ bool Text::onEvent(const DispatchEvent &event) {
 // ── Selectable 接口 — 几何映射（只读 layoutResult_ 缓存，零布局触发）──
 size_t Text::hitOffset(float globalX, float globalY) {
     if (!layoutResult_ || layoutResult_->lines.empty()) return 0;
+    // 事件 globalX/Y 是滚动视口域，行带/字形几何是未滚动 frame 域——
+    // 上溯各滚动容器补回偏移（嵌套逐层累加；scroll=0 时恒 0，结果不变）
+    Point comp = scrollCompensationOf(*this);
+    globalX += comp.x;
+    globalY += comp.y;
     Point origin = contentOrigin();
     // 定位行：累加行高首个覆盖 globalY 的行（越界取首/末行，自然收敛）
     float yTop = origin.y;

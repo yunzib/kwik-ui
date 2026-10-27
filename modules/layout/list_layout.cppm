@@ -50,6 +50,9 @@ public:
     // ─── 滚轮/触摸滚动入口（返回是否完整消费——到边界由祖先链继续） ─────
     bool applyScroll(float dx, float dy) override;
 
+    // ─── 子孙坐标域补偿：本容器滚动时，叶子组件把 global 换算到未滚动 frame 域用 ─────
+    Point scrollCompensation() const override { return scrollOffset; }
+
     // ─── scrollX/scrollY 命令式通路（定位/贴底/动画；无此通路 JS 无法滚动） ───
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 

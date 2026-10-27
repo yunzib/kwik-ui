@@ -41,6 +41,7 @@ export const meta = {
 
 const L = {
     s1: { zh: '字号与字重', en: 'Size & weight' },
+    sColor: { zh: '颜色', en: 'Color' },
     s2: { zh: '对齐与行高', en: 'Align & line height' },
     s3: { zh: '换行与截断', en: 'Wrap & ellipsis' },
     s4: { zh: '文字可选中', en: 'Selectable text' },
@@ -57,6 +58,19 @@ const demo1 = () => [
     Text({ text: 'Title 20 · medium', fontSize: 20, fontWeight: 'medium', color: '#334155', margin: [4, 0, 0, 0] }),
     Text({ text: 'Body 14 · regular', fontSize: 14, color: '#475569', margin: [4, 0, 0, 0] }),
     Text({ text: 'Caption 11 · muted', fontSize: 11, color: '#94A3B8', margin: [4, 0, 0, 0] }),
+];
+
+const C5 = `// 直接色值：#rrggbb
+Text({ text: 'primary', color: '#2563EB' });
+
+// 主题 token：需 ThemeProvider 包裹，解析 @primary
+//（无主题环境时保持默认黑色）
+Text({ text: 'themed', color: '@primary' });`;
+const demo5 = () => [
+    Text({ text: 'primary · #2563EB', fontSize: 14, color: '#2563EB' }),
+    Text({ text: 'success · #16A34A', fontSize: 14, color: '#16A34A', margin: [4, 0, 0, 0] }),
+    Text({ text: 'danger · #DC2626', fontSize: 14, color: '#DC2626', margin: [4, 0, 0, 0] }),
+    Text({ text: 'muted · #94A3B8（辅助说明弱化用）', fontSize: 12, color: '#94A3B8', margin: [4, 0, 0, 0] }),
 ];
 
 const C2 = `Text({ text: 'left', width: 360, textAlign: 'left' });
@@ -92,14 +106,21 @@ const demo3 = () => [
 ];
 
 const C4 = `Text({
-    text: '拖选这段文字，再按 Ctrl+C 复制。',
-    selectable: true,
+    text: '拖选这段文字，或双击选词，再按 Ctrl+C 复制。',
+    selectable: true, wordWrap: true,
+    width: 240,    // 多行段落：跨行拖选高亮逐行成形
+    // padding: 10 / background / color 同常规属性
 });`;
 const demo4 = () => [
     Text({
         text: '拖选这段文字，或双击选词，再按 Ctrl+C 复制。',
-        fontSize: 13, color: '#1E293B', selectable: true,
-        background: '#EFF6FF', padding: 10, width: 420,
+        fontSize: 13, color: '#1E293B', selectable: true, wordWrap: true,
+        background: '#EFF6FF', padding: 10, width: 240,
+    }),
+    // 选区高亮色为框架固定值（#2563EB 30%），暂无配置属性
+    Text({
+        text: '高亮为固定蓝色（#2563EB 30%），暂不可配置。',
+        fontSize: 11.5, color: '#94A3B8', margin: [6, 0, 0, 0],
     }),
 ];
 
@@ -107,6 +128,7 @@ export const content = (innerW = 884) => [
     pageTitle(meta),
     pageDesc(meta),
     ...section(t(L.s1), demo1(), C1, innerW),
+    ...section(t(L.sColor), demo5(), C5, innerW),
     ...section(t(L.s2), demo2(), C2, innerW),
     ...section(t(L.s3), demo3(), C3, innerW),
     ...section(t(L.s4), demo4(), C4, innerW),

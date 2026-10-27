@@ -262,6 +262,16 @@ public:
     virtual bool scrollable() const { return false; }
 
     /**
+     * @brief 本节点作为滚动容器时对子孙坐标域的位移
+     *
+     * 事件 globalX/Y 是「滚动后的视口域」，而组件 frame/排版行带是「未滚动
+     * 域」：叶子组件把全局坐标映射到本地几何（hitOffset/光标/选词）时，沿
+     * 祖先链累加各滚动容器的本接口值即得未滚动域坐标。滚动=0 恒 {0,0}，
+     * 映射结果零变化（Text::hitOffset / Input / TextArea 消费同一约定）。
+     */
+    virtual Point scrollCompensation() const { return {0.0f, 0.0f}; }
+
+    /**
      * @brief 深层后代消费 Tap 后的状态同步通知（非冒泡）
      * @param descendant 消费 Tap 的后代目标
      *
@@ -282,6 +292,21 @@ public:
      */
     virtual bool applyScroll(float dx, float dy) { return false; }
 };
+
+/**
+ * @brief 自 target 上溯累加滚动容器的域补偿（事件 global 域 → 未滚动 frame 域）
+ *
+ * 叶子组件映射字节/光标前调用；非滚动祖先贡献 0，嵌套滚动容器逐层累加。
+ */
+export inline Point scrollCompensationOf(const EventTarget &target) {
+    Point c{0.0f, 0.0f};
+    for (EventTarget *p = target.parent(); p; p = p->parent()) {
+        Point s = p->scrollCompensation();
+        c.x += s.x;
+        c.y += s.y;
+    }
+    return c;
+}
 
 // ============================================================================
 // 工具函数

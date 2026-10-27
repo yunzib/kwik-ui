@@ -1,5 +1,23 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-27
+### 修复
+- 不换行文本拖选高亮恒空：`layoutNoWrap`（src/render/text/text_layout.cpp）
+  行记录不填 clusterStart/clusterEnd（默认 0/0），而 selectionRects 按
+  「行覆盖区间 [clusterStart,clusterEnd) 与选区字节区间求交」逐行成形，
+  s<e 恒假 → 交集恒空 → 高亮条 0 条（Selectable 全链生效，唯视觉无反
+  馈）。修复：对齐 layoutWordWrap 范式，从行首/行末字形补填
+  cluster±numBytes（uint32 域，空行守卫）；文档流单行文本（docsite Text
+  页 props 示例等）拖选高亮即时成形
+- 多行文本滚动后拖选/跨行失效：事件 globalX/Y 是滚动视口域，组件
+  frame/排版行带是未滚动域——ScrollView::hitTest 内部 `eff=点+scroll` 补
+  偿只管目标命中，字节映射端拿滚动域坐标减未滚动域几何 → 越界 localY
+  被行扫描钳回首行（docsite Text 页 s4 段落滚动后拖选死锁 L0）。修复：
+  EventTarget::scrollCompensation() 虚接口（默认 {0,0}，scroll=0 行为零
+  变化）+ scrollCompensationOf 上溯累加 helper（modules/event/event.cppm）；
+  ScrollView/LazyList/ListLayout 覆写返回各自 scrollOffset；Text::hitOffset、
+  TextArea/Input::tapCursorByte 映射入口统一补偿（嵌套滚动容器逐层累加）
+
 # 0.0.0 — 2026-10-25
 ### 修复
 - 帧门蒙蔽（滚动容器内输入冻结）：markDirty 冒泡带「碰到已脏祖先即停」

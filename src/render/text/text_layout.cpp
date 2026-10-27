@@ -68,12 +68,21 @@ void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const Text
     float baseline = -minY;
     for (uint32_t i = glyphStart; i < result.glyphs.size(); i++) result.glyphs[i].y += baseline;
 
+    uint32_t gCountNow = static_cast<uint32_t>(result.glyphs.size() - glyphStart);
+
+    /* 行字节区间（选区/光标命中消费）：noWrap 单行的覆盖 = 首末字形 cluster
+     * 区间。此前该字段缺省（0/0），Selectable 的行交集 s<e 恒假 → 不换行
+     * 文本的拖选/双击高亮整列失效（docsite Text 页可选中段落 2026-10-27）。 */
     result.lines.push_back({
         .glyphStart = glyphStart,
-        .glyphCount = static_cast<uint32_t>(result.glyphs.size() - glyphStart),
+        .glyphCount = gCountNow,
         .width = cursorX,
         .height = maxBottom - minY,
         .baseline = baseline,
+        .clusterStart = gCountNow ? result.glyphs[glyphStart].cluster : 0,
+        .clusterEnd = gCountNow ? result.glyphs[glyphStart + gCountNow - 1].cluster +
+                                      result.glyphs[glyphStart + gCountNow - 1].numBytes
+                                : 0,
     });
     result.totalWidth = cursorX;
     result.totalHeight = maxBottom - minY;

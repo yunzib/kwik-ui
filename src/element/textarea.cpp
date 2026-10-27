@@ -272,6 +272,11 @@ void TextArea::focusWithCursor(size_t pos) {
 // 空文本/无行 → 0（光标吸行首）
 // ════════════════════════════════════════════════════════
 size_t TextArea::tapCursorByte(const DispatchEvent &event) {
+    // 事件 global 是滚动视口域，inner/行带是未滚动 frame 域——上溯滚动容器补偏移
+    //（hitOffset 与 Tap 路径都经本函数，scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
+    float gx = event.globalX + comp.x;
+    float gy = event.globalY + comp.y;
     Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
     auto &pipe = TextRenderPipeline::instance();
     float fs = props_.fontSize <= 0 ? 16.0f : props_.fontSize;
@@ -283,9 +288,9 @@ size_t TextArea::tapCursorByte(const DispatchEvent &event) {
         textResult_ = pipe.layoutText(text_, fid, fs, cfg);
     }
     if (!textResult_ || textResult_->lines.empty()) return 0;
-    int lineIdx = lineIndexForY(textResult_->lines, event.globalY - inner.y);
+    int lineIdx = lineIndexForY(textResult_->lines, gy - inner.y);
     if (lineIdx < 0) return 0;
-    return tapByteOffsetForLine(*textResult_, lineIdx, event.globalX - inner.x, text_);
+    return tapByteOffsetForLine(*textResult_, lineIdx, gx - inner.x, text_);
 }
 void TextArea::blur() {
     if (blinkTimerId_ != 0) {

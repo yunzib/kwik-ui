@@ -90,6 +90,8 @@ public:
     bool scrollable() const override { return true; }
     /// 滚轮入口（EventDispatcher 阶段② hitTest→applyScroll，返回是否完整消费）
     bool applyScroll(float dx, float dy) override;
+    /// 子孙坐标域补偿：本容器滚动时，叶子组件把 global 换算到未滚动 frame 域用
+    Point scrollCompensation() const override { return scrollOffset_; }
     /// scrollX/scrollY 命令式通路（定位/贴底/动画；原实现 JS 无法滚动列表）
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
     /// 滚动到指定数据行（行首对齐；clamp 到滚动范围）
