@@ -295,8 +295,14 @@ bool Input::onEvent(const DispatchEvent &event) {
         return View::onEvent(event);
     case DispatchEvent::Type::Tap:
         Log::debug("[Input] TAP focused={}", focused_);
-        // 触发 JS onClick（键盘弹窗等 JS 逻辑可由此挂接）
-        if (handlers.onClick) handlers.onClick(PointerArgs{event.globalX, event.globalY});
+        // 触发 JS onClick（键盘弹窗等 JS 逻辑可由此挂接）——载荷同
+        // View::onEvent 口径：x/y 相对本视图坐标（scrollCompensationOf 补
+        // 滚差），gx/gy 窗口坐标双载
+        if (handlers.onClick) {
+            Point comp = scrollCompensationOf(*this);
+            handlers.onClick(PointerArgs{event.globalX + comp.x - frame.x, event.globalY + comp.y - frame.y,
+                                         event.globalX, event.globalY});
+        }
         // 双击选词（非密码；连续 Tap 间隔 <400ms 且位移 <6px，事件层
         // DoubleTap 为预留类型无生成点，组件内自检同 Text/TextView）
         if (!input_.isPassword) {

@@ -23,12 +23,17 @@ export import kwik.element.element_type;    // 重导出 ElementType / to_string
 /**
  * @brief 指针类事件参数 (onClick / onLongPress / onHoverEnter / onHoverLeave)
  *
- * x/y 为相对控件原点的局部坐标;
+ * x/y 为相对控件原点的局部坐标（默认口径，同 Qt pos / DOM offsetX /
+ * Android getX——组件不知道也不该关心自己的摆位）；gx/gy 为滚动视口
+ * （屏幕）坐标双载（DOM clientX / Flutter globalPosition 同款），供
+ * 窗口级定位场景直接取用——注意 gx/gy 随滚动/容器摆位漂移非稳定量。
  * 键盘事件复用同一通道时, x=keyCode/charCode, y=modifiers。
  */
 export struct PointerArgs {
     float x = 0.0f;
     float y = 0.0f;
+    float gx = 0.0f;    // 窗口坐标（滚动视口域；滚动容器内 = global + scroll）
+    float gy = 0.0f;
 };
 
 /**
@@ -96,12 +101,14 @@ export struct ViewEventHandlers {
 
     /**
      * @brief 根据事件码分发到对应的指针事件处理器
-     * @param code   事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
-     * @param localX 相对控件原点的局部 x 坐标
-     * @param localY 相对控件原点的局部 y 坐标
+     * @param code    事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
+     * @param localX  相对控件原点的局部 x 坐标
+     * @param localY  相对控件原点的局部 y 坐标
+     * @param globalX 滚动视口（屏幕）域 x（局部坐标默认口径下的双载全局值）
+     * @param globalY 滚动视口（屏幕）域 y
      * @return true 表示事件已消费 (阻止冒泡)
      */
-    bool dispatch(int code, float localX, float localY);
+    bool dispatch(int code, float localX, float localY, float globalX = 0.0f, float globalY = 0.0f);
 };
 
 // ============================================================================
@@ -590,12 +597,16 @@ public:
      *  组件在树内（parent 链有效）时使用） */
     void *treeService(int slot) const;
 
-private:
+protected:
     /** @brief 绘制影响范围 = paintBounds + 特效外延（阴影偏移+模糊、
      *  描边线宽；玻璃 backdropBlur 不外延——合成被 SDF 蒙版限制在元素
-     *  矩形内，捕获余量只读不写）。伤害计算与剔除包含盒都用它 */
-    Rect effectBounds() const;
+     *  矩形内，捕获余量只读不写）。伤害计算与剔除包含盒都用它。
+     *  virtual：状态型组件（Button hover/pressedShadow）覆写并入更大的
+     *  态阴影外延——基类只读 props.shadow（闲置态），伤害带取不到 hover
+     *  glow 外圈会被回放 scissor 裁掉（截断 + 残影） */
+    virtual Rect effectBounds() const;
 
+private:
     /** @brief onDraw 开头的清单编码（三明治 + 虚 onDraw 全捕获 + 内联发布），见 view.cpp */
     void encodeList(Graphics &graphics);
 

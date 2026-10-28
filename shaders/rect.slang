@@ -123,12 +123,25 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
     }
 
     if (input.fragDrawMode == 2u) {
-        // ── 阴影 ──────────────────────────────────────────────
-        float2 shadowCenter = input.fragSize * 0.5 + input.fragShadowOffset;
-        float  sr = min(cr + input.fragShadowBlur * 0.5,
-                        min(input.fragSize.x, input.fragSize.y) * 0.5);
-        float shadowSDF = sdRoundedRect(pos - shadowCenter, input.fragSize * 0.5, sr);
-        float alpha = (1.0 - smoothstep(-aa, aa, shadowSDF)) * input.fragOpacity;
+        // ── 阴影：单层高斯，quad 已按 pad 四周扩边（C++ 端 offset 折入 topLeft）──
+        //    轮廓 = 原矩形圆角（radius 钳到 shadowHalf），扩边量经 gradientVec.x
+        //    回传，SDF 半径缩回原矩形几何（扩边只扩 raster 区域不扩形状）。
+        //    spread 经 gradientVec.y 回传（CSS 第 4 值）：SDF 平行偏移
+        //    d -= spread——正值轮廓外扩（圆角随同 +spread），负值收缩
+        //    （单边阴影：三边退进本体只露偏移侧）。
+        //    衰减 = exp(−max(d,0)²/2σ²)，σ = blur/2（CSS 规范 blur = 2σ）：
+        //    d<0（内部）钳到 0 → fall≡1——未钳位时 d² 让剪影内部向中心指数
+        //    衰减成空心环，blur=0 硬阴影只剩发丝轮廓；外形外过渡带 ≈ blur，
+        //    角落无台阶；blur=0 退化为 aa 级硬边─────────────────────
+        float  pad    = input.fragGradientVec.x;
+        float  spread = input.fragGradientVec.y;
+        float2 shadowHalf = input.fragSize * 0.5 - float2(pad, pad);
+        float  sr = min(input.fragRadius, min(shadowHalf.x, shadowHalf.y));
+        float d = sdRoundedRect(pos - input.fragSize * 0.5, shadowHalf, sr) - spread;
+        float dd = max(d, 0.0);
+        float  sigma = max(input.fragShadowBlur, aa) * 0.5;
+        float fall = exp(-dd * dd / (2.0 * sigma * sigma));
+        float alpha = fall * input.fragOpacity;
         return float4(input.fragFillColor.rgb, input.fragFillColor.a * alpha);
     } else if (input.fragDrawMode == 1u) {
         // ── 描边 ──────────────────────────────────────────────

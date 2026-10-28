@@ -149,8 +149,12 @@ void Expansion::onDraw(Graphics &graphics) {
 
 bool Expansion::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
-        // hitTest 已保证回到 self（子级未命中或未消费冒泡而回）；此处只分拣带内点击
-        if (event.globalY >= frame.y && event.globalY < frame.y + ep_.headerHeight) {
+        // hitTest 已保证回到 self（子级未命中或未消费冒泡而回）；此处只分拣带内点击。
+        // 带内判定用未滚动域：event.global 是滚动视口域，先补滚差再比带区间
+        // （否则滚动的父容器内手风琴带内判定偏差一个滚差）
+        Point comp = scrollCompensationOf(*this);
+        float bandY = event.globalY + comp.y - frame.y;
+        if (bandY >= 0 && bandY < ep_.headerHeight) {
             toggle();
             return true;    // 头行带内点按不外溢（一旦交还基座，即成 ancestor 点击链）
         }

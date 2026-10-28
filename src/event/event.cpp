@@ -139,13 +139,16 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
                 .globalY = raw.y,
             });
 
-            // HoverEnter / HoverLeave: 比对上一帧悬停目标
+            // HoverEnter / HoverLeave: 比对上一帧悬停目标（global 补载荷
+            // 双载口径——onHoverEnter/Leave 的 e.gx/e.gy 也能取到真实点位）
             EventTarget *current = root->hitTest(Point{raw.x, raw.y});
             if (current != lastHoverTarget_) {
                 if (lastHoverTarget_) {
                     DispatchEvent leaveEvt;
                     leaveEvt.type = DispatchEvent::Type::HoverLeave;
                     leaveEvt.timestamp = ts;
+                    leaveEvt.globalX = raw.x;
+                    leaveEvt.globalY = raw.y;
                     leaveEvt.presetTarget = lastHoverTarget_;
                     out.push_back(leaveEvt);
                 }
@@ -153,6 +156,8 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
                     DispatchEvent enterEvt;
                     enterEvt.type = DispatchEvent::Type::HoverEnter;
                     enterEvt.timestamp = ts;
+                    enterEvt.globalX = raw.x;
+                    enterEvt.globalY = raw.y;
                     enterEvt.presetTarget = current;
                     out.push_back(enterEvt);
                 }

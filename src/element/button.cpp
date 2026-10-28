@@ -64,6 +64,36 @@ bool Button::onEvent(const DispatchEvent &event) {
 }
 
 // ============================================================================
+// Button::effectBounds — 绘制影响范围（三态阴影外延取并集）
+// View::effectBounds 只读 props.shadow（闲置态）。hover/pressed 阴影可能
+// 外延更大（docsite Button 页：hover '0 0 16' glow 外延 25px vs 闲置
+// '0 2 6' 的 10px）——伤害带只来自重编节点的 effectBounds，取不到外圈时：
+// hover 帧 glow 外环被回放 scissor 裁掉（视觉截断为内圈小晕），全量重绘帧
+// 画出的外环像素在离开 hover 后还会留残影。三态并集让小带变保守带
+// （按钮尺寸小，代价可忽略）。
+// ============================================================================
+Rect Button::effectBounds() const {
+    Rect b = View::effectBounds();
+    auto stateShadowBounds = [this](const std::optional<Shadow> &s) {
+        if (!s.has_value()) return Rect{};
+        const auto &sh = *s;
+        float blur = std::max(0.0f, sh.blurRadius);
+        float pad = blur * 1.5f + std::max(sh.spread, 0.0f) + 1.0f;
+        Rect base = paintBounds();
+        float padL = std::max(0.0f, pad - sh.offsetX);
+        float padT = std::max(0.0f, pad - sh.offsetY);
+        float padR = std::max(0.0f, pad + sh.offsetX);
+        float padB = std::max(0.0f, pad + sh.offsetY);
+        return Rect{base.x - padL, base.y - padT, base.width + padL + padR, base.height + padT + padB};
+    };
+    Rect h = stateShadowBounds(button_.hoverShadow);
+    Rect p = stateShadowBounds(button_.pressedShadow);
+    if (!h.isEmpty()) b = b.unionRect(h);
+    if (!p.isEmpty()) b = b.unionRect(p);
+    return b;
+}
+
+// ============================================================================
 // Button::onDraw — 状态感知绘制 + 文字渲染
 // ============================================================================
 void Button::onDraw(Graphics &graphics) {
@@ -167,8 +197,12 @@ void Button::resolveThemeDefaults() {
     };
 
     // ── background：token 优先 → theme 兜底 → hardcoded 兜底 ──
+    // JS 显式给了 background（哪怕透明——幽灵/描边按钮）即用户自主选择，
+    // 不再兜底填 primary：否则首帧蓝底、reconcile 重置 props 后又透明的
+    // 两路径不一致（docsite Button 页首帧色错缺陷）→ hasBackground 让位
     if (!resolveColor("background", props.background))
-        if (props.background.isTransparent()) props.background = t.colors.primary;
+        if (props.background.isTransparent() && !button_.hasBackground)
+            props.background = t.colors.primary;
     // ── textColor ──
     if (!resolveColor("color", text_.textColor))
         if (text_.textColor == Color{0, 0, 0, 255})
@@ -176,6 +210,11 @@ void Button::resolveThemeDefaults() {
     // ── borderRadius（float：仅 token，构造函数已设默认 6）──
     resolveFloat_("borderRadius", props.borderRadius);
     // ── hoverBackground / pressedBackground 从 background 推导 ──
-    if (button_.hoverBackground.isTransparent()) button_.hoverBackground = darken(props.background, 0.85f);
-    if (button_.pressedBackground.isTransparent()) button_.pressedBackground = darken(props.background, 0.70f);
+    // 让位条件是「背景透明」而非 hasBackground：透明底（幽灵/描边款）下
+    // darken 推导出的是透明垃圾色须跳过；显式实心背景仍应自动派生 hover
+    // 反馈（否则 background:'#2563EB' 悬停毫无背景变化——旧版行为丢失）
+    if (button_.hoverBackground.isTransparent() && !props.background.isTransparent())
+        button_.hoverBackground = darken(props.background, 0.80f);
+    if (button_.pressedBackground.isTransparent() && !props.background.isTransparent())
+        button_.pressedBackground = darken(props.background, 0.62f);
 }

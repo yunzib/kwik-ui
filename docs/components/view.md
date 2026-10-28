@@ -73,8 +73,8 @@ ViewProps 是 View 的基础属性， 所有组件继承以下属性：
     "gridColumnSpan": "number",        // 跨列数 (默认 1)
 
     // ── 事件 ──
-    "onClick": "(e) => {}",            // 点击回调 e={x,y}
-    "onLongPress": "(e) => {}",        // 长按回调
+    "onClick": "(e) => {}",            // 点击回调 e={x,y 相对本视图 + gx,gy 窗口坐标}
+    "onLongPress": "(e) => {}",        // 长按回调（同款 x/y + gx/gy 载荷）
     "onHoverEnter": "() => {}",        // 鼠标进入
     "onHoverLeave": "() => {}",        // 鼠标离开
     "onChange": "(e) => {}",           // 值变更回调
@@ -103,12 +103,29 @@ ViewProps 是 View 的基础属性， 所有组件继承以下属性：
 "transparent"       // 透明
 ```
 - Shadow（阴影）
+
+格式：`"offsetX offsetY blur [spread] color"`（空格分隔，spread 可省略）
+
+| 参数 | 含义 | 取值 |
+|------|------|------|
+| offsetX | 水平偏移 | px；正=向右，负=向左，0=不偏移 |
+| offsetY | 垂直偏移 | px；正=向下，负=向上 |
+| blur | 模糊半径 | px；0=硬边，越大越柔和（可见柔带 ≈ 1.5×blur） |
+| spread | 轮廓扩张（可选，默认 0） | px；正=轮廓比本体大，负=收缩（圆角随同增减） |
+| color | 阴影颜色 | `#RRGGBBAA`（末两位 alpha）或 `rgba(...)` |
+
+常用配方：
+
 ```
-// CSS box-shadow 字符串:
-"0 3px 12px rgba(0,0,0,0.4)"
-//   ↑     ↑        ↑
-// offsetX offsetY blurRadius color
+"0 2 8 #00000033"      // 常规悬浮：小偏移小模糊
+"0 8 20 #2563EB88"     // 抬升卡片：偏移+模糊同增
+"0 14 6 -7 #33415599"  // 单边（底）：offsetY 拉开距离 + 负 spread 收掉其余三边
+"0 0 28 #7C3AED66"     // 四边 glow：偏移 0 + 大 blur 均匀外发光
 ```
+
+单边阴影要点：`offsetY > |spread|`（否则底边也收没了），且 `|spread|` 要够大
+（≈ blur 量级）才能把上/左/右三边的高斯尾压到不可见；负 spread 同时收缩
+圆角（radius − |spread|，钳 0）。
 
 ## transform 统一变换
 

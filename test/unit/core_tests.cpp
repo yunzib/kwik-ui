@@ -18,6 +18,7 @@ import kwik.render.text.layout;
 import kwik.render.text.font.manager;
 import kwik.render.text.cache;
 import kwik.element.view;
+import kwik.element.button;    // Button（Tap 回调滚动补偿坐标行为锁）
 import kwik.element.text;
 import kwik.element.image;    // Image（异步上传回执行为锁）
 import kwik.element.lazy_list;
@@ -583,6 +584,16 @@ static void test_animation_frame_and_shadow_write() {
     ViewProps sp;
     getPropMeta(PropId::shadow).writer(sp, TypedProp{std::string("0 6px 18px rgba(0,0,0,0.5)")});
     CHECK(sp.shadow.has_value() && sp.shadow->blurRadius == 18.0f && sp.shadow->offsetX == 0.0f);
+
+    // ①' spread 第 4 数值（CSS 兼容）：负值收缩轮廓（单边阴影），颜色顺延
+    //     第 5 token；旧三值 + 颜色形态不受影响（spread 默认 0）
+    ViewProps sp2;
+    getPropMeta(PropId::shadow).writer(sp2, TypedProp{std::string("0 14 6 -7 #33415599")});
+    CHECK(sp2.shadow.has_value() && sp2.shadow->offsetY == 14.0f && sp2.shadow->blurRadius == 6.0f
+          && sp2.shadow->spread == -7.0f && sp2.shadow->color.r == 0x33);
+    ViewProps sp3;
+    getPropMeta(PropId::shadow).writer(sp3, TypedProp{std::string("0 8 20 #2563EB88")});
+    CHECK(sp3.shadow.has_value() && sp3.shadow->spread == 0.0f && sp3.shadow->color.b == 0xEB);
 
     // ② Text 动画帧：textColor 变色、fontSize 变号（排版缓存由路由分支废止）
     Text t;
@@ -1884,6 +1895,69 @@ static void test_right_button_dispatch() {
     CHECK(ctx.button == 2);
 }
 
+// ── 行为锁：回调点击坐标在滚动视口内 = 组件内相对坐标 ──
+// 事件 global 是滚动视口域、组件 frame 是未滚动域：View::onEvent 交付
+// 回调前须经 scrollCompensationOf 上溯补滚差（修复前裸 global-frame 得
+// 大负数——docsite Button 页「取坐标」实测 e.y=-1627 同根）。
+// 两景：① 全链（Router→滚轮位移→Tap 手势→ScrollView hitTest 内容域
+// 命中→onEvent 载荷）；② 无滚动祖先直投（补偿恒 0，等价 global−frame）。
+static void test_tap_payload_scroll_compensated() {
+    auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+
+    // ① 全链：ScrollView 根滚 1320（滚轮 +30/步 ×44）；按钮内容位
+    //    (32,1333)=滚后屏幕位 (32,13)；点击屏幕 (76,26) → 载荷 (44,13)
+    //    （修复前裸减得 (44,-1327)）
+    ViewProps bp;
+    bp.width = 97.0f;
+    bp.height = 34.0f;
+    bp.x = 32.0f;
+    bp.y = 1333.0f;
+    auto page = std::make_unique<ScrollView>(ViewProps{}, ScrollViewProps{});
+    ScrollView *sv = page.get();
+    PointerArgs got;
+    auto btn = std::make_unique<Button>(bp, TextContent{}, ButtonStateProps{});
+    Button *b = btn.get();
+    b->handlers.onClick = [&](const PointerArgs &a) { got = a; return true; };
+    sv->addChild(std::move(btn));
+    // 高位填充子级：contentSize 撑到 2250 → maxY 1650 ≥ 1320（滚位合法）
+    ViewProps fp;
+    fp.width = 10.0f;
+    fp.height = 50.0f;
+    fp.x = 0.0f;
+    fp.y = 2200.0f;
+    sv->addChild(std::make_unique<View>(fp));
+    sv->layout(Rect{0, 0, 400, 600});
+
+    EventRouter router;
+    router.setRootTarget(sv);
+    RawEvent wheel;
+    wheel.device = RawEvent::Device::Mouse;
+    wheel.action = RawEvent::Action::Scroll;
+    wheel.x = 76;
+    wheel.y = 26;
+    for (int i = 0; i < 44; ++i) { wheel.scrollY = -1.0f, router.feedRawEvent(wheel); }
+    CHECK(nearf(std::stof(sv->getProperty("scrollY")), 1320.0f));
+
+    feedB(router, RawEvent::Action::Down, 76, 26, 0);
+    feedB(router, RawEvent::Action::Up, 76, 26, 0);
+    CHECK(got.x == 44.0f && got.y == 13.0f);
+    CHECK(got.gx == 76.0f && got.gy == 26.0f);    // 全局双载 = 事件 global 原值（滚动视口域）
+
+    // ② 无滚动祖先：经 Tap 码 0 通用分派（onClick 同一线路），补偿恒 0
+    View plain;
+    plain.layout(Rect{10, 10, 50, 50});
+    PointerArgs slot;
+    plain.handlers.onClick = [&](const PointerArgs &a) { slot = a; return true; };
+    View &pv = plain;
+    DispatchEvent tap;
+    tap.type = DispatchEvent::Type::Tap;
+    tap.globalX = 17;
+    tap.globalY = 23;
+    CHECK(pv.onEvent(tap));
+    CHECK(slot.x == 7.0f && slot.y == 13.0f);
+    CHECK(slot.gx == 17.0f && slot.gy == 23.0f);
+}
+
 // ── 行为锁: tap 点击定位光标 ──
 // Input 单行：中点规则边界→源文本码点序字节（密码掩码布局与源文本 1:1 同函数）；
 // TextArea：y→visual line + 行内边界，行尾落点非末行收回本行末码点、末行放行文末。
@@ -2513,6 +2587,7 @@ int main() {
     test_focus_preserved_across_reset();
     test_pan_survives_tree_rebuild();
     test_horizontal_scroll_dispatch();
+    test_tap_payload_scroll_compensated();
     test_text_selection();
     test_text_selection_dispatch();
     test_baking_container_subtree_reencode();

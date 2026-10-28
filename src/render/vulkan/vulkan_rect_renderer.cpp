@@ -226,37 +226,46 @@ void RectRenderer::drawShadow(VkCommandBuffer cmd, VkExtent2D extent, const Rect
     VkDeviceSize off = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &off);
     vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT16);
-    static constexpr int kShadowLayers = 4;
-    static const float kLayerAlphas[kShadowLayers] = {0.20f, 0.14f, 0.08f, 0.03f};
-    const float blur = shadow.blurRadius;
-    const int layers = (blur <= 0.5f) ? 1 : kShadowLayers;
-    const float step = (layers > 1) ? (blur / float(layers - 1)) : 0.0f;
-    for (int i = 0; i < layers; i++) {
-        PushConstants pc{};
-        pc.topLeftX = rect.x + shadow.offsetX;
-        pc.topLeftY = rect.y + shadow.offsetY;
-        pc.sizeX = rect.width;
-        pc.sizeY = rect.height;
-        pc.fillR = shadow.color.r / 255.f;
-        pc.fillG = shadow.color.g / 255.f;
-        pc.fillB = shadow.color.b / 255.f;
-        pc.fillA = shadow.color.a / 255.f;
-        pc.radius = radius;
-        pc.shadowBlur = step * float(i);
-        pc.opacity = globalAlpha * (shadow.color.a / 255.f) * kLayerAlphas[i];
-        pc.drawMode = 2;
-        pc.viewportW = static_cast<float>(extent.width);
-        pc.viewportH = static_cast<float>(extent.height);
-        pc.m00 = t.m00;
-        pc.m01 = t.m01;
-        pc.m02 = t.m02;
-        pc.m10 = t.m10;
-        pc.m11 = t.m11;
-        pc.m12 = t.m12;
-        vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(PushConstants), &pc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-    }
+    // 单层高斯（σ = blur/2，与 CSS 规范 blur = 2σ 对齐）：旧版四层叠不同 σ
+    // 的 SrcOver 合成不是高斯（带台阶 + 4 倍 overdraw），层系数 {0.20,...}
+    // 与 color.a 双乘（fillA 与 opacity 内各乘一次 → a²）峰值仅 ~0.12，
+    // 现 color.a 只由 fillA 承载，opacity 只留 globalAlpha。
+    // spread（CSS 第 4 值）经 gradientVec.y 透传：SDF 平行偏移 d-=spread，
+    // 正值轮廓外扩 / 负值收缩（单边阴影三边退进本体）。
+    // 扩边 pad = 1.5·blur + max(spread,0) + 1：blur 项覆盖 3σ 高斯尾（d=2σ
+    // 处仍剩 13.5%，pad=blur 会留 quad 边界截断），spread 项保证外扩后的
+    // 轮廓本体仍在 quad 内；offset 折入 topLeft（对称扩边下扩边中心 =
+    // 原中心 + offset，shader 端无需再读 offset）；扩边量经 gradientVec.x
+    // 回传，shader 把 SDF 半径缩回原矩形几何（扩边只扩 raster 不扩形状）。
+    // 注意：View::effectBounds 的伤害外延须同步 ≥ 此 pad。
+    const float blur = std::max(0.0f, shadow.blurRadius);
+    const float pad = blur * 1.5f + std::max(shadow.spread, 0.0f) + 1.0f;
+    PushConstants pc{};
+    pc.topLeftX = rect.x + shadow.offsetX - pad;
+    pc.topLeftY = rect.y + shadow.offsetY - pad;
+    pc.sizeX = rect.width + pad * 2.0f;
+    pc.sizeY = rect.height + pad * 2.0f;
+    pc.fillR = shadow.color.r / 255.f;
+    pc.fillG = shadow.color.g / 255.f;
+    pc.fillB = shadow.color.b / 255.f;
+    pc.fillA = shadow.color.a / 255.f;
+    pc.radius = radius;
+    pc.shadowBlur = blur;
+    pc.opacity = globalAlpha;
+    pc.drawMode = 2;
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    pc.m00 = t.m00;
+    pc.m01 = t.m01;
+    pc.m02 = t.m02;
+    pc.m10 = t.m10;
+    pc.m11 = t.m11;
+    pc.m12 = t.m12;
+    pc.gradientVecX = pad;
+    pc.gradientVecY = shadow.spread;
+    vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PushConstants), &pc);
+    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 }
 // ================================================================
 // writeStencilMask — 将圆角矩形 SDF 写入 stencil buffer

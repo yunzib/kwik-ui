@@ -166,6 +166,7 @@ export struct Shadow {
     float offsetX = 0;       // X偏移
     float offsetY = 0;       // Y偏移
     float blurRadius = 0;    // 模糊半径
+    float spread = 0;        // 扩张半径（CSS 第 4 值：正扩张 / 负收缩轮廓，单边阴影用）
     Color color;             // 阴影颜色
 
     constexpr Shadow() = default;

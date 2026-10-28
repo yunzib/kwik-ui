@@ -1,7 +1,82 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-28
+### 修复
+- hasBackground 让位门过宽：hover/pressed 背景自动派生条件由
+  「hoverBackground 透明 && 非显式背景」改为「hoverBackground 透明 &&
+  props.background 透明」——动机（幽灵/描边款透明底下 darken 推导出
+  透明垃圾色）不变，但显式实心背景（background:'#2563EB'）的按钮此前
+  被误伤：悬停无背景反馈（旧版 darken 0.85 行为丢失）。docsite 全部
+  显式背景均显式配了 hoverBackground 故未暴露，引擎层用户会踩到
+- Button hoverShadow/pressedShadow 半生效（hover glow 被回放 scissor 裁成
+  内圈小晕 + 全量重绘帧外环像素在离开态后留残影）：View::effectBounds
+  只读 props.shadow（闲置态），而伤害带只来自重编节点的 effectBounds
+  （markDirty 冒泡只置祖先 subtreeDirty_ 不重编），Button 页 hover
+  '0 0 16' glow 外延 25px vs 闲置 '0 2 6' 的 10px——外圈 15px 环落在
+  伤害带外，render_thread 的物理带 scissor 把它裁掉不画。修复：
+  View::effectBounds 提为 protected virtual，Button 覆写把 hover/pressed
+  阴影（同 1.5·blur+max(spread,0)+1 外延公式）并入三态并集——小带变
+  保守带，按钮尺寸小代价可忽略
+- 阴影参数文档清晰化：View 页④小节标题下新增参数说明段（note，section 扩
+  可选第 6 参）——五参数逐个讲清方向约定（offset 正右/下、blur 0=硬边柔带
+  ≈1.5×、spread 正扩负缩、color #RRGGBBAA 末两位 alpha）与两条配方口诀
+  （单边=offsetY 拉开+负 spread 收三边、四边 glow=offset 0+大 blur）；
+  示例代码卡头注释同步逐参数标注；属性表 shadow 行精简并指向小节说明；
+  view.md 手册 Shadow 块改参数表 + 常用配方 + 单边要点
+  （offsetY>|spread|、|spread|≈blur 量级、圆角随负 spread 收缩钳 0）
+- 阴影新增 CSS 兼容 spread 第 4 数值（"offsetX offsetY blur [spread] color"，
+  可选、向后兼容）：SDF 平行偏移 d -= spread 实现轮廓扩张/收缩（圆角随同
+  增减，与 CSS 语义一致），经 gradientVec.y 透传 shader；扩边与
+  effectBounds 外延同步 max(spread,0) 项。docsite View 页④新增两示例：
+  单边阴影 '0 14 6 -7 #33415599'（负 spread 三边收缩进本体、offsetY>|spread|
+  只露底边）与四边 glow '0 0 28 #7C3AED66'（offset 0 + 大 blur 均匀外发光）；
+  演示壳 pad 侧46/底62 按新外延公式（1.5·blur+max(spread,0)+1）重算，
+  属性表与 view.md 手册同步 spread 语法；parseShadow 行为锁补 spread
+  解析（负值/px 后缀/颜色顺延/旧三值形态回归）
+- 阴影三残留根因终收（高斯衰减未钳内部距离 / color.a 双乘 / 层叠伪影）：
+  ① rect.slang 衰减场 exp(−d²/2σ²) 的 d 在剪影内部为负，d² 照样衰减
+  → 阴影内部向中心趋于全透明（空心环）：带偏移的软阴影读作「悬浮在
+  偏移轮廓下方的重影光晕」而非贴本体的影子，blur=0 硬阴影只剩发丝
+  轮廓近乎不可见；② drawShadow 的 fillA 与 opacity 各乘一次 color.a
+  （a²），叠加层系数 {0.20,0.14,0.08,0.03} 封顶（为旧解析扩张方案
+  所调）→ #2563EB88（a≈0.53）边缘有效峰值仅 ~0.12，CSS 语义应 0.53；
+  ③ 四层不同 σ 的高斯 SrcOver 叠加不是高斯（带台阶 + 4 倍 overdraw）。
+  修复：单层高斯 σ=blur/2（CSS 规范 blur=2σ），衰减改
+  exp(−max(d,0)²/2σ²)（内部恒 1），color.a 只由 fillA 承载、opacity
+  只留 globalAlpha（clip 透明度栈）；quad 扩边 blur→1.5·blur+1（3σ，
+  d=2σ 处高斯尾仍剩 13.5%，旧 pad=blur 单层下会留 quad 边界截断）；
+  View::effectBounds 伤害外延同步 1.5·blur+1（伤害域小于绘制 quad
+  时增量重绘会剪掉阴影边缘留残迹）。硬阴影退化为 aa 级硬边，
+  overdraw 4→1
+- 阴影示例「矩形脚」终收（view 页④底部直角竖直残留）：rect.slang 阶差
+  修掉后仍余竖直亮边——根因在演示层：demoCard（borderRadius 8）命中
+  View 圆角容器语义（view.cpp drawSelfContent：radius>0 即对子树启用
+  内容区裁剪），子卡 glow 越出自身 frame 的部分被沿 frame 直边推平；
+  真机探针双程实证切口钉死在卡 frame 底缘、与 demoCard padding 大小
+  无关（16→48 切口纹丝不动），demoCard radius 0 则切口完全消失；隔离
+  场景（无 radius 容器）glow 底部最深、两侧对称，与 CSS 观感一致——
+  「两侧偏重/顶部不明显」是底部被裁空后的视错觉 + offsetY 下移的正常
+  表现（顶外延 = blur−offsetY）。修复：阴影演示壳不触发圆角裁剪
+  （radius 0）+ 留白 ≥ 外延（底 48 / 侧 32 ≥ blur30+offset14），glow
+  全程留在白卡内、零切口直达代码块边界；demoCard/section 扩 opts
+  （radius/padding 覆写，供后续特效演示复用）
+
 # 0.0.0 — 2026-10-27
 ### 修复
+- 指针事件载荷双载补 e.gx/e.gy（窗口/滚动视口域坐标，DOM clientX /
+  Flutter globalPosition 同款）：x/y 保持组件内相对坐标主载（Qt pos /
+  DOM offsetX / Android getX 口径——组件不感知摆位的稳定不变量），gx/gy
+  供窗口级定位直接取用；PointerArgs 扩字段 + 全部指针回调（onClick/
+  onLongPress/onHover*/onContextMenu）与 Input/TextArea 直投载荷透传，
+  HoverEnter/Leave 事件补真实点位（原先 global 恒 0）
+- 阴影「矩形脚」（view 页 blur 20/30 示例底边两角伸出矩形残根）：多
+  层阴影每层 SDF 轮廓 radius 附加 blur_i·0.5 的解析扩张（cr→cr+blur/2
+  逐层递增），四层圆角弧阶差在底边两角叠成同心阶梯带——大 blur 示例
+  轮廓差最大（10→25px 四档），阶梯读作矩形脚。修复：全层共享原矩形
+  圆角轮廓（radius 钳制 shadowHalf，胶囊 stadium 不破形），每层衰减
+  由分段 smoothstep（0→blur 线性带边缘陡直）改高斯式距离场
+  exp(−d²/2σ²)（σ=blur/2 按层递增值，层间和连续、角落零台阶，
+  过渡带 ≈ blur；blur=0 退化为 aa 级软边硬阴影）
 - 不换行文本拖选高亮恒空：`layoutNoWrap`（src/render/text/text_layout.cpp）
   行记录不填 clusterStart/clusterEnd（默认 0/0），而 selectionRects 按
   「行覆盖区间 [clusterStart,clusterEnd) 与选区字节区间求交」逐行成形，
@@ -17,6 +92,16 @@
   变化）+ scrollCompensationOf 上溯累加 helper（modules/event/event.cppm）；
   ScrollView/LazyList/ListLayout 覆写返回各自 scrollOffset；Text::hitOffset、
   TextArea/Input::tapCursorByte 映射入口统一补偿（嵌套滚动容器逐层累加）
+- 视图回调点击坐标滚动后严重偏差（docsite Button 页「取坐标」按钮实测
+  e.y=-1627）：事件 global 是滚动视口域、组件 frame 是未滚动域，
+  View::onEvent 裸 `global - frame` 少补偿——字节映射端（Text/Input/
+  TextArea）已有 scrollCompensationOf 上溯累加，一般视图回调漏同款补偿。
+  修复：View::onEvent 指针事件局部坐标统一补 scrollCompensationOf（所有
+  onClick/onLongPress/onHover*/onContextMenu 载荷受益）；Input/TextArea
+  Tap 直投 onClick 载荷对齐同口径（was raw global）；Expansion 头行带内
+  判定补同款滚差（滚动父容器内手风琴开合偏差）；复现锁
+  test_tap_payload_scroll_compensated（滚轮→Tap→hitTest 全链载荷 +
+  无滚动直投补偿恒零双景）
 
 # 0.0.0 — 2026-10-25
 ### 修复

@@ -68,11 +68,13 @@ void callJs0(JSContext *ctx, const JsHandler &h, const char *tag) {
     JS_FreeValue(ctx, ret);
 }
 
-/** @brief 构造指针事件对象 { x, y } */
+/** @brief 构造指针事件对象 { x, y, gx, gy }（局部 + 窗口双载） */
 JSValue makePointerEvent(JSContext *ctx, const PointerArgs &a) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "x", JS_NewFloat64(ctx, static_cast<double>(a.x)));
     JS_SetPropertyStr(ctx, obj, "y", JS_NewFloat64(ctx, static_cast<double>(a.y)));
+    JS_SetPropertyStr(ctx, obj, "gx", JS_NewFloat64(ctx, static_cast<double>(a.gx)));
+    JS_SetPropertyStr(ctx, obj, "gy", JS_NewFloat64(ctx, static_cast<double>(a.gy)));
     return obj;
 }
 

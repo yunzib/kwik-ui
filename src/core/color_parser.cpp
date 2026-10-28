@@ -6,6 +6,7 @@ module;
 #include <sstream>
 #include <vector>
 #include <unordered_map>
+#include <optional>
 
 module kwik.core.color_parser;
 
@@ -92,7 +93,9 @@ Color parseColor(const std::string &str) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// parseShadow — "offsetX offsetY blurRadius color" 字符串解析
+// parseShadow — "offsetX offsetY blurRadius [spread] color" 字符串解析
+// spread 为 CSS 兼容第 4 数值（可选，允许 px 后缀）：正扩张 / 负收缩轮廓
+// （单边阴影：'0 14 6 -7 color' 上下左右三边收缩进本体只露底边）
 // ═══════════════════════════════════════════════════════════════════════════
 Shadow parseShadow(const std::string &str) {
     if (str.empty()) return Shadow{};
@@ -101,19 +104,27 @@ Shadow parseShadow(const std::string &str) {
     std::string token;
     std::vector<std::string> parts;
     while (iss >> token) { parts.push_back(token); }
+    // 数值 token（可带 px 后缀）；非数值（颜色字面量）返回空
+    auto parseNum = [](std::string s) -> std::optional<float> {
+        if (s.size() > 2 && s.substr(s.size() - 2) == "px") s = s.substr(0, s.size() - 2);
+        try { return std::stof(s); } catch (...) { return std::nullopt; }
+    };
     if (parts.size() >= 2) {
         shadow.offsetX = std::stof(parts[0]);
         shadow.offsetY = std::stof(parts[1]);
     }
     if (parts.size() >= 3) {
-        std::string blurStr = parts[2];
-        if (blurStr.size() > 2 && blurStr.substr(blurStr.size() - 2) == "px")
-            blurStr = blurStr.substr(0, blurStr.size() - 2);
-        shadow.blurRadius = std::stof(blurStr);
+        if (auto b = parseNum(parts[2])) shadow.blurRadius = *b;
     }
-    if (parts.size() >= 4) {
+    // 第 4 token 为数值 → spread，颜色顺延至第 5 token 起；否则第 4 token
+    // 起即颜色（旧三值 + 颜色形态不变）
+    size_t colorIdx = 3;
+    if (parts.size() >= 5) {
+        if (auto sp = parseNum(parts[3])) { shadow.spread = *sp; colorIdx = 4; }
+    }
+    if (parts.size() > colorIdx) {
         std::string colorStr;
-        for (size_t i = 3; i < parts.size(); i++) colorStr += parts[i];
+        for (size_t i = colorIdx; i < parts.size(); i++) colorStr += parts[i];
         shadow.color = parseColor(colorStr);
     }
     return shadow;

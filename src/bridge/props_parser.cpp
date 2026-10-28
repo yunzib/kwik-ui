@@ -238,6 +238,7 @@ TextContent parseTextContent(PropsExtractor &ex) {
 
 ButtonStateProps parseButtonState(PropsExtractor &ex) {
     ButtonStateProps result;
+    result.hasBackground = ex.has("background");    // 显式 background（含透明）= 用户自主选择，主题兜底让位
     ex.get("hoverBackground", result.hoverBackground);
     ex.get("pressedBackground", result.pressedBackground);
     // ex.get("pressedScale", result.pressedScale);

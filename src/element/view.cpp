@@ -20,7 +20,7 @@ bool View::sLayoutPhase = false;
 // ============================================================================
 // ViewEventHandlers 实现
 // ============================================================================
-bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
+bool ViewEventHandlers::dispatch(int code, float localX, float localY, float globalX, float globalY) {
     // 事件码 → 槽位映射 (与 dispatchEventTypeToCode 约定一致)
     std::function<bool(const PointerArgs &)> *slot = nullptr;
     switch (code) {
@@ -34,7 +34,8 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY) {
     }
     if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
     // 调用回调; 返回值为 consumed 语义 (JS 适配层调用成功恒返回 true, 异常返回 false)
-    return (*slot)(PointerArgs{localX, localY});
+    // 键盘/resize 路径 globalX/Y 传 0（载荷语义在 x/y 通道）
+    return (*slot)(PointerArgs{localX, localY, globalX, globalY});
 }
 
 /** @brief 布局控件（增量：frame 未动 且 子节点无测量变更 → 跳过子树重排） */
@@ -292,7 +293,8 @@ Rect View::paintBounds() const {
 
 // ============================================================================
 // effectBounds — 绘制影响范围（paintBounds + 特效外延，契约 #7）
-// 阴影 quad = 本体偏移 (offsetX,offsetY) 再四向扩 blurRadius（真实画在
+// 阴影 quad = 本体偏移 (offsetX,offsetY) 再四向扩 1.5·blurRadius+
+// max(spread,0)+1（真实画在
 // 体外，必须外延）；描边压在本体外 borderWidth。玻璃 backdropBlur 不外延：
 // 合成被 SDF 蒙版限制在元素圆角矩形内（模糊变化只影响体内像素），捕获域
 // ceil(3σ) 外扩只是"读"画布余量不写像素——外延进伤害带会把补间期间每帧
@@ -303,11 +305,15 @@ Rect View::effectBounds() const {
     float padL = 0.0f, padT = 0.0f, padR = 0.0f, padB = 0.0f;
     if (props.shadow.has_value()) {
         const auto &sh = *props.shadow;
+        // 与 RectRenderer::drawShadow 的 quad 扩边量对齐（1.5·blur +
+        // max(spread,0) + 1，覆盖 3σ 高斯尾与正 spread 外扩轮廓）：
+        // 伤害域小于绘制 quad 会在增量重绘时剪掉阴影边缘留残迹
         float blur = std::max(0.0f, sh.blurRadius);
-        padL = std::max(padL, blur - sh.offsetX);
-        padT = std::max(padT, blur - sh.offsetY);
-        padR = std::max(padR, blur + sh.offsetX);
-        padB = std::max(padB, blur + sh.offsetY);
+        float shadowPad = blur * 1.5f + std::max(sh.spread, 0.0f) + 1.0f;
+        padL = std::max(padL, shadowPad - sh.offsetX);
+        padT = std::max(padT, shadowPad - sh.offsetY);
+        padR = std::max(padR, shadowPad + sh.offsetX);
+        padB = std::max(padB, shadowPad + sh.offsetY);
     }
     if (props.borderWidth > 0.0f) {
         padL = std::max(padL, props.borderWidth);
@@ -834,10 +840,14 @@ bool View::onEvent(const DispatchEvent &event) {
         return false;
     }
 
-    // 指针/手势事件: 使用全局坐标转换
-    Point local = {event.globalX - frame.x, event.globalY - frame.y};
+    // 指针/手势事件: 事件 global 是滚动视口域、frame 是未滚动域——各滚动
+    // 容器的 hitTest(+scrollOffset) 已沿途做域换算，回调坐标须等额补回
+    // （scrollCompensationOf 沿真祖先链累加），否则滚动视口内组件的
+    // e.x/e.y 偏差一个滚差（按钮页「取坐标」实测 e.y=-1627 同根）
+    Point comp = scrollCompensationOf(*this);
+    Point local = {event.globalX + comp.x - frame.x, event.globalY + comp.y - frame.y};
     int code = dispatchEventTypeToCode(event.type);
-    return handlers.dispatch(code, local.x, local.y);
+    return handlers.dispatch(code, local.x, local.y, event.globalX, event.globalY);
 }
 
 // View::acceptsFocus — 默认返回 false, 子类重写

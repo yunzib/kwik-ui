@@ -47,6 +47,9 @@ protected:
     Size onMeasure(Constraints constraints) override;
     void onDraw(Graphics &graphics) override;
     bool onEvent(const DispatchEvent &event) override;
+    /** @brief 三态阴影外延取并集：hover/pressed 阴影可能比闲置态外延大，
+     *  伤害带取不到外圈时 hover glow 被回放 scissor 裁掉（截断 + 残影） */
+    Rect effectBounds() const override;
 
     /**
      * @brief 处理 Button 专有属性的增量更新

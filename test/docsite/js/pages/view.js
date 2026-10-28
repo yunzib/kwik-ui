@@ -6,6 +6,7 @@
 import { View, Flex, Text, State } from 'kwikui';
 import { t } from '../lang.js';
 import { pageTitle, pageDesc } from '../ui/page_parts.js';
+import { note } from '../ui/page_kit.js';
 import { codeBlock } from '../ui/code_block.js';
 import { propsTable } from '../ui/props_table.js';
 
@@ -48,10 +49,10 @@ export const meta = {
             ['borderStyle', 'string', 'solid', { zh: '边框线型（solid 实线）', en: 'Border line style (solid)' }],
         ]},
         { title: { zh: '阴影', en: 'Shadow' }, rows: [
-            ['shadow', 'string', '-', { zh: "盒阴影 'offsetX offsetY blur color'（如 '0 8 20 #2563EB88'）", en: "Box shadow 'offsetX offsetY blur color'" }],
+            ['shadow', 'string', '-', { zh: "盒阴影 'offsetX offsetY blur [spread] color'：偏移(正右/下) / 模糊(0=硬边) / 轮廓扩张(正扩负缩，省略=0) / 颜色#RRGGBBAA。详见「阴影」小节说明与五连示例（单边 '0 14 6 -7'、四边 glow '0 0 28'）", en: "Box shadow 'offsetX offsetY blur [spread] color': offset (pos=right/down) / blur (0=hard) / outline growth (pos grow, neg shrink, default 0) / color #RRGGBBAA. See the Shadow section note & 5 examples (one-side '0 14 6 -7', glow '0 0 28')" }],
         ]},
         { title: { zh: '交互', en: 'Interaction' }, rows: [
-            ['onClick', '(e) => boolean', '-', { zh: '点击回调；返回 true 消费并阻止冒泡', en: 'Tap callback; return true to consume & stop bubbling' }],
+            ['onClick', '(e) => {...}', '-', { zh: '点击回调。e.x/e.y = 相对本视图坐标；e.gx/e.gy = 窗口坐标双载。绑定即消费——祖先的 onClick 不再收到本次点击（JS 适配层调用成功即视为消费）', en: 'Tap callback. e.x/e.y = position in this view; e.gx/e.gy = window coordinates (dual payload). Binding consumes the tap — ancestor onClick never fires (a successful JS call counts as consumed)' }],
         ]},
     ],
 };
@@ -62,6 +63,22 @@ const L = {
     s2: { zh: '边框', en: 'Border' },
     s3: { zh: '内边距与外边距', en: 'Padding & Margin' },
     s4: { zh: '阴影', en: 'Shadow' },
+    shadowNote: {
+        zh: '格式 "offsetX offsetY blur [spread] color"，五个参数依次为：'
+            + '① offsetX 水平偏移 px——正=向右，负=向左；'
+            + '② offsetY 垂直偏移 px——正=向下，负=向上；'
+            + '③ blur 模糊半径 px——0=硬边阴影，越大越柔和（可见柔带约 1.5 倍 blur）；'
+            + '④ spread 轮廓扩张 px（可省略，默认 0）——正值阴影轮廓比本体大，负值收缩（做单边阴影的关键，负值需 < offsetY 才露得出来）；'
+            + '⑤ color 阴影颜色 #RRGGBBAA——末两位是透明度，黑色 30%~50% 最常用。'
+            + '单边阴影口诀：offsetY 拉开距离 + 负 spread 收掉其余三边（如 "0 14 6 -7"）；四边 glow：偏移 0 + 大 blur（如 "0 0 28"）。',
+        en: 'Format "offsetX offsetY blur [spread] color":'
+            + ' 1) offsetX — horizontal shift px (positive right, negative left);'
+            + ' 2) offsetY — vertical shift px (positive down, negative up);'
+            + ' 3) blur — blur radius px (0 = hard edge, larger = softer, visible halo ~1.5x blur);'
+            + ' 4) spread — outline growth px (optional, default 0; positive grows, negative shrinks — key to one-side shadows, keep |spread| < offsetY);'
+            + ' 5) color — #RRGGBBAA (last two hex digits = alpha; black 30-50% is the everyday choice).'
+            + ' One-side recipe: offsetY for distance + negative spread to tuck the other three sides ("0 14 6 -7"); all-side glow: zero offset + big blur ("0 0 28").',
+    },
     s5: { zh: '透明度', en: 'Opacity' },
     s6: { zh: '百分比尺寸', en: 'Percentage Size' },
     s7: { zh: '点击交互', en: 'Click Interaction' },
@@ -99,19 +116,25 @@ const label = (txt, dark) => Text({
 });
 
 // 演示卡：白底圆角边框卡，包住当节演示内容
-const demoCard = (children, innerW) => View({
-    width: innerW, padding: 16, background: '#FFFFFF',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
+// opts.radiusOverride/opts.padding：阴影类演示须 radius:0——引擎口径：容器
+// borderRadius>0 即对子树启用内容区裁剪，子卡 glow 越出自身 frame 的部分
+// 会被沿 frame 直边推平（读作「矩形脚」，probe2/4 实测切口钉死在卡 frame
+// 底缘，padding 无关）。无圆角 wrapper + pad ≥ blur+offset 外延 → glow
+// 全程留在 wrapper 内且零裁剪
+const demoCard = (children, innerW, opts) => View({
+    width: innerW, padding: (opts && opts.padding) || 16, background: '#FFFFFF',
+    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: (opts && opts.radius) ?? 8,
     margin: [0, 0, 8, 4],
 }, children);
 
 // 代码高度按行数自适应（行高 19 + 上下 padding 24 + 余量）
 const codeH = (code) => code.split('\n').length * 19 + 26;
 
-// 示例小节：小节标题 → 演示卡 → 紧随其下的示例代码卡
-const section = (title, children, code, innerW) => [
+// 示例小节：小节标题 → （可选参数说明段）→ 演示卡 → 紧随其下的示例代码卡
+const section = (title, children, code, innerW, demoOpts, noteText) => [
     Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [14, 0, 8, 4] }),
-    demoCard(children, innerW),
+    ...(noteText ? [note(noteText, innerW)] : []),
+    demoCard(children, innerW, demoOpts),
     codeBlock(t, code, codeH(code), innerW),
 ];
 
@@ -175,7 +198,14 @@ const demo3 = () => [Flex({ direction: 'row', alignItems: 'center' }, [
 // 演示块浅灰底 + 细边框：块本体在白底卡上恒可见，阴影效果围绕块缘对比明确
 const C4 = `import { View, Flex } from 'kwikui';
 
-// shadow: 'offsetX offsetY blur color'——偏移/模糊递进
+// shadow: 'offsetX offsetY blur [spread] color'
+//   offsetX  水平偏移 px（正=向右，负=向左）
+//   offsetY  垂直偏移 px（正=向下，负=向上）
+//   blur     模糊半径 px（0=硬边，越大越柔，柔带 ≈ 1.5×blur）
+//   spread   可选轮廓扩张 px（正=扩张，负=收缩；省略默认 0）
+//   color    #RRGGBBAA（末两位 alpha）
+
+// ①②③ 偏移/模糊递进
 Flex({ direction: 'row', gap: 24 }, [
     View({ width: 110, height: 64, background: '#F1F5F9',
            borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10,
@@ -186,11 +216,21 @@ Flex({ direction: 'row', gap: 24 }, [
     View({ width: 110, height: 64, background: '#F1F5F9',
            borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10,
            shadow: '0 14 30 #E5484D99' }),
+    // ④ 单边：offsetY 14 拉开距离，spread -7 收掉上/左/右三边
+    View({ width: 110, height: 64, background: '#F1F5F9',
+           borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10,
+           shadow: '0 14 6 -7 #33415599' }),
+    // ⑤ 四边：偏移 0 + 大 blur → 均匀 glow（外发光）
+    View({ width: 110, height: 64, background: '#F1F5F9',
+           borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10,
+           shadow: '0 0 28 #7C3AED66' }),
 ]);`;
 const demo4 = () => [Flex({ direction: 'row', gap: 24 }, [
     View({ width: 110, height: 64, background: '#F1F5F9', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, shadow: '0 2 8 #94A3B888' }),
     View({ width: 110, height: 64, background: '#F1F5F9', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, shadow: '0 8 20 #2563EB88' }),
     View({ width: 110, height: 64, background: '#F1F5F9', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, shadow: '0 14 30 #E5484D99' }),
+    View({ width: 110, height: 64, background: '#F1F5F9', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, shadow: '0 14 6 -7 #33415599' }),
+    View({ width: 110, height: 64, background: '#F1F5F9', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, shadow: '0 0 28 #7C3AED66' }),
 ])];
 
 // ── ⑤ 透明度 ──
@@ -252,7 +292,11 @@ export const content = (innerW = 884) => [
     ...section(t(L.s1), demo1(), C1, innerW),
     ...section(t(L.s2), demo2(), C2, innerW),
     ...section(t(L.s3), demo3(), C3, innerW),
-    ...section(t(L.s4), demo4(), C4, innerW),
+    // 阴影演示壳：radius 0（不触发子树圆角裁剪）+ pad 侧46/底62 ≥ 最大外延
+    // 1.5·blur+max(spread,0)+1（blur30 例侧46/底60、四边 glow 例 43——
+    // 单边例 spread -7 负收缩只扩 10）——glow 全程留在白卡内、零切口
+    // （根因=borderRadius>0 容器的子树内容裁剪把子卡阴影沿其 frame 直边截断）
+    ...section(t(L.s4), demo4(), C4, innerW, { radius: 0, padding: [16, 46, 62, 46] }, t(L.shadowNote)),
     ...section(t(L.s5), demo5(), C5, innerW),
     ...section(t(L.s6), demo6(), C6, innerW),
     ...section(t(L.s7), demo7(), C7, innerW),

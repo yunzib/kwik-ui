@@ -12,6 +12,10 @@ import std;
 // 属性描述符注册表 — 按 PropId 顺序排列，一一对应枚举值
 // ═══════════════════════════════════════════════════════════════════════════
 
+// 本表用 C99 数组指示符[PropId::…] 强绑定「枚举 ↔ 项序」（防错位），
+// 该写法在 C++ 无标准等价物，clang 携带 C 模式告警——就地压制留痕
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc99-designator"
 static const PropMeta kPropMetas[] = {
     // ── 显示属性 ──
     [static_cast<int>(PropId::opacity)] = {
@@ -87,8 +91,8 @@ static const PropMeta kPropMetas[] = {
             return std::monostate{};
         },
         /*writer*/ [](ViewProps& p, const TypedProp& v) {
-            // setProperty/State 绑定均以 "offsetX offsetY blurRadius color"
-            // 字符串传入——经 core 层 parseShadow 与 parse 期同源解析
+            // setProperty/State 绑定均以 "offsetX offsetY blurRadius [spread]
+            // color" 字符串传入——经 core 层 parseShadow 与 parse 期同源解析
             if (auto *s = std::get_if<std::string>(&v)) { p.shadow = parseShadow(*s); }
         },
     },
@@ -359,6 +363,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
 };
+#pragma clang diagnostic pop
 
 // sentinel 校验
 static_assert(

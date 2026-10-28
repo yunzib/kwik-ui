@@ -137,6 +137,7 @@ export struct ButtonStateProps {
     Color pressedBorderColor{0, 0, 0, 0};
     std::optional<Shadow> hoverShadow;
     std::optional<Shadow> pressedShadow;
+    bool hasBackground = false;    // JS 显式给了 background（含透明——幽灵/描边款）：主题兜底填色的让位标记
 };
 
 /**

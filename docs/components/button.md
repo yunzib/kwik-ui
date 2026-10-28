@@ -43,6 +43,12 @@ docsite: pages/button.js
 Button 为自绘背景组件：`gradient` 背景渐变**不适用**（仅基础 View 生效，
 详见 [view.md](view.md)）。
 
+**无底色款（幽灵 / 描边）**：`background` 必须显式声明 `'transparent'`——
+不写 `background` 键的按钮启用「主题蓝兜底」（Material 语义：无背景 =
+primary 填充），透明外观会被该兜底盖住。显式声明 `'transparent'` 后
+`hoverBackground` / `pressedBackground` 不再从背景色自动推导，需按需
+显式给出（见 docsite Button 页 s1 变体与 s2 提示）。
+
 ## 关联
 
 - demo：`test/ui/button.js`（`example.exe button`）
