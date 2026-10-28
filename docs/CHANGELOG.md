@@ -2,6 +2,17 @@
 
 # 0.0.0 — 2026-10-28
 ### 修复
+- image.slang 圆角在 cover/none 下错位：片段 SDF 用 (fragUV−0.5)×size
+  重构坐标，隐含假设 UV 满幅 0..1——cover/none 的 UV 是居中裁剪子窗口
+  （如 0.2..0.8），quad 左缘只到 −0.3×size 而非 −0.5×size，圆角切错
+  位置；contain/fill 满幅 UV 恰好不受影响（test/ui 页全用 contain，
+  一直"正常"掩盖了 bug）。修复：顶点阶段新增 fragQuad（location 4，
+  quad 内 0..1 坐标）插值传入，fragCoord=(fragQuad−0.5)×fragSize，
+  各 fit 精确且 contain/fill 数值不变（零回归）
+- Image 页补齐透明度（p1 × opacity 四级淡出，深色底衬）与圆角裁剪
+  （p2 × borderRadius 0/8/24/999 胶囊）两节实况演示 + 代码样例；
+  fit 演示换 p1/p2（竖图 cover 裁切 / contain 信箱边距更真实）；
+  image.md 手册同步（补 borderRadius、用法要点、docsite 状态）
 - hasBackground 让位门过宽：hover/pressed 背景自动派生条件由
   「hoverBackground 透明 && 非显式背景」改为「hoverBackground 透明 &&
   props.background 透明」——动机（幽灵/描边款透明底下 darken 推导出

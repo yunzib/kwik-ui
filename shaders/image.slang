@@ -30,6 +30,7 @@ struct VertOutput {
     [[vk::location(1)]] float4 fragColor;
     [[vk::location(2)]] float2 fragSize;
     [[vk::location(3)]] float  fragCornerRadius;
+    [[vk::location(4)]] float2 fragQuad;
 };
 
 // ── 顶点着色器 ──────────────────────────────────────────────
@@ -47,6 +48,7 @@ VertOutput vertexMain(float2 inPosition : ATTR0) {
     o.fragColor        = pc.color;
     o.fragSize         = pc.size;
     o.fragCornerRadius = pc.cornerRadius;
+    o.fragQuad         = inPosition;
     return o;
 }
 
@@ -67,9 +69,13 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
     }
 
     // ── SDF 圆角裁剪 ──────────────────────────────────────────
+    // fragCoord 必须从 quad 内坐标重构（fragQuad=顶点 0..1 插值），
+    // 不能用 (fragUV-0.5)：cover/none 的 UV 是居中裁剪子窗口（如
+    // 0.2..0.8），(uv-0.5)*size 把 SDF 坐标系整体错位——圆角切错
+    // 位置（contain/fill 满幅 UV 恰好不受影响，曾是测试页正常假象）
     float2 halfSize  = input.fragSize * 0.5;
     float  cr        = min(input.fragCornerRadius, min(halfSize.x, halfSize.y));
-    float2 fragCoord = (input.fragUV - 0.5) * input.fragSize;
+    float2 fragCoord = (input.fragQuad - 0.5) * input.fragSize;
     float  sdf       = sdRoundedRect(fragCoord, halfSize, cr);
     float  rawAA     = length(fwidth(fragCoord));
     float  aa        = clamp(rawAA, 0.10, 0.6);
