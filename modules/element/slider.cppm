@@ -44,10 +44,26 @@ public:
      * @param vp 通用视图属性
      * @param sp 滑动条专有属性
      */
-    explicit Slider(ViewProps vp, SliderProps sp) : View(std::move(vp)), sp_(std::move(sp)) {}
+    explicit Slider(ViewProps vp, SliderProps sp)
+        : View(std::move(vp)), sp_(std::move(sp)), lastParsedValue_(sp_.value) {}
 
-    /** @brief reconcile 属性覆盖（min/max/step 等整体重解析） */
-    void applySliderProps(SliderProps sp) { sp_ = std::move(sp); }
+    /**
+     * @brief reconcile 属性覆盖（min/max/step 等整体重解析）
+     *
+     * value 门控（同 TextArea.applyTextAreaProps 的受控回写门）：本次解析值
+     * 与上一轮解析值相同 = rebuild 并未声明新 value（拖拽中 onChange 写 State
+     * 触发的常见路径），保留运行值——否则未声明 value 的滑杆每次 reconcile
+     * 都被打回默认 0（拖到哪弹回哪）。运行值与解析值共储 sp_.value，
+     * 故另记 lastParsedValue_ 作比对基准。
+     * @param sp 本次解析的专有属性
+     */
+    void applySliderProps(SliderProps sp) {
+        bool valueFresh = (sp.value != lastParsedValue_);
+        lastParsedValue_ = sp.value;
+        float runtime = sp_.value;
+        sp_ = std::move(sp);
+        if (!valueFresh) sp_.value = runtime;
+    }
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
@@ -68,6 +84,7 @@ protected:
 
 private:
     SliderProps sp_;
+    float lastParsedValue_ = 0;    // 上一轮解析的 value（applySliderProps 门控基准）
 
     // ─── 拖拽状态 ─────────────────────────────────────
     bool isDragging_ = false;    // Pointer 拖拽中

@@ -2,6 +2,18 @@
 
 # 0.0.0 — 2026-10-30
 ### 修复
+- Slider 滚动容器内拖拽失准：onEvent 坐标换算（PointerDown/Move、
+  Pan、Tap 四处）直接用 global − frame，而事件 global 为滚动视口域、
+  frame 为未滚动域——ScrollView 祖先滚动后偏移非零，值恒被 clamp 到
+  min/max（拖不动）；Input/TextArea/Text 已在早前补 scrollCompensationOf，
+  Slider 漏网。修复：四处换算统一上溯滚动容器补偏移（scroll=0 恒 0，
+  非滚动场景零变化）
+- Slider reconcile 无 value 门控：applySliderProps 整体覆盖 sp_，未声明
+  value 的滑杆在 onChange 写 State 触发 rebuild 后恒被打回默认 0
+  （拖到哪弹回哪）；TextArea 的"新-5 受控回写门"同款问题。修复：
+  门控对齐——本次解析值与上一轮解析值相同（rebuild 未声明新 value）时
+  保留运行值，运行值与解析值共储 sp_.value 故另记 lastParsedValue_ 作
+  比对基准
 - Input 文本模式失焦不回写绑定 State：binding_->setString 只存在于
   commitNumber（数字模式），ref 绑定的文本框失焦不写回 → 派生 UI
   （回显 Text 等）永不更新。修复：fireChange 统一置 textDirty_

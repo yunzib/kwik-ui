@@ -207,11 +207,14 @@ void Slider::onDraw(Graphics &graphics) {
 // 竖直: Pan/Tap 用 localY, 方向键 ↑↓
 // ============================================================================
 bool Slider::onEvent(const DispatchEvent &event) {
+    // 事件 global 是滚动视口域，frame 是未滚动域——上溯滚动容器补偏移
+    //（ScrollView 内的 Slider 滚动后拖拽映射不断偏、恒钳端点；scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
     switch (event.type) {
     case DispatchEvent::Type::PointerDown: {
         isDragging_ = true;
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         float newVal = calcValueFromPos(lx, ly);
         if (std::abs(newVal - sp_.value) > 1e-6f) {
             setValue(newVal);
@@ -223,8 +226,8 @@ bool Slider::onEvent(const DispatchEvent &event) {
 
     case DispatchEvent::Type::PointerMove: {
         if (!isDragging_) break;
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         float newVal = calcValueFromPos(lx, ly);
         if (std::abs(newVal - sp_.value) > 1e-6f) {
             setValue(newVal);
@@ -243,8 +246,8 @@ bool Slider::onEvent(const DispatchEvent &event) {
     }
     case DispatchEvent::Type::PanBegin:
     case DispatchEvent::Type::PanMove: {
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         float newVal = calcValueFromPos(lx, ly);
         if (std::abs(newVal - sp_.value) > 1e-6f) {
             setValue(newVal);
@@ -259,8 +262,8 @@ bool Slider::onEvent(const DispatchEvent &event) {
         return true;
 
     case DispatchEvent::Type::Tap: {
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         float newVal = calcValueFromPos(lx, ly);
         if (std::abs(newVal - sp_.value) > 1e-6f) {
             setValue(newVal);
