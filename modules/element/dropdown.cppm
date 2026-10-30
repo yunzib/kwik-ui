@@ -45,17 +45,20 @@ import std;
 export class Dropdown : public View {
 public:
     Dropdown() = default;
-    explicit Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
-    }
+    /** @brief 构造（实现在 dropdown.cpp）：value 声明了初始值且未显式给
+     * selectedIndex 时按 items 匹配选中 */
+    explicit Dropdown(ViewProps vp, DropdownProps dp);
 
-    /** @brief reconcile 属性覆盖（options/value 等整体重解析，渲染期活读取）；
-     *  items 缩短时夹紧选中索引——onDraw 按索引直取显示文本，越界即读 */
-    void applyDropdownProps(DropdownProps dp) {
-        if (dp.selectedIndex >= static_cast<int>(dp.items.size()))
-            dp.selectedIndex = dp.items.empty() ? -1 : static_cast<int>(dp.items.size()) - 1;
-        dp_ = std::move(dp);
-        markDirty();
-    }
+    /** @brief reconcile 属性覆盖（options/value 等整体重解析，渲染期活读取；
+     * 实现在 dropdown.cpp）；items 缩短时夹紧选中索引——onDraw 按索引直取
+     * 显示文本，越界即读
+     *
+     * 选中态门控（同 Slider/TextArea 的受控回写门）：value 与 selectedIndex
+     * 均与上轮解析值相同 = rebuild 未声明新选中（选中后 onChange 写 State
+     * 触发的常见路径），保留运行选中——否则未声明选中态的 Dropdown 每次
+     * reconcile 恒被打回 -1（选完立刻弹回占位符）。value 声明了新值而未
+     * 声明索引时按 items 匹配（value 绑定正向生效）。 */
+    void applyDropdownProps(DropdownProps dp);
 
     ElementType type() const override {
         return ElementType::Dropdown;
@@ -87,7 +90,15 @@ protected:
 
 private:
     DropdownProps dp_;
+    // 上一轮解析的 value/selectedIndex（applyDropdownProps 选中态门控基准；
+    // 运行选中与解析值共储 dp_，须另记比对基准——同 Slider.lastParsedValue_）
+    std::string lastParsedValue_;
+    int lastParsedIndex_ = -1;
     bool open_ = false;
+
+    /** @brief value 非空且未显式声明索引（selectedIndex<0）时按 items 匹配
+     * 选中（实现在 dropdown.cpp） */
+    void deriveSelectionFromValue();
 
     // ── 文字 (TextRenderPipeline 排版) ──
     std::shared_ptr<TextLayoutResult> triggerResult_;   // 触发区文字排版结果

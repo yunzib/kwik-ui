@@ -481,7 +481,10 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
         EventTarget *target = root->hitTest(Point{event.globalX, event.globalY});
         if (!target) return false;
 
-        fireOnTarget(target, event);
+        // 目标 onEvent 已消费（下拉菜单/时间滚轮等自持滚动的浮层）→ 不再
+        // 走祖先滚动链：否则浮层滚轮同时滚动页面，浮层与锚点脱离
+        //（View::onEvent 对滚轮无槽位恒 false，普通组件链路零变化）
+        if (fireOnTarget(target, event)) return true;
 
         for (EventTarget *v = target; v; v = v->parent()) {
             if (!v->scrollable()) continue;

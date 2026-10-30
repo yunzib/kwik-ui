@@ -245,6 +245,45 @@ private:
 }    // namespace
 
 // ════════════════════════════════════════════════════════
+// 构造 / reconcile 属性覆盖（声明在 dropdown.cppm，实现集中本 TU）
+// ════════════════════════════════════════════════════════
+Dropdown::Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
+    // value 声明了初始值且未显式给 selectedIndex → 按 items 匹配选中
+    deriveSelectionFromValue();
+    lastParsedValue_ = dp_.value;
+    lastParsedIndex_ = dp_.selectedIndex;
+}
+
+void Dropdown::applyDropdownProps(DropdownProps dp) {
+    if (dp.selectedIndex >= static_cast<int>(dp.items.size()))
+        dp.selectedIndex = dp.items.empty() ? -1 : static_cast<int>(dp.items.size()) - 1;
+    // 选中态门控：value 与 selectedIndex 均与上轮解析值相同 = rebuild 未声明
+    // 新选中（onChange 写 State 触发的常见路径），保留运行选中
+    bool valueFresh = (dp.value != lastParsedValue_);
+    bool indexFresh = (dp.selectedIndex != lastParsedIndex_);
+    lastParsedValue_ = dp.value;
+    lastParsedIndex_ = dp.selectedIndex;
+    int runtimeIdx = dp_.selectedIndex;
+    dp_ = std::move(dp);
+    if (!valueFresh && !indexFresh) {
+        if (runtimeIdx >= static_cast<int>(dp_.items.size()))    // items 缩短夹紧
+            runtimeIdx = dp_.items.empty() ? -1 : static_cast<int>(dp_.items.size()) - 1;
+        dp_.selectedIndex = runtimeIdx;
+    } else if (dp_.selectedIndex < 0 && !dp_.value.empty()) {
+        // value 声明了新值但未声明索引 → 按 value 匹配（value 绑定正向生效）
+        deriveSelectionFromValue();
+    }
+    markDirty();
+}
+
+void Dropdown::deriveSelectionFromValue() {
+    if (dp_.selectedIndex >= 0 || dp_.value.empty()) return;
+    for (int i = 0; i < static_cast<int>(dp_.items.size()); ++i) {
+        if (dp_.items[i] == dp_.value) { dp_.selectedIndex = i; break; }
+    }
+}
+
+// ════════════════════════════════════════════════════════
 // 辅助
 // ════════════════════════════════════════════════════════
 float Dropdown::menuHeight() const {
@@ -254,15 +293,21 @@ float Dropdown::menuHeight() const {
 }
 
 Rect Dropdown::menuRect() const {
-    float contentX = frame.x + props.padding.left;
-    float contentY = frame.y + frame.height;
+    // 层 frame 是窗口（滚动视口）域而本组件 frame 是未滚动域——先把触发区
+    // 折算到窗口域（window = frame − comp；comp 约定为 global + comp = frame
+    // 域，方向与 Input/Slider 的 +comp 相反），否则 ScrollView 内滚动后菜单
+    // 弹出位置偏移滚动量、下方翻转判定也用错域（scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
+    float contentX = frame.x + props.padding.left - comp.x;
+    float contentY = frame.y + frame.height - comp.y;    // 触发区下缘（窗口域）
     float contentW = frame.width - props.padding.horizontal();
     float mh = menuHeight();
     // 视口底边 clamp：菜单超出根 frame（=视口）时翻转到触发控件上方；
-    // 上下都放不下时贴底（顶部控件 + 超高菜单，可见最大化）
+    // 上下都放不下时贴底（顶部控件 + 超高菜单，可见最大化）。
+    // aboveY 同取窗口域触发区上缘（contentY − frame.height）
     const Rect &vp = rootFrame();
     if (vp.height > 0 && contentY + mh > vp.y + vp.height) {
-        float aboveY = frame.y - mh;
+        float aboveY = contentY - frame.height - mh;
         contentY = (aboveY >= vp.y) ? aboveY : std::max(vp.y, vp.y + vp.height - mh);
     }
     return {contentX, contentY, contentW, mh};

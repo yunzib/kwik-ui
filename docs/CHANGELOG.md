@@ -1,5 +1,26 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-31
+### 修复
+- Dropdown 菜单浮层滚动容器内定位错域：menuRect 基于未滚动 frame 而层
+  frame 为窗口域——ScrollView 内滚动后菜单弹出位置偏移滚动量、被视口
+  底边 clamp 钉在屏幕底缘；下方翻转判定 aboveY=frame.y−mh 同用未滚动
+  域，深滚时菜单被放到视口外（弹不出）。修复：触发区先折算窗口域
+  （window = frame − comp，方向与 Input/Slider 事件映射的 +comp 相反），
+  翻转判定同域化（aboveY 取窗口域触发区上缘）
+- Dropdown 初始 value 不生效 + reconcile 选中态被打回：解析与构造均无
+  value→selectedIndex 匹配（初始恒显示占位符），applyDropdownProps 整体
+  覆盖使未声明选中态的组件在 onChange 写 State 触发 rebuild 后恒被打回
+  -1（选完弹回占位符）。修复：构造与 reconcile 时 value 非空且未显式
+  声明索引则按 items 匹配选中；选中态门控对齐 Slider（lastParsedValue_/
+  lastParsedIndex_ 比对基准，均未声明新选中时保留运行选中）；实现集中
+  下放 dropdown.cpp（cppm 只留声明）
+- 滚轮分发忽略目标消费 → 浮层双滚脱离锚点：Scroll 阶段 fireOnTarget
+  返回值被无视后无条件走祖先 applyScroll 链——下拉菜单/日期时间滚轮
+  滚轮时浮层条目滚动的同时页面也滚，浮层与锚点脱离（子项多时双滚并
+  发更明显）。修复：目标 onEvent 消费即止；View::onEvent 滚轮无槽位
+  恒 false，普通组件/ScrollView/LazyList 链路零变化
+
 # 0.0.0 — 2026-10-30
 ### 修复
 - Slider 滚动容器内拖拽失准：onEvent 坐标换算（PointerDown/Move、

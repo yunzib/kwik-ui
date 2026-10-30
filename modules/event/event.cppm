@@ -534,7 +534,9 @@ private:
  *
  * 三阶段分发模型:
  *   ① 预设目标 (HoverEnter/Leave): 直接分发给 presetTarget
- *   ② Scroll: hitTest → fireOnTarget → parent scrollable → applyScroll
+ *   ② Scroll: hitTest → fireOnTarget（目标 onEvent 消费即止——浮层菜单/
+ *      时间滚轮等自持滚动的浮层不再滚动祖先页面）→ 未消费走 parent
+ *      scrollable → applyScroll 滚动链（到边界传递给外层）
  *   ③ 常规事件: hitTest → 目标阶段 → parent() 冒泡至根
  *
  * 不再依赖 dynamic_cast<ListLayout>, 改用 EventTarget::scrollable()。
