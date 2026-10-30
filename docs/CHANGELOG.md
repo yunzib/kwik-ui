@@ -1,5 +1,16 @@
 # 更新日志
 
+# 0.0.0 — 2026-10-30
+### 修复
+- Input 文本模式失焦不回写绑定 State：binding_->setString 只存在于
+  commitNumber（数字模式），ref 绑定的文本框失焦不写回 → 派生 UI
+  （回显 Text 等）永不更新。修复：fireChange 统一置 textDirty_
+  （插入/删除/剪/贴全路径），blur 时编辑过才回写（未编辑不触发无谓
+  整页重建），setValue（State notify/setProp 外部权威写入）清零标记
+- parseShadow blur 软解析回归：spread 重构时 blur 改为 parseNum 失败
+  静默跳过，'0 0 abc' 不再抛 → C 回调边界转 JS 异常的行为锁
+  （js_tests illegal_input）失效。恢复 stof 严格解析（px 后缀剥离保留）
+
 # 0.0.0 — 2026-10-28
 ### 修复
 - image.slang 圆角在 cover/none 下错位：片段 SDF 用 (fragUV−0.5)×size

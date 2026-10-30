@@ -60,6 +60,7 @@ public:
         text_ = val;
         cursorPos_ = val.length();
         selectionStart_ = cursorPos_;    // 换值选区失效（偏移随旧文本作废）
+        textDirty_ = false;    // 外部权威写入（State notify / setProp）覆盖待回写标记
     }
     bool isFocused() const { return focused_; }
 
@@ -110,6 +111,7 @@ private:
     bool cursorVisible_ = true;
     uint64_t lastBlinkTime_ = 0;
     bool draggingSelection_ = false;    // 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
+    bool textDirty_ = false;    // 编辑后待回写标记：blur 时批量写回绑定 State（fireChange 置位）
     uint64_t lastTapMs_ = 0;    // 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
     float lastTapX_ = 0;
     float lastTapY_ = 0;

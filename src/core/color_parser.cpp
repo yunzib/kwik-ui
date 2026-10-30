@@ -114,7 +114,13 @@ Shadow parseShadow(const std::string &str) {
         shadow.offsetY = std::stof(parts[1]);
     }
     if (parts.size() >= 3) {
-        if (auto b = parseNum(parts[2])) shadow.blurRadius = *b;
+        // blur 严格解析：非数值（'0 0 abc'）必须沿 stof 抛——C 回调边界
+        // catch 后转 JS 异常（行为锁 js_tests illegal_input），软解析会让
+        // 非法串静默变 blur=0、调用方无从得知
+        std::string blurStr = parts[2];
+        if (blurStr.size() > 2 && blurStr.substr(blurStr.size() - 2) == "px")
+            blurStr = blurStr.substr(0, blurStr.size() - 2);
+        shadow.blurRadius = std::stof(blurStr);
     }
     // 第 4 token 为数值 → spread，颜色顺延至第 5 token 起；否则第 4 token
     // 起即颜色（旧三值 + 颜色形态不变）

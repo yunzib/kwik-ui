@@ -1,7 +1,7 @@
 ---
 group: form
 status: 已完成
-docsite: 无（待同步）
+docsite: input（四节：基础绑定 / 外观定制 / 输入约束 / onChange 实时回显）
 ---
 # Input — 单行文本输入
 

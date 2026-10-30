@@ -584,6 +584,7 @@ bool Input::updateCursorBlink() {
 }
 
 void Input::fireChange() {
+    textDirty_ = true;    // 编辑路径统一经此（插入/删除/剪/贴）——blur 回写的置位点
     // 引擎中立回调: JS 侧收到裸 string (契约由 bridge/event_adapter 保证)
     if (handlers.onChange) { handlers.onChange(ChangeArgs{TypedProp{text_}}); }
 }
@@ -602,6 +603,7 @@ void Input::commitNumber() {
     }
     text_ = formatNumber(v);
     if (binding_) binding_->setString(bindKey_, text_);    // 双向绑定回写
+    textDirty_ = false;                                    // 已回写（blur 不再重复写）
     fireChange();                                          // onChange 通知 JS
 }
 
@@ -642,6 +644,14 @@ void Input::blur() {
     cursorVisible_ = false;
     // 数字模式: 失焦/回车即提交校验 (clamp + step 对齐, 并同步绑定与 onChange)
     if (input_.isNumber) commitNumber();
+    else if (binding_ && textDirty_) {
+        // 文本模式失焦回写：此前只有数字模式（commitNumber）写回 State，
+        // ref 绑定的文本框失焦不回写 → 派生 UI（回显 Text 等）永不更新。
+        // 仅在编辑过时写（textDirty_ 由 fireChange 置位、setValue 清零），
+        // 未编辑失焦不触发无谓的整页重建。
+        binding_->setString(bindKey_, text_);
+        textDirty_ = false;
+    }
     markDirty();
 }
 
