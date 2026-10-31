@@ -1184,6 +1184,55 @@ static void test_flex_line_capacity_and_grow() {
     CHECK(m3Ptr->frame.x + m3Ptr->frame.width <= mp->frame.x + mp->frame.width);
 }
 
+// ── 行为锁: space* 主轴分布的加宽量对"每个"行内间隔生效 ──
+// 旧实现把加宽量折进 betweenGap 并于首个间隔后复位：只有 1→2 间隔拿到加宽量，
+// 2/3 号子项挤在一起、末项不贴 end（docsite justifyContent 演示轨道实况：
+// spaceBetween 下 2、3 号块相邻停在行中部，右侧留 90px 死空间）。
+// 轨道 300×40、padding 6、gap 0、三子项 36×26 → content 288 / 占用 108 / R=180：
+//   Center       96 / 132 / 168（两侧各 90）
+//   SpaceBetween  6 / 132 / 258（首尾贴边，两个间隔各 90）
+//   SpaceAround  36 / 132 / 228（每项两侧各 30，首尾半距）
+//   SpaceEvenly  51 / 132 / 213（含两端共四个间隔各 45）
+static void test_flex_space_justify_every_gap() {
+    struct Row { LayoutAlign mode; float x1, x2, x3; };
+    const Row rows[] = {
+        {LayoutAlign::Center, 96, 132, 168},
+        {LayoutAlign::SpaceBetween, 6, 132, 258},
+        {LayoutAlign::SpaceAround, 36, 132, 228},
+        {LayoutAlign::SpaceEvenly, 51, 132, 213},
+    };
+    for (const auto &r : rows) {
+        ContainerProps cp;
+        cp.mainAxisAlignment = r.mode;
+        auto track = std::make_unique<FlexLayout>(ViewProps{}, cp);
+        track->props.width = 300;
+        track->props.height = 40;
+        track->props.padding = EdgeInsets{6};
+        std::vector<View *> kids;
+        for (int i = 0; i < 3; ++i) {
+            auto v = std::make_unique<View>();
+            v->props.width = 36;
+            v->props.height = 26;
+            kids.push_back(v.get());
+            track->addChild(std::move(v));
+        }
+        FlexLayout *tp = track.get();
+
+        View::setMeasurePhase(false);
+        tp->measure(Constraints::loose(Size{300, Constraints::INF}));
+        View::setMeasurePhase(true);
+        tp->layout(Rect{0, 0, 300, 40});
+        View::setMeasurePhase(false);
+
+        CHECK(std::abs(kids[0]->frame.x - r.x1) < 0.1f);
+        CHECK(std::abs(kids[1]->frame.x - r.x2) < 0.1f);
+        CHECK(std::abs(kids[2]->frame.x - r.x3) < 0.1f);
+        // 末项右缘不越内容右界（294 = 300 − padding 右 6）；首尾留边对称
+        CHECK(kids[2]->frame.x + kids[2]->frame.width <= 294.0f + 0.1f);
+        CHECK(std::abs((kids[0]->frame.x - 6.0f) - (294.0f - (kids[2]->frame.x + kids[2]->frame.width))) < 0.1f);
+    }
+}
+
 // ── 行为锁: 文本排版断行规则（T0-⑤/D3，合成字形免字体）──
 // ① 硬断行后行记录扁平索引正确（\n 跳过使源索引≠扁平索引，原实现越界读）
 // ② 连续 \n 空行保留（高度=标准行高，totalHeight 不再吞行）
@@ -2551,6 +2600,7 @@ int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
     test_flex_line_capacity_and_grow();
+    test_flex_space_justify_every_gap();
     test_rect();
     test_prop_meta_consistency();
     test_display_list();

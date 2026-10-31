@@ -207,25 +207,28 @@ void FlexLayout::onLayout() {
                         + (isRow ? items[i].view->props.margin.horizontal() : items[i].view->props.margin.vertical());
         usedMain += container_.gap * (ln.idx.size() - 1);
         float spaceRemain = contentMain - usedMain;
-        float startOffset = 0, betweenGap = container_.gap;
+        // space* 分布的加宽量对"每个"行内间隔生效（整行常量 extraGap）：
+        // 折进 betweenGap 再于首个间隔后复位，会退化成只有 1→2 间隔拿到
+        // 加宽量（2/3 号子项挤在一起、末项不贴 end）
+        float startOffset = 0, extraGap = 0;
         switch (container_.mainAxisAlignment) {
         case LayoutAlign::Center: startOffset = spaceRemain * 0.5f; break;
         case LayoutAlign::End: startOffset = spaceRemain; break;
         case LayoutAlign::SpaceBetween:
-            if (ln.idx.size() > 1) betweenGap += spaceRemain / (ln.idx.size() - 1);
+            if (ln.idx.size() > 1) extraGap = spaceRemain / (ln.idx.size() - 1);
             break;
         case LayoutAlign::SpaceAround:
             if (!ln.idx.empty()) {
                 float half = spaceRemain / ln.idx.size() * 0.5f;
                 startOffset = half;
-                betweenGap += half * 2;
+                extraGap = half * 2;
             }
             break;
         case LayoutAlign::SpaceEvenly:
             if (!ln.idx.empty()) {
                 float s = spaceRemain / (ln.idx.size() + 1);
                 startOffset = s;
-                betweenGap += s * 2;
+                extraGap = s;    // 行内间隔同 s（原 2s：去掉复位后整行溢出内容区）
             }
             break;
         default: break;
@@ -263,10 +266,10 @@ void FlexLayout::onLayout() {
                 else
                     it.view->layout(Rect{crossPos, mainCursor + it.view->props.margin.top, it.crossSz, it.mainSz});
             }
-            // 主轴游标推进（含 margin + 行内间隔）
+            // 主轴游标推进（含 margin + 行内间隔；space* 加宽量对每个间隔生效）
             mainCursor += it.mainSz
-                          + (isRow ? it.view->props.margin.horizontal() : it.view->props.margin.vertical()) + betweenGap;
-            betweenGap = container_.gap;   // 首个间隔后复位
+                          + (isRow ? it.view->props.margin.horizontal() : it.view->props.margin.vertical())
+                          + container_.gap + extraGap;
         }
 
         crossCursor += ln.crossSize + container_.gap;   // 进入下一行（行间 gap）
