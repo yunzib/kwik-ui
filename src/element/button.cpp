@@ -54,10 +54,23 @@ bool Button::onEvent(const DispatchEvent &event) {
         state_ = ButtonState::Pressed;
         markDirty();
         break;
-    case DispatchEvent::Type::PointerUp:
-        state_ = ButtonState::Idle;
-        markDirty();
+    case DispatchEvent::Type::PointerUp: {
+        // 松开时指针通常仍在按钮上：命中则回 Hovered 而非 Idle——直接落
+        // Idle 会把悬停反馈吞掉（点击后悬停淡染消失，移出再进才恢复）。
+        // 坐标换算与 View::onEvent 同款：global 是滚动视口域、frame 是未
+        // 滚动域，须补滚动补偿再做命中判定
+        Point comp = scrollCompensationOf(*this);
+        float x = event.globalX + comp.x;
+        float y = event.globalY + comp.y;
+        bool inside = x >= frame.x && x <= frame.x + frame.width
+                   && y >= frame.y && y <= frame.y + frame.height;
+        ButtonState next = inside ? ButtonState::Hovered : ButtonState::Idle;
+        if (state_ != next) {
+            state_ = next;
+            markDirty();
+        }
         break;
+    }
     default: break;
     }
     return View::onEvent(event);

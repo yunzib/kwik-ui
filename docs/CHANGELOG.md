@@ -2,6 +2,9 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- Button 松开后悬停反馈消失：PointerUp 无条件回 Idle，指针仍在按钮上时
+  悬停色被吞（点击后颜色突变、移出再进才恢复）。改为补滚动补偿命中判定，
+  仍在按钮上回 Hovered、移出才 Idle
 - Spinner 页显示控制无效 + Switch 页翻转卡死（getProp 类型化返回残留）：
   bool 属性 getProp 早已返回原生布尔，docsite spinner 页/switch 页与
   test/ui spinner demo 仍与 "true" 字符串比较——恒不等使翻转永写 true
