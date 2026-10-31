@@ -885,6 +885,10 @@ ChartProps parseChartProps(PropsExtractor &ex) {
                 if (!lv.isNull() && !lv.isUndefined()) cs.label = lv.toString();
                 auto cv = s.getProperty("color");
                 if (!cv.isNull() && !cv.isUndefined()) cs.color = convertTo<Color>(cv);
+                // visible 缺省保护：结构默认 true（绘制全链按其过滤）；
+                // 无守卫时 undefined → toBool=false 会把未声明的系列全部打灭
+                auto vv = s.getProperty("visible");
+                if (!vv.isNull() && !vv.isUndefined()) cs.visible = vv.toBool();
                 auto dv = s.getProperty("data");
                 if (dv.isArray()) {
                     for (int j = 0; j < dv.getArrayLength(); ++j) cs.data.push_back(dv.getArrayElement(j).toFloat());

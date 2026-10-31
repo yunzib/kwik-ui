@@ -2,6 +2,9 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- ChartSeries.visible 名义属性三方不一致：结构声明有、绘制全链按其过滤
+  （pie/bar/line/图例），但 parseChartProps 漏读——JS 传 visible 无效。
+  补 series 内 visible 读取（带缺省保护：未写时维持结构默认 true）
 - Tabs 标签点击命中缺滚动补偿（同 Slider/SpinBox 箭头命中与 Expansion 头行
   带同族漏网）：Tap 的 global 是滚动视口域、frame 是未滚动域，ScrollView
   内滚动后命中判定整体偏差一个滚差——长页滚动后点击标签无响应（近首屏不
@@ -94,6 +97,17 @@
   0 防 stof 抛出（缺参 rgba 不再异常），四舍五入写回
 
 ### 新增
+- docsite Gauge 仪表盘页（新增导航条目 data 组）：两节镜像 test/ui/gauge.js
+  动态 demo——①弧式仪表（State+ref 绑定驱动指示弧与中央 children 组合文本、
+  阈值分段绿/橙/红、180° 半圆与量程 8GB 变体、宽带 trackRatio/innerRatio）
+  ②指针模式（pointer:true，triangle/torpedo/counterweight/blade 四造型并排、
+  一 State 联动四针）。新建手稿 docs/components/gauge.md（值绑定/指针造型/
+  四层语义），chart.md 关联补专页链接；test/ui/gauge.js demo 指针行 captions
+  同步修正（三处复制残留的 "triangle" 改回各自造型名）
+- docsite Chart 页完善为四节（示例与示例代码统一，结构与 test/ui/chart.js
+  demo 同构）：饼图（单系列动画展开）、柱状图（多系列分组柱 + categories）、
+  折线图（多系列折线 + 数据点）、纯视觉（关网格/标签/图例）；双语标签差异、
+  页面层省去 demo 的白底 host 色
 - docsite Tabs 页完善为三节（示例与示例代码统一，结构与 test/ui/tabs.js
   demo 同构）：基本用法（等宽标签 + State 联动面板 + selectedIndex 读出）、
   自定义颜色与间距（tabSpacing:8 自然宽度 / activeTabBackground 高亮 /
