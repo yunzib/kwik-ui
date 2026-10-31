@@ -177,10 +177,11 @@ const st = new State({ read: '-' });
 // 非受控：不接 ref，组件自持状态
 Switch({ id: 'flag', checked: false, trackHeight: 28, thumbSize: 20 });
 
-// 外部翻转（不经过 State）
+// 外部翻转（不经过 State）——checked 属 bool 属性：getProp 类型化返回原生
+// 布尔，直接取反即可（与 'true' 字符串比较恒真，翻转会卡在 true）
 Button({ text: '翻转',
         onClick: () => setProp('flag', 'checked',
-                               getProp('flag', 'checked') !== 'true') });
+                               !getProp('flag', 'checked')) });
 
 // 随时读取
 Button({ text: '读取',
@@ -191,7 +192,7 @@ const demo4 = () => [
         Switch({ id: 'ds-sw-plain', checked: false,
                  checkedColor: '#2563EB', uncheckedColor: '#CBD5E1', trackHeight: 28, thumbSize: 20 }),
         btn(t(L.flip), () => setProp('ds-sw-plain', 'checked',
-                                     getProp('ds-sw-plain', 'checked') !== 'true')),
+                                     !getProp('ds-sw-plain', 'checked'))),
         btn(t(L.read), () => { st4.read = getProp('ds-sw-plain', 'checked'); }, 110),
     ]),
     Text({ text: 'getProp ⇒ ' + st4.read, fontSize: 12, color: '#2563EB', margin: [8, 0, 0, 0] }),

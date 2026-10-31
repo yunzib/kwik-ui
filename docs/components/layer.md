@@ -1,5 +1,5 @@
 ---
-group: adv
+group: layout
 status: 已完成
 docsite: layer（四节：模态浮层 / 锚定 tooltip / 视口通知 / 自由模式菜单）
 ---

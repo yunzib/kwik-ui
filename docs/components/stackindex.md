@@ -1,5 +1,5 @@
 ---
-group: data
+group: layout
 status: 已完成
 docsite: stackindex（三节：受控切换 / 尺寸跟随选中面板 / 命令式读写与 onChange）
 ---

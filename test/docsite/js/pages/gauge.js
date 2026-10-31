@@ -75,7 +75,7 @@ const L = {
 const makeBtn = (label, color, onClick) => Button({
     text: label, width: 110, height: 32, fontSize: 13,
     background: color,
-    textColor: [255, 255, 255, 255],
+    color: '#FFFFFF',    // TextContent 键是 color（textColor 不存在，静默忽略后点击 rebuild 即翻黑）
     borderRadius: 6,
     hoverBackground: [100, 190, 240, 255],
     pressedBackground: [13, 71, 161, 255],

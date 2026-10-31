@@ -1,13 +1,15 @@
 ---
-group: base
+group: progress
 status: 已完成
-docsite: 无（待同步）
+docsite: progressring（两节：ref 动态环——控制按钮 + 中央数值子件 / 几何造型对照
+270°·180°·roundCap:false 平头——结构镜像 test/ui/progressring.js，
+控制行 makeBtn 三钮写 State 驱动首环）
 ---
 # ProgressRing — 圆环进度
 
 双层双环进度组件：外层背景环（trackColor）+ 内层进度环（startColor→endColor
-沿弧渐变、两端圆头）。默认全圆 360°、起始 -90°（顶部），支持 270°/180° 半开环
-与 roundCap:false 平头单色。只读展示组件，无交互；value 可配合 ref() 双向绑定。
+沿已填弧段渐变、两端圆头）。默认全圆 360°、起始 -90°（顶部），支持 270°/180°
+半开环与 roundCap:false 平头。只读展示组件，无交互；value 配合 ref() 双向绑定。
 
 ## 专有属性
 
@@ -22,9 +24,14 @@ docsite: 无（待同步）
     "endColor": "#FF9800",         // 渐变终点色
     "startAngle": -90,             // 起始角（度，-90=顶部）
     "sweep": 360,                  // 扫过角度（度，360=全圆）
-    "roundCap": true               // 进度两端圆头（false=平头+单色 startColor）
+    "roundCap": true               // 进度两端圆头（false=平头；单色用 startColor=endColor）
 }
 ```
+
+- 渐变沿已填弧段铺开（随 fillRatio 伸缩，非全扫角固定渐变）。
+- 组件默认尺寸 120×120（`width/height` 可调，半径 = min/2）。
+- 增量更新门：value / min / max / trackColor / trackThickness 支持
+  setPropertyTyped（ref 绑定与 setProp 共用）。
 
 ## 实现说明
 
@@ -36,9 +43,13 @@ docsite: 无（待同步）
 
 ## 示例
 
-- demo：`test/ui/progressring.js`（`example.exe progressring`）
+- demo：test/ui/progressring.js（example.exe progressring——makeBtn 控制行
+  驱动全圆动态环，三静环对照 270°/180°/平头）
+- docsite 页：进度与加载 → ProgressRing 圆环进度
 
 ## 关联
 
 - 双向绑定（ref）：[State](../2.%20State.md)
+- 进度条：[progressbar](progressbar.md)
+- 加载指示：[spinner](spinner.md)
 - 通用属性与数据类型格式：[View 篇（通用属性完备实例）](view.md)

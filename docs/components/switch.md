@@ -33,8 +33,9 @@ Switch 自身不渲染文字标签：需要标签文字时，由外部
 - 点击切换 checked；Tap 被消费不冒泡；不响应拖拽/键盘
 - **ref 双向绑定**：`checked: ref(state, key)`——点击即时写回 State（增量更新）
 - 状态变更回调 `onChange`，事件形状 `e={checked: bool}`（与绑定可单独/并用）
-- **命令式读写**：`getProp(id, 'checked')` → `"true"/"false"`；
-  `setProp(id, 'checked', v)`（接受 `true/false/"1"/"0"`）
+- **命令式读写**：`getProp(id, 'checked')` → 原生布尔 `true/false`（bool
+  属性类型化返回，勿与 `"true"` 字符串比较——恒不等）；`setProp(id,
+  'checked', v)`（接受 `true/false/"1"/"0"`）
 - **主题 token**：`checkedColor` / `uncheckedColor` / `thumbColor` 可用
   `@primary` / `@surfaceVariant` / `@onSurface` 引用（需 ThemeProvider 祖先，
   见 [主题系统](../6.%20主题系统.md)）

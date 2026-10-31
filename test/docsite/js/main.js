@@ -80,13 +80,14 @@ const TOP_GROUPS = {
     guide: { zh: '指南', en: 'Guide' },
     comps: { zh: '组件', en: 'Components' },
 };
-const CAT_ORDER = ['base', 'form', 'layout', 'data', 'adv'];
+const CAT_ORDER = ['base', 'form', 'layout', 'data', 'progress', 'adv'];
 const CATS = {
     base:   { zh: '基础', en: 'Basic' },
     form:   { zh: '表单', en: 'Form' },
     layout: { zh: '布局', en: 'Layout' },
     data:   { zh: '数据', en: 'Data' },
-    adv:    { zh: '高级', en: 'Advanced' },
+    progress: { zh: '进度与加载', en: 'Progress & Loading' },
+    adv:     { zh: '高级', en: 'Advanced' },
 };
 // 二级分类 → 一级组归属（多级菜单的路由表）
 const TOP_OF = Object.fromEntries(CAT_ORDER.map(c => [c, 'comps']));
@@ -133,10 +134,13 @@ const NAV = [
     { id: 'chart', group: 'data', title: { zh: 'Chart 图表', en: 'Chart' }, doc: 'docs/components/chart.md' },
     { id: 'gauge', group: 'data', title: { zh: 'Gauge 仪表盘', en: 'Gauge' }, doc: 'docs/components/gauge.md' },
     { id: 'treemenu', group: 'data', title: { zh: 'TreeMenu 树菜单', en: 'TreeMenu' }, doc: 'docs/components/treemenu.md' },
+    { id: 'progressbar', group: 'progress', title: { zh: 'ProgressBar 进度条', en: 'ProgressBar' }, doc: 'docs/components/progressbar.md' },
+    { id: 'progressring', group: 'progress', title: { zh: 'ProgressRing 进度环', en: 'ProgressRing' }, doc: 'docs/components/progressring.md' },
+    { id: 'spinner', group: 'progress', title: { zh: 'Spinner 加载指示', en: 'Spinner' }, doc: 'docs/components/spinner.md' },
     { id: 'textview', group: 'adv', title: { zh: 'TextView 富文本', en: 'TextView' }, doc: 'docs/components/textview.md' },
-    { id: 'progressbar', group: 'adv', title: { zh: 'ProgressBar 进度条', en: 'ProgressBar' }, doc: 'docs/components/progressbar.md' },
-    { id: 'progressring', group: 'adv', title: { zh: 'ProgressRing 进度环', en: 'ProgressRing' }, doc: 'docs/components/progressring.md' },
-    { id: 'spinner', group: 'adv', title: { zh: 'Spinner 加载指示', en: 'Spinner' }, doc: 'docs/components/spinner.md' },
+    { id: 'g2d', group: 'adv', title: { zh: 'G2D 2D 绘制', en: 'G2D 2D' }, doc: 'docs/components/g2d.md' },
+    { id: 'g3d', group: 'adv', title: { zh: 'G3D 3D 绘制', en: 'G3D 3D' }, doc: 'docs/components/extensions/g3d.md' },
+    { id: 'video', group: 'adv', title: { zh: 'Video 视频', en: 'Video' }, doc: 'docs/components/extensions/video.md' },
 ];
 
 const nav = new State({ page: 'index' });
@@ -146,7 +150,7 @@ const nav = new State({ page: 'index' });
 // ——初屏完整呈现两级菜单结构，点开任意分类/条目后由 navTo 沿层级展开
 const openGroups = new State({
     docs: true, guide: false, comps: true,
-    base: false, form: false, layout: false, data: false, adv: false,
+    base: false, form: false, layout: false, data: false, progress: false, adv: false,
 });
 
 // 窗口尺寸态：根声明 onWindowResize（框架仅根组件生效）→ 事件写 State →

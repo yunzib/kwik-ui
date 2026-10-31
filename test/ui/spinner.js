@@ -35,8 +35,10 @@ export default View({
         Button({
             text: "隐藏 / 显示", width: 140, height: 32, borderRadius: 4, color: "#ffffff",
             onClick: () => {
+                // visible 属 bool 描述符属性：getProp 类型化返回原生布尔（非字符串），
+                // 与 "true" 字符串比较恒 false 会使翻转永写 "true"（隐藏失效）
                 let v = getProp("sp1", "visible");
-                setProp("sp1", "visible", v === "true" ? "false" : "true");
+                setProp("sp1", "visible", v === true ? "false" : "true");
             }
         }),
         Spinner({ id: "sp1", color: "#1976D2", size: 32 }),
