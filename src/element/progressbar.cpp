@@ -107,6 +107,18 @@ bool ProgressBar::setPropertyTyped(const char *name, const TypedProp &value) {
 	return View::setPropertyTyped(name, value);
 }
 
+// ============================================================================
+// applyProgressBarProps — reconcile 属性覆盖（value 受控回写门）
+// ============================================================================
+void ProgressBar::applyProgressBarProps(ProgressBarProps pp) {
+	// 门控判据与基准更新须先于覆盖（基准取本次解析值，运行值取覆盖前 pp_）
+	bool valueFresh = (pp.value != lastParsedValue_);
+	lastParsedValue_ = pp.value;
+	float runtime = pp_.value;    // 命令式运行值（setProp 写入；须在覆盖前捕获）
+	pp_ = std::move(pp);
+	if (!valueFresh) { pp_.value = runtime; }    // 未声明新 value：保留运行值（门关路径）
+}
+
 void ProgressBar::resolveThemeDefaults() {
     auto& t = theme();
     auto& tokens = props.themeTokens;

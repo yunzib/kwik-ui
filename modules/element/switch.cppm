@@ -48,10 +48,21 @@ public:
      * @param sp 开关专有属性
      */
     explicit Switch(ViewProps vp, SwitchProps sp)
-        : View(std::move(vp)), sp_(std::move(sp)) {}
+        : View(std::move(vp)), sp_(std::move(sp)), lastParsedChecked_(sp_.checked) {}
 
-    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
-    void applySwitchProps(SwitchProps sp) { sp_ = std::move(sp); }
+    /**
+     * @brief reconcile 属性覆盖（checked 受控回写门，其余字段整体重解析）
+     *
+     * 同 Slider/SpinBox/ProgressBar 的门控纪律：本次解析 checked 与上轮解析值
+     * 相同 = rebuild 未声明新 checked（无关 State 写、首帧字面量重放等触发
+     * rebuild 的常见路径）→ 保留点击/setProp 的命令式运行值，声明式 checked
+     * 实际变更才接管。门控缺失时非受控开关（无 ref 字面量 checked）每轮
+     * reconcile 被打回字面量：docsite switch 页 §4 翻转后再点「读取」（写
+     * State 触发整树 rebuild）开关弹回关闭态。运行值与解析值共储 sp_.checked，
+     * 故另记 lastParsedChecked_ 作比对基准。
+     * @param sp 本次解析的专有属性
+     */
+    void applySwitchProps(SwitchProps sp);
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;
@@ -73,6 +84,10 @@ protected:
 
 private:
     SwitchProps sp_;
+    // 受控回写门基准（同 Slider.lastParsedValue_/ProgressBar.lastParsedValue_
+    // 惯例）：上一轮 reconcile 解析的声明式 checked 字面量，显式构造时取构造
+    // 值初始化。rebuild 未声明新 checked → 保留命令式运行值
+    bool lastParsedChecked_ = false;
 
     /**
      * @brief 计算滑块中心 x 坐标（相对 frame.x）

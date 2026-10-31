@@ -2,6 +2,19 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- Spinner 页显示控制无效 + Switch 页翻转卡死（getProp 类型化返回残留）：
+  bool 属性 getProp 早已返回原生布尔，docsite spinner 页/switch 页与
+  test/ui spinner demo 仍与 "true" 字符串比较——恒不等使翻转永写 true
+  （spinner 永不隐藏、switch 只能开不能关）。改与 true 比较/直接取反，
+  hint4·代码卡·switch.md 手稿同步更正返回形态说明
+- Switch checked 被 reconcile 打回（同 Tabs/Layer/ProgressBar 族）：
+  applySwitchProps 裸覆盖无受控回写门，非受控开关翻转后任何 State 写触发
+  整树 rebuild 即弹回字面量（docsite switch 页 §4 翻转后点「读取」复现）。
+  补 lastParsedChecked_ 基准门控，未声明新 checked 保留命令式运行值
+- ProgressBar value 被 reconcile 打回（同 Tabs selectedIndex 族）：命令式
+  setProp 写 value 后任何 State 写触发整树 rebuild，applyProgressBarProps
+  裸覆盖把字面量写回（docsite progressbar 页 §5/§6 按钮全无效）。补
+  lastParsedValue_ 基准门控，未声明新 value 保留 setProp 运行值
 - ChartSeries.visible 名义属性三方不一致：结构声明有、绘制全链按其过滤
   （pie/bar/line/图例），但 parseChartProps 漏读——JS 传 visible 无效。
   补 series 内 visible 读取（带缺省保护：未写时维持结构默认 true）
@@ -97,6 +110,28 @@
   0 防 stof 抛出（缺参 rgba 不再异常），四舍五入写回
 
 ### 新增
+- docsite 组件导航分类调整——进度条 / 进度环 / 加载指示自立"进度与加载
+  （progress）"分类（名即内容物），高级（adv）保留并定位为深度组件：
+  TextView 归入，G2D（2D 绘制，内置件）/ G3D（3D 场景，扩展件）/ Video
+  （扩展件）新增导航条目（尚无实况页，经占位页展示手稿路径；G2D 新建
+  手稿，G3D/Video 对接 extensions/ 既有手稿）。NAV / 页面 meta.group /
+  手稿 frontmatter 三源对齐（顺带修正 stackindex、keyboard、layer 与
+  进度条/环/加载三件手稿的陈旧 group 标签）
+- docsite 进度与加载三页完善重写（示例与示例代码统一，结构镜像 test/ui
+  同名验证 demo）：ProgressBar 页六节（基础三档静态值 / 自定义颜色高度 /
+  自定义量程 150/200 / ref 双向绑定按钮组 / getProp·setProp 直写组件属性
+  （自含青条演示，读写目标收进本节）/ 两数据面对照（蓝条 State 绑定面 +
+  紫条属性面一钮直写、读出行并排两侧当前值）——demo 的 console 输出面换
+  State 读出行）；ProgressRing 页两节（ref 动态环：makeBtn 控制行 + 中央数值
+  children
+  组合；几何造型对照 270°/180°/roundCap:false 平头）；Spinner 页四节
+  （默认 32px / 四色并排 / 四档尺寸 / setProp visible 显示控制）。
+  三页 props 表按 props.cppm / element C++ 实况校正——ProgressBar 虚构
+  onChange 行删除（只读组件无 change 回调），Spinner trackColor 撤出
+  属性表（解析保留、绘制未消费，尾迹由主色低透明生成——待 C++ 决断
+  消费或删）；progressbar/progressring/spinner 三手稿同步重写（写值
+  两路 / 渐变沿已填弧段 / 尾迹来源与 visible 通用属性），虚构 onChange
+  从手稿专有属性一并摘除
 - docsite Gauge 仪表盘页（新增导航条目 data 组）：两节镜像 test/ui/gauge.js
   动态 demo——①弧式仪表（State+ref 绑定驱动指示弧与中央 children 组合文本、
   阈值分段绿/橙/红、180° 半圆与量程 8GB 变体、宽带 trackRatio/innerRatio）

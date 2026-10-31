@@ -64,6 +64,18 @@ void Switch::setChecked(bool val) {
 }
 
 // ============================================================================
+// applySwitchProps — reconcile 属性覆盖（checked 受控回写门）
+// ============================================================================
+void Switch::applySwitchProps(SwitchProps sp) {
+	// 门控判据与基准更新须先于覆盖（基准取本次解析值，运行值取覆盖前 sp_）
+	bool checkedFresh = (sp.checked != lastParsedChecked_);
+	lastParsedChecked_ = sp.checked;
+	bool runtime = sp_.checked;       // 命令式运行值（点击/setProp 写入；须在覆盖前捕获）
+	sp_ = std::move(sp);
+	if (!checkedFresh) { sp_.checked = runtime; }    // 未声明新 checked：保留运行值（门关路径）
+}
+
+// ============================================================================
 // onDraw — 绘制轨道 + 滑块
 //
 // ① 轨道背景 (checkedColor / uncheckedColor 圆角矩形)
