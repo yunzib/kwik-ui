@@ -1,7 +1,7 @@
 ---
 group: layout
 status: 已完成
-docsite: 无（待同步）
+docsite: lazylist（四节：固定模式 / 可变行高 / header·footer / 横向虚拟化）
 ---
 # LazyList — 虚拟化滚动列表
 

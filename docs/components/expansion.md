@@ -1,7 +1,8 @@
 ---
 group: layout
 status: 已完成
-docsite: 无（待同步）
+docsite: expansion（四节：非受控双卡 / 受控与事件流 / 互斥手风琴 / 头行组合四式——
+结构逐行镜像 test/ui/expansion.js 四景 demo）
 ---
 # Expansion — 可展开容器
 

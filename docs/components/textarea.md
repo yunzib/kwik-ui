@@ -1,18 +1,19 @@
 ---
 group: form
 status: 已完成
-docsite: 无（待同步）
+docsite: textarea（五节：非受控读写 / ref 绑定与 onChange / 外观定制 / 约束与只读 / 键盘与选区）
 ---
 # TextArea — 多行文本输入
 
 多行文本输入控件。支持 Enter 换行、宽度感知软换行、上下方向键行间导航、
-光标闪烁、聚焦边框反馈。非受控模式，通过 getProp/setProp 读写内容。
+光标闪烁、聚焦边框反馈、选区编辑（拖选/双击选词/Ctrl+A·X·C·V）。
+`value` 可 `ref` 双向绑定（失焦回写 State）；非受控模式下通过 getProp/setProp 读写内容。
 
 ## 专有属性
 
 ```json
 {
-    "value": "string",                 // 初始多行文本 (含 \\n, 默认 "")
+    "value": "string | ref(state,key)", // 初始多行文本 (含 \\n, 默认 "") / 双向绑定 (失焦回写)
     "placeholder": "string",           // 占位符 (默认 "")
     "fontSize": "number",              // 字号 px (默认 16)
     "rows": "number",                  // 可见行数 (默认 4)
@@ -42,9 +43,12 @@ docsite: 无（待同步）
 - 编辑/键盘导航即折叠选区
 - 与 Text `selectable` / TextView / Input 共用全树唯一选区
 
-## 非受控读写
+## 数据读写
 
-非受控模式：内容通过 `getProp` / `setProp` 读写（初始值用 `value`）。
+- **非受控**：初始值用 `value`，之后组件自持内容，`getProp` / `setProp` 读写全文
+  （`setProp` 写入后光标重置到文末；`fontSize` / `rows` 同样可 `setProp`）
+- **ref 双向绑定**：`value: ref(state, key)`——输入过程不打断光标，失焦把全文写回 State
+- **onChange**：逐次编辑触发（键入/删除/剪切/粘贴），载荷为裸 string（整段文本）
 
 ## 关联
 

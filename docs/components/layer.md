@@ -1,7 +1,7 @@
 ---
 group: adv
 status: 已完成
-docsite: 无（待同步）
+docsite: layer（四节：模态浮层 / 锚定 tooltip / 视口通知 / 自由模式菜单）
 ---
 # Layer — 统一浮层
 

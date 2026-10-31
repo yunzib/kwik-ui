@@ -1,7 +1,7 @@
 ---
 group: form
 status: 已完成
-docsite: 无（待同步）
+docsite: datetimepicker（五节：三形态与 pending 模型 / 日历导航 / 时间滚轮 / 主题 token / 命令式读写）
 ---
 # DateTimePicker — 日期/时间/日期时间选择器
 
@@ -74,12 +74,19 @@ docsite: 无（待同步）
 - `getProp("id","value")` / `setProp("id","value","2026-08-13")` — 读写 ISO 值（解析后同步视图月份）
 - `getProp("id","mode")` / `setProp("id","mode","datetime")` — 切换模式
 - `ref(state, key)` 增量更新：state 变更 → `setPropertyTyped("value", string)` → 解析 + 视图月份同步 + 重绘
+- **value 门控**（reconcile）：解析值与上轮相同时保留已提交选中与视图月份
+  ——未声明 value 的选择器确认后不会被 onChange 写 State 触发的 rebuild 清回未选
 - onChange 事件形状 `{ value: string }`（独立 case，不带 index）
+- **主题 token**：配色属性可用 `@primary` / `@surface` / `@surfaceVariant` /
+  `@onSurface` / `@onSurfaceVariant` / `@outline` 引用（需 ThemeProvider 祖先，
+  默认值即 token 化，见 [主题系统](../6.%20主题系统.md)）
 
 ## 实现说明
 
 - 架构对齐 [Dropdown](dropdown.md)：浮层经 `LayerStack::registerLayerView` + `drawnElsewhere_=true`
-  接管绘制/命中，全屏 hitTest 吞点击（开启期间所有点击到达浮层），ESC / 外部点 → cancel
+  接管绘制/命中，全屏 hitTest 吞点击（开启期间所有点击到达浮层），ESC / 外部点 → cancel；
+  面板定位（`panelRect`）含滚动容器补偿（window = frame − comp），ScrollView 内滚动后
+  弹出位置仍贴合触发区，视口底边放不下时翻转到触发区上方（窗口域判定）
 - **pending 模型**：`commitDate/commitTime` 拆分为 `pickDate/pickTime`（改 pending）+
   `confirm`（提交）+ `cancel`（丢弃）+ `gotoToday`（跳月份），打开浮层时 pending ← sel
 - **脏标记关键点**：CalendarView 是 `drawnElsewhere_` 浮层，绘制由 LayerStack 独立判定；

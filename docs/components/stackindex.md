@@ -1,7 +1,7 @@
 ---
 group: data
 status: 已完成
-docsite: 无（待同步）
+docsite: stackindex（三节：受控切换 / 尺寸跟随选中面板 / 命令式读写与 onChange）
 ---
 # StackIndex — 按索引切换面板
 

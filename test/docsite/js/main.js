@@ -34,7 +34,6 @@ import * as textareaPage from './pages/textarea.js';
 import * as checkboxPage from './pages/checkbox.js';
 import * as switchPage from './pages/switch.js';
 import * as radioButtonPage from './pages/radiobutton.js';
-import * as radioGroupPage from './pages/radiogroup.js';
 import * as sliderPage from './pages/slider.js';
 import * as dropdownPage from './pages/dropdown.js';
 import * as spinBoxPage from './pages/spinbox.js';
@@ -64,7 +63,7 @@ const PAGES = [
     themePage, layoutSysPage, runtimePage,
     viewPage, textPage, buttonPage, imagePage, linePage,
     inputPage, textareaPage, checkboxPage, switchPage, radioButtonPage,
-    radioGroupPage, sliderPage, dropdownPage, spinBoxPage,
+    sliderPage, dropdownPage, spinBoxPage,
     dateTimePickerPage, keyboardPage,
     flexPage, gridPage, stackPage, listPage, scrollViewPage,
     lazyListPage, stackIndexPage, layerPage, expansionPage,
@@ -113,8 +112,7 @@ const NAV = [
     { id: 'textarea', group: 'form', title: { zh: 'TextArea 多行输入', en: 'TextArea' }, doc: 'docs/components/textarea.md' },
     { id: 'checkbox', group: 'form', title: { zh: 'Checkbox 复选框', en: 'Checkbox' }, doc: 'docs/components/checkbox.md' },
     { id: 'switch', group: 'form', title: { zh: 'Switch 开关', en: 'Switch' }, doc: 'docs/components/switch.md' },
-    { id: 'radiobutton', group: 'form', title: { zh: 'RadioButton 单选钮', en: 'RadioButton' }, doc: 'docs/components/radiobutton.md' },
-    { id: 'radiogroup', group: 'form', title: { zh: 'RadioGroup 单选组', en: 'RadioGroup' }, doc: 'docs/components/radiogroup.md' },
+    { id: 'radiobutton', group: 'form', title: { zh: 'RadioButton 单选', en: 'RadioButton' }, doc: 'docs/components/radiobutton.md' },
     { id: 'slider', group: 'form', title: { zh: 'Slider 滑杆', en: 'Slider' }, doc: 'docs/components/slider.md' },
     { id: 'dropdown', group: 'form', title: { zh: 'Dropdown 下拉选择', en: 'Dropdown' }, doc: 'docs/components/dropdown.md' },
     { id: 'spinbox', group: 'form', title: { zh: 'SpinBox 步进器', en: 'SpinBox' }, doc: 'docs/components/spinbox.md' },
