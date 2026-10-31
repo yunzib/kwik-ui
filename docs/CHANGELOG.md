@@ -49,6 +49,37 @@
   Slider.lastParsedValue_），未声明新 index 保留命令式运行值；声明式
   index 实际变更时 measure 新面板 + 立即 layout 并接管（不发 onChange），
   实现自 cppm 下放 stack_index.cpp
+- Layer 锚定浮层两缺陷：① 激活的浮层 onMeasure 返回 base 全屏尺寸——中树
+  Layer（docsite 示例卡内 tooltip/toast）激活即以全窗尺寸参与父链排版，
+  后续兄弟内容被顶出可视区（悬停瞬间界面空白，移出复位）；中树足迹恒
+  {0,0}，全屏 frame 由 activate() 离树配置 + onLayout 父链重排再投影维持，
+  绘制/合成照走 LayerStack；② 锚定定位缺滚动补偿与视口钳制——锚点在
+  ScrollView 内时按未滚动 frame 摆层（滚多少偏多少，Slider/Dropdown
+  定位错域一族），out-top 撞窗口顶大半浮出窗外不可见；calcAnchorRect
+  反向补 scrollCompensationOf（屏幕 = 未滚动 − comp，同 View::onEvent
+  口径）+ contentBounds 钳回 base 视口内
+- Layer 激活态与整树 rebuild 同撞即段错误：reconcileChildren 匹配旧节点
+  先 std::move 出 children（原地留 null），随后 reconcileNode 的组件属性
+  同步（applyLayerProps 字面量 active 变化 → activate/deactivate →
+  base->markAllDirty）同步回走整树，撞 moved-from null 子项 →
+  View::markAllDirty(this=null) 崩溃（docsite "激活+State 写" 组合必现，
+  X1 探针稳定复现）；View::markAllDirty / markAllMeasureDirty 全树走查
+  跳过 reconcile 窗口内的移出空槽（move-out≠析构，整树语义仍成立）
+- LayerView active 被声明式字面量打回：applyLayerProps 整体盲赋无门控，
+  setProp 激活后任何无关 State 写触发 rebuild，字面量 active:false 随即
+  接管关闭浮层（自动关闭通知随整树重渲染闪失/提早消失）。修复：对齐
+  StackIndex/Slider/Dropdown/SpinBox 受控回写门（lastParsedActive_ 比对
+  基准，显式构造时取构造值初始化），未声明新 active 保留命令式运行值且
+  不做状态迁移；声明式实际变更才走 activate/deactivate。
+  浮层的视觉摘除链（draw 关闭态 publishEmptyList + 延迟注销）此番
+  下位机复刻 demo3 嵌套 setTimeout 计时关闭全链验证通过
+- parseColor rgba alpha 分数全透明：nextNum() int + std::stoi 截断——
+  std::stoi("0.9") 止于 '.' 读出 0，任何分数 alpha 被清 0：docsite
+  tooltip 底色 rgba(60,60,67,0.9) 全透明白字刺眼，模态遮罩
+  rgba(0,0,0,0.4) 遮罩同等失效；0-255 整数 alpha（rgba(0,0,0,128)）
+  另有 *255 溢出回卷。修复：alpha 走 std::stof + 双值域兼容（>1 按整
+  值域 /255 归一，[0,1] 分数直乘），r/g/b 维持整数语义，空标记返回
+  0 防 stof 抛出（缺参 rgba 不再异常），四舍五入写回
 
 # 0.0.0 — 2026-10-30
 ### 修复

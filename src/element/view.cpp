@@ -626,7 +626,15 @@ void View::markDirty() {
 void View::markAllDirty() {
     subtreeDirty_ = true;
     listDirty_ = true;    // 全量重绘 = 全部清单重编
-    for (auto &c : children) c->markAllDirty();
+    for (auto &c : children) {
+        // reconcile 窗口内已被移出的空槽：reconcileChildren 匹配旧节点时先
+        // std::move 出 vector（留下的 unique_ptr 为 null），随后 reconcileNode
+        // 的组件属性同步（如 LayerView::applyLayerProps → activate/deactivate →
+        // base->markAllDirty）会同步回走旧树——此窗口内遍历 children 必须
+        // 跳过 null（move-out≠析构：该节点正被原地复用/移交，整树语义仍成立）
+        if (!c) { continue; }
+        c->markAllDirty();
+    }
     // 向上冒泡
     View *p = parent_;
     while (p && !p->subtreeDirty_) {
@@ -646,7 +654,10 @@ void View::markAllDirty() {
 void View::markAllMeasureDirty() {
     needsMeasure_ = true;
     subtreeMeasure_ = false;
-    for (auto &c : children) c->markAllMeasureDirty();
+    for (auto &c : children) {
+        if (!c) { continue; }    // 同 markAllDirty：reconcile 移出窗特殊跳过
+        c->markAllMeasureDirty();
+    }
 }
 
 

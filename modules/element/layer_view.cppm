@@ -37,7 +37,8 @@ import std;
 export class LayerView : public View {
 public:
     LayerView() = default;
-    explicit LayerView(ViewProps vp, LayerProps lp) : View(std::move(vp)), lp_(std::move(lp)) {}
+    explicit LayerView(ViewProps vp, LayerProps lp)
+        : View(std::move(vp)), lp_(std::move(lp)), lastParsedActive_(lp_.active) {}
     ~LayerView() override;
 
     ElementType type() const override { return ElementType::LayerView; }
@@ -67,6 +68,10 @@ protected:
 
 private:
     LayerProps lp_;
+    // 受控回写门基准（同 StackIndex.lastParsedIndex_/Slider.lastParsedValue_ 惯例）：
+    // 上一轮 reconcile 解析的声明式 active 字面量，显式构造时取构造值初始化。
+    // rebuild 未声明新 active（无关 State 写/首帧字面量重放）→ 保留命令式运行值
+    bool lastParsedActive_ = false;
     bool registered_ = false;
     Rect contentBounds_;           // 容器模式：内容区边界（全局坐标）
 

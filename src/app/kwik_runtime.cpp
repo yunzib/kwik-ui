@@ -325,7 +325,9 @@ bool KwikRuntime::tick(bool hotReloadEnabled) {
     // 布局属性动画中 → 重新布局 + 全量重编
     if (animations_.hasLayoutAnimation()) {
         relayoutTree(layoutSize());
-        tree_->markAllDirty();
+        // tree_ 防护：树重建窗口中途/错误页路径下可为空，此分支别处调用点
+        // （rebuildTree/resize/DPI）均有 if (tree_) 兜底，唯此处裸调
+        if (tree_) tree_->markAllDirty();
         needsRedraw_ = true;
     }
 

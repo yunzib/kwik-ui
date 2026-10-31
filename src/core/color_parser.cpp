@@ -59,21 +59,29 @@ Color parseColor(const std::string &str) {
         int r = 0, g = 0, b = 0;
         float a = 1.0f;
 
-        // 简化解析
-        auto nextNum = [&s, &pos]() -> int {
+        // 简化解析（float 版：alpha 为小数；空标记返回 0 防 stof 抛出）
+        auto nextNum = [&s, &pos]() -> float {
             while (pos < s.size() && !std::isdigit(s[pos]) && s[pos] != '.') pos++;
-            int start = pos;
+            size_t start = pos;
             while (pos < s.size() && (std::isdigit(s[pos]) || s[pos] == '.')) pos++;
-            return std::stoi(s.substr(start, pos - start));
+            if (start == pos) { return 0.0f; }
+            return std::stof(s.substr(start, pos - start));
         };
 
-        r = nextNum();
-        g = nextNum();
-        b = nextNum();
-        a = nextNum();    // rgba a 已经是 [0,1] 范围，无需除 255
+        r = static_cast<int>(nextNum());
+        g = static_cast<int>(nextNum());
+        b = static_cast<int>(nextNum());
+        a = nextNum();
+        // alpha 双值域兼容：CSS 小数 [0,1]（rgba(60,60,67,0.9)）或 0-255 整数
+        // 惯用法（rgba(0,0,0,128)）——>1 按 255 值域归一。原实现 int+stoi
+        // 截断：stoi("0.9") 止于 '.' 读出 0 → 任何分数 alpha 全透明（docsite
+        // tooltip 底色丢失白字刺眼、模态遮罩失效直接透底）
+        if (a > 1.0f) { a /= 255.0f; }
+        if (a < 0.0f) { a = 0.0f; }
+        if (a > 1.0f) { a = 1.0f; }
 
         return {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
-                static_cast<uint8_t>(a * 255)};
+                static_cast<uint8_t>(a * 255 + 0.5f)};
     }
 
     // rgb(r, g, b) 格式

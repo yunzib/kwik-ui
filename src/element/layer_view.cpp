@@ -59,7 +59,13 @@ float LayerView::calcContentY(float ch, float rh) const {
 Rect LayerView::calcAnchorRect(float cw, float ch) {
     View *target = findTarget();
     if (!target) return {0, 0, cw, ch};
-    Rect tf = target->frame;    // frame 已是全局坐标
+    Rect tf = target->frame;    // frame 已是父链布局域（滚动容器内未滚动）
+    // 锚点在滚动容器内（docsite 内容 ScrollView 滚动后）：布局 frame 未滚动，而
+    // 层内容在屏幕域合成——按 View::onEvent 同款口径反向补偿（屏幕 =
+    // 未滚动 − scrollCompensationOf），滚多少 tooltip 跟到实际按钮位置
+    Point comp = scrollCompensationOf(*target);
+    tf.x -= comp.x;
+    tf.y -= comp.y;
     float tx = 0, ty = 0;
     const auto &pos = lp_.position;
     if (pos == "out-top") {
@@ -81,11 +87,14 @@ Rect LayerView::calcAnchorRect(float cw, float ch) {
     return {tx, ty, cw, ch};
 }
 
-// ── onMeasure：激活→恒填满 base 全屏（与 onLayout 的 frame=base->frame 一致，
-//    无视挂载点父约束，保证 Layer 挂任何节点下测量结果一致）；关闭→{0,0} ──
+// ── onMeasure：中树足迹恒 0（激活与否均不占父链布局空间）──
+// 层在树内不参与父链排版：全屏 frame 由 activate()（离树 measure+layout 到
+// base->frame）与本类 onLayout（父链重排经过时把 frame 再投影回 base 全屏）
+// 维持，绘制/合成全走 LayerStack 全屏域。原"激活→返回 base 全屏"测量使
+// 挂中树的 Layer（docsite 示例卡内 tooltip/toast）激活即以全窗尺寸顶开
+// 后续兄弟内容（布局空白一片，移出复位——关闭态本就 {0,0}）。
+// View::measure 包装层不做 constrain，onMeasure 返回什么父链就认什么。
 Size LayerView::onMeasure(Constraints) {
-    if (!lp_.active) return {0, 0};
-    if (auto *base = layersOf(this)->base()) { return {base->frame.width, base->frame.height}; }
     return {0, 0};
 }
 
@@ -128,6 +137,16 @@ void LayerView::onLayout() {
         contentBounds_ = {rf.x + calcContentX(cw, rf.width), rf.y + calcContentY(ch, rf.height), cw, ch};
     } else {
         contentBounds_ = calcAnchorRect(cw, ch);
+        // 边缘回弹：锚定定位越出 base 视口（out-top 撞窗口顶等）钳回窗内——
+        // 防浮层大半落到窗外不可见（贴顶示例卡 / 窗口较矮时即症状）
+        if (contentBounds_.x < rf.x) { contentBounds_.x = rf.x; }
+        if (contentBounds_.y < rf.y) { contentBounds_.y = rf.y; }
+        if (contentBounds_.x + contentBounds_.width > rf.x + rf.width) {
+            contentBounds_.x = rf.x + rf.width - contentBounds_.width;
+        }
+        if (contentBounds_.y + contentBounds_.height > rf.y + rf.height) {
+            contentBounds_.y = rf.y + rf.height - contentBounds_.height;
+        }
     }
 
     float y0 = contentBounds_.y + lp_.padding.top;
@@ -344,15 +363,25 @@ bool LayerView::setPropertyTyped(const char *name, const TypedProp &value) {
 	return View::setPropertyTyped(name, value);
 }
 
-// ── reconcile 同步：整体覆盖 LayerProps + active 状态迁移 ──
+// ── reconcile 同步：整体覆盖 LayerProps + active 受控回写门 ──
 void LayerView::applyLayerProps(const LayerProps &lp) {
     stripGenericBackground();
-    bool wasActive = lp_.active;
+    // active 门控：本次解析值与上轮声明字面量相同 = rebuild 未声明新 active
+    // （无关 State 写触发 rebuild、首帧字面量重放等路径）→ 保留命令式运行值，
+    // 且不做状态迁移。门控缺失时声明式字面量（active:false）在每次 reconcile
+    // 强制接管：setProp 激活后任何 State 写 rebuild，浮层立刻被打回关闭态
+    // （通知/提示随整树重渲染闪失）——同 StackIndex 的 index 门控
+    bool activeFresh = (lp.active != lastParsedActive_);
+    lastParsedActive_ = lp.active;
+    bool wasActive = lp_.active;    // 命令式运行值（setProp/close 写入；须在覆盖前捕获）
     lp_ = lp;
-    if (lp_.active != wasActive) {
+    if (activeFresh && lp_.active != wasActive) {
+        // 声明式 active 实际变更 → 状态迁移（activate/deactivate 内处理
+        // 注册/布局/脏标记）；仅跟踪声明字面量，命令式可见性不参与门基线
         if (lp_.active) { activate(); } else { deactivate(); }
-        return;    // activate/deactivate 内部已处理注册/布局/脏标记
+        return;
     }
+    lp_.active = wasActive;    // 未声明新值：恢复运行值（门关路径）
     if (lp_.active) { markAllDirty(); requestLayout(); }    // 字段级变化：重绘重排
 }
 
