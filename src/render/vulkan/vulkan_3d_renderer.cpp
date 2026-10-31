@@ -110,7 +110,7 @@ bool MeshRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevi
  * 顶点数据来自 DrawList::meshVertices_ 连续内存, 通过 memcpy
  * 一次性写入 host-visible staging buffer。
  */
-void MeshRenderer::drawMesh(VkCommandBuffer cmd, VkExtent2D extent, const Rect &viewport, const Vertex3D *vertices,
+void MeshRenderer::drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D scissor, const Vertex3D *vertices,
                             uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3]) {
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
@@ -134,21 +134,18 @@ void MeshRenderer::drawMesh(VkCommandBuffer cmd, VkExtent2D extent, const Rect &
     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PushConstants), &pc);
 
-    // ── 视口: 元素矩形（定位+裁剪），scissor 保持全屏不污染 2D 绘制 ──
+    // ── viewport 只做几何定位（NDC→屏幕映射），像素裁剪走 scissor：由后端
+    //    传入 viewport ∩ 当前可画域（滚动视口/伤害带）——元素滚出视口即
+    //    空剪不画（原恒全屏：docsite 滚动后 3D 内容盖到顶栏）──
     VkViewport vp{viewport.x, viewport.y, std::max(1.0f, viewport.width), std::max(1.0f, viewport.height), 0.0f, 1.0f};
     vkCmdSetViewport(cmd, 0, 1, &vp);
-    VkRect2D sc{{0, 0}, extent};
-    vkCmdSetScissor(cmd, 0, 1, &sc);
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     VkDeviceSize offset = writeOffset_;
     vkCmdBindVertexBuffers(cmd, 0, 1, &stagingBuffer_, &offset);
     vkCmdDraw(cmd, vertexCount, 1, 0, 0);
 
     writeOffset_ += dataSize;
-
-    // ── 还原全屏 viewport/scissor：mesh 之后的下一条 2D 绘制须回到全屏空间 ──
-    VkViewport fullVp{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.0f, 1.0f};
-    vkCmdSetViewport(cmd, 0, 1, &fullVp);
-    VkRect2D fullSc{{0, 0}, extent};
-    vkCmdSetScissor(cmd, 0, 1, &fullSc);
+    // viewport/scissor 动态态不在此还原——后端 clip_.reapplyState 按回放流
+    // 当前裁剪态恢复（原"还原全屏"使紧随其后的 SrcCopy 清屏/2D 绘制逃逸裁剪）
 }

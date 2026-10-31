@@ -100,9 +100,30 @@ std::optional<Rect> ClipManager::currentScissor() const {
     return clipStack_.back();
 }
 
+// ── 可画域查询/收口（mesh 等自带视口、SrcCopy 清屏类命令用）──
+Rect ClipManager::effectiveBounds() const {
+    return clipStack_.empty()
+               ? Rect{(float)initialScissor_.offset.x, (float)initialScissor_.offset.y,
+                      (float)initialScissor_.extent.width, (float)initialScissor_.extent.height}
+               : clipStack_.back();
+}
+
+Rect ClipManager::intersectCurrent(const Rect &r) const {
+    return intersectAA(r, effectiveBounds());
+}
+
+VkRect2D ClipManager::toScissor(const Rect &r) const {
+    return clampToRenderArea(r, renderExtent_);
+}
+
 void ClipManager::reapplyState(VkCommandBuffer cmd) {
     VkRect2D sc = clipStack_.empty() ? initialScissor_ : clampToRenderArea(clipStack_.back(), renderExtent_);
     vkCmdSetScissor(cmd, 0, 1, &sc);
+    // viewport 一并回全屏：mesh/backdrop 等自带视口的命令改过 viewport 后，
+    // 其后的 2D 绘制按全屏视口烘焙像素坐标——不还原则全部内容被挤进残留
+    // 小视口的 NDC 区（G3D 页滚动后其余内容"消失"的回归根因）
+    VkViewport vp{0, 0, static_cast<float>(renderExtent_.width), static_cast<float>(renderExtent_.height), 0.0f, 1.0f};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
     if (clipStack_.empty()) {
         vkCmdSetStencilReference(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
         vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FACE_FRONT_AND_BACK, 0x00);

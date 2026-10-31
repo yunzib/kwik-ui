@@ -2,6 +2,22 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- G2D/G3D 内容越界盖顶栏（docsite 高级组页滚动后）：三处同根——① G2D
+  onDraw 无画布矩形裁剪，clearRectArea 的 SrcCopy 清屏直接打共享主画布，
+  元素滚出视口时挖空块清进顶栏等永不重画的区域（黑块常驻）；② mesh
+  渲染 scissor 恒全屏，3D 内容不受滚动视口/伤害带裁剪；③ mesh 收尾硬编码
+  还原全屏 scissor，紧随其后的清屏/2D 绘制逃逸裁剪栈。修复：G2D 补元素
+  矩形 clip；ClipManager 增 effectiveBounds/intersectCurrent/toScissor
+  收口助手，mesh scissor = viewport ∩ 当前可画域（空交集空剪不画），mesh
+  后经 reapplyState 恢复回放流裁剪态与全屏视口（原仅 scissor+模板——首帧
+  mesh 后 viewport 残留元素矩形，其后 2D 内容全被挤进小 NDC 区消失）；
+  SrcCopy 清屏路径同样求交 + 空交跳过（兼修负坐标 VkClearRect 越界）
+- TreeMenu 缺省节点画出 "undefined" 字样：parseTreeNode 对 key/title/icon
+  直接 toString()，JS 缺省值 undefined 转出字面量 "undefined" 串，绕过
+  绘制侧 !icon.empty() 门——未写 icon 的节点每行渲染出 "undefined"
+  （docsite treemenu 页全中）。缺省（undefined/null）归空串；演示面板
+  高度抬至全展开内容高（284），消除 42px 微溢出下内滚与页面滚动链的
+  打架体感
 - Button 松开后悬停反馈消失：PointerUp 无条件回 Idle，指针仍在按钮上时
   悬停色被吞（点击后颜色突变、移出再进才恢复）。改为补滚动补偿命中判定，
   仍在按钮上回 Hovered、移出才 Idle

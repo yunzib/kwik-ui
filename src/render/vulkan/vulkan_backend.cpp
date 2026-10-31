@@ -152,14 +152,18 @@ void VulkanBackend::clear(const Color &c) {
 void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, const Transform2D &t) {
     drawCalls_++;
     if (mode == BlendMode::SrcCopy) {
-        // 清除路径：r 已是物理坐标（clearRectArea 用 transformRect 烘焙），t 为单位矩阵，忽略
+        // 清除路径：r 已是物理坐标（clearRectArea 用 transformRect 烘焙），t 为单位矩阵，忽略。
+        // 须与当前可画域求交再清：越出伤害带/裁剪栈的清除打进永不重画的区域
+        // （G2D 挖空块常驻顶栏的机制环节）；负坐标 VkClearRect 按规范亦非法
+        Rect area = clip_.intersectCurrent(r);
+        if (area.width <= 0 || area.height <= 0) return;    // 空交集：无可清区域
         VkClearAttachment att{};
         att.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         att.clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
         att.colorAttachment = 0;
         VkClearRect cr{};
-        cr.rect = {{static_cast<int32_t>(r.x), static_cast<int32_t>(r.y)},
-                   {static_cast<uint32_t>(std::ceil(r.width)), static_cast<uint32_t>(std::ceil(r.height))}};
+        cr.rect = {{static_cast<int32_t>(area.x), static_cast<int32_t>(area.y)},
+                   {static_cast<uint32_t>(std::ceil(area.width)), static_cast<uint32_t>(std::ceil(area.height))}};
         cr.baseArrayLayer = 0;
         cr.layerCount = 1;
         vkCmdClearAttachments(currentToken_->commandBuffer, 1, &att, 1, &cr);
@@ -265,8 +269,14 @@ void VulkanBackend::fillRing(const FillRingCmd &cmd) {
 
 void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
     drawCalls_++;
-    mesh_.drawMesh(currentToken_->commandBuffer, currentToken_->extent, cmd.viewport, vertices, cmd.vertexCount,
+    // mesh 视口定位几何；scissor 收口 = viewport ∩ 当前可画域（裁剪栈/伤害带）
+    // ——元素滚出滚动视口即空剪不画（原恒全屏，docsite 滚动后 3D 盖到顶栏）
+    VkRect2D sc = clip_.toScissor(clip_.intersectCurrent(cmd.viewport));
+    mesh_.drawMesh(currentToken_->commandBuffer, cmd.viewport, sc, vertices, cmd.vertexCount,
                    cmd.mvp, cmd.color, cmd.lightDir);
+    // mesh 改了 viewport/scissor 动态态——按回放流当前裁剪态恢复（原硬编码
+    // 回全屏，紧随其后的 SrcCopy 清屏/2D 绘制会逃逸裁剪栈）
+    clip_.reapplyState(currentToken_->commandBuffer);
 }
 
 

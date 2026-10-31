@@ -43,12 +43,19 @@ void G2D::onDraw(Graphics &graphics) {
     graphics.save();
     graphics.translate(frame.x, frame.y);
 
+    // Canvas 语义：一切绘制不得逃出画布矩形。此前无裁剪——clearRectArea
+    // 的 SrcCopy 清屏直接打在共享主画布上，元素滚出视口时挖空块清进顶栏
+    // 等永不重画的区域（黑块常驻）。裁到元素矩形后与外层滚动视口/伤害带
+    // 嵌套求交，越界绘制整体根除
+    graphics.clipRoundedRect({0, 0, frame.width, frame.height}, 0);
+
     Log::info("[G2D::onDraw] frame=({},{},{},{}) drawList.size={}",
               frame.x, frame.y, frame.width, frame.height, drawList_.size());
 
     // 重放所有命令
     for (auto &cmd : drawList_) { cmd(graphics); }
 
+    graphics.resetClip();
     graphics.restore();
 }
 

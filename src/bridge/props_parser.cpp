@@ -741,9 +741,16 @@ namespace {
 
 TreeNodeData parseTreeNode(const JSValueRef &v) {
     TreeNodeData n;
-    n.key = v.getProperty("key").toString();
-    n.title = v.getProperty("title").toString();
-    n.icon = v.getProperty("icon").toString();
+    // key/icon 可缺省（title 实践必写）：undefined 经 toString() 成字面量
+    // "undefined" 串——绘制侧 !icon.empty() 门拦不住，缺省节点每行画出
+    // "undefined" 字样（docsite treemenu 页未写 icon 的节点全中）。缺省归空串
+    auto strOrEmpty = [&v](const char *name) {
+        auto p = v.getProperty(name);
+        return (p.isUndefined() || p.isNull()) ? std::string{} : p.toString();
+    };
+    n.key = strOrEmpty("key");
+    n.title = strOrEmpty("title");
+    n.icon = strOrEmpty("icon");
     n.checked = v.getProperty("checked").toBool();
     n.expanded = v.getProperty("expanded").toBool();
     auto children = v.getProperty("children");

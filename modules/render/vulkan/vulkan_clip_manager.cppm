@@ -24,7 +24,20 @@ public:
     /** @brief 当前最内侧裁剪矩形（物理），无裁剪返回 nullopt */
     std::optional<Rect> currentScissor() const;
 
-    /** @brief 无栈扰动地把当前 clip 动态状态重新应用到 GPU（render pass 重启后恢复用） */
+    /** @brief 当前可画域（物理）：裁剪栈顶；空栈回退伤害带 scissor
+     *  （beginFrame 已对渲染区求交）——mesh 等自带视口命令的求交基准 */
+    Rect effectiveBounds() const;
+
+    /** @brief 与当前可画域求交（空交集收成 0×0 合法空剪） */
+    Rect intersectCurrent(const Rect &r) const;
+
+    /** @brief 任意矩形收口成合法 scissor（对渲染区求交后转换；越界矩形
+     *  直接作 vkCmdSetScissor 按 Vulkan 规范是无效操作） */
+    VkRect2D toScissor(const Rect &r) const;
+
+    /** @brief 无栈扰动地把 2D 默认动态态重新应用到 GPU：scissor（栈顶或
+     *  伤害带）+ viewport 回全屏 + 模板状态（render pass 重启后恢复、
+     *  mesh/backdrop 等自带视口命令收尾用） */
     void reapplyState(VkCommandBuffer cmd);
 
 private:

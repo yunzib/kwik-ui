@@ -69,8 +69,10 @@ public:
     /**
      * @brief 绘制 3D 网格
      * @param cmd          命令缓冲区
-     * @param extent       全屏尺寸（scissor 用）
-     * @param viewport     元素屏幕矩形（mesh 视口：定位+裁剪；Vulkan viewport 自动裁剪范围外图元）
+     * @param viewport     元素屏幕矩形（mesh 视口：NDC→屏幕映射定位几何）
+     * @param scissor      像素裁剪矩形（后端已收口 = viewport ∩ 当前可画域；
+     *                     元素滚出滚动视口/伤害带时空剪不画——几何定位仍由
+     *                     viewport 承担，缩 viewport 会拉伸画面）
      * @param vertices     Vertex3D 数组 (每 3 个一组 = 1 个三角形)
      * @param vertexCount  顶点总数 (3 的倍数)
      * @param mvp          模型-视图-投影矩阵 (列主序, 16 floats)
@@ -82,7 +84,7 @@ public:
      * 正高度 viewport: clip→NDC 的 y 翻转由投影矩阵承担
      * (见 G3D 组件构造投影时的 scale(1,-1,1))。
      */
-    void drawMesh(VkCommandBuffer cmd, VkExtent2D extent, const Rect &viewport, const Vertex3D *vertices,
+    void drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D scissor, const Vertex3D *vertices,
                   uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3]);
 
 private:
