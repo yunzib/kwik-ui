@@ -685,14 +685,19 @@ float DateTimePicker::panelHeight() const {
 }
 
 Rect DateTimePicker::panelRect() const {
-    float x = frame.x + props.padding.left;
-    float y = frame.y + frame.height;    // 触发区正下方
+    // 层 frame 是窗口（滚动视口）域而本组件 frame 是未滚动域——先把触发区
+    // 折算到窗口域（window = frame − comp，comp 约定为 global + comp = frame
+    // 域，与 Dropdown::menuRect 同款），否则 ScrollView 内滚动后面板弹出位置
+    // 偏移滚动量、翻转判定也用错域（scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
+    float x = frame.x + props.padding.left - comp.x;
+    float y = frame.y + frame.height - comp.y;    // 触发区下缘（窗口域）
     float ph = panelHeight();
     // 视口底边 clamp：面板超出根 frame（=视口）时翻转到触发控件上方；
-    // 上下都放不下时贴底（可见最大化）
+    // 上下都放不下时贴底（可见最大化）。aboveY 同取窗口域触发区上缘
     const Rect &vp = rootFrame();
     if (vp.height > 0 && y + ph > vp.y + vp.height) {
-        float aboveY = frame.y - ph;
+        float aboveY = y - frame.height - ph;
         y = (aboveY >= vp.y) ? aboveY : std::max(vp.y, vp.y + vp.height - ph);
     }
     return {x, y, panelWidth(), ph};
@@ -781,6 +786,26 @@ void DateTimePicker::pickTime(int hour, int minute) {
         }
     }
     markDirty();
+}
+
+// applyDateTimePickerProps — reconcile 原地覆盖专有属性（声明在 datepicker.cppm）
+void DateTimePicker::applyDateTimePickerProps(const DateTimePickerProps &dp) {
+    // value 门控（同 Slider/Dropdown 的受控回写门）：解析值与上轮解析值相同
+    // = rebuild 未声明新 value（确认后 onChange 写 State 触发的常见路径），
+    // 保留已提交选中与视图月份——否则未声明 value 的选择器每次 reconcile
+    // 恒被 parseValue() 清回未选状态（确认完立刻弹回占位符）
+    bool valueFresh = (dp.value != lastParsedValue_);
+    lastParsedValue_ = dp.value;
+    std::string runtimeValue = dp_.value;
+    dp_ = dp;
+    if (valueFresh) {
+        parseValue();
+    } else {
+        dp_.value = runtimeValue;
+    }
+    markAllDirty();
+    markAllMeasureDirty();
+    requestLayout();
 }
 
 void DateTimePicker::confirm() {

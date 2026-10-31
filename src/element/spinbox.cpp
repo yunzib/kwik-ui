@@ -50,7 +50,7 @@ static std::string fmtNum(double v) {
 // ============================================================================
 SpinBox::SpinBox() : SpinBox(ViewProps{}, SpinBoxProps{}) {}
 
-SpinBox::SpinBox(ViewProps vp, SpinBoxProps sp) : View(std::move(vp)), sp_(std::move(sp)) {
+SpinBox::SpinBox(ViewProps vp, SpinBoxProps sp) : View(std::move(vp)), sp_(std::move(sp)), lastParsedValue_(sp_.value) {
     // ── 默认外观: 白底 + 灰边框 + 圆角 (与 Input 一致) ──
     if (props.background.a == 0) props.background = Color{255, 255, 255, 255};
     if (props.borderColor.a == 0) props.borderColor = Color{200, 200, 200, 255};
@@ -204,11 +204,14 @@ void SpinBox::drawArrow(Graphics &g, bool up, const Rect &region) {
 // onEvent — Tap 命中箭头步进 / Hover 高亮
 // ============================================================================
 bool SpinBox::onEvent(const DispatchEvent &event) {
+    // 事件 global 是滚动视口域，frame 是未滚动域——上溯滚动容器补偏移
+    //（ScrollView 内滚动后箭头半区命中/hover 高亮判定不断偏；scroll=0 恒 0）
+    Point comp = scrollCompensationOf(*this);
     switch (event.type) {
     case DispatchEvent::Type::Tap: {
         // 命中右缘箭头区 → 步进; 字段区由内部 Input 命中处理, 不会到这里
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         if (lx >= frame.width - sp_.arrowsWidth) {
             bool up = ly < frame.height * 0.5f;
             stepArrow(up ? +1 : -1);
@@ -218,8 +221,8 @@ bool SpinBox::onEvent(const DispatchEvent &event) {
     }
     case DispatchEvent::Type::HoverMove: {
         // 箭头 hover 高亮 (字段区命中 Input, 不会到这里)
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         int old = arrowHovered_;
         if (lx >= frame.width - sp_.arrowsWidth)
             arrowHovered_ = (ly < frame.height * 0.5f) ? 1 : 2;
@@ -277,7 +280,14 @@ void SpinBox::syncFieldText() {
     // 新-6 光标保护：字段文本与格式化值一致时不重写——setValue 会把光标
     // 顶到尾部，reconcile 每轮都走这里，"12." 等中间态输入无法继续编辑
     std::string text = fmtNum(sp_.value);
-    if (field_->value() != text) field_->setValue(text);
+    if (field_->value() != text) {
+        field_->setValue(text);
+        // 值文本由内部 Input 渲染（独立显示清单）：父 markDirty 只重编自身
+        // 图元，干净子级清单被保留（view.cpp 引用段语义）→ 文本不刷新
+        // （非受控 SpinBox 点箭头"不动"，滚动触发烘焙容器整体重编才显示）；
+        // Input::setValue 不标脏，此处必须显式标记字段重编
+        field_->markDirty();
+    }
 }
 
 void SpinBox::fireChange() {
@@ -326,7 +336,21 @@ bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
 // applySpinBoxProps — reconcile 增量同步
 // ============================================================================
 void SpinBox::applySpinBoxProps(SpinBoxProps sp) {
+    // value 门控（同 Slider/Dropdown 的受控回写门）：本次解析值与上轮解析值
+    // 相同 = rebuild 未声明新 value（onChange/绑定写 State 触发的常见路径），
+    // 保留运行值且不回写字段——否则未声明 value 的 SpinBox 每次 reconcile
+    // 恒被打回 0（步进/输入立刻回弹）；ref 绑定的 "12." 中间态输入也会被
+    // 格式化值顶掉（运行值本就来自字段，字段文本即权威）
+    bool valueFresh = (sp.value != lastParsedValue_);
+    lastParsedValue_ = sp.value;
+    float runtime = sp_.value;
     sp_ = std::move(sp);
+    if (!valueFresh) {
+        sp_.value = runtime;
+    } else {
+        sp_.value = clampValue(sp_.value);
+        syncFieldText();
+    }
     if (!field_) return;
     // 同步内部字段 (已设置的约束才下发; 未设置保持构造值)。
     // 新-6：min/max/step 是 SpinBox 自身约束（sp_ 已直收），对内部 Input
@@ -334,8 +358,6 @@ void SpinBox::applySpinBoxProps(SpinBoxProps sp) {
     field_->setProperty("placeholder", sp_.placeholder.c_str());
     field_->setProperty("fontSize", fmtNum(sp_.fontSize).c_str());
     field_->setProperty("readOnly", sp_.readOnly ? "true" : "false");
-    sp_.value = clampValue(sp_.value);
-    syncFieldText();
     markDirty();
 }
 

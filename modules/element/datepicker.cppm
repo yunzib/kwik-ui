@@ -41,7 +41,8 @@ public:
     DateTimePicker() = default;
 
     /** @brief 构造并按 mode 解析 dp.value 到选中状态与视图月份 */
-    explicit DateTimePicker(ViewProps vp, DateTimePickerProps dp) : View(std::move(vp)), dp_(std::move(dp)) {
+    explicit DateTimePicker(ViewProps vp, DateTimePickerProps dp)
+        : View(std::move(vp)), dp_(std::move(dp)), lastParsedValue_(dp_.value) {
         parseValue();
     }
 
@@ -91,14 +92,11 @@ public:
 
     void resolveThemeDefaults() override;
 
-    /** @brief reconcile 原地覆盖专有属性（补 Dropdown 缺的 reconcile 赋值） */
-    void applyDateTimePickerProps(const DateTimePickerProps &dp) {
-        dp_ = dp;
-        parseValue();
-        markAllDirty();
-        markAllMeasureDirty();
-        requestLayout();
-    }
+    /** @brief reconcile 原地覆盖专有属性（实现在 datepicker.cpp；补 Dropdown
+     * 缺的 reconcile 赋值）。value 门控：解析值与上轮相同 = rebuild 未声明
+     * 新值（确认后 onChange 写 State 触发的常见路径），保留已提交选中与
+     * 视图月份——否则未声明 value 的选择器每次 reconcile 恒被清回未选 */
+    void applyDateTimePickerProps(const DateTimePickerProps &dp);
 
 protected:
     Size onMeasure(Constraints constraints) override;
@@ -108,6 +106,7 @@ protected:
 
 private:
     DateTimePickerProps dp_;
+    std::string lastParsedValue_;    // 上一轮解析的 value（applyDateTimePickerProps 门控基准）
     bool open_ = false;
 
     // ── 已提交值（反映在 dp_.value、触发区文字、ref 回写） ──

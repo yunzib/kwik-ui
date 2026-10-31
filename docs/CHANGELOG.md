@@ -2,6 +2,21 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- SpinBox 三缺陷：① 箭头/hover 命中换算缺滚动补偿（ScrollView 内滚动后
+  上下半区判定错，同 Slider 漏网）；② applySpinBoxProps 无 value 门控
+  ——非受控步进/输入在 onChange 写 State 触发 rebuild 后恒被打回 0，
+  且 "12." 中间态被格式化值顶掉；对齐 Slider 门控（lastParsedValue_），
+  未声明新值时保留运行值且不回写字段；③ syncFieldText 不标脏内部
+  Input——保留式清单下父 markDirty 只重编自身图元、干净子级清单被保留，
+  值文本不刷新（点箭头"不动"，滚动触发烘焙容器整体重编才显示），
+  setValue 后显式 field_->markDirty()
+- DateTimePicker 两缺陷：① panelRect 定位错域（同 Dropdown.menuRect 修前
+  症状）——层 frame 为窗口域而 panelRect 基于未滚动 frame，滚动后弹出
+  偏移/视口 clamp 钉底，翻转判定 aboveY 同用未滚动域；触发区折算窗口域
+  （frame − comp）+ 翻转同域化；② applyDateTimePickerProps 无 value 门控
+  ——未声明 value 的选择器确认后 onChange 写 State 触发 rebuild 被
+  parseValue() 清回未选（确认完弹回占位符）；同款门控保留已提交选中与
+  视图月份，实现自 cppm 下放 datepicker.cpp
 - Dropdown 菜单浮层滚动容器内定位错域：menuRect 基于未滚动 frame 而层
   frame 为窗口域——ScrollView 内滚动后菜单弹出位置偏移滚动量、被视口
   底边 clamp 钉在屏幕底缘；下方翻转判定 aboveY=frame.y−mh 同用未滚动

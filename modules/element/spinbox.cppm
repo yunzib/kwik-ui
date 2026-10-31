@@ -68,6 +68,7 @@ protected:
 
 private:
     SpinBoxProps sp_;
+    float lastParsedValue_ = 0;    // 上一轮解析的 value（applySpinBoxProps 门控基准）
     Input *field_ = nullptr;      // 内部数字输入子节点 (裸指针, 所有权在 children_)
     int arrowHovered_ = 0;        // 0=无 1=上 2=下 (hover 高亮)
 
