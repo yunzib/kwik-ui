@@ -2,6 +2,18 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- Tabs 标签点击命中缺滚动补偿（同 Slider/SpinBox 箭头命中与 Expansion 头行
+  带同族漏网）：Tap 的 global 是滚动视口域、frame 是未滚动域，ScrollView
+  内滚动后命中判定整体偏差一个滚差——长页滚动后点击标签无响应（近首屏不
+  滚动时无症状掩盖，docsite Tabs 页 §2 才暴露）。修复：onEvent Tap 换算补
+  scrollCompensationOf（x/y 同补，嵌套滚动容器上溯累加）
+- Tabs 命令式 selectedIndex 被 reconcile 打回：applyTabsProps 无受控回写门，
+  rebuild 重喂 props 未声明 selectedIndex 时按解析默认 0 强制接管——点击
+  切换 / onChange 回显写 State 触发 rebuild 即弹回首标签，getProp/setProp
+  命令式通路失效（与 Slider/Dropdown/SpinBox/StackIndex 同族缺陷）。修复：
+  对齐同款门——lastParsedIndex_ 基准，解析值与上轮相同（未声明新值）时
+  保留点击/setProp 运行值；声明式实际变更才 measure+layout 接管且不发
+  onChange
 - Flex justifyContent 三种 space 分布加宽量只落到首个间隔：加宽量折进
   betweenGap 后于首个间隔复位，spaceBetween/spaceAround/spaceEvenly 下
   仅 1→2 间隔变宽、后续子项挤在一起且末项不贴 end（spaceEvenly 加宽量
@@ -80,6 +92,13 @@
   另有 *255 溢出回卷。修复：alpha 走 std::stof + 双值域兼容（>1 按整
   值域 /255 归一，[0,1] 分数直乘），r/g/b 维持整数语义，空标记返回
   0 防 stof 抛出（缺参 rgba 不再异常），四舍五入写回
+
+### 新增
+- docsite Tabs 页完善为三节（示例与示例代码统一，结构与 test/ui/tabs.js
+  demo 同构）：基本用法（等宽标签 + State 联动面板 + selectedIndex 读出）、
+  自定义颜色与间距（tabSpacing:8 自然宽度 / activeTabBackground 高亮 /
+  三色面板——声明初值 + 点击自持，rebuild 运行值经受控回写门保留）、
+  命令式读写（getProp/setProp 按钮组 PropBus 链路，读出经 State 显示）
 
 # 0.0.0 — 2026-10-30
 ### 修复

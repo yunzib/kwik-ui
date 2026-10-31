@@ -41,15 +41,16 @@ public:
      * @param vp 通用视图属性 (id, background, padding, margin 等)
      * @param tp 标签页专有属性 (items, selectedIndex, fontSize 等)
      */
-    explicit Tabs(ViewProps vp, TabsProps tp) : View(std::move(vp)), tp_(std::move(tp)) {}
+    explicit Tabs(ViewProps vp, TabsProps tp)
+        : View(std::move(vp)), tp_(std::move(tp)),
+          lastParsedIndex_(tp_.selectedIndex) {}
 
     /** @brief reconcile 属性覆盖；items 增减即请求重排（layoutTabs 在测量期
-     *  重建 tabWidths_/tabLayouts_），防旧向量与新 items 尺寸失配越界 */
-    void applyTabsProps(TabsProps tp) {
-        tp_ = std::move(tp);
-        markDirty();
-        requestLayout();
-    }
+     *  重建 tabWidths_/tabLayouts_），防旧向量与新 items 尺寸失配越界。
+     *  selectedIndex 受控回写门——同 StackIndex/Slider/Dropdown/SpinBox 纪律
+     *  （rebuild 未声明新值时保留点击/setProp 的命令式运行值，声明式实际
+     *  变更才 measure/layout 接管）；实现见 tabs.cpp */
+    void applyTabsProps(TabsProps tp);
 
     // ─── 属性读写 (PropBus 支持) ───────────────────────
     std::string getProperty(const char *name) const override;
@@ -71,6 +72,7 @@ protected:
 
 private:
     TabsProps tp_;
+    int lastParsedIndex_ = 0;    // 上一轮解析的 selectedIndex（applyTabsProps 门控基准；显式构造时对齐 tp_.selectedIndex，同 StackIndex.lastParsedIndex_ 初始化）
 
     /// 每个标签的排版结果缓存 (TextRenderPipeline::layoutText 产出)
     std::vector<std::shared_ptr<TextLayoutResult>> tabLayouts_;

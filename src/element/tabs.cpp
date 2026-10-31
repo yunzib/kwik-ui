@@ -9,6 +9,7 @@ module kwik.element.tabs;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
+import kwik.core.types;
 import kwik.core.log;
 
 // ── 布局常量 ──────────────────────────────────────────────
@@ -263,8 +264,13 @@ void Tabs::onDraw(Graphics &graphics) {
 // ═══════════════════════════════════════════════════════════
 bool Tabs::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
-        float lx = event.globalX - frame.x;
-        float ly = event.globalY - frame.y;
+        // 点击命中换算补滚动差（同 Slider/SpinBox 箭头命中与 Expansion 头行
+        // 带的同族修复）：Tap 的 global 是滚动视口域、frame 是未滚动域，
+        // ScrollView 内滚动后漏补会整体偏差一个滚差——长页滚动后点击标签
+        // 无响应（近首屏不滚动时无症状掩盖，docsite Tabs 页 §2 即此症状）
+        Point comp = scrollCompensationOf(*this);
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
         int hit = hitTestTab(lx, ly);
         if (hit >= 0 && hit < static_cast<int>(tp_.items.size())) {
             if (hit != tp_.selectedIndex) {
@@ -337,6 +343,44 @@ void Tabs::setSelectedIndex(int index) {
     markDirty();
     requestLayout();
     fireChange();
+}
+
+// ═══════════════════════════════════════════════════════════
+// applyTabsProps — reconcile 属性覆盖（selectedIndex 受控回写门）
+// ═══════════════════════════════════════════════════════════
+// 同 StackIndex/Slider/Dropdown/SpinBox 的门控纪律：本次解析值与上轮相同
+// = rebuild 未声明新 selectedIndex（onChange 回显写 State、无关 State 变更
+// 等触发 rebuild 的常见路径）→ 保留点击/setProp 的命令式运行值。门控缺失
+// 时声明式初值（JS 字面量 selectedIndex:0）每轮 reconcile 强制接管：点击
+// 切到 2 → onChange 写 State → rebuild 立刻弹回 0，命令式通路形同虚设
+// （docsite pages/tabs.js 与 test/ui/tabs.js 演示均此症状）
+void Tabs::applyTabsProps(TabsProps tp) {
+    bool indexFresh = (tp.selectedIndex != lastParsedIndex_);
+    lastParsedIndex_ = tp.selectedIndex;
+    int runtime = tp_.selectedIndex;    // 命令式运行值（须在覆盖前捕获）
+    bool indexTookOver = false;
+    if (indexFresh && tp.selectedIndex != runtime) {
+        indexTookOver = true;           // 声明式 selectedIndex 实际变更 → 接管
+    } else {
+        tp.selectedIndex = runtime;     // 未声明新值：恢复运行值（解析值即运行值：还原无变化）
+    }
+    tp_ = std::move(tp);
+    if (indexTookOver) {
+        // 声明式切换 → 立即测量新选中面板（此前可能从未参与测量，同
+        // setSelectedIndex 措施）+ onLayout 全量重排（新面板落位 + 其余
+        // 面板 frame 归零防吃点击）；不发 onChange——非用户操作，State 源
+        // 已持有同一值（回声链由 State 端自行闭环）
+        int idx = tp_.selectedIndex;
+        if (idx >= 0 && idx < static_cast<int>(children.size())) {
+            float contentH = frame.height - tabAreaHeight_;
+            if (contentH < 0) contentH = 0;
+            Constraints childC = {0, frame.width, 0, contentH};
+            children[idx]->measure(childC);
+        }
+        onLayout();
+    }
+    markDirty();
+    requestLayout();
 }
 
 // ═══════════════════════════════════════════════════════════
