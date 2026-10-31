@@ -34,7 +34,11 @@ export const meta = {
 
 const L = {
     s1: { zh: '级联多选树', en: 'Cascading tree' },
-    tree: { zh: '多选级联树', en: 'Cascading tree' },
+    hint1: { zh: '勾选父节点级联全子树；子节点部分勾选时父节点呈半选态（indeterminate）。'
+               + '「系统」组未写 expanded → 初始折叠，点行或箭头展开。',
+            en: 'Checking a parent cascades the whole subtree; partially checked children show '
+                + 'the parent as indeterminate. The "system" group omits expanded — collapsed '
+                + 'initially, tap the row or arrow to open.' },
 };
 
 const NODES = [
@@ -51,29 +55,51 @@ const NODES = [
         { key: 'theme', title: 'Theme 主题' },
         { key: 'runtime', title: 'Runtime 运行时' },
     ] },
+    { key: 'media', title: '媒体', expanded: true, children: [
+        { key: 'image', title: 'Image 图片' },
+        { key: 'video', title: 'Video 视频' },
+        { key: 'g2d', title: 'G2D 画布' },
+        { key: 'g3d', title: 'G3D 三维' },
+    ] },
 ];
 
 const C1 = `const nodes = [
     { key: 'ui', title: '界面', expanded: true, children: [
         { key: 'view', title: 'View 容器', checked: true },
-        { key: 'text', title: 'Text 文本' },
+        { key: 'text', title: 'Text 文本', checked: true },
+        { key: 'button', title: 'Button 按钮' },
+    ] },
+    { key: 'data', title: '数据', expanded: true, children: [
+        { key: 'table', title: 'Table 表格' },
+        { key: 'chart', title: 'Chart 图表' },
+    ] },
+    { key: 'system', title: '系统', children: [   // 未写 expanded → 初始折叠
+        { key: 'theme', title: 'Theme 主题' },
+        { key: 'runtime', title: 'Runtime 运行时' },
+    ] },
+    { key: 'media', title: '媒体', expanded: true, children: [
+        { key: 'image', title: 'Image 图片' },
+        { key: 'video', title: 'Video 视频' },
+        { key: 'g2d', title: 'G2D 画布' },
+        { key: 'g3d', title: 'G3D 三维' },
     ] },
 ];
 
 TreeMenu({
-    nodes,
-    height: 240,
-    showCheckbox: true,
-    onChange: (e) => console.log(e.checked, e.count),
+    id: 'ds-tree', nodes, width: 420, height: 284,   // 内容 15 行溢出视口 → 内滚 + 到边链父
+    rowHeight: 28, indent: 16,
+    showCheckbox: true, showIcon: true,
+    background: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8,
+    onChange: (e) => console.log('checked', e.checked, e.count),
 });`;
 const demo1 = () => [
     TreeMenu({
-        id: 'ds-tree', nodes: NODES, width: 420, height: 240,
+        id: 'ds-tree', nodes: NODES, width: 420, height: 284,
         rowHeight: 28, indent: 16, showCheckbox: true, showIcon: true,
         background: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8,
         onChange: (e) => console.log('checked', e.checked, e.count),
     }),
-    Text({ text: t(L.tree) + '：勾选父节点会级联子节点。', fontSize: 11, color: '#94A3B8', margin: [2, 0, 0, 0] }),
+    Text({ text: t(L.hint1), fontSize: 11, color: '#94A3B8', width: 440, wordWrap: true, margin: [2, 0, 0, 0] }),
 ];
 
 export const content = (innerW = 884) => [

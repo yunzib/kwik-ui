@@ -1,7 +1,8 @@
 ---
 group: ext
 status: 已完成
-docsite: 无（待同步）
+docsite: video（单节：autoplay 播放演示 + play/pause/seek 方法卡——
+高级组实况页，Null 后端静态帧）
 ---
 # Video — 视频组件
 

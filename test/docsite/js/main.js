@@ -57,6 +57,9 @@ import * as textViewPage from './pages/textview.js';
 import * as progressBarPage from './pages/progressbar.js';
 import * as progressRingPage from './pages/progressring.js';
 import * as spinnerPage from './pages/spinner.js';
+import * as g2dPage from './pages/g2d.js';
+import * as g3dPage from './pages/g3d.js';
+import * as videoPage from './pages/video.js';
 
 // 实况页模块（有 content() 的页面）；导航条目不依赖此表（NAV 单源）
 const PAGES = [
@@ -70,6 +73,7 @@ const PAGES = [
     lazyListPage, stackIndexPage, layerPage, expansionPage,
     tablePage, tabsPage, chartPage, gaugePage, treeMenuPage,
     textViewPage, progressBarPage, progressRingPage, spinnerPage,
+    g2dPage, g3dPage, videoPage,
 ];
 const PAGE_BY_ID = Object.fromEntries(PAGES.map(p => [p.meta.id, p]));
 

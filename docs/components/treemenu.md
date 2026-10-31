@@ -1,7 +1,8 @@
 ---
 group: data
 status: 已完成
-docsite: 无（待同步）
+docsite: treemenu（单节：级联多选树——三组节点 / 半选态 / 初始折叠组，
+卡与演示同树同参）
 ---
 # TreeMenu — 树形菜单
 

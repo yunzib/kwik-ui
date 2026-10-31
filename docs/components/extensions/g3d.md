@@ -1,7 +1,8 @@
 ---
 group: ext
 status: 已完成
-docsite: 无（待同步）
+docsite: g3d（两节：glTF 模型加载 / 内建基本体组合——高级组实况页，
+卡与演示逐行同源）
 ---
 # G3D — 3D 绘制组件
 
