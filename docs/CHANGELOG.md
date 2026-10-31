@@ -41,6 +41,14 @@
   滚轮时浮层条目滚动的同时页面也滚，浮层与锚点脱离（子项多时双滚并
   发更明显）。修复：目标 onEvent 消费即止；View::onEvent 滚轮无槽位
   恒 false，普通组件/ScrollView/LazyList 链路零变化
+- StackIndex 命令式 index 被 reconcile 打回：applyStackIndexProps 整体盲赋
+  无门控——setProp 切换面板后 onChange/getProp 回显写 State 触发 rebuild，
+  声明式字面量（index:0）随即覆盖运行值，面板瞬间弹回（docsite stackindex
+  "命令式读写与 onChange" 演示点击无切换，car 设置页同构隐患）。修复：
+  对齐 Dropdown index 门控（lastParsedIndex_ 比对基准，初值取构造值同
+  Slider.lastParsedValue_），未声明新 index 保留命令式运行值；声明式
+  index 实际变更时 measure 新面板 + 立即 layout 并接管（不发 onChange），
+  实现自 cppm 下放 stack_index.cpp
 
 # 0.0.0 — 2026-10-30
 ### 修复

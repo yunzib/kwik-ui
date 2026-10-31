@@ -38,10 +38,16 @@ public:
      * @param vp 通用视图属性
      * @param sp 栈索引专有属性 (index)
      */
-    explicit StackIndex(ViewProps vp, StackIndexProps sp) : View(std::move(vp)), sp_(std::move(sp)) {}
+    explicit StackIndex(ViewProps vp, StackIndexProps sp) : View(std::move(vp)), sp_(std::move(sp)), lastParsedIndex_(sp_.index) {}
 
-    /** @brief reconcile 属性覆盖（整体重解析，布局期活读取） */
-    void applyStackIndexProps(StackIndexProps sp) { sp_ = std::move(sp); }
+    /**
+     * @brief reconcile 属性覆盖：index 受控回写门 + 声明式切换（实现见 stack_index.cpp）
+     *
+     * 同 Slider/Dropdown/SpinBox 门控纪律——rebuild 未声明新 index 时保留
+     * 命令式运行值（setProp/setIndex 通路结果），声明式 index 仅在
+     * 实际变更时接管（measure/layout，不发 onChange）。
+     */
+    void applyStackIndexProps(StackIndexProps sp);
 
     ElementType type() const override { return ElementType::StackIndex; }
 
@@ -75,6 +81,7 @@ protected:
 
 private:
     StackIndexProps sp_;    ///< 面板索引等专有属性
+    int lastParsedIndex_ = 0;    // 上一轮解析的 index（applyStackIndexProps 门控基准；显式构造时对齐 sp_.index，同 Slider.lastParsedValue_ 初始化）
 
     /**
      * @brief 当前有效子面板索引

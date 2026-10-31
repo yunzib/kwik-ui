@@ -95,6 +95,35 @@ void StackIndex::setIndex(int index) {
 }
 
 // ============================================================================
+// applyStackIndexProps — reconcile 增量同步（同 SpinBox/Dropdown 的受控回写门）
+// ============================================================================
+void StackIndex::applyStackIndexProps(StackIndexProps sp) {
+    // index 门控：本次解析值与上轮相同 = rebuild 未声明新 index（onChange/getProp
+    // 回显写 State、无关 State 变更等触发 rebuild 的常见路径）→ 保留命令式
+    // 运行值。门控缺失时声明式初值（JS 字面量 index:0）在每次 reconcile 强制
+    // 接管：setProp 切到 B → onChange 写 State → rebuild 立刻弹回 A，命令式
+    // 通路形同虚设（docsite stackindex "命令式读写" 演示即此症状）
+    bool indexFresh = (sp.index != lastParsedIndex_);
+    lastParsedIndex_ = sp.index;
+    int runtime = sp_.index;    // 命令式运行值（setProp/setIndex 写入；须在覆盖前捕获）
+    sp_ = std::move(sp);
+    if (!indexFresh || sp_.index == runtime) {
+        sp_.index = runtime;    // 未声明新值：恢复运行值（同 SpinBox）；解析值即运行值：还原无变化
+        return;
+    }
+    // 声明式 index 实际变更 → 切换：measure 新面板（此前可能从未参与测量）+
+    // 立即 layout（与 setIndex 同理由，框架布局门不必然触发）；不发 onChange
+    // ——非用户操作，State 源已持有同一值（回声链由 State 端自行闭环）
+    int idx = activeChild_();
+    if (idx >= 0) {
+        children[static_cast<size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
+        onLayout();    // 立即交换各面板 frame
+    }
+    markDirty();
+    requestLayout();    // 常规通道保留：下一帧全树校准
+}
+
+// ============================================================================
 // getProperty / setProperty — getProp("sid","index") / setProp("sid","index",n)
 // ============================================================================
 std::string StackIndex::getProperty(const char *name) const {
