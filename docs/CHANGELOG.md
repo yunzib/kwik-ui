@@ -2,6 +2,12 @@
 
 # 0.0.0 — 2026-10-31
 ### 修复
+- Flex justifyContent 三种 space 分布加宽量只落到首个间隔：加宽量折进
+  betweenGap 后于首个间隔复位，spaceBetween/spaceAround/spaceEvenly 下
+  仅 1→2 间隔变宽、后续子项挤在一起且末项不贴 end（spaceEvenly 加宽量
+  还写成 2s，去复位后会整行溢出内容区）。修复：加宽量改为整行常量
+  extraGap 对每个间隔生效，spaceEvenly 行内间隔 2s→s；Start/Center/End
+  路径零变化。补行为锁单测（四模式三子项逐位置断言）
 - SpinBox 三缺陷：① 箭头/hover 命中换算缺滚动补偿（ScrollView 内滚动后
   上下半区判定错，同 Slider 漏网）；② applySpinBoxProps 无 value 门控
   ——非受控步进/输入在 onChange 写 State 触发 rebuild 后恒被打回 0，
