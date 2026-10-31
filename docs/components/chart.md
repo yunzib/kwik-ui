@@ -1,7 +1,8 @@
 ---
 group: data
 status: 已完成
-docsite: 无（待同步）
+docsite: chart（四节：饼图 / 柱状图 / 折线图 / 纯视觉——
+结构镜像 test/ui/chart.js 四段 demo，双语标签差异）
 ---
 # Chart — 图表
 
@@ -102,7 +103,7 @@ graphics.save()/restore() 进入录制模式，保证增量动画帧图形正常
 
 ## 关联
 
-- 仪表盘（gauge）为 Chart 的一种图表类型；独立圆环进度展示用 [progressring](progressring.md)
+- 仪表盘（gauge）为 Chart 的一种图表类型，专页见 [gauge](gauge.md)；独立圆环进度展示用 [progressring](progressring.md)
 - 入场动画的定时器重绘驱动（CoreTimer / Application::run() tick）见：
   [运行时与生命周期](../8.%20运行时与生命周期.md)
 - 通用属性与数据类型格式：[View 篇（通用属性完备实例）](view.md)

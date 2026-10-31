@@ -51,6 +51,7 @@ import * as expansionPage from './pages/expansion.js';
 import * as tablePage from './pages/table.js';
 import * as tabsPage from './pages/tabs.js';
 import * as chartPage from './pages/chart.js';
+import * as gaugePage from './pages/gauge.js';
 import * as treeMenuPage from './pages/treemenu.js';
 import * as textViewPage from './pages/textview.js';
 import * as progressBarPage from './pages/progressbar.js';
@@ -67,7 +68,7 @@ const PAGES = [
     dateTimePickerPage, keyboardPage,
     flexPage, gridPage, stackPage, listPage, scrollViewPage,
     lazyListPage, stackIndexPage, layerPage, expansionPage,
-    tablePage, tabsPage, chartPage, treeMenuPage,
+    tablePage, tabsPage, chartPage, gaugePage, treeMenuPage,
     textViewPage, progressBarPage, progressRingPage, spinnerPage,
 ];
 const PAGE_BY_ID = Object.fromEntries(PAGES.map(p => [p.meta.id, p]));
@@ -130,6 +131,7 @@ const NAV = [
     { id: 'table', group: 'data', title: { zh: 'Table 表格', en: 'Table' }, doc: 'docs/components/table.md' },
     { id: 'tabs', group: 'data', title: { zh: 'Tabs 页签', en: 'Tabs' }, doc: 'docs/components/tabs.md' },
     { id: 'chart', group: 'data', title: { zh: 'Chart 图表', en: 'Chart' }, doc: 'docs/components/chart.md' },
+    { id: 'gauge', group: 'data', title: { zh: 'Gauge 仪表盘', en: 'Gauge' }, doc: 'docs/components/gauge.md' },
     { id: 'treemenu', group: 'data', title: { zh: 'TreeMenu 树菜单', en: 'TreeMenu' }, doc: 'docs/components/treemenu.md' },
     { id: 'textview', group: 'adv', title: { zh: 'TextView 富文本', en: 'TextView' }, doc: 'docs/components/textview.md' },
     { id: 'progressbar', group: 'adv', title: { zh: 'ProgressBar 进度条', en: 'ProgressBar' }, doc: 'docs/components/progressbar.md' },

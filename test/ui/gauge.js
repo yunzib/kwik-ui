@@ -152,7 +152,7 @@ export default () => {
                 },
             }, [
                 Text({ text: ref(speedLabel, "label"), align: "center", y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
-                Text({ text: "triangle", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
+                Text({ text: "torpedo", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
             ]),
 
             // ── ⑥ counterweight 配重尾针（尾部穿出 hub 后方）──
@@ -167,7 +167,7 @@ export default () => {
                 },
             }, [
                 Text({ text: ref(speedLabel, "label"), align: "center", y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
-                Text({ text: "triangle", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
+                Text({ text: "counterweight", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
             ]),
 
             // ── ⑦ blade 宽刀片梯形 ──
@@ -182,7 +182,7 @@ export default () => {
                 },
             }, [
                 Text({ text: ref(speedLabel, "label"), align: "center", y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
-                Text({ text: "triangle", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
+                Text({ text: "blade", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
             ]),
         ]),
     ]));

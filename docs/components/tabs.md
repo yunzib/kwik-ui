@@ -1,7 +1,8 @@
 ---
 group: data
 status: 已完成
-docsite: 无（待同步）
+docsite: tabs（三节：基本联动 / 自定义颜色与间距 / 命令式读写——
+结构镜像 test/ui/tabs.js，命令式读出经 State 显示）
 ---
 # Tabs — 标签页导航
 
