@@ -193,6 +193,8 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
                 panMove.timestamp = ts;
                 panMove.globalX = raw.x;
                 panMove.globalY = raw.y;
+                panMove.panDx = dx;    // 相对按下点累计位移（拖动定位主用量）
+                panMove.panDy = dy;
                 panMove.presetTarget = ps->pressTarget;
                 out.push_back(panMove);
             }
@@ -220,6 +222,8 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
     // ── 鼠标/触摸抬起 ───────────────────────────────
     case RawEvent::Action::Up: {
         auto *ps = tracker.get(pid);
+        // PanEnd 判定 + pan 标志清理（原无条件 erase 前移——hadPan 供下方产出）
+        bool hadPan = panStarted_.erase(pid) > 0;
         if (ps) {
             float dx = raw.x - ps->downX;
             float dy = raw.y - ps->downY;
@@ -240,6 +244,22 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
                 out.push_back(tapEvt);
             }
 
+            // PanEnd: 拖动生命周期收尾（此前仅枚举存在、从未生成——组件
+            // 全靠 PointerUp/PointerCancel 兜底复位）。pan 进行中才产出，
+            // 先于 PointerUp——手势生命周期先于原始抬起收尾
+            if (hadPan) {
+                DispatchEvent panEnd;
+                panEnd.type = DispatchEvent::Type::PanEnd;
+                panEnd.pointerId = pid;
+                panEnd.timestamp = ts;
+                panEnd.globalX = raw.x;
+                panEnd.globalY = raw.y;
+                panEnd.panDx = dx;    // 终点累计位移 = 抬起点 − 按下点
+                panEnd.panDy = dy;
+                panEnd.presetTarget = ps->pressTarget;
+                out.push_back(panEnd);
+            }
+
             // PointerUp 透传
             DispatchEvent upEvt;
             upEvt.type = DispatchEvent::Type::PointerUp;
@@ -251,7 +271,6 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
             upEvt.presetTarget = ps->pressTarget;
             out.push_back(upEvt);
         }
-        panStarted_.erase(pid);
         break;
     }
     // ── 捕获被夺 / 合成取消（WM_CAPTURECHANGED 常规路径）──
@@ -261,6 +280,23 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
         bool hadPan = panStarted_.erase(pid) > 0;
         auto *ps = tracker.get(pid);
         if (hadPan || (ps && ps->active)) {
+            // PanEnd 先于 PointerCancel：捕获被夺同样收尾拖动生命周期，
+            // JS 侧 onPanBegin/onPanMove/onPanEnd 三段完整（组件兜底复位
+            // 分支幂等，双收无副作用）
+            if (hadPan) {
+                DispatchEvent panEnd;
+                panEnd.type = DispatchEvent::Type::PanEnd;
+                panEnd.pointerId = pid;
+                panEnd.timestamp = ts;
+                panEnd.globalX = raw.x;
+                panEnd.globalY = raw.y;
+                if (ps) {
+                    panEnd.panDx = raw.x - ps->downX;
+                    panEnd.panDy = raw.y - ps->downY;
+                    panEnd.presetTarget = ps->pressTarget;
+                }
+                out.push_back(panEnd);
+            }
             DispatchEvent cancelEvt;
             cancelEvt.type = DispatchEvent::Type::PointerCancel;
             cancelEvt.pointerId = pid;
@@ -465,8 +501,12 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
             }
             return true;
         }
-        // 点击类手势(Tap/LongPress): 最深目标未消费 → 沿祖先链冒泡
-        if (event.type == DispatchEvent::Type::Tap || event.type == DispatchEvent::Type::LongPress) {
+        // 点击/拖动类手势(Tap/LongPress/Pan 族): 最深目标未消费 → 沿祖先链
+        // 冒泡。pan 冒泡是 JS 容器级 onPan 的前提——按下落在深层子级时祖先
+        // 仍可接拖；Slider/滚动条/文本拖选等组件消费即止，抑制祖先语义不变
+        if (event.type == DispatchEvent::Type::Tap || event.type == DispatchEvent::Type::LongPress
+            || event.type == DispatchEvent::Type::PanBegin || event.type == DispatchEvent::Type::PanMove
+            || event.type == DispatchEvent::Type::PanEnd) {
             for (EventTarget *v = event.presetTarget->parent(); v; v = v->parent()) {
                 if (fireOnTarget(v, event)) { return true; }
             }

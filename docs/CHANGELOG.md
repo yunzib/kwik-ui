@@ -1,5 +1,16 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-01
+### 新增
+- JS 层拖拽手势事件 onPanBegin/onPanMove/onPanEnd（任务 #59 W2 pan 子项）：
+  PanEnd 此前仅枚举存在、从未生成——GestureRecognizer Up/Cancel 双路补生成
+  点，组件不再只靠 PointerUp/PointerCancel 兜底收尾；DispatchEvent 增
+  panDx/panDy 载荷（相对按下点累计位移，PanBegin=0），PointerArgs/JS 事件
+  对象同载 dx/dy；Pan 族事件未被目标消费时沿祖先链上溯（容器声明 onPan
+  即可接住子级上发起的拖动；Slider/滚动条/文本拖选等自带拖拽组件消费即止，
+  抑制祖先语义不变）；ViewEventHandlers 增三槽位并经 attachJsHandlers 暴露，
+  组件既有 PanEnd 兜底分支激活逐一核对幂等
+
 # 0.0.0 — 2026-10-31
 ### 修复
 - G2D/G3D 内容越界盖顶栏（docsite 高级组页滚动后）：三处同根——① G2D

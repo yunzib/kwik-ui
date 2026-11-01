@@ -68,13 +68,16 @@ void callJs0(JSContext *ctx, const JsHandler &h, const char *tag) {
     JS_FreeValue(ctx, ret);
 }
 
-/** @brief 构造指针事件对象 { x, y, gx, gy }（局部 + 窗口双载） */
+/** @brief 构造指针事件对象 { x, y, gx, gy, dx, dy }（局部 + 窗口双载；
+ *  dx/dy 为 pan 族相对按下点累计位移，其余事件恒 0） */
 JSValue makePointerEvent(JSContext *ctx, const PointerArgs &a) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "x", JS_NewFloat64(ctx, static_cast<double>(a.x)));
     JS_SetPropertyStr(ctx, obj, "y", JS_NewFloat64(ctx, static_cast<double>(a.y)));
     JS_SetPropertyStr(ctx, obj, "gx", JS_NewFloat64(ctx, static_cast<double>(a.gx)));
     JS_SetPropertyStr(ctx, obj, "gy", JS_NewFloat64(ctx, static_cast<double>(a.gy)));
+    JS_SetPropertyStr(ctx, obj, "dx", JS_NewFloat64(ctx, static_cast<double>(a.dx)));
+    JS_SetPropertyStr(ctx, obj, "dy", JS_NewFloat64(ctx, static_cast<double>(a.dy)));
     return obj;
 }
 
@@ -247,6 +250,13 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
     bindPointer("onHoverEnter", view.handlers.onHoverEnter);
     bindPointer("onHoverLeave", view.handlers.onHoverLeave);
     bindPointer("onContextMenu", view.handlers.onContextMenu);
+    // ── 拖动手势: onPanBegin / onPanMove / onPanEnd ──
+    // 位移超 5px 阈值起拖；载荷 dx/dy = 相对按下点累计位移（PanBegin=0）；
+    // 绑定即消费（阻止继续上溯）——自带拖拽的组件（Slider/滚动条/可选文本）
+    // 自身消费 pan，槽位不触发
+    bindPointer("onPanBegin", view.handlers.onPanBegin);
+    bindPointer("onPanMove", view.handlers.onPanMove);
+    bindPointer("onPanEnd", view.handlers.onPanEnd);
 
     // ── onWindowResize: 窗口尺寸变化（载荷 {width, height}）──
     // dispatch 以根为唯一预设目标——仅根声明生效；位置参数 x/y 即新宽/高

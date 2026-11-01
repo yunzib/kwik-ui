@@ -34,6 +34,8 @@ export struct PointerArgs {
     float y = 0.0f;
     float gx = 0.0f;    // 窗口坐标（滚动视口域；滚动容器内 = global + scroll）
     float gy = 0.0f;
+    float dx = 0.0f;    // pan 族专用：相对按下点的累计位移（PanBegin=0）；其余事件恒 0
+    float dy = 0.0f;
 };
 
 /**
@@ -88,6 +90,9 @@ export struct ViewEventHandlers {
     std::function<bool(const PointerArgs &)> onHoverEnter;    ///< 鼠标进入
     std::function<bool(const PointerArgs &)> onHoverLeave;    ///< 鼠标离开
     std::function<bool(const PointerArgs &)> onContextMenu;   ///< 右键上下文菜单 (返回 true=消费，阻止冒泡)
+    std::function<bool(const PointerArgs &)> onPanBegin;      ///< 拖动开始（位移超 5px 阈值；dx/dy=0）
+    std::function<bool(const PointerArgs &)> onPanMove;       ///< 拖动中（dx/dy=相对按下点累计位移；绑定即消费阻止上溯）
+    std::function<bool(const PointerArgs &)> onPanEnd;        ///< 拖动结束（抬起/捕获被夺均收尾；自带拖拽的组件如 Slider 自身消费不透出）
     std::function<bool(const PointerArgs &)> onWindowResize;  ///< 窗口尺寸变化（位置参数 x=width/y=height；dispatch 以根为唯一预设目标，仅根声明生效）
     std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
     std::function<void()> onClose;                            ///< Dialog 关闭
@@ -101,14 +106,17 @@ export struct ViewEventHandlers {
 
     /**
      * @brief 根据事件码分发到对应的指针事件处理器
-     * @param code    事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave)
+     * @param code    事件类型码 (0=Tap 1=LongPress 2=HoverEnter 3=HoverLeave 5/6/7=Pan 族)
      * @param localX  相对控件原点的局部 x 坐标
      * @param localY  相对控件原点的局部 y 坐标
      * @param globalX 滚动视口（屏幕）域 x（局部坐标默认口径下的双载全局值）
      * @param globalY 滚动视口（屏幕）域 y
+     * @param panDx   pan 族专用：相对按下点累计位移（其余事件传 0）
+     * @param panDy   pan 族专用：相对按下点累计位移
      * @return true 表示事件已消费 (阻止冒泡)
      */
-    bool dispatch(int code, float localX, float localY, float globalX = 0.0f, float globalY = 0.0f);
+    bool dispatch(int code, float localX, float localY, float globalX = 0.0f, float globalY = 0.0f,
+                  float panDx = 0.0f, float panDy = 0.0f);
 };
 
 // ============================================================================

@@ -3,7 +3,7 @@
 // + 内容自组装 content()。本页结构 = 标题/描述 + 若干示例小节
 // （每节：小节标题 → 实况演示卡 → 紧随其下的示例代码卡）+ 分组属性表。
 // 公共积木来自 ui/page_parts（pageTitle/pageDesc）与 ui/code_block。
-import { View, Flex, Text, State } from 'kwikui';
+import { View, Flex, Text, State, ref } from 'kwikui';
 import { t } from '../lang.js';
 import { pageTitle, pageDesc } from '../ui/page_parts.js';
 import { note } from '../ui/page_kit.js';
@@ -16,9 +16,9 @@ export const meta = {
     title: { zh: 'View 视图', en: 'View' },
     desc: {
         zh: '最基础的容器组件：尺寸 / 背景 / 边框 / 圆角 / 阴影 / 内外边距 / '
-            + '透明度 / 百分比尺寸，并可挂 onClick 点击回调；所有组件共承这套通用属性。',
+            + '透明度 / 百分比尺寸，并可挂 onClick 点击与 onPan 拖拽回调；所有组件共承这套通用属性。',
         en: 'The base container: size / background / border / radius / shadow / padding '
-            + '/ margin / opacity / percentage sizing, plus onClick; every component inherits this set.',
+            + '/ margin / opacity / percentage sizing, plus onClick & onPan callbacks; every component inherits this set.',
     },
     // 属性表（分组结构）：[{ title: {zh,en}, rows: [[name, type, default, {zh,en}], ...] }]
     props: [
@@ -53,6 +53,9 @@ export const meta = {
         ]},
         { title: { zh: '交互', en: 'Interaction' }, rows: [
             ['onClick', '(e) => {...}', '-', { zh: '点击回调。e.x/e.y = 相对本视图坐标；e.gx/e.gy = 窗口坐标双载。绑定即消费——祖先的 onClick 不再收到本次点击（JS 适配层调用成功即视为消费）', en: 'Tap callback. e.x/e.y = position in this view; e.gx/e.gy = window coordinates (dual payload). Binding consumes the tap — ancestor onClick never fires (a successful JS call counts as consumed)' }],
+            ['onPanBegin', '(e) => {...}', '-', { zh: '拖动开始（按住位移超 5px 阈值）。e 载荷同 onClick，dx/dy=0', en: 'Drag start (press slop > 5px). Same payload as onClick with dx/dy = 0' }],
+            ['onPanMove', '(e) => {...}', '-', { zh: '拖动中。e.dx/e.dy = 相对按下点的累计位移；绑定即消费并阻止上溯（Slider/滚动条/可选文本等自带拖拽的组件自身消费 pan，槽位不触发）', en: 'During drag. e.dx/e.dy = total translation since the press point. Binding consumes and stops bubbling (components with built-in drag — Slider/scrollbar/selectable text — consume pan themselves)' }],
+            ['onPanEnd', '(e) => {...}', '-', { zh: '拖动结束（抬起与捕获被夺均触发；e.dx/e.dy 为终点累计位移）', en: 'Drag end (fires on release and on lost capture; e.dx/e.dy = final translation)' }],
         ]},
     ],
 };
@@ -82,6 +85,7 @@ const L = {
     s5: { zh: '透明度', en: 'Opacity' },
     s6: { zh: '百分比尺寸', en: 'Percentage Size' },
     s7: { zh: '点击交互', en: 'Click Interaction' },
+    s8: { zh: '拖拽交互（pan 手势）', en: 'Drag Interaction (pan)' },
     r0: { zh: '圆角 0', en: 'radius 0' },
     r10: { zh: '圆角 10', en: 'radius 10' },
     r20: { zh: '圆角 20', en: 'radius 20' },
@@ -101,6 +105,20 @@ const L = {
         zh: '点击写 State → 整树 reconcile → 背景随扩展翻转。',
         en: 'Tap writes State → tree reconciles → background flips.',
     },
+    dragMe: { zh: '拖我', en: 'Drag me' },
+    dragHint: {
+        zh: '按住拖动（位移超 5px 起拖）：e.dx/e.dy 是相对按下点的累计位移——'
+            + 'onPanBegin 记基点、onPanMove 里「基点 + dx/dy」写 State x/y 即跟手；'
+            + '抬起与捕获被夺都走 onPanEnd 收尾。未消费的 pan 会沿祖先上溯，'
+            + '从卡内文字上起拖同样有效；Slider/滚动条等自带拖拽的组件自身消费，不透出。',
+        en: 'Press and drag (5px slop): e.dx/e.dy is the total translation from the press '
+            + 'point — capture the base position in onPanBegin, write State x/y as base + dx/dy '
+            + 'in onPanMove to follow the pointer; both release and lost capture end with '
+            + 'onPanEnd. Unconsumed pan events bubble to ancestors, so dragging from the label '
+            + 'inside the card works too; components with built-in drag (Slider, scrollbar) '
+            + 'consume pan themselves and never reach these slots.',
+    },
+    dragIdle: { zh: '拖动状态显示在这里', en: 'pan status shows here' },
 };
 
 const COLORS = ['#2563EB', '#16A34A', '#E5484D'];
@@ -108,6 +126,11 @@ const COLORS = ['#2563EB', '#16A34A', '#E5484D'];
 // State 必须模块顶层：content() 每次重建都会重跑（State 写 → 整树 reconcile），
 // 函数内 new State 每轮都是全新对象，换色永远停在首色
 const st = new State({ i: 0 });
+
+// 拖拽演示状态：卡位 x/y + 拖动态 + 最近一次 pan 载荷文案
+const dragSt = new State({ x: 16, y: 16, on: false, info: '' });
+// 拖起基点（onPanBegin 时的卡位）：onPanMove 里「基点 + e.dx/dy」即跟手
+let dragBaseX = 0, dragBaseY = 0;
 
 // 演示块内标签（小字白/深灰，绝对定位风格用 padding 推入）
 const label = (txt, dark) => Text({
@@ -285,6 +308,59 @@ const demo7 = () => [
     ]),
 ];
 
+// ── ⑧ 拖拽交互（pan 手势）──
+const C8 = `import { View, Text, State, ref } from 'kwikui';
+
+const pos = new State({ x: 16, y: 16, on: false });
+let bx = 0, by = 0;   // 拖起基点（onPanBegin 时的卡位）
+
+// 场地 420×150，卡 120×56 → 拖动范围 x∈[0,300]、y∈[0,94]
+View({ width: 420, height: 150, background: '#F8FAFC',
+       borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8 }, [
+    View({
+        x: ref(pos, 'x'), y: ref(pos, 'y'),          // 基点+累计位移写回 State
+        width: 120, height: 56, borderRadius: 10,
+        background: pos.on ? '#1D4ED8' : '#2563EB',
+        shadow: '0 6 16 #2563EB55',
+        onPanBegin: () => { pos.on = true; bx = pos.x; by = pos.y; },
+        onPanMove: (e) => {                           // e.dx/e.dy = 相对按下点累计位移
+            pos.x = Math.max(0, Math.min(300, bx + e.dx));
+            pos.y = Math.max(0, Math.min(94, by + e.dy));
+        },
+        onPanEnd: () => { pos.on = false; },          // 抬起/捕获被夺均收尾
+    }, [
+        Text({ text: '拖我', fontSize: 13, color: '#FFFFFF' }),
+    ]),
+]);`;
+const demo8 = () => [
+    Flex({ direction: 'column', gap: 8 }, [
+        View({ width: 420, height: 150, background: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8 }, [
+            View({
+                x: ref(dragSt, 'x'), y: ref(dragSt, 'y'),
+                width: 120, height: 56, borderRadius: 10,
+                background: dragSt.on ? '#1D4ED8' : '#2563EB',
+                shadow: '0 6 16 #2563EB55',
+                onPanBegin: () => {
+                    dragSt.on = true;
+                    dragBaseX = dragSt.x; dragBaseY = dragSt.y;
+                    dragSt.info = 'PanBegin  dx 0 · dy 0';
+                },
+                onPanMove: (e) => {
+                    // 跟手 = 基点 + 累计位移，钳在场地内（420×150 − 卡 120×56）
+                    dragSt.x = Math.max(0, Math.min(300, dragBaseX + e.dx));
+                    dragSt.y = Math.max(0, Math.min(94, dragBaseY + e.dy));
+                    dragSt.info = 'PanMove  dx ' + Math.round(e.dx) + ' · dy ' + Math.round(e.dy);
+                },
+                onPanEnd: (e) => {
+                    dragSt.on = false;
+                    dragSt.info = 'PanEnd  dx ' + Math.round(e.dx) + ' · dy ' + Math.round(e.dy);
+                },
+            }, [label(t(L.dragMe))]),
+        ]),
+        Text({ text: dragSt.info || t(L.dragIdle), fontSize: 11.5, color: '#909399' }),
+    ]),
+];
+
 // 页面自治：标题 + 描述 + 七个示例小节（每节演示紧随代码）+ 分组属性表
 export const content = (innerW = 884) => [
     pageTitle(meta),
@@ -300,5 +376,6 @@ export const content = (innerW = 884) => [
     ...section(t(L.s5), demo5(), C5, innerW),
     ...section(t(L.s6), demo6(), C6, innerW),
     ...section(t(L.s7), demo7(), C7, innerW),
+    ...section(t(L.s8), demo8(), C8, innerW, undefined, t(L.dragHint)),
     propsTable(t, meta.props, innerW),
 ];

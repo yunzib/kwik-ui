@@ -20,7 +20,8 @@ bool View::sLayoutPhase = false;
 // ============================================================================
 // ViewEventHandlers 实现
 // ============================================================================
-bool ViewEventHandlers::dispatch(int code, float localX, float localY, float globalX, float globalY) {
+bool ViewEventHandlers::dispatch(int code, float localX, float localY, float globalX, float globalY,
+                                 float panDx, float panDy) {
     // 事件码 → 槽位映射 (与 dispatchEventTypeToCode 约定一致)
     std::function<bool(const PointerArgs &)> *slot = nullptr;
     switch (code) {
@@ -28,14 +29,18 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY, float glo
     case 1: slot = &onLongPress; break;     // LongPress
     case 2: slot = &onHoverEnter; break;    // HoverEnter
     case 3: slot = &onHoverLeave; break;    // HoverLeave
+    case 5: slot = &onPanBegin; break;      // PanBegin（拖动开始）
+    case 6: slot = &onPanMove; break;       // PanMove（拖动中）
+    case 7: slot = &onPanEnd; break;        // PanEnd（拖动结束）
     case 28: slot = &onContextMenu; break;  // ContextMenu（与 dispatchEventTypeToCode 码 28 同源）
     case 26: slot = &onWindowResize; break; // WindowResize（载荷=尺寸，X/Y 传递统一位置参数约定）
     default: return false;
     }
     if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
     // 调用回调; 返回值为 consumed 语义 (JS 适配层调用成功恒返回 true, 异常返回 false)
-    // 键盘/resize 路径 globalX/Y 传 0（载荷语义在 x/y 通道）
-    return (*slot)(PointerArgs{localX, localY, globalX, globalY});
+    // 键盘/resize 路径 globalX/Y 传 0（载荷语义在 x/y 通道）；pan 族 dx/dy
+    // 为相对按下点累计位移，其余事件恒 0
+    return (*slot)(PointerArgs{localX, localY, globalX, globalY, panDx, panDy});
 }
 
 /** @brief 布局控件（增量：frame 未动 且 子节点无测量变更 → 跳过子树重排） */
@@ -858,7 +863,8 @@ bool View::onEvent(const DispatchEvent &event) {
     Point comp = scrollCompensationOf(*this);
     Point local = {event.globalX + comp.x - frame.x, event.globalY + comp.y - frame.y};
     int code = dispatchEventTypeToCode(event.type);
-    return handlers.dispatch(code, local.x, local.y, event.globalX, event.globalY);
+    // pan 族事件透传 panDx/panDy（相对按下点累计位移），其余事件字段恒 0
+    return handlers.dispatch(code, local.x, local.y, event.globalX, event.globalY, event.panDx, event.panDy);
 }
 
 // View::acceptsFocus — 默认返回 false, 子类重写

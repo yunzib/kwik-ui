@@ -376,7 +376,8 @@ void Text::resolveThemeDefaults() {
 //
 // 事件链依赖（事件层零改动的前提）：
 //   PointerDown/PanMove/Up 均带 presetTarget=pressTarget 直投本节点
-//   （拖出边界事件仍到达）；PanMove 消费即止不冒泡 → 祖先 ScrollView
+//   （拖出边界事件仍到达）；PanMove 本节点消费即止（未消费的 pan 族事件
+//   会沿祖先上溯——JS 容器级 onPan 的通路）→ 此处消费后祖先 ScrollView
 //   拖动滚动被抑制（滚轮链独立，不受影响）；KeyAction 只投焦点 →
 //   acceptsFocus 后 Ctrl+C/A 天然到达。
 // ═══════════════════════════════════════════════════════════════════════════

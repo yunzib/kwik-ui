@@ -175,6 +175,11 @@ export struct DispatchEvent {
     float scrollX = 0.0f;
     float scrollY = 0.0f;
 
+    // pan 族（PanBegin/PanMove/PanEnd）专用——相对按下点的累计位移
+    // （SwiftUI translation 口径：Begin=0，Move/End=当前点−按下点）；其余事件恒 0
+    float panDx = 0.0f;
+    float panDy = 0.0f;
+
     // 窗口
     int resizeWidth = 0;
     int resizeHeight = 0;
@@ -533,7 +538,9 @@ private:
  * @brief 事件分发器
  *
  * 三阶段分发模型:
- *   ① 预设目标 (HoverEnter/Leave): 直接分发给 presetTarget
+ *   ① 预设目标 (Hover/Pan 等 presetTarget 事件): 直接分发给 presetTarget;
+ *      Tap/LongPress/Pan 族未被目标消费时沿祖先链冒泡 (JS 容器级 onPan 的
+ *      前提), 其余 presetTarget 事件消费即止不冒泡
  *   ② Scroll: hitTest → fireOnTarget（目标 onEvent 消费即止——浮层菜单/
  *      时间滚轮等自持滚动的浮层不再滚动祖先页面）→ 未消费走 parent
  *      scrollable → applyScroll 滚动链（到边界传递给外层）

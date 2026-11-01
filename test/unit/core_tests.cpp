@@ -2230,6 +2230,171 @@ static void test_pan_survives_tree_rebuild() {
 }
 
 // ============================================================================
+// Pan 手势生命周期：PanEnd 生成（Up/Cancel 双路收尾）+ 载荷 panDx/panDy
+// （#59 W2 pan 子项：此前 PanEnd 仅枚举存在从未生成，组件全靠 PointerUp 兜底）
+// ============================================================================
+static void test_pan_end_lifecycle() {
+    struct PanRecorder final : View {
+        int begins = 0, moves = 0, ends = 0;
+        float moveDx = -999.0f;
+        float endDx = -999.0f, endDy = -999.0f, endGx = -999.0f;
+        bool onEvent(const DispatchEvent &e) override {
+            if (e.type == DispatchEvent::Type::PanBegin) ++begins;
+            if (e.type == DispatchEvent::Type::PanMove) { ++moves; moveDx = e.panDx; }
+            if (e.type == DispatchEvent::Type::PanEnd) {
+                ++ends;
+                endDx = e.panDx;
+                endDy = e.panDy;
+                endGx = e.globalX;
+            }
+            return View::onEvent(e);
+        }
+    };
+
+    PanRecorder v;
+    v.layout(Rect{0, 0, 300, 40});    // 独立根：显式 frame（hitTest 需要）
+
+    EventRouter router;
+    router.setRootTarget(&v);
+
+    int ts = 100;
+    auto feed = [&](RawEvent::Action a, float x, float y) {
+        RawEvent e;
+        e.device = RawEvent::Device::Mouse;
+        e.action = a;
+        e.x = x;
+        e.y = y;
+        e.button = 1;    // 左键
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+    };
+    auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+
+    // ① 超阈值拖动后抬起 → Begin/Move/End 三段完整；PanEnd 载荷 =
+    //    抬起点坐标 + 相对按下点累计位移（SwiftUI translation 口径）
+    feed(RawEvent::Action::Down, 10, 20);
+    feed(RawEvent::Action::Move, 40, 20);    // 位移 30 > 5px 阈值 → pan 起
+    CHECK(v.begins == 1);
+    CHECK(v.moves >= 1);
+    CHECK(nearf(v.moveDx, 30.0f));    // PanMove 累计位移 = 40−10
+    feed(RawEvent::Action::Up, 60, 25);
+    CHECK(v.ends == 1);
+    CHECK(nearf(v.endDx, 50.0f));    // 终点位移 = 60−10
+    CHECK(nearf(v.endDy, 5.0f));     // 25−20
+    CHECK(nearf(v.endGx, 60.0f));
+
+    // ② 阈值内抬起（未起拖）→ 无 PanEnd（Tap 路径不受影响）
+    feed(RawEvent::Action::Down, 10, 20);
+    feed(RawEvent::Action::Up, 12, 20);    // 位移 2 < 5px
+    CHECK(v.ends == 1);                    // 未增长
+    CHECK(v.begins == 1);
+
+    // ③ 抬起已清 panStarted_ → 重新起拖可得完整三段
+    feed(RawEvent::Action::Down, 10, 20);
+    feed(RawEvent::Action::Move, 60, 20);
+    feed(RawEvent::Action::Up, 60, 20);
+    CHECK(v.begins == 2);
+    CHECK(v.ends == 2);
+
+    // ④ Cancel 路径：拖动中捕获被夺 → PanEnd 先于 PointerCancel 收尾
+    feed(RawEvent::Action::Down, 10, 20);
+    feed(RawEvent::Action::Move, 60, 20);
+    feed(RawEvent::Action::Cancel, 60, 20);
+    CHECK(v.ends == 3);
+}
+
+// ============================================================================
+// Pan 族未消费冒泡：深层子级未消费的 Pan 事件沿祖先上溯（JS 容器级 onPan
+// 前提）；子级自身消费（Slider 类语义）则祖先不收
+// ============================================================================
+static void test_pan_bubble() {
+    // ① 子级未绑槽位、不消费 → 绑定 onPanMove 的祖先收到（dx 与局部坐标透传）
+    {
+        auto parent = std::make_unique<View>();
+        auto child = std::make_unique<View>();
+        View *p = parent.get();
+        View *c = child.get();
+        parent->addChild(std::move(child));
+
+        int moves = 0;
+        float gotDx = -999.0f, gotLocalX = -999.0f;
+        p->handlers.onPanMove = [&](const PointerArgs &a) {
+            ++moves;
+            gotDx = a.dx;
+            gotLocalX = a.x;
+            return true;
+        };
+
+        EventRouter router;
+        router.setRootTarget(p);
+        p->layout(Rect{0, 0, 300, 80});
+        c->layout(Rect{10, 10, 50, 20});    // 按下点 (30,15) 命中子级
+
+        int ts = 100;
+        auto feed = [&](RawEvent::Action a, float x, float y) {
+            RawEvent e;
+            e.device = RawEvent::Device::Mouse;
+            e.action = a;
+            e.x = x;
+            e.y = y;
+            e.button = 1;
+            e.timestamp = ++ts;
+            router.feedRawEvent(e);
+        };
+        auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+
+        feed(RawEvent::Action::Down, 30, 15);    // pressTarget = child（更深命中）
+        feed(RawEvent::Action::Move, 80, 15);    // 位移 50 → PanBegin/PanMove
+        CHECK(moves >= 1);
+        CHECK(nearf(gotDx, 50.0f));              // 累计位移透传到祖先槽位
+        CHECK(nearf(gotLocalX, 80.0f));          // 根为祖先 → 局部 x = 全局 x
+        feed(RawEvent::Action::Up, 80, 15);
+    }
+
+    // ② 子级消费 PanMove（Slider 类语义）→ 祖先槽位不触发
+    {
+        struct PanEater final : View {
+            bool onEvent(const DispatchEvent &e) override {
+                if (e.type == DispatchEvent::Type::PanBegin || e.type == DispatchEvent::Type::PanMove) return true;
+                return View::onEvent(e);
+            }
+        };
+        auto parent = std::make_unique<View>();
+        auto child = std::make_unique<PanEater>();
+        View *p = parent.get();
+        PanEater *c = child.get();
+        parent->addChild(std::move(child));
+
+        int moves = 0;
+        p->handlers.onPanMove = [&](const PointerArgs &) {
+            ++moves;
+            return true;
+        };
+
+        EventRouter router;
+        router.setRootTarget(p);
+        p->layout(Rect{0, 0, 300, 80});
+        c->layout(Rect{10, 10, 50, 20});
+
+        int ts = 200;
+        auto feed = [&](RawEvent::Action a, float x, float y) {
+            RawEvent e;
+            e.device = RawEvent::Device::Mouse;
+            e.action = a;
+            e.x = x;
+            e.y = y;
+            e.button = 1;
+            e.timestamp = ++ts;
+            router.feedRawEvent(e);
+        };
+
+        feed(RawEvent::Action::Down, 30, 15);
+        feed(RawEvent::Action::Move, 80, 15);
+        CHECK(moves == 0);    // 子级消费即止，未上溯
+    }
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -2636,6 +2801,8 @@ int main() {
     test_input_latency_stamp();
     test_focus_preserved_across_reset();
     test_pan_survives_tree_rebuild();
+    test_pan_end_lifecycle();
+    test_pan_bubble();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();

@@ -258,6 +258,8 @@ bool Slider::onEvent(const DispatchEvent &event) {
     }
 
     case DispatchEvent::Type::PanEnd:
+        // 拖动收尾补一次绑定提交（事件层自 #59 W2 起真实生成 PanEnd；
+        // PointerUp 分支同款提交幂等，双收无副作用）
         if (binding_) binding_->setFloat(bindKey_, sp_.value);
         return true;
 
