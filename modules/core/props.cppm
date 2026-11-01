@@ -388,7 +388,8 @@ export struct ColumnDef {
  * @brief 表格专有属性
  *
  * columns[] 定义列，data 由 JS 传入数组对象。
- * 当 contentWidth > 可用宽度时内容溢出（暂无滚动，后续可叠加）。
+ * 垂直虚拟化滚动：表头冻结，主体按可视行窗口绘制（固定 rowHeight O(1) 定位）；
+ * 内容超一屏时可滚（滚轮/拖拽平移/滚动条），拖拽释放带惯性 fling 与越界回弹。
  */
 export struct TableProps {
     std::vector<ColumnDef> columns;
@@ -405,6 +406,7 @@ export struct TableProps {
     float borderWidth = 1.0f;
     bool showHeader = true;
     bool striped = true;
+    bool showScrollbar = true;    // 内容溢出时显示垂直滚动条（滑块可拖拽）
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

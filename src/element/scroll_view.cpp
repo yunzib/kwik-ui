@@ -20,8 +20,14 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.event;
+import kwik.element.scroll_physics;
 
 import std;
+
+namespace {
+// 拖拽速度 EMA 平滑系数（新采样权重——偏重最近位移，跟手；与 Table 同源）
+constexpr float kVelEma = 0.6f;
+}    // namespace
 
 // ============================================================================
 // 视口 / 轨道几何
@@ -206,6 +212,7 @@ EventTarget *ScrollView::hitTest(Point p) {
 
 // ============================================================================
 // onEvent — 滚动条拖拽（PointerDown 开始 / PanMove 跟随 / PanEnd 释放）
+//         + 内容拖拽平移（PanBegin/Move/End，越界橡皮筋，释放 fling/回弹）
 // ============================================================================
 bool ScrollView::onEvent(const DispatchEvent &event) {
     switch (event.type) {
@@ -248,8 +255,27 @@ bool ScrollView::onEvent(const DispatchEvent &event) {
         return View::onEvent(event);
     }
 
-    case DispatchEvent::Type::PanBegin:
+    case DispatchEvent::Type::PanBegin: {
+        if (draggingV_ || draggingH_) return true;    // 滚动条拖拽在途，不重置
+        // 无可滚轴（内容不溢出）时不接管——事件继续上溯外层可滚容器
+        //（嵌套滚动：内层撑不下内容才吃拖拽）
+        Rect vp = viewport();
+        bool anyAxis = (canScrollX() && contentSize_.width > vp.width + 0.5f) ||
+                       (canScrollY() && contentSize_.height > vp.height + 0.5f);
+        if (!anyAxis) return View::onEvent(event);
+        // 内容拖拽平移开始：打断物理动画，原始偏移累加器从当前显示值起步
+        contentDragging_ = true;
+        physX_.stop();
+        physY_.stop();
+        dragRaw_ = scrollOffset_;
+        dragLastPan_ = {event.panDx, event.panDy};    // 契约：Begin 恒 0
+        dragLastT_ = event.timestamp;
+        dragVelX_ = dragVelY_ = 0;
+        return true;
+    }
+
     case DispatchEvent::Type::PanMove: {
+        // ① 滚动条拖拽：滑块 1:1 跟随指针
         if (draggingV_ || draggingH_) {
             Rect vp = viewport();
             if (draggingV_) {
@@ -270,18 +296,59 @@ bool ScrollView::onEvent(const DispatchEvent &event) {
             }
             return true;
         }
+        // ② 内容拖拽平移：原始偏移累加（不夹紧），越界显示值过橡皮筋阻尼
+        if (contentDragging_) {
+            float dx = event.panDx - dragLastPan_.x;    // 本帧指针位移（右/下为正）
+            float dy = event.panDy - dragLastPan_.y;
+
+            // 指针速度采样（EMA 平滑，dt 毫秒级抖动防护）
+            uint64_t dt = event.timestamp - dragLastT_;
+            if (dt > 0) {
+                float k = 1000.0f / static_cast<float>(dt);    // px → px/s
+                dragVelX_ = dragVelX_ * (1.0f - kVelEma) + dx * k * kVelEma;
+                dragVelY_ = dragVelY_ * (1.0f - kVelEma) + dy * k * kVelEma;
+            }
+            dragLastPan_ = {event.panDx, event.panDy};
+            dragLastT_ = event.timestamp;
+
+            // 指针右/下移 → 内容左/上滚（偏移增大）
+            Rect vp = viewport();
+            if (canScrollX()) dragRaw_.x -= dx;
+            if (canScrollY()) dragRaw_.y -= dy;
+            float shownX = dragRaw_.x, shownY = dragRaw_.y;
+            if (canScrollX()) {
+                float maxX = std::max(0.0f, contentSize_.width - vp.width);
+                if (shownX < 0) shownX = -ScrollPhysics::rubberBandDelta(-shownX, vp.width);
+                else if (shownX > maxX) shownX = maxX + ScrollPhysics::rubberBandDelta(shownX - maxX, vp.width);
+            }
+            if (canScrollY()) {
+                float maxY = std::max(0.0f, contentSize_.height - vp.height);
+                if (shownY < 0) shownY = -ScrollPhysics::rubberBandDelta(-shownY, vp.height);
+                else if (shownY > maxY) shownY = maxY + ScrollPhysics::rubberBandDelta(shownY - maxY, vp.height);
+            }
+            setScrollRaw(shownX, shownY);
+            return true;
+        }
         return View::onEvent(event);
     }
 
     case DispatchEvent::Type::PointerUp:
     case DispatchEvent::Type::PointerCancel:
-    case DispatchEvent::Type::PanEnd:
+    case DispatchEvent::Type::PanEnd: {
+        // ① 滚动条释放
         if (draggingV_ || draggingH_) {
             draggingV_ = draggingH_ = false;
             markAllDirty();    // 释放帧底图会擦整片，干净子孙须一并重录，否则白屏
             return true;
         }
+        // ② 内容拖拽释放 → fling / 回弹（Up/Cancel 双路收尾，防 PanEnd 缺席）
+        if (contentDragging_) {
+            contentDragging_ = false;
+            endContentDrag();
+            return true;
+        }
         return View::onEvent(event);
+    }
 
     default: return View::onEvent(event);
     }
@@ -293,6 +360,9 @@ bool ScrollView::onEvent(const DispatchEvent &event) {
 // 事件链交祖先继续（嵌套滚动到边界的最小修复）
 // ============================================================================
 bool ScrollView::applyScroll(float dx, float dy) {
+    physX_.stop();          // 滚轮打断动画
+    physY_.stop();
+    contentDragging_ = false;    // 亦终止拖拽态（滚轮期间指针拖拽已被系统打断）
     const float oldX = scrollOffset_.x, oldY = scrollOffset_.y;
     float usedX = 0, usedY = 0;    // 期望位移（含步长因子）
     switch (sp_.direction) {
@@ -344,6 +414,49 @@ void ScrollView::setScroll(float x, float y) {
     scrollOffset_.y = y;
     clampScroll();
     markAllDirty();    // ③态底图擦除 frame 后，干净子孙需一并重录，否则内容白屏（对齐 view.cpp:69-72）
+}
+
+/// @brief 设置偏移（不夹紧）+ markDirty——拖拽橡皮筋/物理回弹写回通路
+/// （物理自身维护边界语义：fling 越界转 spring 收敛，界外值只在此两途出现）
+void ScrollView::setScrollRaw(float x, float y) {
+    scrollOffset_.x = x;
+    scrollOffset_.y = y;
+    markAllDirty();
+}
+
+/// @brief 内容拖拽释放收尾：越界→spring 回弹；速度达阈值→fling 惯性（逐轴
+/// 独立判定；单轴方向容器只处理该轴）
+void ScrollView::endContentDrag() {
+    Rect vp = viewport();
+    const float maxX = std::max(0.0f, contentSize_.width - vp.width);
+    const float maxY = std::max(0.0f, contentSize_.height - vp.height);
+    bool anyActive = false;
+
+    if (canScrollX()) {
+        if (scrollOffset_.x < -0.5f || scrollOffset_.x > maxX + 0.5f) {
+            // 越界 → 弹簧回收到最近边界（从阻尼后的显示值起步，视觉连续）
+            physX_.spring(scrollOffset_.x, std::clamp(scrollOffset_.x, 0.0f, maxX), 0.0f, maxX,
+                          [this](float x) { setScrollRaw(x, scrollOffset_.y); });
+            anyActive = true;
+        } else if (std::abs(dragVelX_) >= ScrollPhysics::kMinFlingVelocity) {
+            // 速度达阈值 → 惯性 fling（指针速度方向取反 = 偏移速度方向）
+            physX_.fling(-dragVelX_, scrollOffset_.x, 0.0f, maxX,
+                         [this](float x) { setScrollRaw(x, scrollOffset_.y); });
+            anyActive = true;
+        }
+    }
+    if (canScrollY()) {
+        if (scrollOffset_.y < -0.5f || scrollOffset_.y > maxY + 0.5f) {
+            physY_.spring(scrollOffset_.y, std::clamp(scrollOffset_.y, 0.0f, maxY), 0.0f, maxY,
+                          [this](float y) { setScrollRaw(scrollOffset_.x, y); });
+            anyActive = true;
+        } else if (std::abs(dragVelY_) >= ScrollPhysics::kMinFlingVelocity) {
+            physY_.fling(-dragVelY_, scrollOffset_.y, 0.0f, maxY,
+                         [this](float y) { setScrollRaw(scrollOffset_.x, y); });
+            anyActive = true;
+        }
+    }
+    if (!anyActive) markAllDirty();    // 无物理接管也要整树重录一次（拖拽尾帧收口）
 }
 
 /// @brief 依据 contentSize_/viewport 计算滑块矩形（长度按比例，最小 24px）
@@ -400,12 +513,14 @@ bool ScrollView::setPropertyTyped(const char *name, const TypedProp &value) {
 	if (std::strcmp(name, "scrollX") == 0) {
 		auto v = typedToFloat(value);     // 修复原实现类型不符仍返回 true 的隐患
 		if (!v) { return false; }
+		physX_.stop();    // 命令式滚动打断物理动画
 		setScroll(*v, scrollOffset_.y);
 		return true;
 	}
 	if (std::strcmp(name, "scrollY") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
+		physY_.stop();
 		setScroll(scrollOffset_.x, *v);
 		return true;
 	}

@@ -9,6 +9,7 @@ import kwik.core.constraints;
 import kwik.core.props;
 import kwik.render.graphics;
 import kwik.element.view;
+import kwik.element.scroll_physics;    // ScrollPhysics — fling/回弹物理
 import kwik.event;
 
 import std;
@@ -25,6 +26,10 @@ import std;
  *   - 滚轮：不消费 onEvent(Scroll)，走 EventDispatcher 阶段②
  *     hitTest → applyScroll + 父链 scrollable() 单次应用（避免 List 双应用问题）。
  *   - 滚动条：比例滑块 + 拖拽（PointerDown/PanMove/PanEnd）+ 点轨道跳转。
+ *   - 拖拽平移：内容区 Pan 手势（子级未消费时冒泡接管）——指针拖动内容
+ *     直接滚动，越界橡皮筋阻尼；释放带惯性 fling / 越界回弹（ScrollPhysics，
+ *     F4 滚动物理）。自带拖拽的子级（Slider/Text 拖选等）消费 Pan 即止，
+ *     不受影响。
  *
  * 绘制机制（镜像 list_layout.cpp:188-215）：
  *   裁剪视口 → translate(-scrollOffset) → 可视窗口剔除 → drawForced。
@@ -92,10 +97,23 @@ private:
     float dragGrabX_ = 0.0f;    // 抓取点相对滑块左/顶边的偏移（1:1 跟随防跳）
     float dragGrabY_ = 0.0f;
 
+    // ── 内容拖拽平移 + 滚动物理（F4）──
+    ScrollPhysics physX_, physY_;    // 释放后惯性 fling / 越界回弹
+    bool contentDragging_ = false;   // 内容拖拽平移中（Pan 手势，子级未消费时接管）
+    Point dragRaw_{};                // 拖拽期原始偏移累加器（不夹紧；显示值经橡皮筋阻尼）
+    Point dragLastPan_{};            // 上次 PanMove 的 pan 累计位移（差分 + 速度采样）
+    uint64_t dragLastT_ = 0;         // 上次 PanMove 时间戳（ms）
+    float dragVelX_ = 0;             // 指针速度采样（EMA，px/s；正 = 指针右移/下移）
+    float dragVelY_ = 0;
+
     /// @brief 是否保留垂直滚动条条带（direction != Horizontal）
     bool hasVBar() const { return sp_.showScrollbar && sp_.direction != ScrollDirection::Horizontal; }
     /// @brief 是否保留水平滚动条条带（direction != Vertical）
     bool hasHBar() const { return sp_.showScrollbar && sp_.direction != ScrollDirection::Vertical; }
+    /// @brief 方向允许水平滚动（direction != Vertical）
+    bool canScrollX() const { return sp_.direction != ScrollDirection::Vertical; }
+    /// @brief 方向允许垂直滚动（direction != Horizontal）
+    bool canScrollY() const { return sp_.direction != ScrollDirection::Horizontal; }
 
     /// @brief 内容视口（frame 内减 padding、减滚动条占位）
     Rect viewport() const;
@@ -111,4 +129,8 @@ private:
     void updateThumbs();
     /// @brief 设置偏移 + clamp + markDirty（统一入口）
     void setScroll(float x, float y);
+    /// @brief 设置偏移（不夹紧）+ markDirty——拖拽橡皮筋/物理回弹写回通路
+    void setScrollRaw(float x, float y);
+    /// @brief 内容拖拽释放收尾：越界→spring 回弹；速度达阈值→fling 惯性（逐轴）
+    void endContentDrag();
 };

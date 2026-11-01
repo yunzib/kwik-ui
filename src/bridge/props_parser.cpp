@@ -560,6 +560,7 @@ TableProps parseTableProps(PropsExtractor &ex) {
     ex.get("borderWidth", tp.borderWidth);
     ex.get("showHeader", tp.showHeader);
     ex.get("striped", tp.striped);
+    ex.get("showScrollbar", tp.showScrollbar);
 
     // 解析 columns 数组
     if (ex.has("columns")) {

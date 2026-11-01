@@ -38,6 +38,7 @@ target_sources(kwik_element
             modules/element/layer_stack.cppm
             modules/element/layer_view.cppm
             modules/element/scroll_view.cppm
+            modules/element/scroll_physics.cppm
             modules/element/tree_menu.cppm
             modules/element/lazy_list_source.cppm
             modules/element/lazy_list.cppm
@@ -90,6 +91,7 @@ target_sources(kwik_element
         src/element/layer_stack.cpp
         src/element/layer_view.cpp
         src/element/scroll_view.cpp
+        src/element/scroll_physics.cpp
         src/element/tree_menu.cpp
         src/element/lazy_list.cpp
         src/element/keyboard.cpp

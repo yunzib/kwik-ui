@@ -43,6 +43,7 @@ import kwik.layout.grid_layout;
 import kwik.layout.list_layout;
 import kwik.layout.flex_layout;
 import kwik.element.scroll_view;    // ScrollView（横向滚轮派发链行为锁）
+import kwik.element.scroll_physics; // ScrollPhysics（fling/回弹/橡皮筋行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -1711,8 +1712,22 @@ static void test_table_measure_and_hit() {
         CHECK(sz.height == 120.0f);
     }
 
-    // ② 幻影行：frame 高 140 = header36 + 3×32 + 尾巴 8px（第 4 行区域存在于
-    // frame 内但未绘制——visRows=3），数据 50 行
+    // ①' 视口测量：无显式高度 → min(固有高, 约束高)——小数据 shrink-wrap
+    // 保持旧观感，超一屏转视口（主体虚拟化滚动接管）
+    {
+        TableProps tp;
+        tp.columns = {{"名", "k", 200, 0, "left"}};
+        TableProbe t(ViewProps{}, tp);
+        t.setData(mkSrc(3));
+        auto sz = t.onMeasure(Constraints{0, 1000, 0, 1000});
+        CHECK(sz.height == 36.0f + 3 * 32.0f);    // 固有高 132 < 1000 → shrink-wrap
+        t.setData(mkSrc(50));
+        sz = t.onMeasure(Constraints{0, 1000, 0, 1000});
+        CHECK(sz.height == 1000.0f);    // 固有高 1636 > 1000 → 视口 1000
+    }
+
+    // ② 虚拟化命中：行映射随 scrollY 补偿；窗口内部分可见行真实绘制故可命中
+    //（旧口径 visRows 只认整行——虚拟化后裁剪绘制，行为变更为"窗口内即可点"）
     {
         TableProps tp;
         tp.columns = {{"名", "k", 200, 0, "left"}};
@@ -1720,17 +1735,41 @@ static void test_table_measure_and_hit() {
         t->setData(mkSrc(50));
         int clicked = -1;
         t->handlers.onRowClick = [&clicked](const RowArgs &a) { clicked = a.index; };
-        t->layout(Rect{0, 0, 300, 140});
+        t->layout(Rect{0, 0, 300, 140});    // body = 140−36 = 104：3 整行 + 8px 部分行
 
         DispatchEvent tap;
         tap.type = DispatchEvent::Type::Tap;
         tap.globalX = 150;
-        tap.globalY = 36 + 2 * 32 + 5;    // 第 3 行内（已绘制）→ row 2
+        tap.globalY = 36 + 2 * 32 + 5;    // 第 3 行（整行可见）→ row 2
         CHECK(t->onEvent(tap));
         CHECK(clicked == 2);
 
         clicked = -1;
-        tap.globalY = 139;                // 第 4 行区域（frame 内未绘制）→ 幻影行不再触发
+        tap.globalY = 139;    // 第 4 行区域（8px 部分可见，窗口内已绘制）→ 可命中
+        CHECK(t->onEvent(tap));
+        CHECK(clicked == 3);
+
+        // 滚动后行映射随偏移补偿：+300px 后点顶部 → row floor((41−36+300)/32)=9
+        CHECK(t->applyScroll(0, -10));    // 滚轮 dy=-10 → +300px，界内完整消费
+        clicked = -1;
+        tap.globalY = 36 + 5;
+        CHECK(t->onEvent(tap));
+        CHECK(clicked == 9);
+    }
+
+    // ②' 数据外行不触发（窗口尾 clamp 到 rowCount——幻影行防线由数据范围承担）
+    {
+        TableProps tp;
+        tp.columns = {{"名", "k", 200, 0, "left"}};
+        auto t = std::make_unique<TableProbe>(ViewProps{}, tp);
+        t->setData(mkSrc(2));
+        int clicked = -1;
+        t->handlers.onRowClick = [&clicked](const RowArgs &a) { clicked = a.index; };
+        t->layout(Rect{0, 0, 300, 140});
+        DispatchEvent tap;
+        tap.type = DispatchEvent::Type::Tap;
+        tap.globalX = 150;
+        tap.globalY = 36 + 3 * 32 + 5;    // 第 4 行区域，数据仅 2 行 → 不触发
         CHECK(t->onEvent(tap));
         CHECK(clicked == -1);
     }
@@ -1748,6 +1787,63 @@ static void test_table_measure_and_hit() {
         tap.globalX = 150;
         tap.globalY = 100;
         CHECK(t->onEvent(tap));    // 抵达此处即无除零 UB（修复前 inf cast UB）
+    }
+}
+
+// ── 行为锁: ScrollPhysics 滚动物理（F4——fling 衰减收敛/越界回弹/橡皮筋阻尼）──
+static void test_scroll_physics() {
+    // ① fling：摩擦衰减收敛静止，全程界内（总行程 = v/k，本例不越界）
+    {
+        ScrollPhysics p;
+        float lastOff = -1;
+        p.fling(3000.0f, 0.0f, 0.0f, 1000.0f, [&](float off) { lastOff = off; });
+        CHECK(p.active());
+        for (int i = 0; i < 600 && p.active(); ++i) p.advance(1.0f / 60.0f);    // 上限 10s
+        CHECK(!p.active());                            // 已收敛静止
+        CHECK(lastOff >= 0.0f && lastOff <= 1000.0f);  // 界内（停止时 ≈987）
+    }
+
+    // ② fling 冲过边界 → 自动转 spring 回收到边界（越界回弹）
+    {
+        ScrollPhysics p;
+        float lastOff = -1;
+        p.fling(10000.0f, 900.0f, 0.0f, 1000.0f, [&](float off) { lastOff = off; });
+        for (int i = 0; i < 600 && p.active(); ++i) p.advance(1.0f / 60.0f);
+        CHECK(!p.active());
+        CHECK(lastOff >= 999.0f && lastOff <= 1000.5f);    // 收敛回上界
+    }
+
+    // ③ spring：从界外回收到锚点（拖拽越界释放路径）
+    {
+        ScrollPhysics p;
+        float lastOff = -1;
+        p.spring(-120.0f, 0.0f, 0.0f, 500.0f, [&](float off) { lastOff = off; });
+        CHECK(p.active());
+        for (int i = 0; i < 600 && p.active(); ++i) p.advance(1.0f / 60.0f);
+        CHECK(!p.active());
+        CHECK(std::abs(lastOff) < 1.0f);
+    }
+
+    // ④ 橡皮筋阻尼：零输入零输出、保号、单调递增、渐近有界（上限 = extent）
+    {
+        CHECK(ScrollPhysics::rubberBandDelta(0.0f, 100.0f) == 0.0f);
+        CHECK(ScrollPhysics::rubberBandDelta(-50.0f, 100.0f) == -ScrollPhysics::rubberBandDelta(50.0f, 100.0f));
+        float prev = 0.0f;
+        for (float x = 0.0f; x <= 100000.0f; x += 500.0f) {
+            float d = ScrollPhysics::rubberBandDelta(x, 100.0f);
+            CHECK(d >= prev);
+            CHECK(d <= 100.0f + 0.01f);
+            prev = d;
+        }
+    }
+
+    // ⑤ 低于启动阈值的 fling 不启动（立即静止写回当前值）
+    {
+        ScrollPhysics p;
+        float got = -1;
+        p.fling(10.0f, 123.0f, 0.0f, 500.0f, [&](float off) { got = off; });
+        CHECK(!p.active());
+        CHECK(got == 123.0f);
     }
 }
 
@@ -2783,6 +2879,7 @@ int main() {
     test_input_control_chars_and_home_end();
     test_tap_caret_mapping();
     test_table_measure_and_hit();
+    test_scroll_physics();
     test_dropdown_viewport_flip();
     test_line_relayout_and_ring_string_prop();
     test_tap_consume_and_group_sync();

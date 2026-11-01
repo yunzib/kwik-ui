@@ -2,6 +2,21 @@
 
 # 0.0.0 — 2026-11-01
 ### 新增
+- 虚拟化 Table + 滚动物理（F6 虚拟化表格止血 + F4 惯性/回弹首块）：
+  ① Table 无滚动时代终结——测量改视口语义（显式 height 优先，否则
+  min(固有高, 约束高)：小数据 shrink-wrap 保持旧观感、超一屏转滚动视口），
+  表头冻结，主体 clip + translate 只画可视行窗口（固定 rowHeight O(1) 定位
+  + 上下 overscan），任意滚动位置绘制/命中/取值开销恒为 O(可视行)，十万行
+  首帧与五行同级；滚轮/拖拽平移（Pan 手势冒泡接管，自带拖拽子级消费即止）/
+  可拖拽滚动条三路滚动；行点击映射随滚动偏移补偿；新增 scrollY 读写通路
+  与 showScrollbar 开关、scrollToIndex 行定位。② 新增 ScrollPhysics 滚动物理
+  驱动器（ScrollView/Table 共用）：惯性 fling（指数摩擦解析积分，帧率无关）
+  + 越界回弹（临界阻尼弹簧）+ 拖拽期橡皮筋阻尼，CoreTimer 16ms 绘制外驱动、
+  收敛即停表无残留满帧重绘；ScrollView 同批接入拖拽平移 + fling + 回弹
+  （滚轮/命令式滚动随时打断动画）。行为锁：ScrollPhysics 五例（衰减收敛/
+  冲界回弹/spring 收敛/橡皮筋单调有界/低阈值不启动）+ Table 视口测量与
+  滚动后命中映射重锁（窗口内部分可见行真实绘制故可点——旧整行口径废弃）
+- JS 层拖拽手势事件 onPanBegin/onPanMove/onPanEnd（任务 #59 W2 pan 子项）：
 - JS 层拖拽手势事件 onPanBegin/onPanMove/onPanEnd（任务 #59 W2 pan 子项）：
   PanEnd 此前仅枚举存在、从未生成——GestureRecognizer Up/Cancel 双路补生成
   点，组件不再只靠 PointerUp/PointerCancel 兜底收尾；DispatchEvent 增
