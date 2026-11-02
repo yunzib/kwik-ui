@@ -254,6 +254,17 @@ public:
     virtual bool acceptsEscape() const { return false; }
 
     /**
+     * @brief 后代悬停离开拦截（HoverLeave 尾链 relay，默认 false 零影响）
+     *
+     * HoverEnter/Leave 只 presetTarget 直投最深命中、不冒泡（阶段① 白名单
+     * 只有 Tap/LongPress/Pan 族）——容器以 HoverMove 进/出带转换合成 hover
+     * 生命周期时，指针不经其子树逸出（折叠态出带/压键拖出）的残态，唯一
+     * 可靠来源是 presetTarget 尾链：声明 true 的容器在后代 HoverLeave 未被
+     * 消费时逐级收口（每级显式声明才参与，其余组件行为零变化）
+     */
+    virtual bool catchesDescendantHoverLeave() const { return false; }
+
+    /**
      * @brief ESC 显式查询：返回本子树中最顶层的 ESC 消费者（无子树概念
      * 的实现仅自查自身；View/LayerStack 覆写为顶层优先递归）
      */

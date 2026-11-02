@@ -12,7 +12,9 @@
 //   ③ 绘制与点击（onDraw/onEvent）—— band 底色垫底 + 常规 children 绘制
 //      （头行已手排在带内，与 body 同路径零烘焙）；点击命中：头行内消费
 //      事件的子级（Button 等）自行拦截，空白处子级未消费冒泡落本体
-//      （view.cpp:507-511），band 区间拦 Tap 开合
+//      （view.cpp:507-511），band 区间拦 Tap 开合；头行悬停 = hoverBackground
+//      亮带 + HoverMove 进/出带转换合成 onHover（逸出残态走 HoverLeave
+//      opt-in relay 收口，见 event.cpp 阶段① catchesDescendantHoverLeave）
 //
 // 注意：body 子级（children[1..]）可见性由本组件接管（v1 契约）——JS 单独
 // 置 body 子级 visible 会随开合对齐覆写；需要独立隐藏的子级别放进 body 外层。
@@ -183,6 +185,13 @@ bool Expansion::onEvent(const DispatchEvent &event) {
         float bandY = event.globalY + comp.y - frame.y;
         bool inBand = lx >= 0 && lx < frame.width && bandY >= 0 && bandY < ep_.headerHeight;
         if (inBand != hoveredHeader_) setHeaderHovered(inBand, event);
+        return false;
+    }
+    if (event.type == DispatchEvent::Type::HoverLeave) {
+        // 后代带 target 逸出的 relay 口（事件.cpp 阶段① 对 opt-in 容器送未
+        // 消费的 HoverLeave）——指针不经本组件子树逸出（折叠态出带/切窗）
+        // 时唯一可靠收口；幂等（已清过不重发）。不消费
+        if (hoveredHeader_) setHeaderHovered(false, event);
         return false;
     }
     return FlexLayout::onEvent(event);

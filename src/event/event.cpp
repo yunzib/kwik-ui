@@ -511,6 +511,15 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
                 if (fireOnTarget(v, event)) { return true; }
             }
         }
+        // HoverLeave: 未消费 → 沿尾链逐级送 opt-in 容器（非冒泡语义：只送
+        // 声明 catchesDescendantHoverLeave 者，链上不声明者直接退场不拦截）。
+        // Expansion 头行悬停带等以 Move 状态转换合成 enter/leave 的容器，
+        // 靠本口收"指针不经其子树逸出（折叠态出带/切窗）"的残态
+        if (event.type == DispatchEvent::Type::HoverLeave) {
+            for (EventTarget *v = event.presetTarget->parent(); v; v = v->parent()) {
+                if (v->catchesDescendantHoverLeave() && fireOnTarget(v, event)) { return true; }
+            }
+        }
         return false;
     }
 

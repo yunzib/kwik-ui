@@ -93,6 +93,9 @@ protected:
     void onLayout() override;
     void onDraw(Graphics &graphics) override;
     bool onEvent(const DispatchEvent &event) override;
+    // 头行带悬停 = HoverMove 进/出带转换合成 enter/leave——指针不经子树逸出
+    // （折叠态出带/切窗）的残态收口靠 HoverLeave 尾链 relay（event.cpp 阶段①）
+    bool catchesDescendantHoverLeave() const override { return true; }
 
 private:
     void applyOpen(bool on);       // 开合集应用：body 子级 visible 同步 + 重排

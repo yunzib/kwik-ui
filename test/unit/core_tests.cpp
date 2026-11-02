@@ -2700,6 +2700,62 @@ static void test_expansion_header_hover() {
     press(100, 12);   CHECK(enterN == 3 && leaveN == 3);    // 带内按下清态——成对发 leave
     move(100, 13);    CHECK(enterN == 4 && leaveN == 3);    // 清态后重进——锁死按下清态
     move(50, 60);     CHECK(enterN == 4 && leaveN == 4);    // 出带 → leave（计数回归成对）
+
+    // HoverLeave 直投收口（折叠态/逸出场景由 relay 送进同一路径，形态同参）
+    move(100, 10);    CHECK(enterN == 5 && leaveN == 4);    // 重入带
+    DispatchEvent lv;
+    lv.type = DispatchEvent::Type::HoverLeave;
+    ex.onEvent(lv);   CHECK(enterN == 5 && leaveN == 5);    // relay 口清态——成对 leave
+    move(100, 12);    CHECK(enterN == 6 && leaveN == 5);    // 重进证实清态（不重进就还是旧态）
+}
+
+// ============================================================================
+// Expansion 头行带悬停逸出残亮 relay（端到端）：hover 落头行子级 → 移出
+// Expansion 子树——HoverLeave 只 presetTarget 直投（event.cpp 阶段①，尾链
+// 不冒泡），Expansion 以 catchesDescendantHoverLeave opt-in 收未消费的
+// leave → 清残高亮；重进带由下一个 HoverMove 转换再次 enter（真实管线锁）
+// ============================================================================
+static void test_expansion_hover_leave_relay() {
+    // onEvent protected → 派生拉公开（与悬停转换锁同款手法）
+    struct HoverEx final : Expansion {
+        using Expansion::Expansion;
+        using Expansion::onEvent;
+    };
+    ExpansionProps ep;
+    ep.headerHeight = 30.0f;
+    View page;
+    auto ex = std::make_unique<HoverEx>(ViewProps{}, ep);
+    HoverEx *hx = ex.get();
+    ex->addChild(std::make_unique<View>());    // children[0] = 头行内容（带内全幅命中体）
+    page.addChild(std::move(ex));
+
+    int enterN = 0, leaveN = 0;
+    hx->handlers.onHoverEnter = [&enterN](const PointerArgs &) { ++enterN; return true; };
+    hx->handlers.onHoverLeave = [&leaveN](const PointerArgs &) { ++leaveN; return true; };
+
+    page.layout(Rect{0, 0, 300, 200});                                            // 页宿主
+    hx->layout(Rect{20, 10, 200, 100});    // 折叠卡：带区 y ∈ [10,40)，头行子级由 onLayout 手排
+
+    EventRouter router;
+    router.setRootTarget(&page);
+    int ts = 100;
+    auto feed = [&](RawEvent::Action a, float x, float y) {
+        RawEvent e;
+        e.device = RawEvent::Device::Mouse;
+        e.action = a;
+        e.x = x;
+        e.y = y;
+        e.button = 1;
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+    };
+
+    feed(RawEvent::Action::Move, 60, 20);
+    CHECK(enterN == 1 && leaveN == 0);    // 入带（命中头行子级，HoverMove 冒泡转换 → enter）
+    feed(RawEvent::Action::Move, 60, 160);    // 逸出：目标 = 页面本层，leave 直投头行子级
+    CHECK(enterN == 1 && leaveN == 1);    // relay 收口——Expansion 清残态并成对发 leave
+    feed(RawEvent::Action::Move, 60, 20);
+    CHECK(enterN == 2 && leaveN == 1);    // 重入带 → enter 再次触发（证实 relay 清态生效）
 }
 
 // ============================================================================
@@ -3116,6 +3172,7 @@ int main() {
     test_datepicker_calendar_layout();
     test_explicit_parent_converges_child_constraints();
     test_expansion_header_hover();
+    test_expansion_hover_leave_relay();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();
