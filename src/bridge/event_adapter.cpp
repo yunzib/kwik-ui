@@ -339,6 +339,28 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         }
     }
 
+    // ── onTreeExpand / onTreeSelect (TreeMenu): 单节点展开通报 / 单行点击通报 ──
+    // 组件侧直派（toggleExpand 翻转后 / 行区 Tap 内），此处仅构造载荷：
+    //   onTreeExpand e={key, expanded}（key 缺省回退 title；expanded=翻转后新态）
+    //   onTreeSelect e={key}（单行点击身份通报；勾选框热区不发，走 onChange 族）
+    if (view.type() == ElementType::TreeMenu) {
+        if (auto h = dupHandler(ctx, props, "onTreeExpand")) {
+            view.handlers.onTreeExpand = [ctx, h](const TreeArgs &a) {
+                JSValue evt = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, evt, "key", JS_NewString(ctx, a.key.c_str()));
+                JS_SetPropertyStr(ctx, evt, "expanded", JS_NewBool(ctx, a.expanded ? 1 : 0));
+                callJs1(ctx, h, evt, "onTreeExpand");
+            };
+        }
+        if (auto h = dupHandler(ctx, props, "onTreeSelect")) {
+            view.handlers.onTreeSelect = [ctx, h](const TreeArgs &a) {
+                JSValue evt = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, evt, "key", JS_NewString(ctx, a.key.c_str()));
+                callJs1(ctx, h, evt, "onTreeSelect");
+            };
+        }
+    }
+
     // ── onKey (Keyboard): 虚拟键盘按键旁路通知 ──
     // 只触发回调，不干预同路径自动注入
     if (view.type() == ElementType::Keyboard) {

@@ -47,6 +47,7 @@ import kwik.element.scroll_physics; // ScrollPhysics（fling/回弹/橡皮筋行
 import kwik.element.spinbox;        // SpinBox（数字约束 clamp/运行时同步行为锁）
 import kwik.element.datepicker;     // DateTimePicker（日历几何共源行为锁）
 import kwik.element.expansion;      // Expansion（头行带悬停状态转换行为锁）
+import kwik.element.tree_menu;      // TreeMenu（事件通报/受控键/同构重喂行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -2772,6 +2773,197 @@ static void test_expansion_hover_leave_relay() {
 }
 
 // ============================================================================
+// TreeMenu 事件通报全链：RawEvent Down/Up → 手势识别 → Tap presetTarget=行 →
+// 行区点击：非叶 = onTreeExpand(翻转后) + onTreeSelect 双通报，叶 = 仅
+// onTreeSelect，勾选框热区 = 只走 onChange 通报族（onTreeSelect 不发）
+// ============================================================================
+static void test_treemenu_e2e_events() {
+    // 行控件（同 TU TreeRowView）不外露——全经回调载荷与 getProperty 断言
+    auto leaf = [](const char *key, const char *title) {
+        TreeNodeData n;
+        n.key = key;
+        n.title = title;
+        return n;
+    };
+    TreeNodeData grp;
+    grp.key = "grp";
+    grp.title = "分组";
+    grp.expanded = true;
+    grp.children = {leaf("a", "甲"), leaf("b", "乙")};
+
+    TreeMenuProps tp;
+    tp.nodes = {grp, leaf("alone", "独立")};
+    tp.checkedControlled = true;
+    tp.checked = "a";                       // 受控首装：级联推导（grp 半选不计入.checked）
+    auto tm = std::make_unique<TreeMenu>(ViewProps{}, ScrollViewProps{}, tp);
+    tm->props.width = 300.0f;
+    tm->props.height = 200.0f;
+    tm->props.background = Color{255, 255, 255, 255};
+
+    int expandN = 0, selectN = 0, changeN = 0;
+    std::string lastExpandKey, lastSelectKey, lastChangeValue;
+    bool lastExpandState = false;
+    int lastChangeCount = -1;
+    tm->handlers.onTreeExpand = [&](const TreeArgs &a) {
+        ++expandN;
+        lastExpandKey = a.key;
+        lastExpandState = a.expanded;
+    };
+    tm->handlers.onTreeSelect = [&](const TreeArgs &a) {
+        ++selectN;
+        lastSelectKey = a.key;
+    };
+    tm->handlers.onChange = [&](const ChangeArgs &args) {
+        ++changeN;
+        if (auto *s = std::get_if<std::string>(&args.value)) lastChangeValue = *s;
+        lastChangeCount = args.index;
+    };
+
+    View page;
+    page.addChild(std::move(tm));
+    auto *tree = static_cast<TreeMenu *>(page.children[0].get());
+
+    page.layout(Rect{0, 0, 300, 200});
+    tree->layout(Rect{0, 0, 300, 200});    // 行框由 rebuildRows + onLayout 落位（rowHeight=28）
+
+    EventRouter router;
+    router.setRootTarget(&page);
+    int ts = 100;
+    auto tap = [&](float x, float y) {
+        RawEvent e;
+        e.device = RawEvent::Device::Mouse;
+        e.action = RawEvent::Action::Down;
+        e.x = x;
+        e.y = y;
+        e.button = 1;
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+        e.action = RawEvent::Action::Up;
+        e.timestamp = ++ts;
+        router.feedRawEvent(e);
+    };
+
+    CHECK(tree->getProperty("checked") == "a");    // 受控首装即应用（构造统一入口）
+
+    // ① 行区点叶行（行1 y∈[28,56)，勾选框热区 x∈[40,56]，200 在行区）→ 仅 onTreeSelect
+    tap(200, 42);
+    CHECK(selectN == 1 && lastSelectKey == "a" && expandN == 0);
+
+    // ② 行区点非叶行（行0）→ 展开/折叠翻转 + onTreeExpand + onTreeSelect 双通报
+    tap(200, 14);
+    CHECK(expandN == 1 && lastExpandKey == "grp" && lastExpandState == false);
+    CHECK(selectN == 2 && lastSelectKey == "grp");
+    CHECK(tree->getProperty("expanded") == "grp:0");    // 展开翻转:seed 1 → 0
+    tap(200, 14);                                       // 再点 → 重新展开
+    CHECK(expandN == 2 && lastExpandState == true);
+    CHECK(tree->getProperty("expanded") == "grp:1");
+    CHECK(selectN == 3);                                // 行点击通报逐击触发（重开也发）
+
+    // ③ 勾选框热区（depth1 行: x∈[40,56]）→ 仅 onChange 通报族（onTreeSelect 不发）；
+    //    a 当前受控为勾选态 → 点击 = 取消勾选，CSV 回空
+    tap(48, 42);
+    CHECK(changeN == 1 && lastChangeValue.empty() && lastChangeCount == 0);
+    CHECK(selectN == 3 && expandN == 2);                // 行区通报不沾勾选路径
+
+    // ④ 受控 lastParsed 门：同值重喂不回灌运行时态（对齐 Expansion "不回灌"口径）
+    TreeMenuProps mirror = tp;                          // JS 未镜像（同值重喂）
+    mirror.rowHeight = 30.0f;                           // 仅视觉面变化
+    tree->applyTreeMenuProps(mirror);
+    CHECK(tree->getProperty("checked") == "");          // 门挡住 → 用户行为保留
+    CHECK(tree->getProperty("expanded") == "grp:1");
+    CHECK(expandN == 2 && changeN == 1);                // 受控应用不回发通报
+
+    // ⑤ 值变更重喂 → 整集合覆盖（JS 镜像后正常生效）；expanded 运行时态不受牵连
+    TreeMenuProps mirrored = tp;
+    mirrored.checked = "b";
+    tree->applyTreeMenuProps(mirrored);
+    CHECK(tree->getProperty("checked") == "b");
+    CHECK(tree->getProperty("expanded") == "grp:1");
+    CHECK(selectN == 3 && expandN == 2 && changeN == 1);
+}
+
+// ============================================================================
+// TreeMenu 受控键 + 同构重喂（结构面）：构造统一走 applyTreeMenuProps（受控键
+// 首装即应用）；同构树（同位同标识）重喂 → 运行时态保留 + 行指针身份不变 +
+// 静态字段（title/icon）就地同步；异构换树 → 状态回种子 + 受控键强制重应用 +
+// 行全量重建；setProp("expanded") 逐键覆盖与 getProp("expanded") 全量 map 对偶
+// ============================================================================
+static void test_treemenu_controlled_keys() {
+    auto leaf = [](const char *key, const char *title) {
+        TreeNodeData n;
+        n.key = key;
+        n.title = title;
+        return n;
+    };
+    TreeNodeData ui;
+    ui.key = "ui";
+    ui.title = "界面";
+    ui.children = {leaf("view", "View"), leaf("text", "Text")};
+    TreeNodeData sys;
+    sys.key = "sys";
+    sys.title = "系统";
+    sys.children = {ui, leaf("conf", "配置")};
+    TreeNodeData data;
+    data.key = "data";
+    data.title = "数据";
+    data.children = {leaf("tbl", "Table")};
+
+    TreeMenuProps tp;
+    tp.nodes = {sys, data};
+    tp.expandedControlled = true;
+    tp.expanded = "sys:1";
+    tp.checkedControlled = true;
+    tp.checked = "view";
+    TreeMenu tm(ViewProps{}, ScrollViewProps{}, tp);    // 构造统一入口：受控键首装即应用
+
+    // ① 首装：勾选按级联推导（view 勾 → ui 半选不计入 checked）+ 受控展开生效
+    CHECK(tm.getProperty("checked") == "view");
+    CHECK(tm.getProperty("expanded") == "sys:1,ui:0,data:0");
+
+    // ② setProp("expanded") 逐键覆盖：未命中键（ghost）跳过不改其余键
+    CHECK(tm.setPropertyTyped("expanded", TypedProp{std::string{"data:1,ghost:1"}}));
+    CHECK(tm.getProperty("expanded") == "sys:1,ui:0,data:1");
+
+    auto rowsSnapshot = [&tm](std::vector<View *> &out) {
+        out.clear();
+        for (auto &c : tm.children) out.push_back(c.get());    // children 公有——行身份经指针比对
+    };
+    std::vector<View *> before;
+    rowsSnapshot(before);
+
+    // ③ 运行时改写勾选（模拟用户清空），同构重喂同值受控键 → 门挡住不回灌
+    CHECK(tm.setPropertyTyped("checked", TypedProp{std::string{""}}));
+    CHECK(tm.getProperty("checked").empty());
+
+    TreeMenuProps mirror = tp;
+    mirror.rowHeight = 30.0f;                           // 仅视觉面变化
+    tm.applyTreeMenuProps(mirror);
+    CHECK(tm.getProperty("checked").empty());           // lastParsed 门：同值不回灌
+    CHECK(tm.getProperty("expanded") == "sys:1,ui:0,data:1");    // 展开/勾选运行时态均保留
+
+    std::vector<View *> after;
+    rowsSnapshot(after);
+    CHECK(after.size() == before.size());
+    bool identitySame = true;
+    for (size_t i = 0; i < after.size(); ++i)
+        if (after[i] != before[i]) identitySame = false;
+    CHECK(identitySame);                                // 行指针身份不变（复用非重建）
+
+    // ④ 异构换树（根层加叶）：状态回种子 + 受控键强制重应用 + 行全量重建
+    TreeMenuProps reshaped = tp;
+    reshaped.nodes.push_back(leaf("extra", "新增"));
+    tm.applyTreeMenuProps(reshaped);
+    CHECK(tm.getProperty("checked") == "view");                   // 受控勾选强制重应用
+    CHECK(tm.getProperty("expanded") == "sys:1,ui:0,data:0");     // 运行时 data:1 回种子，受控 sys:1 重应用
+    std::vector<View *> rebuilt;
+    rowsSnapshot(rebuilt);
+    // 注记：④ 满 map = sys:1,ui:0,data:0 + extra → 可见行 {sys, ui, conf, data, extra}
+    // （tbl 随 data 折叠退出可见行；extra 入）。不逐指针比对"全换新"——children.clear()
+    // 销毁后 make_unique 可能命中刚释放的同一地址，指针值碰撞不可判定；行身份锁在 ③
+    CHECK(rebuilt.size() == 5);
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -3186,6 +3378,8 @@ int main() {
     test_explicit_parent_converges_child_constraints();
     test_expansion_header_hover();
     test_expansion_hover_leave_relay();
+    test_treemenu_e2e_events();
+    test_treemenu_controlled_keys();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();

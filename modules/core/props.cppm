@@ -576,8 +576,16 @@ export struct TreeMenuProps {
     Color textColor{31, 41, 55, 255};             // 标签文字色（#1F2937）
     Color iconColor{107, 114, 128, 255};          // 图标字形色（#6B7280）
     Color checkboxColor{59, 130, 246, 255};       // 勾选框激活色（#3B82F6）
-    Color hoverBackground{243, 244, 246, 255};    // 行悬停高亮（#F3F4F6）
+    Color hoverBackground{243, 244, 246, 255};    // 行悬停背景（#F3F4F6）
     Color arrowColor{107, 114, 128, 255};         // 展开箭头色（#6B7280）
+
+    // ── 受控键（受控优先 + onTreeExpand/onTreeSelect 通报族口径，对齐 Expansion open）──
+    // 键存在即受控（值恒来自外部 State 镜像经 onTreeExpand/onTreeExpand 族回写）；
+    // 缺省 = 内部自持。JS 节点内的 checked/expanded 字段仅首装种子——同构重喂不回灌
+    std::string expanded;                         // 受控展开 map "a:1,b:0"（逗号分隔 key:0/1，逐键覆盖；未列出/失配的键保持运行时态）
+    bool expandedControlled = false;              // JS 配了 expanded 键即受控
+    std::string checked;                          // 受控勾选 CSV "a,b"（键存在即整个集合覆盖，同 setProp("checked") 口径）
+    bool checkedControlled = false;               // JS 配了 checked 键即受控
 };
 
 /**

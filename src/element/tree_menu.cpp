@@ -3,8 +3,10 @@
 //
 // 三块核心：
 //   ① 数据/可见行 — 构造 / applyTreeMenuProps / toggleExpand → rebuildRows 扁平化
+//      （同构重喂保留运行时态与行身份；受控 expanded/checked lastParsed 门）
 //   ② 行渲染     — TreeRowView：缩进 → 箭头 → 勾选框 → 图标 → 标签
 //   ③ 级联勾选   — toggleCheck：子树递归设置 + 自底向上重算半选态
+//   ④ 事件通报   — onTreeExpand（开合翻转后）/ onTreeSelect（行区点击）+ onChange 勾选族
 // ============================================================================
 module;
 #include <cstring>
@@ -16,6 +18,7 @@ module kwik.element.tree_menu;
 import kwik.element.view;
 import kwik.element.scroll_view;
 import kwik.core.props;
+import kwik.core.log;
 import kwik.core.types;
 import kwik.render.graphics;
 import kwik.render.text.types;
@@ -82,7 +85,8 @@ protected:
                     return true;
                 }
             }
-            owner_.toggleExpand(node_);    // 行其余区域 → 展开/折叠
+            owner_.toggleExpand(node_);    // 行其余区域 → 展开/折叠（非叶生效）
+            owner_.fireRowTap(*node_);     // 单行点击通报（叶/非叶都发；勾选框热区不发——勾选已走 onChange 通报族）
             return true;
         }
         case DispatchEvent::Type::HoverMove:
@@ -211,7 +215,7 @@ TreeMenu::TreeMenu(ViewProps vp, ScrollViewProps sp, TreeMenuProps tp) :
                }()),
     tp_(std::move(tp)) {
     nodes_ = tp_.nodes;    //  构造期必须先复制初始数据（reconcile 路径才会走到 applyTreeMenuProps）
-    rebuildRows();         // 首帧必须有行（TreeRowView 在本 TU 可见，故构造器移至此）
+    applyTreeMenuProps(tp_);    // 首装统一入口：受控 expanded/checked 键首装即应用（内部 rebuildRows）
 }
 
 // ════════════════════════════════════════════════════════
@@ -252,12 +256,37 @@ void TreeMenu::rebuildRows() {
 
 // ════════════════════════════════════════════════════════
 // applyTreeMenuProps — reconcile 原地覆盖
+// 重喂语义：同构树（同位同标识，key 缺省回退 title）保留运行时布尔态与
+// 行身份——行复用走 rebuildRows 的 matches()（按节点指针匹配），不再整树
+// clear；静态字段（title/icon）就地同步；节点内 checked/expanded 仅首装种子
+// （JS 重喂不回灌内部态）。异构 = 数据换树，旧行销毁整树重建（原语义）。
+// 受控 expanded/checked：值变更（或换树后强制）才应用——lastParsed 门。
 // ════════════════════════════════════════════════════════
 void TreeMenu::applyTreeMenuProps(const TreeMenuProps &tp) {
     tp_ = tp;
-    nodes_ = tp.nodes;
-    children.clear();    // 数据替换 → 旧行销毁（此路径 eventRouter 已 reset，安全）
-    rebuildRows();
+    const bool shapeKept = sameShape(nodes_, tp.nodes);    // 必须先于 nodes_ 覆盖判定
+    if (shapeKept) {
+        for (size_t i = 0; i < nodes_.size(); ++i) syncTreeData(nodes_[i], tp.nodes[i]);
+    } else {
+        nodes_ = tp.nodes;    // 运行时树整体替换（旧行先于本句被 children.clear() 销毁，无悬垂）
+    }
+
+    // ── 受控键应用：门 = 值变更；换树（!shapeKept）后强制重应用（新树态取种子）──
+    if (tp.checkedControlled && (!shapeKept || tp.checked != lastParsedChecked_)) {
+        applyCheckedSet(splitCsv(tp.checked));    // 整集合覆盖口径（同 setProp("checked")，含级联+半选推导）
+        lastParsedChecked_ = tp.checked;
+    }
+    if (tp.expandedControlled && (!shapeKept || tp.expanded != lastParsedExpanded_)) {
+        if (applyExpandedMap(tp.expanded)) markAllDirty();    // 逐键覆盖口径（未列键保持运行时态；箭头字形随态重绘）
+        lastParsedExpanded_ = tp.expanded;
+    }
+
+    if (shapeKept) {
+        rebuildRows();       // 行按 matches 复用——身份不变；展开态变化联动可见行增减
+    } else {
+        children.clear();    // 数据替换 → 旧行销毁（此路径 eventRouter 已 reset，安全）
+        rebuildRows();
+    }
 }
 
 // ════════════════════════════════════════════════════════
@@ -293,6 +322,7 @@ void TreeMenu::toggleExpand(TreeNodeData *n) {
     if (!n || n->children.empty()) return;
     n->expanded = !n->expanded;
     rebuildRows();
+    fireTreeExpand(*n);    // 单节点展开通报（受控应用/换树不在此路径，不回发）
 }
 
 // ════════════════════════════════════════════════════════
@@ -357,6 +387,96 @@ void TreeMenu::fireChange() {
 }
 
 // ════════════════════════════════════════════════════════
+// 事件面 + 同构/受控助手
+// ════════════════════════════════════════════════════════
+
+/// @brief key 缺省回退 title（与 fireChange/getProp("checked") 通报口径一致）
+std::string TreeMenu::nodeKeyOf(const TreeNodeData &n) {
+    return n.key.empty() ? n.title : n.key;
+}
+
+void TreeMenu::fireTreeExpand(const TreeNodeData &n) {
+    if (handlers.onTreeExpand) handlers.onTreeExpand(TreeArgs{nodeKeyOf(n), n.expanded});
+}
+
+void TreeMenu::fireRowTap(const TreeNodeData &n) {
+    if (handlers.onTreeSelect) handlers.onTreeSelect(TreeArgs{nodeKeyOf(n), n.expanded});
+}
+
+/// @brief 同构判定：同位同标识（key 缺省回退 title）+ 子树结构逐位一致
+bool TreeMenu::sameShape(const std::vector<TreeNodeData> &a, const std::vector<TreeNodeData> &b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (nodeKeyOf(a[i]) != nodeKeyOf(b[i])) return false;
+        if (!sameShape(a[i].children, b[i].children)) return false;
+    }
+    return true;
+}
+
+/// @brief 同构下同步静态字段：title/icon 就地刷新（行每帧读 node_->title，零额外重排）；
+/// key 非空时 title 可自由变更（身份以 key 计），空键节点同构必然等价（no-op）；
+/// checked/expanded/indeterminate 原样保留——运行时态为准，节点种子不回灌
+void TreeMenu::syncTreeData(TreeNodeData &dst, const TreeNodeData &src) {
+    dst.title = src.title;
+    dst.icon = src.icon;
+    for (size_t i = 0; i < dst.children.size(); ++i) syncTreeData(dst.children[i], src.children[i]);
+}
+
+/// @brief CSV 切分（PropBus "checked" 与受控勾选共用）：空段跳过
+std::vector<std::string> TreeMenu::splitCsv(const std::string &s) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (char ch : s) {
+        if (ch == ',') {
+            if (!cur.empty()) out.push_back(cur);
+            cur.clear();
+        } else
+            cur += ch;
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
+}
+
+/// @brief 受控展开应用："a:1,b:0" 逐键置位（未列出/失配的键保持运行时态自持）。
+/// 键命中即翻转或校准，返回是否有实际状态变化（供 markAllDirty 判定）
+bool TreeMenu::applyExpandedMap(const std::string &map) {
+    if (map.empty()) return false;
+    std::function<TreeNodeData *(TreeNodeData &, const std::string &)> find =
+        [&](TreeNodeData &n, const std::string &k) -> TreeNodeData * {
+        if (nodeKeyOf(n) == k) return &n;
+        for (auto &c : n.children)
+            if (TreeNodeData *hit = find(c, k)) return hit;
+        return nullptr;
+    };
+    bool changed = false;
+    for (const auto &entry : splitCsv(map)) {
+        // 段格式 key:0/1（按末两字符解析，键内含 ':' 不受影响）；缺 ":" 首段或
+        // 非法旗标整段跳过（Log::warn 一次，lastParsed 门保证同值重喂不重复刷屏）
+        if (entry.size() < 3 || entry[entry.size() - 2] != ':'
+            || (entry.back() != '0' && entry.back() != '1')) {
+            Log::warn("[TreeMenu] expanded map 段应为 key:0/1 —— 跳过: \"{}\"", entry);
+            continue;
+        }
+        const std::string k = entry.substr(0, entry.size() - 2);
+        const bool on = entry.back() == '1';
+        bool hit = false;
+        for (auto &root : nodes_) {
+            if (TreeNodeData *n = find(root, k)) {
+                if (n->expanded != on) {
+                    n->expanded = on;
+                    changed = true;
+                }
+                hit = true;
+                break;
+            }
+        }
+        if (!hit) Log::warn("[TreeMenu] expanded map 键未命中: \"{}\"", k);
+    }
+    if (changed) rebuildRows();    // 展开态变化 → 可见行增减（行身份仍按节点指针复用）
+    return changed;
+}
+
+// ════════════════════════════════════════════════════════
 // getProperty / setProperty — PropBus 支持
 // ════════════════════════════════════════════════════════
 std::string TreeMenu::getProperty(const char *name) const {
@@ -373,6 +493,20 @@ std::string TreeMenu::getProperty(const char *name) const {
             if (!joined.empty()) joined += ",";
             joined += k;
         }
+        return joined;
+    }
+    if (std::strcmp(name, "expanded") == 0) {
+        // 非叶节点全量 map "a:1,b:0"（DFS 序；与受控键格式同形——读侧输出
+        // 可直接回喂 setProp("expanded")，读/写对偶）
+        std::string joined;
+        std::function<void(const TreeNodeData &)> dfs = [&](const TreeNodeData &n) {
+            if (!n.children.empty()) {
+                if (!joined.empty()) joined += ",";
+                joined += nodeKeyOf(n) + ":" + (n.expanded ? "1" : "0");
+            }
+            for (auto &c : n.children) dfs(c);
+        };
+        for (auto &root : nodes_) dfs(root);
         return joined;
     }
     return View::getProperty(name);
@@ -410,17 +544,13 @@ bool TreeMenu::applyCheckedSet(const std::vector<std::string> &want) {
 bool TreeMenu::setPropertyTyped(const char *name, const TypedProp &value) {
     if (std::strcmp(name, "checked") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
-            std::vector<std::string> want;
-            std::string cur;
-            for (char ch : *s) {
-                if (ch == ',') {
-                    if (!cur.empty()) want.push_back(cur);
-                    cur.clear();
-                } else
-                    cur += ch;
-            }
-            if (!cur.empty()) want.push_back(cur);
-            return applyCheckedSet(want);
+            return applyCheckedSet(splitCsv(*s));    // 整集合覆盖口径（含级联+半选推导）
+        }
+    }
+    if (std::strcmp(name, "expanded") == 0) {
+        if (auto *s = std::get_if<std::string>(&value)) {
+            if (applyExpandedMap(*s)) markAllDirty();    // 逐键覆盖口径（未列/未命中键保持运行时态）
+            return true;                                 // 键失配 = 已按语义就近处理（不落入通用回退链）
         }
     }
     return View::setPropertyTyped(name, value);

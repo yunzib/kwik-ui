@@ -6,6 +6,8 @@
 //         - 数据：TreeNodeData 递归树（JS nodes 解析，兼作运行时树）
 //         - 可见行：DFS 扁平化 → 每行一个 TreeRowView（ScrollView 子节点）
 //         - 交互：勾选框 = 级联多选；行其余区域 = 展开/折叠
+//         - 通报：onTreeExpand/onTreeSelect + 受控 expanded/checked
+//           （受控键存在即受控；同构重喂保留运行时态与行身份）
 // 注意：TreeMenu 不接受 JS children（数据走 nodes），reconcile 时行由内部重建。
 // ============================================================================
 module;
@@ -46,15 +48,17 @@ public:
     /// @brief 增量更新树属性（reconcile 原地覆盖，重建可见行）
     void applyTreeMenuProps(const TreeMenuProps &tp);
 
-    // ── 属性读写（getProp/setProp 支持 checked）──
+    // ── 属性读写（getProp/setProp 支持 checked/expanded）──
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
     // ── 行控件（同 TU TreeRowView）调用的公共接口 ──
-    /// @brief 展开/折叠节点（叶节点忽略）
+    /// @brief 展开/折叠节点（叶节点忽略；翻转后通报 onTreeExpand）
     void toggleExpand(TreeNodeData *n);
     /// @brief 勾选/取消节点（含子孙级联 + 祖先半选态推导）
     void toggleCheck(TreeNodeData *n, bool val);
+    /// @brief 单行点击通报（行区命中；勾选框热区不发——勾选走 onChange 通报族）
+    void fireRowTap(const TreeNodeData &n);
 
 protected:
     /// @brief 悬停行集中仲裁（HoverMove 冒泡至此；悬停行变化 → ③态整区重绘，清缓存灰底残留）
@@ -69,6 +73,16 @@ private:
     static void setCheckedRecursive(TreeNodeData &n, bool val);    // 子树级联设置
     static bool recomputeCascade(TreeNodeData &n);                 // 自底向上重算半选态
 
+    // ── 事件面 + 受控键 + 同构重喂助手（通报不改 onChange/fireChange 语义）──
+    static std::string nodeKeyOf(const TreeNodeData &n);           // key 缺省回退 title（onChange/getProp 同口径）
+    void fireTreeExpand(const TreeNodeData &n);                    // 单节点展开通报（toggleExpand 翻转后直派）
+    static bool sameShape(const std::vector<TreeNodeData> &a, const std::vector<TreeNodeData> &b);
+    static void syncTreeData(TreeNodeData &dst, const TreeNodeData &src);    // 同构下同步静态字段（title/icon，布尔态不动）
+    bool applyExpandedMap(const std::string &map);                 // 受控展开："a:1,b:0" 逐键覆盖（未列/失配键不动），返回是否有状态翻转
+    static std::vector<std::string> splitCsv(const std::string &s);    // CSV 切分（PropBus "checked" 共用）
+
     TreeMenuProps tp_;                   // 树配置（含初始数据）
     std::vector<TreeNodeData> nodes_;    // 运行时树（复制自 tp_.nodes，行持有其指针）
+    std::string lastParsedChecked_;      // 受控勾选 lastParsed 门（同值重喂不回灌运行时态）
+    std::string lastParsedExpanded_;     // 受控展开 lastParsed 门
 };

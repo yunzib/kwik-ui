@@ -59,6 +59,17 @@ export struct RowArgs {
 };
 
 /**
+ * @brief 树节点事件参数 (TreeMenu onTreeExpand / onTreeSelect)
+ *
+ * key 恒有值：节点未配 key 时回退 title（与 onChange/getProp("checked") 同口径）；
+ * expanded 为通报瞬间的树内展开态（onTreeExpand=翻转后新态，onTreeSelect 未动）。
+ */
+export struct TreeArgs {
+    std::string key;
+    bool expanded = false;
+};
+
+/**
  * @brief 虚拟键盘按键事件参数 (onKey)
  *
  * value:   可打印字符的 UTF-8 串（已含 shift 大写）；功能键为 ""
@@ -97,6 +108,8 @@ export struct ViewEventHandlers {
     std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击
+    std::function<void(const TreeArgs &)> onTreeExpand;       ///< TreeMenu 单节点展开通报（用户开合翻转后，受控应用不回发）
+    std::function<void(const TreeArgs &)> onTreeSelect;       ///< TreeMenu 单行点击通报（行其余区域；勾选框热区不发，勾选走 onChange 族）
     std::function<void(const KeyArgs &)> onKey;               ///< 虚拟键盘按键（旁路通知，不干预注入）
     std::function<void()> onFocus;                            ///< 获得焦点（FocusManager 注入，presetTarget 直投，无参）
     std::function<void()> onBlur;                             ///< 失去焦点（同上）

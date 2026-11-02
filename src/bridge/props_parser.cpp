@@ -785,6 +785,16 @@ TreeMenuProps parseTreeMenuProps(PropsExtractor &ex) {
     ex.get("checkboxColor", result.checkboxColor);
     ex.get("hoverBackground", result.hoverBackground);
     ex.get("arrowColor", result.arrowColor);
+    // ── 受控键：键存在即受控（Expansion open 同族口径）；值为展开 map /
+    // 勾选 CSV 字符串。缺省键 = 内部自持，存量用法零影响
+    if (ex.has("expanded")) {
+        result.expandedControlled = true;
+        ex.get("expanded", result.expanded);
+    }
+    if (ex.has("checked")) {
+        result.checkedControlled = true;
+        ex.get("checked", result.checked);
+    }
     return result;
 }
 
