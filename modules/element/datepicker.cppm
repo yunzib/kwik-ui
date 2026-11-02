@@ -52,6 +52,23 @@ public:
     bool isOpen() const { return open_; }
     void setOpen(bool open);
 
+    /** @brief 日历区几何（相对浮层左上；面板内布局的绘制/命中单一事实源）
+     *
+     * date 顶部对齐；datetime 垂直居中于内容区（contentH = max(日历高, 滚轮高)）。
+     * CalendarView 的 onDraw 与 hitCalendarCell/hitNavArrow/HoverMove 全部经此
+     * 计算原点——此前命中侧硬编码 kPad 起算、绘制侧 datetime 居中，滚轮区
+     * 高于日历区时点击系统性上偏。纯函数（无 this 状态），供行为锁。
+     */
+    struct CalLayout {
+        float x;       // 日历左上 x（相对浮层）
+        float y;       // 日历（标题行）左上 y
+        float w;       // 日历总宽（7 格）
+        float gridX;   // 6×7 网格左上 x
+        float gridY;   // 6×7 网格左上 y
+        float calH;    // 日历总高（标题+星期+6 行网格）
+    };
+    static CalLayout calendarLayout(const DateTimePickerProps &dp, PickerMode mode);
+
     /** @brief 翻页（-1 上一月，+1 下一月），跨年自动回绕（CalendarView 调用） */
     void navigateMonth(int delta);
 

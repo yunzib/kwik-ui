@@ -80,7 +80,13 @@ int weekdayOf(int y, int m, int d) {
 /** @brief 取本地今日的 年/月/日 */
 void todayYMD(int &y, int &m, int &d) {
     std::time_t t = std::time(nullptr);
-    std::tm *lt = std::localtime(&t);
+    std::tm *lt = std::localtime(&t);    // 仅 UI 单线程调用，无竞争
+    if (!lt) {                           // 判空防解引用 UB（localtime 失败返回 nullptr）
+        y = 1970;
+        m = 1;
+        d = 1;
+        return;
+    }
     y = lt->tm_year + 1900;
     m = lt->tm_mon + 1;
     d = lt->tm_mday;
@@ -143,15 +149,25 @@ public:
         if (registered_) return;
         frame = owner_.panelRect();    // 全局坐标
         hoveredSlot_ = -1;
-        const auto &dp = owner_.pickerProps();
         // 滚轮初始位置 = pending 的时间值（open 时 pending 已由 setOpen 拷贝自 sel）
-        float itemH = dp.wheelItemHeight;
-        hourScroll_ = owner_.pendingHas() ? (float)owner_.pendingH() * itemH : 0.0f;
-        minuteScroll_ = owner_.pendingHas() ? (float)owner_.pendingMi() * itemH : 0.0f;
+        syncWheelFromPending();
         drawnElsewhere_ = true;    // base 树跳过本节点绘制与命中
         layersOf(this)->registerLayerView(this);
         registered_ = true;
         markAllDirty();    // 层首帧全量重录
+    }
+
+    /** @brief 展开态外部换值后的重同步：pending 滚轮偏移 + 面板 frame 重布算
+     *
+     * open() 只在展开瞬间初始化一次；展开期间声明式改 value/mode 时
+     * （applyDateTimePickerProps 的 valueFresh 路径）若不同步，确认键提交的
+     * 仍是旧 pending、滚轮停在旧时刻、面板尺寸变化（如 mode 换档）也不重排。
+     */
+    void resyncPending() {
+        if (!registered_) return;
+        frame = owner_.panelRect();    // mode/value 变更后面板宽高可能变化
+        syncWheelFromPending();
+        markAllDirty();
     }
 
     /** @brief 收起：注销 + 复原 base 覆盖区（防 ghost 残留） */
@@ -235,10 +251,9 @@ protected:
             int hy, hm, hd;
             if (mode != PickerMode::Time && hitCalendarCell(lx, ly, hy, hm, hd)) {
                 const auto &d = owner_.pickerProps();
-                float gridX = kPad;
-                float gridY = kPad + kHeaderH + kWeekH;
-                int col = (int)((lx - gridX) / d.cellSize);
-                int row = (int)((ly - gridY) / d.cellSize);
+                auto cg = calendarGeom();    // 与绘制共源（datetime 居中不再错位）
+                int col = (int)((lx - cg.gridX) / d.cellSize);
+                int row = (int)((ly - cg.gridY) / d.cellSize);
                 hoveredSlot_ = row * 7 + col;
             } else {
                 hoveredSlot_ = -1;
@@ -291,27 +306,20 @@ protected:
         g.clipRoundedRect(p, 8.0f);
 
         float contentTop = p.y + kPad;
-        // ── 内容区（按 mode 布局） ──
+        // ── 内容区（按 mode 布局；日历/滚轮几何一律走 calendarGeom/wheelGeom 共源） ──
+        auto cg = calendarGeom();
         if (mode == PickerMode::Date) {
             // 仅有日历，垂直顶部对齐
-            drawCalendar(g, p.x + kPad, contentTop, 7 * dp.cellSize);
+            drawCalendar(g, p.x + cg.x, p.y + cg.y, cg.w);
         } else if (mode == PickerMode::Time) {
             // 仅有滚轮，水平居中
             auto wg = wheelGeom();
-            drawWheels(g, p.x + wg.startX, contentTop + wg.top - kPad, 2 * wg.colW + kWheelSepW);
+            drawWheels(g, p.x + wg.startX, p.y + wg.top, 2 * wg.colW + kWheelSepW);
         } else {
             // datetime：日历左 + 时间右，垂直各自居中于内容区
-            float calW = 7 * dp.cellSize;
-            float timeW = 2 * dp.wheelColWidth + kWheelSepW;
-            float calH = kHeaderH + kWeekH + 6 * dp.cellSize;
-            float timeH = dp.wheelVisibleRows * dp.wheelItemHeight;
-            float contentH = std::max(calH, timeH);
-            float calX = p.x + kPad;
-            float timeX = p.x + kPad + calW + kSepGap;
-            float calY = contentTop + (contentH - calH) * 0.5f;
-            float timeY = contentTop + (contentH - timeH) * 0.5f;
-            drawCalendar(g, calX, calY, calW);
-            drawWheels(g, timeX, timeY, timeW);
+            auto wg = wheelGeom();
+            drawCalendar(g, p.x + cg.x, p.y + cg.y, cg.w);
+            drawWheels(g, p.x + wg.startX, p.y + wg.top, 2 * wg.colW + kWheelSepW);
         }
         // ── 底部按钮行（跨整宽，底对齐） ──
         float barY = contentTop + contentH() + kBtnGap;
@@ -353,6 +361,12 @@ private:
         float calW = 7 * dp.cellSize;
         float contentH = std::max(kHeaderH + kWeekH + 6 * dp.cellSize, regionH);
         return {kPad + calW + kSepGap, kPad + (contentH - regionH) * 0.5f, regionH, dp.wheelColWidth};
+    }
+
+    /** @brief 日历区几何（相对浮层左上）——委托 DateTimePicker::calendarLayout
+     *  单一事实源，date 与 datetime 模式统一（绘制与命中此前不同源） */
+    DateTimePicker::CalLayout calendarGeom() const {
+        return DateTimePicker::calendarLayout(owner_.pickerProps(), owner_.pickerMode());
     }
 
     /** @brief 绘制日历：标题 + ‹› + 星期表头 + 6×7 网格，返回网格底绝对 y */
@@ -567,12 +581,11 @@ private:
     /** @brief 命中日历格，返回真实 年/月/日；未命中 false。坐标相对浮层顶 */
     bool hitCalendarCell(float lx, float ly, int &hy, int &hm, int &hd) {
         const auto &dp = owner_.pickerProps();
-        float gridX = kPad;
-        float gridY = kPad + kHeaderH + kWeekH;    // 关键：含 pad，与绘制对齐
-        if (lx < gridX || lx >= gridX + 7 * dp.cellSize) return false;
-        if (ly < gridY || ly >= gridY + 6 * dp.cellSize) return false;
-        int col = (int)((lx - gridX) / dp.cellSize);
-        int row = (int)((ly - gridY) / dp.cellSize);
+        auto cg = calendarGeom();    // 与绘制共源（datetime 垂直居中不再错位）
+        if (lx < cg.gridX || lx >= cg.gridX + 7 * dp.cellSize) return false;
+        if (ly < cg.gridY || ly >= cg.gridY + 6 * dp.cellSize) return false;
+        int col = (int)((lx - cg.gridX) / dp.cellSize);
+        int row = (int)((ly - cg.gridY) / dp.cellSize);
         int slot = row * 7 + col;
         int vy = owner_.viewYear(), vm = owner_.viewMonth();
         int firstWd = weekdayOf(vy, vm, 1);
@@ -586,12 +599,12 @@ private:
 
     /** @brief 命中 ‹ (next=false) / › (next=true) 箭头区。坐标相对浮层顶 */
     bool hitNavArrow(float lx, float ly, bool next) {
-        const auto &dp = owner_.pickerProps();
-        float w = 7 * dp.cellSize;
-        // 标题行区域 [kPad, kPad+28)，箭头子区域 [kPad+4, kPad+24)
-        if (ly < kPad + 4 || ly >= kPad + 24) return false;
-        if (!next) return lx >= kPad && lx < kPad + 24;
-        return lx >= kPad + w - 24 && lx < kPad + w;
+        auto cg = calendarGeom();    // 箭头画在日历标题行内，随日历原点走
+        float w = cg.w;
+        // 标题行区域 [cg.y, cg.y+28)，箭头子区域 [cg.y+4, cg.y+24)
+        if (ly < cg.y + 4 || ly >= cg.y + 24) return false;
+        if (!next) return lx >= cg.x && lx < cg.x + 24;
+        return lx >= cg.x + w - 24 && lx < cg.x + w;
     }
 
     /** @brief 命中滚轮并执行点选：snap 滚动到点击值 + pickTime。命中返回 true */
@@ -641,6 +654,13 @@ private:
         return std::clamp(v, 0.0f, (float)(count - 1) * owner_.pickerProps().wheelItemHeight);
     }
 
+    /** @brief 滚轮偏移对齐 pending 时间值（open 初始化与展开态换值重同步共用） */
+    void syncWheelFromPending() {
+        float itemH = owner_.pickerProps().wheelItemHeight;
+        hourScroll_ = owner_.pendingHas() ? (float)owner_.pendingH() * itemH : 0.0f;
+        minuteScroll_ = owner_.pendingHas() ? (float)owner_.pendingMi() * itemH : 0.0f;
+    }
+
     void prevMonth() {
         owner_.navigateMonth(-1);
         markDirty();
@@ -661,6 +681,21 @@ private:
 // ════════════════════════════════════════════════════════
 // DateTimePicker 成员实现
 // ════════════════════════════════════════════════════════
+// calendarLayout — 日历区几何单一事实源（绘制/命中/悬停共源）
+DateTimePicker::CalLayout DateTimePicker::calendarLayout(const DateTimePickerProps &dp, PickerMode mode) {
+    float calW = 7 * dp.cellSize;
+    float calH = kHeaderH + kWeekH + 6 * dp.cellSize;
+    if (mode == PickerMode::Date) {
+        // 仅有日历，顶部对齐
+        return {kPad, kPad, calW, kPad, kPad + kHeaderH + kWeekH, calH};
+    }
+    // datetime：左置，垂直居中于内容区（与 wheelGeom 同 contentH=max 口径）
+    float regionH = dp.wheelVisibleRows * dp.wheelItemHeight;
+    float contentH = std::max(calH, regionH);
+    float y = kPad + (contentH - calH) * 0.5f;
+    return {kPad, y, calW, kPad, y + kHeaderH + kWeekH, calH};
+}
+
 float DateTimePicker::panelWidth() const {
     auto m = pickerMode();
     if (m == PickerMode::Time) return 2 * dp_.wheelColWidth + kWheelSepW + 2 * kPad;
@@ -800,6 +835,17 @@ void DateTimePicker::applyDateTimePickerProps(const DateTimePickerProps &dp) {
     dp_ = dp;
     if (valueFresh) {
         parseValue();
+        // 展开态声明式换值：pending ← 新解析值 + 滚轮偏移/面板 frame 重同步
+        // （open() 只在展开瞬间初始化一次，不同步则确认键提交的仍是旧暂选）
+        if (open_ && panelLayer_) {
+            pendingY_ = selYear_;
+            pendingM_ = selMonth_;
+            pendingD_ = selDay_;
+            pendingH_ = selHour_;
+            pendingMi_ = selMinute_;
+            pendingHas_ = hasValue_;
+            static_cast<CalendarView *>(panelLayer_)->resyncPending();
+        }
     } else {
         dp_.value = runtimeValue;
     }

@@ -45,6 +45,7 @@ import kwik.layout.flex_layout;
 import kwik.element.scroll_view;    // ScrollView（横向滚轮派发链行为锁）
 import kwik.element.scroll_physics; // ScrollPhysics（fling/回弹/橡皮筋行为锁）
 import kwik.element.spinbox;        // SpinBox（数字约束 clamp/运行时同步行为锁）
+import kwik.element.datepicker;     // DateTimePicker（日历几何共源行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -2548,6 +2549,37 @@ static void test_spinbox_number_constraints() {
 }
 
 // ============================================================================
+// DateTimePicker 日历几何共源：calendarLayout 单一事实源——datetime 模式
+// 滚轮高于日历时网格垂直居中下沉 (wheelH-calH)/2，绘制/命中/悬停同源
+// （此前命中侧硬编码 kPad 起算、绘制侧居中，滚轮超高点击系统性上偏）
+// ============================================================================
+static void test_datepicker_calendar_layout() {
+    auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+    DateTimePickerProps dp;
+
+    // ① 网格原点恒在日历原点正下方（表头+星期行），水平不偏移
+    auto gDate = DateTimePicker::calendarLayout(dp, PickerMode::Date);
+    CHECK(gDate.gridY > gDate.y);
+    CHECK(nearf(gDate.gridX, gDate.x));
+
+    // ② 滚轮不高于日历（默认轮高）：datetime 居中偏移为 0，与 date 同顶
+    float wheelH = (float)dp.wheelVisibleRows * dp.wheelItemHeight;
+    auto gDt = DateTimePicker::calendarLayout(dp, PickerMode::DateTime);
+    if (wheelH <= gDt.calH) { CHECK(nearf(gDt.y, gDate.y)); }
+
+    // ③ 滚轮高出日历 4 行：datetime 网格下沉 (wheelH−calH)/2（锁死共源公式）
+    DateTimePickerProps dpTall = dp;
+    dpTall.wheelVisibleRows = (int)(gDate.calH / dpTall.wheelItemHeight) + 4;
+    auto gTall = DateTimePicker::calendarLayout(dpTall, PickerMode::DateTime);
+    auto gDateTall = DateTimePicker::calendarLayout(dpTall, PickerMode::Date);    // date 不受轮高影响
+    float wheelHTall = (float)dpTall.wheelVisibleRows * dpTall.wheelItemHeight;
+    CHECK(wheelHTall > gTall.calH);
+    float expect = (wheelHTall - gTall.calH) * 0.5f;
+    CHECK(nearf(gTall.gridY - gDateTall.gridY, expect));
+    CHECK(nearf(gTall.y - gDateTall.y, expect));
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -2958,6 +2990,7 @@ int main() {
     test_pan_end_lifecycle();
     test_pan_bubble();
     test_spinbox_number_constraints();
+    test_datepicker_calendar_layout();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();
