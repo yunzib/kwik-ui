@@ -119,6 +119,22 @@ Size View::onMeasure(Constraints constraints) {
     Size contentSize = {w, h};
     if (!children.empty()) {
         Constraints childConstraints = constraints.inset(props.padding);
+        // 父有显式尺寸（px/百分比）时，子约束上限收敛到自身有效内容尺寸——
+        // 否则上游宽松约束直透子级，自适应子级（wordWrap 文本）按错误宽度
+        // 测量、绘制期再按 frame 实宽重排，两套排版宽行数不一致 → 盒高不足
+        // 尾部行被裁（纵向截断）。有效尺寸取 min(显式值, 上限)：上游比显式
+        // 更紧时父自身也会被 constrain 收紧，子级须同口径。显式尺寸的子级
+        // 不受影响（resolveEffectiveSize 显式值优先于约束上限）
+        if (props.width.has_value() || props.widthPct.has_value()) {
+            float effW = std::min(w, constraints.maxWidth);    // w 已含 padding
+            childConstraints.maxWidth = std::min(childConstraints.maxWidth, effW - props.padding.horizontal());
+            childConstraints.minWidth = std::min(childConstraints.minWidth, childConstraints.maxWidth);
+        }
+        if (props.height.has_value() || props.heightPct.has_value()) {
+            float effH = std::min(h, constraints.maxHeight);
+            childConstraints.maxHeight = std::min(childConstraints.maxHeight, effH - props.padding.vertical());
+            childConstraints.minHeight = std::min(childConstraints.minHeight, childConstraints.maxHeight);
+        }
         float maxChildWidth = 0;
         float totalChildHeight = 0;
         float maxExplicitBottom = 0;    // 显式 y 定位子节点的下边界包络

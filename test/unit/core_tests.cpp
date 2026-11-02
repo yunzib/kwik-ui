@@ -2580,6 +2580,71 @@ static void test_datepicker_calendar_layout() {
 }
 
 // ============================================================================
+// 显式尺寸父级的子约束收敛：探针子组件记录收到的约束——父有显式宽/高时
+// 子约束上限必须收敛到父有效内容尺寸（否则自适应子级按上游宽松约束测量、
+// 绘制期按实宽重排 → 行数不一致尾部被裁）；无显式尺寸则保持上游约束
+// ============================================================================
+static void test_explicit_parent_converges_child_constraints() {
+    auto nearf = [](float a, float b) { return std::abs(a - b) < 0.01f; };
+    struct Probe final : View {
+        Constraints got;
+        Size onMeasure(Constraints c) override {
+            got = c;
+            return {10, 10};
+        }
+    };
+
+    // ① 显式宽 500（未含 padding 基准，总宽 520）+ 水平 20 → 子 maxWidth
+    //    收敛到内容宽 500（= 520 − 20；显式宽即内容基准，不二次扣减）
+    {
+        ViewProps vp;
+        vp.width = 500.0f;
+        vp.padding = EdgeInsets{10, 20, 10, 20};
+        View parent(vp);
+        auto probe = std::make_unique<Probe>();
+        Probe *p = probe.get();
+        parent.addChild(std::move(probe));
+        parent.measure(Constraints{0, 2000, 0, 2000});    // 上游宽松 2000
+        CHECK(nearf(p->got.maxWidth, 500.0f));            // 修前 = 1980（上游直透）
+    }
+    // ② 显式高 300（总高 340）− 垂直 40 → 子 maxHeight 收敛到 300
+    {
+        ViewProps vp;
+        vp.height = 300.0f;
+        vp.padding = EdgeInsets{10, 20, 10, 20};
+        View parent(vp);
+        auto probe = std::make_unique<Probe>();
+        Probe *p = probe.get();
+        parent.addChild(std::move(probe));
+        parent.measure(Constraints{0, 2000, 0, 2000});
+        CHECK(nearf(p->got.maxHeight, 300.0f));
+    }
+    // ③ 对照：无显式尺寸 → 子约束保持上游（2000 − 水平 20），不误伤自适应父
+    {
+        ViewProps vp;
+        vp.padding = EdgeInsets{10, 20, 10, 20};
+        View parent(vp);
+        auto probe = std::make_unique<Probe>();
+        Probe *p = probe.get();
+        parent.addChild(std::move(probe));
+        parent.measure(Constraints{0, 2000, 0, 2000});
+        CHECK(nearf(p->got.maxWidth, 1980.0f));
+    }
+    // ④ 父约束比显式宽更紧（上游 400 < 显式 500）：取收紧后 400 − 水平 20 = 380
+    {
+        ViewProps vp;
+        vp.width = 500.0f;
+        vp.padding = EdgeInsets{10, 20, 10, 20};
+        View parent(vp);
+        auto probe = std::make_unique<Probe>();
+        Probe *p = probe.get();
+        parent.addChild(std::move(probe));
+        parent.measure(Constraints{0, 400, 0, 2000});
+        CHECK(nearf(p->got.maxWidth, 380.0f));
+    }
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -2991,6 +3056,7 @@ int main() {
     test_pan_bubble();
     test_spinbox_number_constraints();
     test_datepicker_calendar_layout();
+    test_explicit_parent_converges_child_constraints();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();
