@@ -46,6 +46,7 @@ import kwik.element.scroll_view;    // ScrollView（横向滚轮派发链行为�
 import kwik.element.scroll_physics; // ScrollPhysics（fling/回弹/橡皮筋行为锁）
 import kwik.element.spinbox;        // SpinBox（数字约束 clamp/运行时同步行为锁）
 import kwik.element.datepicker;     // DateTimePicker（日历几何共源行为锁）
+import kwik.element.expansion;      // Expansion（头行带悬停状态转换行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -2645,6 +2646,63 @@ static void test_explicit_parent_converges_child_constraints() {
 }
 
 // ============================================================================
+// Expansion 头行带悬停：HoverMove 进/出带转换驱动视觉态 + 合成 onHover 通报
+// （HoverEnter/Leave 只 presetTarget 直投最深命中、不冒泡——容器用 Move 转换
+// 模拟 enter/leave，成对进出）；带内 Tap/PointerDown 顺带清态（成对发 leave）
+// 防指针不经 Move 逸出（压键拖出/切窗）的残高亮
+// ============================================================================
+static void test_expansion_header_hover() {
+    // onEvent 是 protected（事件只经派发链进来）——测试用派生拉公开直投，
+    // 与显式尺寸收敛测试的 Probe 派生同款手法
+    struct HoverEx final : Expansion {
+        using Expansion::Expansion;
+        using Expansion::onEvent;
+    };
+    ExpansionProps ep;
+    ep.headerHeight = 30.0f;
+    ep.headerBackground = Color{255, 255, 255, 255};
+    ep.hoverBackground = Color{0, 0, 0, 255};
+    HoverEx ex(ViewProps{}, ep);
+    int enterN = 0, leaveN = 0;
+    ex.handlers.onHoverEnter = [&enterN](const PointerArgs &) { ++enterN; return true; };
+    ex.handlers.onHoverLeave = [&leaveN](const PointerArgs &) { ++leaveN; return true; };
+    ex.layout(Rect{0, 0, 200, 100});    // 带区 y ∈ [0,30)，无滚差祖先 comp 恒 0
+    auto move = [&](float gx, float gy) {
+        DispatchEvent e;
+        e.type = DispatchEvent::Type::HoverMove;
+        e.globalX = gx;
+        e.globalY = gy;
+        ex.onEvent(e);
+    };
+    auto tap = [&](float gx, float gy) {
+        DispatchEvent e;
+        e.type = DispatchEvent::Type::Tap;
+        e.globalX = gx;
+        e.globalY = gy;
+        ex.onEvent(e);
+    };
+    auto press = [&](float gx, float gy) {
+        DispatchEvent e;
+        e.type = DispatchEvent::Type::PointerDown;
+        e.globalX = gx;
+        e.globalY = gy;
+        ex.onEvent(e);
+    };
+
+    move(50, 20);     CHECK(enterN == 1 && leaveN == 0);    // 入带 → enter
+    move(60, 25);     CHECK(enterN == 1 && leaveN == 0);    // 带内移动——转换不触发不重发
+    move(50, 60);     CHECK(enterN == 1 && leaveN == 1);    // 出带（body 区）→ leave
+    move(80, 90);     CHECK(enterN == 1 && leaveN == 1);    // body 内移动不动
+    move(100, 10);    CHECK(enterN == 2 && leaveN == 1);    // 重入带 → enter（第二次往返成对）
+    move(110, 15);    CHECK(enterN == 2 && leaveN == 1);    // 带内移动不重发
+    tap(100, 10);     CHECK(enterN == 2 && leaveN == 2);    // 带内 Tap 清态——成对发 leave
+    move(100, 12);    CHECK(enterN == 3 && leaveN == 2);    // 清态后带内重进——锁死 Tap 清态（否则无 enter）
+    press(100, 12);   CHECK(enterN == 3 && leaveN == 3);    // 带内按下清态——成对发 leave
+    move(100, 13);    CHECK(enterN == 4 && leaveN == 3);    // 清态后重进——锁死按下清态
+    move(50, 60);     CHECK(enterN == 4 && leaveN == 4);    // 出带 → leave（计数回归成对）
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -3057,6 +3115,7 @@ int main() {
     test_spinbox_number_constraints();
     test_datepicker_calendar_layout();
     test_explicit_parent_converges_child_constraints();
+    test_expansion_header_hover();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();

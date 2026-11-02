@@ -41,6 +41,7 @@ ExpansionProps parseExpansionProps(PropsExtractor &ex) {
     result.controlled = ex.has("open");    // open 键存在即受控（值恒来自外部 State）
     ex.get("headerHeight", result.headerHeight);
     ex.get("headerBackground", result.headerBackground);
+    ex.get("hoverBackground", result.hoverBackground);
     ex.get("bodyGap", result.bodyGap);
     // 互斥规约：受控优先（应用显式声明两模式语义不叠加）
     if (result.controlled && ex.has("defaultOpen")) {

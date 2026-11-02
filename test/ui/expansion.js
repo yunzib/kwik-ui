@@ -1,12 +1,13 @@
 // ============================================================================
 // expansion.js — Expansion 可展开容器原子 demo（头行显式化：children[0] 即头行）
 //
-// 四景：
+// 五景：
 //   ① 非受控双卡（defaultOpen 开/关各一）—— 点击头行翻开关，body 隐藏保活；
 //      onToggle 镜像 State 驱动箭头联动（内部态不回灌，两者可叠加）
 //   ② 受控卡（open: State + onToggle 回写）—— 状态归调用方，body 条件拼装
 //   ③ ScrollView 内嵌组（受控折叠 × 组群）—— 收放重排 + 滚动联动
 //   ④ 头行组合自由度（字形/图标/徽标/无箭头——全在 children[0] 里自由拼）
+//   ⑤ 头行悬停高亮（hoverBackground 配色即开 + 合成 onHoverEnter/Leave）
 // default export 即根（与 line/tabs 等单页 demo 同形）。
 // ============================================================================
 import { View, Text, Flex, ScrollView, State, Expansion, Button, Image } from 'kwikui';
@@ -28,6 +29,9 @@ const pushLog = (msg) => {
 
 // ── ④ 徽标计数 State ──
 const badge = new State({ count: 3 });
+
+// ── ⑤ 头行悬停 State（enter/leave 合成通报读点：徽标翻色 + 计数）──
+const hov = new State({ in: false, n: 0 });
 
 // ── ③ 折叠组群（受控 bool State ×组，示范"互斥手风琴"三行联动逻辑）──
 const acc = new State({ open: 'A' });    // 单开（互斥）：同 key 才展开
@@ -168,6 +172,28 @@ export default () => View({
                     ]),
                     Text({ text: "后续内容随折叠上下收放（scroll 引擎自动重算内容高）", fontSize: 12, color: "#999", margin: [8, 12] }),
                 ]),
+            ]),
+
+            // ── ⑤ 头行悬停高亮（hoverBackground 配色即开；徽标随进出翻色）──
+            Text({ text: "⑤ 头行悬停高亮（hoverBackground 配色即开 + 合成 onHover 通报）", fontSize: 15, color: "#555", margin: [4, 0, 8, 0] }),
+            Expansion({
+                id: "hv_card", defaultOpen: true,
+                headerBackground: "#E1F5FE", hoverBackground: "#81D4FA", headerHeight: 30,
+                onHoverEnter: () => { hov.in = true; hov.n = hov.n + 1; },
+                onHoverLeave: () => { hov.in = false; },
+            }, [
+                hd([
+                    Text({ text: "悬停我——带区高亮（徽标随进出翻色）", fontSize: 12, color: "#0277BD" }),
+                    View({ flexGrow: 1 }),
+                    Text({ text: hov.in ? "悬停中" : "移出", fontSize: 11, color: "#FFFFFF",
+                           background: hov.in ? "#0288D1" : "#90A4AE", borderRadius: 8, padding: [1, 7, 1, 7] }),
+                ], 30),
+                Text({ text: "enter/leave = HoverMove 进/出带状态转换合成（HoverEnter/Leave 只直投最深命中、容器不可达）；带内按下/Tap 清态成对发 leave，防指针不经 Move 逸出的残高亮。", fontSize: 12, color: "#444" }),
+            ]),
+            Text({ text: " ", fontSize: 4 }),
+            Expansion({ id: "hv_off", defaultOpen: false, headerBackground: "#F5F5F5" }, [
+                hd([Text({ text: "默认关闭卡——未配 hoverBackground（透明即不亮），存量手风琴零影响", fontSize: 12, color: "#757575" })], 30),
+                Text({ text: "配色即开、不配不理。", fontSize: 12, color: "#444" }),
             ]),
         ]),
     ]),

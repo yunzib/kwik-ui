@@ -1,8 +1,8 @@
 ---
 group: layout
 status: 已完成
-docsite: expansion（四节：非受控双卡 / 受控与事件流 / 互斥手风琴 / 头行组合四式——
-结构逐行镜像 test/ui/expansion.js 四景 demo）
+docsite: expansion（五节：非受控双卡 / 受控与事件流 / 互斥手风琴 / 头行组合四式 /
+头行悬停高亮——结构逐行镜像 test/ui/expansion.js 五景 demo）
 ---
 # Expansion — 可展开容器
 
@@ -34,6 +34,9 @@ Expansion({ open: s.open, onToggle: (e) => s.open = e.open }, [
   自行拦截不触发开合，空白处照常开合
 - **箭头随开合联动**：头行动态内容由调用方表达——受控模式 State 条件渲染，
   或非受控 + `onToggle` 镜像 State（内部态不回灌，两者可叠加）
+- **悬停反馈**：`hoverBackground` 非透明即开——悬停头行带时替换带底色并
+  合成 `onHoverEnter`/`onHoverLeave`（通用 hover 槽位，坐标口径与常规
+  hover 元件一致）；默认透明 = 关，存量用法零影响
 - 空子级数组 = 无头行（无点击区，仅编程开合的边界形态）
 - `headerHeight` 固定带高，头行内容超高不被裁剪——带高应容纳头行内容
 
@@ -56,6 +59,7 @@ Expansion({ open: s.open, onToggle: (e) => s.open = e.open }, [
     "defaultOpen": "boolean",           // 非受控初值（仅构造期吃，重喂不回灌；默认 false）
     "headerHeight": "number",           // 头行带高 px (默认 28；children[0] 手排区高)
     "headerBackground": "#rrggbb",      // 头行带底色 (默认透明；垫全部子级之下)
+    "hoverBackground": "#rrggbb",       // 头行悬停底色 (默认透明=关；配了非透明即开)
     "bodyGap": "number",                // body 子级列 gap (默认 0)
     "onToggle": "(e) => {}"             // 开合通报 e={ open: boolean }
 }
@@ -67,6 +71,10 @@ Expansion({ open: s.open, onToggle: (e) => s.open = e.open }, [
 ## 交互与渲染
 
 - 头行带：子级未消费的 Tap = 开合翻转；body 区域事件照常派发（不受头行语义沾染）
+- **头行悬停**：`HoverEnter`/`HoverLeave` 只直投最深命中子级、不冒泡——组件
+  用 `HoverMove` 进/出带的**状态转换**合成 enter/leave 通报（`onHoverEnter`/
+  `onHoverLeave` 通用槽位直达 JS）；带内按住/Tap 顺带清态并成对发 leave
+  （防指针不经 Move 逸出的残高亮，与 Button 压起反馈同思路）
 - 头行子树与 body 同走常规 `reconcileChildren`（id 优先/位置回退/类型切换重建）
   ——头行描述符换类型即重建该子树，生命周期/解绑/主题解析全走框架常规路径
 - 收放 = body 子级（children[1..]）可见性翻转 + 测量高重算（flex 引擎对不可见子级两相跳过）
@@ -107,8 +115,8 @@ Expansion({ open: acc.open === 'A', onToggle: (e) => { if (e.open) acc.open = 'A
 ])
 ```
 
-完整四景见 `test/ui/expansion.js`（非受控双卡 + 镜像箭头 / 受控联动 /
-ScrollView 内手风琴组 / 头行组合自由度）。
+完整五景见 `test/ui/expansion.js`（非受控双卡 + 镜像箭头 / 受控联动 /
+ScrollView 内手风琴组 / 头行组合自由度 / 头行悬停高亮）。
 
 ## 关联
 

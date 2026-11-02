@@ -56,6 +56,7 @@ export struct ExpansionProps {
     // ── 头行带（内容 = children[0]，组件零内建）──
     float headerHeight = 28.0f;                       // 头行带高 px（手排区高）
     Color headerBackground = Color::transparent();    // 头行带底色（垫全子级下）
+    Color hoverBackground = Color::transparent();     // 头行悬停底色（默认透明 = 关闭高亮；悬停时替换/盖头行带底色）
 
     // ── body ──
     float bodyGap = 0.0f;          // body 子级列 gap
@@ -96,8 +97,10 @@ protected:
 private:
     void applyOpen(bool on);       // 开合集应用：body 子级 visible 同步 + 重排
     void syncBodyVisibility();     // body 子级（children[1..]）可见性与 expanded_ 对齐（新增子级兜底）
+    void setHeaderHovered(bool on, const DispatchEvent &event);    // 头行带悬停态置/清 + 合成 onHover 通报（码 2/3 槽位直派）
 
     ExpansionProps ep_;
     bool expanded_ = false;
+    bool hoveredHeader_ = false;   // 头行带悬停态（HoverMove 进/出带转换驱动；纯视觉底色 + onHover 通报面）
     std::function<void(bool)> toggleCb_;
 };

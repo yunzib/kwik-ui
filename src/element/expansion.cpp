@@ -65,6 +65,7 @@ Expansion::Expansion(ViewProps vp, ExpansionProps ep)
 void Expansion::applyExpansionProps(const ExpansionProps &ep) {
     const bool gapChanged = ep_.bodyGap != ep.bodyGap;
     const bool bandColorChanged = !sameColor(ep_.headerBackground, ep.headerBackground);
+    const bool hoverColorChanged = !sameColor(ep_.hoverBackground, ep.hoverBackground);
     // 基座复用路径(:979)整体重析 props.padding —— 头行带盖章每次 reconcile 重打（无条件）
     EdgeInsets want{props.padding.left, ep.headerHeight, props.padding.right, props.padding.bottom};
     const bool padChanged = want.top != props.padding.top || want.left != props.padding.left ||
@@ -76,8 +77,8 @@ void Expansion::applyExpansionProps(const ExpansionProps &ep) {
     if (gapChanged) applyContainerProps(baseContainerProps(ep_.bodyGap));    // FlexLayout 公有 hook
     if (ep_.controlled) applyOpen(ep_.open);    // 受控：随 props 应用（内部有变才动）
     syncBodyVisibility();    // body 可见性由本组件接管——再喂路径显式对齐（新建子级由首帧 measure 兜底）
-    if (padChanged || gapChanged || bandColorChanged) {
-        markDirty();    // 带底色纯视觉面（无尺寸变化）只标重绘
+    if (padChanged || gapChanged || bandColorChanged || hoverColorChanged) {
+        markDirty();    // 带底色/悬停色纯视觉面（无尺寸变化）只标重绘（悬停色默认透明=关，运行时逐帧差异省去比对开销）
         if (padChanged || gapChanged) requestLayout();    // 尺寸面变化 → 全链重测（三连纪律）
     }
 }
@@ -140,24 +141,60 @@ void Expansion::onLayout() {
 
 void Expansion::onDraw(Graphics &graphics) {
     // band 底色垫底（在全部子级之下；body 位于 padding 区之下与带不重叠，
-    // 头行内容画在带上）——透明时跳过（drawRect 透明亦为空操作，显式跳过省一次录制）
-    if (ep_.headerBackground.a > 0) {
-        graphics.drawRect({frame.x, frame.y, frame.width, ep_.headerHeight}, ep_.headerBackground);
+    // 头行内容画在带上）——悬停态取 hoverBackground（透明=关闭高亮，画不了）；
+    // 透明时跳过（drawRect 透明亦为空操作，显式跳过省一次录制）
+    const bool hoverLit = hoveredHeader_ && ep_.hoverBackground.a > 0;
+    if (ep_.headerBackground.a > 0 || hoverLit) {
+        graphics.drawRect({frame.x, frame.y, frame.width, ep_.headerHeight},
+                          hoverLit ? ep_.hoverBackground : ep_.headerBackground);
     }
     FlexLayout::onDraw(graphics);    // 框底色 + 全部子级常规绘制（头行/body 同路径）
 }
 
 bool Expansion::onEvent(const DispatchEvent &event) {
+    Point comp = scrollCompensationOf(*this);
     if (event.type == DispatchEvent::Type::Tap) {
         // hitTest 已保证回到 self（子级未命中或未消费冒泡而回）；此处只分拣带内点击。
         // 带内判定用未滚动域：event.global 是滚动视口域，先补滚差再比带区间
         // （否则滚动的父容器内手风琴带内判定偏差一个滚差）
-        Point comp = scrollCompensationOf(*this);
         float bandY = event.globalY + comp.y - frame.y;
         if (bandY >= 0 && bandY < ep_.headerHeight) {
+            // 带内点按顺带清悬停态——指针可能不经 Move 直接逸出（压键拖出/切窗
+            // 残高亮）；清态成对发 leave，指针仍在带内时下一 Move 自然重进
+            if (hoveredHeader_) setHeaderHovered(false, event);
             toggle();
             return true;    // 头行带内点按不外溢（一旦交还基座，即成 ancestor 点击链）
         }
     }
+    if (event.type == DispatchEvent::Type::PointerDown) {
+        // 带内按下同样清态（与 Tap 同pose：压住即灭反馈，防按住拖出残高亮）；
+        // 不消费——照常进 pressTarget 链
+        float bandY = event.globalY + comp.y - frame.y;
+        if (bandY >= 0 && bandY < ep_.headerHeight && hoveredHeader_) setHeaderHovered(false, event);
+        return false;
+    }
+    if (event.type == DispatchEvent::Type::HoverMove) {
+        // 头行带悬停高亮：HoverEnter/Leave 只直投最深命中子级、不冒泡
+        // （event.cpp:142-165 presetTarget 直投），容器可达的只有 HoverMove
+        // ——用其进/出带转换模拟 enter/leave：置/清视觉态 + 合成通报码 2/3
+        // 槽位（等价分发器形态，JS 通用 bindPointer 直达）。不吞事件
+        // （Spinbox :232 家族纪律：吞 Move 会干扰框架 hover 追踪）
+        float lx = event.globalX + comp.x - frame.x;
+        float bandY = event.globalY + comp.y - frame.y;
+        bool inBand = lx >= 0 && lx < frame.width && bandY >= 0 && bandY < ep_.headerHeight;
+        if (inBand != hoveredHeader_) setHeaderHovered(inBand, event);
+        return false;
+    }
     return FlexLayout::onEvent(event);
+}
+
+// ── 头行带悬停态置/清 + 合成 onHoverEnter/onHoverLeave 通报 ──
+// 坐标口径对齐 View::onEvent（local = global + 滚差 − frame），JS 侧收到
+// 的 e.x/e.y 与常规 hover 元件一致；transition 才 markDirty（悬停色纯视觉面）
+void Expansion::setHeaderHovered(bool on, const DispatchEvent &event) {
+    hoveredHeader_ = on;
+    markDirty();
+    Point comp = scrollCompensationOf(*this);
+    Point local = {event.globalX + comp.x - frame.x, event.globalY + comp.y - frame.y};
+    handlers.dispatch(on ? 2 : 3, local.x, local.y, event.globalX, event.globalY, 0.0f, 0.0f);
 }

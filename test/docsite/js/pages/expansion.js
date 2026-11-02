@@ -2,7 +2,8 @@
 // 页契约同 view / propbus：meta + content。手稿 = docs/components/expansion.md。
 // 四节结构逐行镜像 test/ui/expansion.js（上位机验证可用的四景 demo）：
 // ① 非受控双卡（defaultOpen 开/关各一）② 受控卡 + onToggle 事件流
-// ③ 互斥手风琴（ScrollView 组，与非受控实例混用）④ 头行组合自由度。
+// ③ 互斥手风琴（ScrollView 组，与非受控实例混用）④ 头行组合自由度
+// ⑤ 头行悬停高亮（hoverBackground + 合成 onHoverEnter/onHoverLeave）。
 // demo 侧改动必须与本页演示同步（reverse 也一样）。
 import { View, Flex, Text, Button, ScrollView, State, Expansion, Image } from 'kwikui';
 import { t } from '../lang.js';
@@ -32,6 +33,7 @@ export const meta = {
         { title: { zh: '外观', en: 'Appearance' }, rows: [
             ['headerHeight', 'number', '28', { zh: '头行带高度', en: 'Header band height' }],
             ['headerBackground', '#rrggbb', '透明', { zh: '头行带底色', en: 'Header band background' }],
+            ['hoverBackground', '#rrggbb', '透明', { zh: '头行悬停底色（默认透明即无反馈）', en: 'Header hover background' }],
             ['bodyGap', 'number', '0', { zh: 'body 子项间距', en: 'Body gap' }],
         ] },
     ],
@@ -77,6 +79,14 @@ const L = {
     hint2: { zh: '受控：open 即当前态（键存在即受控）——onToggle 只通报 e={open}，开合由调用方 State 回灌后下一帧应用；body 可条件拼装（真实挂/卸）。', en: 'Controlled: open IS the state (presence = controlled) — onToggle just reports e={open}; the toggle applies next frame after your State write, and the body may be conditionally composed.' },
     hint3: { zh: '互斥手风琴不自建数据模型：open 是表达式、onToggle 里一行判别；收放改测量高，ScrollView 内容高随之重算；组内也可混用非受控实例。', en: 'The exclusive accordion keeps no internal model: open is an expression, onToggle one line; toggling changes measured height, so the ScrollView extent follows; uncontrolled instances may coexist.' },
     hint4: { zh: '头行样式不经 props——字形、图标、徽标全是 children[0] 元素自身属性；body 内 Button 点击即普通 body 事件（不沾头行开合语义）。', en: 'Header styling lives on the children[0] elements themselves, not props; a Button in the body behaves as a normal body event (no header-toggle semantics).' },
+    s5: { zh: '头行悬停高亮（hoverBackground 配色即开 + 合成 onHoverEnter/onHoverLeave）', en: 'Header hover highlight (hoverBackground + synthetic onHoverEnter/Leave)' },
+    hvT: { zh: '悬停我——带区高亮（徽标随进出翻色）', en: 'Hover me — band highlights (badge flips on enter/leave)' },
+    hvIn: { zh: '悬停中', en: 'hovering' },
+    hvOut: { zh: '移出', en: 'out' },
+    hvBody: { zh: 'enter/leave = HoverMove 进/出带状态转换合成（HoverEnter/Leave 只直投最深命中、容器不可达）；带内按下/Tap 清态成对发 leave，防指针不经 Move 逸出的残高亮。', en: 'enter/leave come from HoverMove band transitions (HoverEnter/Leave dispatch only to the deepest hit target, never bubbles); press/tap clears the state with a paired leave to avoid stale highlights.' },
+    hvOffT: { zh: '默认关闭卡——未配 hoverBackground（透明即不亮），存量手风琴零影响', en: 'Default-off card — no hoverBackground (transparent = off), zero impact on existing accordions' },
+    hvOffBody: { zh: '配色即开、不配不理。', en: 'Set a color to opt in; omitting changes nothing.' },
+    hint5: { zh: '悬停高亮不新增事件面——onHoverEnter/onHoverLeave 是通用 hover 槽位，组件用 HoverMove 进/出带状态转换合成通报（预设清态也走同一出口，JS 收到的坐标口径与常规 hover 元件一致）。', en: 'No new event surface — onHoverEnter/onHoverLeave are the generic hover slots; the element synthesizes them from HoverMove band transitions and paired clears, with the same coordinate payload as ordinary hover elements.' },
 };
 
 // ── 各节 State（命名对齐 test/ui demo：nc1 镜像箭头 / ctl 受控 / logs 事件流
@@ -89,6 +99,7 @@ const pushLog = (msg) => {
 };
 const badge = new State({ count: 3 });        // ④ 徽标计数
 const acc = new State({ open: 'A' });         // ③ 互斥单开：同 key 才展开
+const hov = new State({ in: false });         // ⑤ 头行悬停（enter/leave 合成通报读点）
 
 // ── 头行内容 helper（children[0] 即头行；照 test/ui demo 逐字）──
 // 图标/标题/徽标即普通元素组合；箭头联动 = State 条件表达式（受控或镜像）
@@ -237,6 +248,31 @@ const demo4 = () => [
     Text({ text: t(L.hint4), fontSize: 11, color: '#94A3B8', width: 440, wordWrap: true, margin: [10, 0, 0, 0] }),
 ];
 
+// ── ⑤ 头行悬停高亮（hoverBackground 配色即开 + 合成 onHoverEnter/Leave）──
+const demo5 = () => [
+    Flex({ direction: 'column', gap: 12 }, [
+        Expansion({
+            id: 'hv_card', defaultOpen: true,
+            headerBackground: '#E1F5FE', hoverBackground: '#81D4FA', headerHeight: 30,
+            onHoverEnter: () => { hov.in = true; },
+            onHoverLeave: () => { hov.in = false; },
+        }, [
+            hd([
+                Text({ text: t(L.hvT), fontSize: 12, color: '#0277BD' }),
+                View({ flexGrow: 1 }),
+                Text({ text: hov.in ? t(L.hvIn) : t(L.hvOut), fontSize: 11, color: '#FFFFFF',
+                       background: hov.in ? '#0288D1' : '#90A4AE', borderRadius: 8, padding: [1, 7, 1, 7] }),
+            ], 30),
+            Text({ text: t(L.hvBody), fontSize: 12, color: '#444444' }),
+        ]),
+        Expansion({ id: 'hv_off', defaultOpen: false, headerBackground: '#F5F5F5' }, [
+            hd([Text({ text: t(L.hvOffT), fontSize: 12, color: '#757575' })], 30),
+            Text({ text: t(L.hvOffBody), fontSize: 12, color: '#444444' }),
+        ]),
+    ]),
+    Text({ text: t(L.hint5), fontSize: 11, color: '#94A3B8', width: 440, wordWrap: true, margin: [10, 0, 0, 0] }),
+];
+
 // 代码卡（照 demo 样式同源；改动演示同步这里）
 const C1 = `// ① 非受控：defaultOpen 起值，内部自持；onToggle 镜像 → 箭头联动
 const mirror = new State({ open: true });
@@ -341,6 +377,24 @@ Expansion({ id: 'hd_plain', defaultOpen: true, headerBackground: '#FCE4EC' }, [
     Text({ text: '标签分组标题样式' }),
 ]);`;
 
+const C5 = `// ⑤ 头行悬停高亮：hoverBackground 配色即开（默认透明 = 无反馈）
+const hov = new State({ in: false });
+
+Expansion({ headerBackground: '#E1F5FE', hoverBackground: '#81D4FA',
+            onHoverEnter: () => { hov.in = true; },
+            onHoverLeave: () => { hov.in = false; } }, [
+    Flex({ direction: 'row', gap: 6, alignItems: 'center', height: 28 }, [
+        Text({ text: '悬停我——带区高亮' }),
+        View({ flexGrow: 1 }),
+        Text({ text: hov.in ? '悬停中' : '移出' }),      // 徽标吃 State（翻色计数都行）
+    ]),
+    Text({ text: 'enter/leave 由 HoverMove 进/出带状态转换合成；'
+                + '带内按下/Tap 清态成对发 leave' }),
+]);
+
+// 默认关闭：未配 hoverBackground（透明），存量手风琴零影响
+Expansion({ defaultOpen: false, headerBackground: '#F5F5F5' }, [...]);`;
+
 export const content = (innerW = 884) => [
     pageTitle(meta),
     pageDesc(meta),
@@ -348,5 +402,6 @@ export const content = (innerW = 884) => [
     ...section(t(L.s2), demo2(), C2, innerW),
     ...section(t(L.s3), demo3(), C3, innerW),
     ...section(t(L.s4), demo4(), C4, innerW),
+    ...section(t(L.s5), demo5(), C5, innerW),
     propsTable(t, meta.props, innerW),
 ];
