@@ -188,10 +188,17 @@ bool Expansion::onEvent(const DispatchEvent &event) {
         return false;
     }
     if (event.type == DispatchEvent::Type::HoverLeave) {
-        // 后代带 target 逸出的 relay 口（事件.cpp 阶段① 对 opt-in 容器送未
-        // 消费的 HoverLeave）——指针不经本组件子树逸出（折叠态出带/切窗）
-        // 时唯一可靠收口；幂等（已清过不重发）。不消费
-        if (hoveredHeader_) setHeaderHovered(false, event);
+        // 后代带 target 逸出的 relay 口（event.cpp 阶段① 对 opt-in 容器送未
+        // 消费的 HoverLeave）。判据收窄到"真逸出"：leave 载荷坐标 = 指针
+        // 去向点，仍在组件 frame 内（带内子级↔间隙目标切换 / 入 body）不
+        // 算逸出——清了会立刻被同批进入的重进翻转成 enter/leave 震荡（带内
+        // 移动逐帧闪）；出体区域由下一批 HoverMove 冒泡的 inBand 转换接管，
+        // 此处只收指针不经子树弧线（折叠出带/切窗）的残态。幂等，不消费
+        float lx = event.globalX + comp.x - frame.x;
+        float ly = event.globalY + comp.y - frame.y;
+        const bool inside =
+            lx >= 0 && lx < frame.width && ly >= 0 && ly < frame.height;
+        if (hoveredHeader_ && !inside) setHeaderHovered(false, event);
         return false;
     }
     return FlexLayout::onEvent(event);

@@ -2701,12 +2701,25 @@ static void test_expansion_header_hover() {
     move(100, 13);    CHECK(enterN == 4 && leaveN == 3);    // 清态后重进——锁死按下清态
     move(50, 60);     CHECK(enterN == 4 && leaveN == 4);    // 出带 → leave（计数回归成对）
 
-    // HoverLeave 直投收口（折叠态/逸出场景由 relay 送进同一路径，形态同参）
+    // relay 收口双口径：leave 载荷坐标 = 指针去向点
     move(100, 10);    CHECK(enterN == 5 && leaveN == 4);    // 重入带
-    DispatchEvent lv;
-    lv.type = DispatchEvent::Type::HoverLeave;
-    ex.onEvent(lv);   CHECK(enterN == 5 && leaveN == 5);    // relay 口清态——成对 leave
-    move(100, 12);    CHECK(enterN == 6 && leaveN == 5);    // 重进证实清态（不重进就还是旧态）
+    // ① 坐标仍在 frame 内（带内子级↔间隙目标切换的未消费 leave）：不判逸出
+    //    ——清了会同批被重进翻成 enter/leave 震荡（视觉逐帧闪的根因）
+    DispatchEvent lvIn;
+    lvIn.type = DispatchEvent::Type::HoverLeave;
+    lvIn.globalX = 100.0f;
+    lvIn.globalY = 15.0f;
+    ex.onEvent(lvIn);
+    CHECK(enterN == 5 && leaveN == 4);                      // 带内 leave 不清态
+    move(100, 12);    CHECK(enterN == 5 && leaveN == 4);    // 同带移动无重 enter = 无闪
+    // ② 坐标真出 frame（折叠出带/切页）：relay 清态成对 leave
+    DispatchEvent lvOut;
+    lvOut.type = DispatchEvent::Type::HoverLeave;
+    lvOut.globalX = 500.0f;
+    lvOut.globalY = 500.0f;
+    ex.onEvent(lvOut);
+    CHECK(enterN == 5 && leaveN == 5);
+    move(100, 12);    CHECK(enterN == 6 && leaveN == 5);    // 重进证实清态
 }
 
 // ============================================================================

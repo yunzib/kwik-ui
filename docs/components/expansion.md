@@ -73,9 +73,10 @@ Expansion({ open: s.open, onToggle: (e) => s.open = e.open }, [
 - 头行带：子级未消费的 Tap = 开合翻转；body 区域事件照常派发（不受头行语义沾染）
 - **头行悬停**：`HoverEnter`/`HoverLeave` 只直投最深命中子级、不冒泡——组件
   用 `HoverMove` 进/出带的**状态转换**合成 enter/leave 通报（`onHoverEnter`/
-  `onHoverLeave` 通用槽位直达 JS）；指针不经子树逸出（折叠态出带/切窗）走
+  `onHoverLeave` 通用槽位直达 JS）；指针不经子树逸出（折叠出带/切窗）走
   **HoverLeave 后代链 relay**（框架 opt-in 拦截口 `catchesDescendantHoverLeave`）
-  收口，带内按住/Tap 顺带清态并成对发 leave（与 Button 压起反馈同思路）
+  收口——按 leave 坐标判逸出：坐标仍在 frame 内（带内子级↔间隙目标切换）
+  不清，防 enter/leave 震荡闪烁；带内按住/Tap 顺带清态并成对发 leave
 - 头行子树与 body 同走常规 `reconcileChildren`（id 优先/位置回退/类型切换重建）
   ——头行描述符换类型即重建该子树，生命周期/解绑/主题解析全走框架常规路径
 - 收放 = body 子级（children[1..]）可见性翻转 + 测量高重算（flex 引擎对不可见子级两相跳过）
