@@ -590,21 +590,31 @@ void Input::fireChange() {
 }
 
 // ── commitNumber — 数字模式提交校验 ──
-// 规则: 空值→"0"; 解析失败→"0"; 按 min/max clamp; 按 step 对齐 (以 min 为基准);
-// 回写文本并同步双向绑定 + onChange, 保证 State 与 UI 一致
+// 规则: 空值→"0"; 解析失败→"0"; 按 step 对齐 (以 min 为基准) 后统一 clamp;
+// 回写文本并同步双向绑定 + onChange, 保证 State 与 UI 一致。
+// 顺序注意: 对齐在前 clamp 在后——对齐可能把值再次推出边界
+// (min=0/max=10/step=7 时 10 对齐到 14), clamp 收尾保证落回 [min,max]
 void Input::commitNumber() {
     if (text_.empty()) text_ = "0";
     double v = std::strtod(text_.c_str(), nullptr);
-    if (input_.max && v > *input_.max) v = *input_.max;    // clamp 上限
-    if (input_.min && v < *input_.min) v = *input_.min;    // clamp 下限
     if (input_.step && *input_.step > 0) {                 // 对齐步进
         double base = input_.min ? *input_.min : 0.0;
         v = base + std::round((v - base) / *input_.step) * *input_.step;
     }
+    if (input_.max && v > *input_.max) v = *input_.max;    // clamp 上限（对齐后收尾）
+    if (input_.min && v < *input_.min) v = *input_.min;    // clamp 下限（对齐后收尾）
     text_ = formatNumber(v);
     if (binding_) binding_->setString(bindKey_, text_);    // 双向绑定回写
     textDirty_ = false;                                    // 已回写（blur 不再重复写）
     fireChange();                                          // onChange 通知 JS
+}
+
+// ── setNumberConstraints — 运行时更新数字模式提交约束（SpinBox 等宿主用）──
+void Input::setNumberConstraints(std::optional<double> min, std::optional<double> max,
+                                 std::optional<double> step) {
+    input_.min = min;
+    input_.max = max;
+    input_.step = step;
 }
 
 // ── formatNumber — double 最短文本表示 ──

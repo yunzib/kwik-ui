@@ -326,6 +326,10 @@ bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
 		if (std::strcmp(name, "min") == 0) { sp_.min = *v; }
 		else if (std::strcmp(name, "max") == 0) { sp_.max = *v; }
 		else { sp_.step = *v; }
+		// 约束命令式变更：与 applySpinBoxProps 同口径——推送内部字段并重夹当前值
+		if (field_) { field_->setNumberConstraints(sp_.min, sp_.max, sp_.step); }
+		sp_.value = clampValue(sp_.value);
+		syncFieldText();
 		markDirty();
 		return true;
 	}
@@ -343,18 +347,26 @@ void SpinBox::applySpinBoxProps(SpinBoxProps sp) {
     // 格式化值顶掉（运行值本就来自字段，字段文本即权威）
     bool valueFresh = (sp.value != lastParsedValue_);
     lastParsedValue_ = sp.value;
+    // 约束变更检测：min/max/step 任一与运行值不同才推送内部字段并重夹——
+    // 内部 Input 的约束原是构造快照，运行时收紧后失焦/回车 commit 仍按旧值
+    bool constraintsChanged = (sp.min != sp_.min) || (sp.max != sp_.max) || (sp.step != sp_.step);
     float runtime = sp_.value;
     sp_ = std::move(sp);
     if (!valueFresh) {
         sp_.value = runtime;
+        // 约束收紧后运行值可能越界——重夹并回写字段
+        if (constraintsChanged) {
+            sp_.value = clampValue(sp_.value);
+            syncFieldText();
+        }
     } else {
         sp_.value = clampValue(sp_.value);
         syncFieldText();
     }
     if (!field_) return;
     // 同步内部字段 (已设置的约束才下发; 未设置保持构造值)。
-    // 新-6：min/max/step 是 SpinBox 自身约束（sp_ 已直收），对内部 Input
-    // setProperty 是 no-op 且每轮 reconcile 触发未知名告警刷屏——不再推送
+    // min/max/step 经专用方法推送（属性串对 Input 是 no-op 且触发未知名告警）
+    if (constraintsChanged) { field_->setNumberConstraints(sp_.min, sp_.max, sp_.step); }
     field_->setProperty("placeholder", sp_.placeholder.c_str());
     field_->setProperty("fontSize", fmtNum(sp_.fontSize).c_str());
     field_->setProperty("readOnly", sp_.readOnly ? "true" : "false");

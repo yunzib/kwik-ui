@@ -69,6 +69,14 @@ public:
     void focus();
     void blur();
 
+    /** @brief 运行时更新数字模式提交约束（min/max/step）
+     *
+     * 宿主组件（SpinBox 等）构造时下传约束后，运行时收紧/放宽需同步到
+     * commitNumber 口径——经属性串 setProperty 不被 Input 消费（no-op 告警），
+     * 故提供专用方法。未设置项传 std::nullopt 覆盖。
+     */
+    void setNumberConstraints(std::optional<double> min, std::optional<double> max, std::optional<double> step);
+
     // ── Selectable 接口（选区状态自持于 selectionStart_/cursorPos_；经服务
     //    只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠本组件选区。
     //    密码模式不参与选区）──

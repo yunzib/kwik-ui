@@ -44,6 +44,7 @@ import kwik.layout.list_layout;
 import kwik.layout.flex_layout;
 import kwik.element.scroll_view;    // ScrollView（横向滚轮派发链行为锁）
 import kwik.element.scroll_physics; // ScrollPhysics（fling/回弹/橡皮筋行为锁）
+import kwik.element.spinbox;        // SpinBox（数字约束 clamp/运行时同步行为锁）
 import kwik.event;
 import kwik.render.graphics;
 
@@ -2491,6 +2492,62 @@ static void test_pan_bubble() {
 }
 
 // ============================================================================
+// SpinBox/Input 数字约束口径：对齐后二次 clamp + 运行时约束变更同步
+// （step 对齐可能把值再次推出 max——min=0/max=10/step=6 输入 10，
+//   旧序（先 clamp 后对齐）产出 12；运行时收紧 max 需推送内部 Input 并重夹）
+// ============================================================================
+static void test_spinbox_number_constraints() {
+    // ① 对齐后二次 clamp：10 对齐到 12 越过 max=10 → 收回 10（旧序产出 "12"）
+    {
+        InputProps ip;
+        ip.isNumber = true;
+        ip.min = 0.0;
+        ip.max = 10.0;
+        ip.step = 6.0;
+        Input in(ViewProps{}, ip);
+        in.setValue("10");
+        in.blur();    // 失焦提交（数字模式走 commitNumber）
+        CHECK(in.value() == "10");
+    }
+    // ② 无越界时对齐照常生效：min=0/max=100/step=25 输入 40 → 对齐 50
+    {
+        InputProps ip;
+        ip.isNumber = true;
+        ip.min = 0.0;
+        ip.max = 100.0;
+        ip.step = 25.0;
+        Input in(ViewProps{}, ip);
+        in.setValue("40");
+        in.blur();
+        CHECK(in.value() == "50");
+    }
+    // ③ 运行时约束更新经 setNumberConstraints 生效：max 10→5 后 commit 按 5 夹
+    {
+        InputProps ip;
+        ip.isNumber = true;
+        ip.min = 0.0;
+        ip.max = 10.0;
+        Input in(ViewProps{}, ip);
+        in.setNumberConstraints(0.0, 5.0, 1.0);
+        in.setValue("8");
+        in.blur();
+        CHECK(in.value() == "5");
+    }
+    // ④ SpinBox 命令式收紧 max：当前值重夹 + 内部字段约束同步（行为侧证：
+    //    收紧后再经字段提交路径不越界）
+    {
+        SpinBoxProps sp;
+        sp.min = 0.0;
+        sp.max = 10.0;
+        sp.value = 8.0f;
+        SpinBox sb(ViewProps{}, sp);
+        CHECK(std::abs(std::stof(sb.getProperty("value")) - 8.0f) < 0.01f);
+        sb.setProperty("max", "5");
+        CHECK(std::abs(std::stof(sb.getProperty("value")) - 5.0f) < 0.01f);    // 重夹
+    }
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -2900,6 +2957,7 @@ int main() {
     test_pan_survives_tree_rebuild();
     test_pan_end_lifecycle();
     test_pan_bubble();
+    test_spinbox_number_constraints();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();
