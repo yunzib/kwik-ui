@@ -1,5 +1,77 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-03
+### 新增
+- 焦点体系三子项（Tab 遍历 / focus()/blur() 导出 / X9 失活感知）：
+  ① Tab 遍历——EventTarget 增 collectFocusables 焦序契约（默认仅自查；
+     View 覆写顺 z 序先序递归子级、drawnElsewhere_ 借根子树跳过，弹层
+     内容不属页面焦序；遍历知识归属元素层，event 层不反向依赖 element）。
+     router 于聚焦预设之前拦 KeyAction{Tab} → FocusManager::cycleFocus
+     焦序一步循环：Tab 前移 / Shift+Tab（位 1）后移，头尾环绕，无焦点
+     与焦点出域同口径前移取首、后移取末；遍历键由焦点管理消磁，不落
+     任何组件。② focus(id)/blur(id?) 命令面全局导出——经
+     FocusManager::current()（最后构造者锚，多树口径对齐原始注入器）
+     统一通路 applyFocus/applyBlur：直派 FocusGained/FocusLost（基类
+     引用跨 protected 覆写）使 onFocus/onBlur 槽与键盘路由同源生效，
+     状态源 focused_ 同步后 KeyAction 路由门不失焦；定点失焦仅该 id
+     正持有焦点才收。③ X9 失活感知——win32 WndProc 增 WM_ACTIVATE
+     （WA_INACTIVE → RawEvent WindowFocusOut / 其余 WindowFocusIn），
+     router Device::Window 案失活时经 findEscapeConsumer() 自顶层下探
+     ESC 消费者，命中才合成 KeyAction{ESC}（复用 Dropdown 开合态 /
+     DateTimePicker 日历等既有消费者管线，随失活自动收起；未注册者
+     零扰动静默），WindowFocusIn 预留零动作。core_tests 焦点三路锁
+     （直派语义成对+槽位+幂等 / Tab 全链含双向环绕·出域·不落组件 /
+     失活合成与消费即关）；demo input 六卡编程聚焦 + docsite input 页
+     第五节镜像（onFocus/onBlur 属性行 + C5 命令面卡）；docs input.md
+     增「焦点面」一节
+
+# 0.0.0 — 2026-11-02
+### 新增
+- Expansion 头行悬停高亮：ExpansionProps 增 hoverBackground
+  （默认透明=关，配了非透明即开；存量手风琴零影响）——onEvent 加
+  HoverMove 进/出带状态转换（复用带内判定滚动补偿口径），悬停态亮头
+  行带底色并合成 onHoverEnter/onHoverLeave 通报（HoverEnter/Leave 只
+  presetTarget 直投最深命中不可达，容器以 Move 转换模拟；带内按下/
+  Tap 顺带清态成对发 leave，防指针不经 Move 逸出的残高亮）。demo ⑤
+  悬停高亮卡 + docsite 五景镜像，docs 属性表与交互语义同步
+- TreeMenu 事件面补齐：通用槽位 onTreeExpand（单节点开合
+  翻转后通报，受控应用/换树不回发）+ onTreeSelect（单行点击，勾选框
+  热区不发走 onChange 族），TreeArgs{key,expanded} key 缺省回退 title；
+  受控 expanded（"a:1,b:0" 逐键覆盖）/checked（CSV 整集合覆盖）键存在
+  即受控（Expansion open 同族口径，缺省键=内部自持存量零影响），
+  lastParsed 门防同值重喂回灌 + 异构换树强制重应用，构造统一走
+  applyTreeMenuProps 使受控键首装即应用；重喂语义改同构保留——同位
+  同标识树保留运行时展开/勾选态与行对象身份（行按节点指针复用，
+  title/icon 就地同步），异构才整树重建；PropBus 增 expanded 全量 map
+  读出与逐键覆盖对偶。demo 三景（级联/通报流/受控镜像）+ docsite 三节
+  镜像，docs 手稿补受控/事件面/PropBus 对偶/种子语义四段
+### 修复
+- SpinBox 数字约束三 clamp 口径余项：commitNumber step 对齐
+  后二次 clamp（min=0/max=10/step=7 时 10 对齐 14 越界须回收）；
+  min/max/step 运行时变更推送内部 Input 并按新约束重夹（lastParsed 门
+  防每帧重推）
+- DateTimePicker 日历几何共源修复：绘制 datetime 分支与
+  hitCalendarCell 固定 kPad 起算不同源——提取 calOrigin() 共用日历原点
+  （滚轮超高时点击 systematic 上偏消除）；todayYMD std::localtime 判空
+  （UI 单线程口径注释）；open 态 valueFresh 时 pending 重同步（滚轮
+  偏移重置 + 面板重布算，CalendarView::open 布算段抽 relayoutPanel()
+  复用），修确认键提交旧 pending
+- Text 纵向截断：View onMeasure 下发子约束前按自身显式尺寸
+  收敛（父显式宽时 childConstraints.maxWidth = min(约束上限, 自身有效
+  宽)，显式高同理；padding 口径按 resolveEffectiveSize 现场语义钉死），
+  测/绘两套排版宽归一（测量排版 vs 绘制重排不一致随之消除）；无显式
+  父不误伤自适应、上游更紧取收紧值
+- Expansion 折叠态头行悬停残高亮：指针不经子树逸出（折叠出带/切窗）
+  时 HoverLeave 只 presetTarget 直投最深命中、不由容器可收，HoverMove
+  转换链断供——event.cpp 给未消费的 HoverLeave 加后代链 relay
+  （EventTarget 新虚 catchesDescendantHoverLeave，默认 false 零波及，
+  Expansion opt-in 还原进/出合成的成对 leave 语义）
+- Expansion 头行悬停带内移动闪烁：带内子级↔间隙目标切换本也产生未
+  消费 HoverLeave，relay 原样清态即与同批 HoverMove 重进翻成 enter/
+  leave 震荡——relay 收口按 leave 载荷坐标判逸出：坐标仍在组件 frame
+  内不清（入 body 由下批 HoverMove 的 inBand 转换接管），真出 frame
+  才清并成对发 leave
+
 # 0.0.0 — 2026-11-01
 ### 新增
 - 虚拟化 Table + 滚动物理（F6 虚拟化表格止血 + F4 惯性/回弹首块）：
