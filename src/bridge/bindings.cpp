@@ -16,6 +16,7 @@ import kwik.engine.js_value;    // JSValueRef（定时器/rAF 回调托管）
 import kwik.animation.engine;
 import kwik.engine.vm_callbacks;
 import kwik.element.view;       // View
+import kwik.event;              // FocusManager（focus/blur 导出统一通路）
 import kwik.element.clipboard_service;    // ClipboardService（setClipboardText 出口）
 import kwik.core.types;         // TypedProp
 import kwik.animation.easing;   // parseEasing
@@ -368,6 +369,54 @@ static JSValue js_image(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 static JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
     return makeElement(ctx, "Input", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
+}
+
+// ── focus(id) / blur(id?) — 程序化聚焦命令面 ──
+// 经 FocusManager::current() 统一通路：同步键盘路由状态源 + 直派
+// FocusGained/FocusLost（组件 onFocus/onBlur 槽即此触发）。组件内部
+// focus() 只置自身布尔（无槽、不路由），JS 导出必须绕开它。
+static JSValue js_focus(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 1 || !JS_IsString(argv[0])) {
+        Log::warn("focus: 需要组件 id 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    const char *id = JS_ToCString(ctx, argv[0]);
+    if (!id) return JS_UNDEFINED;
+    QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    if (!qctx) {
+        JS_FreeCString(ctx, id);
+        return JS_UNDEFINED;
+    }
+    View *root = static_cast<View *>(qctx->getUserPointer());
+    if (View *target = root ? root->findById(id) : nullptr) {
+        FocusManager::current().applyFocus(target);
+    } else {
+        Log::warn("focus: 未找到组件 id='{}'——跳过", id);
+    }
+    JS_FreeCString(ctx, id);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_blur(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    FocusManager &fm = FocusManager::current();
+    if (argc < 1 || JS_IsUndefined(argv[0]) || !JS_IsString(argv[0])) {
+        fm.applyBlur();    // 无参失焦当前焦点
+        return JS_UNDEFINED;
+    }
+    const char *id = JS_ToCString(ctx, argv[0]);
+    if (!id) return JS_UNDEFINED;
+    QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    if (qctx) {
+        View *root = static_cast<View *>(qctx->getUserPointer());
+        if (View *target = root ? root->findById(id) : nullptr) {
+            // 定点失焦：仅焦点已是该目标才收（其余目标不受牵连）
+            if (fm.focused() == static_cast<EventTarget *>(target)) fm.applyBlur();
+        } else {
+            Log::warn("blur: 未找到组件 id='{}'——跳过", id);
+        }
+    }
+    JS_FreeCString(ctx, id);
+    return JS_UNDEFINED;
 }
 
 static JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
@@ -1413,6 +1462,8 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("getViewport", 0, js_getViewport),
         JS_CFUNC_DEF("frameStats", 0, js_frameStats),
         JS_CFUNC_DEF("setClipboardText", 1, js_setClipboardText),
+        JS_CFUNC_DEF("focus", 1, js_focus),
+        JS_CFUNC_DEF("blur", 1, js_blur),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

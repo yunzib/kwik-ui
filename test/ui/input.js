@@ -1,10 +1,11 @@
-import { Root, View, Input, Text, Flex, Button, getProp, setProp, State, ref } from 'kwikui';
+import { Root, View, Input, Text, Flex, Button, getProp, setProp, State, ref, focus, blur } from 'kwikui';
 
 const form = new State({
     userName: "",
     password: "",
     readonly: "这是只读文本，不可编辑",
-    number: "50"                     // ── 数字输入初始值
+    number: "50",                    // ── 数字输入初始值
+    focusBadge: "—（点上方按钮或按 Tab 试试）"    // ── 编程聚焦通报面
 });
 
 // ── 调色板 (Element UI 自定义主色 #626aef) ──
@@ -194,6 +195,44 @@ export default () => Root(
                 ]),
                 Text({
                     text: "提示: 输入非数字字符被拦; '-' 仅首位; '.' 至多一个;\n失焦(或回车)后越界自动 clamp, 并按 step 对齐。\n\"改max\" 演示运行时修改约束 (max 80)。",
+                    fontSize: 12, color: "#999999", lineHeight: 18
+                }),
+            ], 320),
+
+            // ════════════════════════════════════════════════════════════
+            // 右栏: 六、编程聚焦 (focus/blur 命令面 + Tab 遍历)
+            // ════════════════════════════════════════════════════════════
+            Card("六、编程聚焦 focus/blur + Tab 遍历", [
+                Input({
+                    id: "focusA",
+                    placeholder: "甲（focus 目标）",
+                    width: 280, height: 34, fontSize: 14,
+                    borderWidth: 1, borderColor: "#DCDFE6",
+                    margin: [0, 0, 8, 0],
+                    onFocus: () => { form.focusBadge = "甲 获得焦点"; },
+                    onBlur: () => { form.focusBadge = "甲 失去焦点"; }
+                }),
+                Input({
+                    id: "focusB",
+                    placeholder: "乙（focus 目标）",
+                    width: 280, height: 34, fontSize: 14,
+                    borderWidth: 1, borderColor: "#DCDFE6",
+                    margin: [0, 0, 8, 0],
+                    onFocus: () => { form.focusBadge = "乙 获得焦点"; },
+                    onBlur: () => { form.focusBadge = "乙 失去焦点"; }
+                }),
+                Flex({ direction: "row", gap: 8, margin: [0, 0, 10, 0] }, [
+                    makeBtn("聚焦甲", C.primary, () => focus("focusA"), 66),
+                    makeBtn("聚焦乙", C.success, () => focus("focusB"), 66),
+                    makeBtn("失焦乙", C.gray, () => blur("focusB"), 66),
+                    makeBtn("全失焦", C.danger, () => blur(), 66),
+                ]),
+                Text({
+                    text: "最近焦点事件: " + form.focusBadge,
+                    fontSize: 12, color: C.primary, margin: [0, 0, 8, 0]
+                }),
+                Text({
+                    text: "提示: focus(id)/blur(id?) 走 FocusManager 统一通路——\nonFocus/onBlur 槽与键盘路由同步生效。\n按 Tab 键在 甲/乙 间循环聚焦（Shift+Tab 反向），\n焦点边框/光标由组件自身渲染反馈。",
                     fontSize: 12, color: "#999999", lineHeight: 18
                 }),
             ], 320),

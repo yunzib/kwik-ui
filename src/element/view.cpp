@@ -898,6 +898,17 @@ EventTarget *View::findEscapeConsumer() {
     return acceptsEscape() ? this : nullptr;
 }
 
+// View::collectFocusables — Tab 焦序 DFS：顺 z 序（先添加者先得焦，与
+// DOM/挂载序同向）先序递归子级；借根子树由其所属层栈应答（弹层内容
+// 不属页面焦序，与 findEscapeConsumer 同规则）
+void View::collectFocusables(std::vector<EventTarget *> &out) {
+    if (acceptsFocus()) out.push_back(this);    // 先序：可聚焦容器先于子级入序（基类恒 false，表单控件族即叶）
+    for (auto &c : children) {
+        if (c->drawnElsewhere_) continue;    // 借根子树由其所属层栈应答
+        c->collectFocusables(out);
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 属性描述符驱动 — read / write / applyAnimationFrame
 // ═══════════════════════════════════════════════════════════════════════════

@@ -471,6 +471,19 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         Destroy();
         return 0;
 
+    // 窗口激活/失活（聚焦变化）：失活 = 失去前台（点其他应用 / 系统面板
+    // 夺焦），事件层合成窗口失活通知——悬留弹层（下拉/日历等）随失活关闭；
+    // 激活按"恢复前台"通知预留通道，事件层当前无动作
+    case WM_ACTIVATE: {
+        RawEvent raw;
+        raw.device = RawEvent::Device::Window;
+        raw.action = (LOWORD(wParam) == WA_INACTIVE) ? RawEvent::Action::WindowFocusOut
+                                                     : RawEvent::Action::WindowFocusIn;
+        raw.timestamp = GetTickCount64();
+        rawCallback_(raw);
+    }
+        return 0;
+
     // 捕获被夺（系统弹菜单/开对话框/他窗夺走）→ 合成指针取消，事件层
     // PointerCancel 终止组件拖拽（否则拖拽状态悬空到下次按下）。
     // 自愿释放（WM_LBUTTONUP 先清 captured_）不进此分支

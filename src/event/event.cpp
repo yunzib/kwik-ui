@@ -483,6 +483,68 @@ void FocusManager::blur() {
     focused_ = nullptr;
 }
 
+// 程序化聚焦/失焦/Tab 遍历 ── 状态源与事件面统一收口于此：组件内部
+// focus() 只置自身布尔（不触 onFocus 槽、不恢复键盘路由），三条路径
+// （JS 导出、Tab 键、失活关浮层）都必须经 applyFocus/applyBlur。
+FocusManager *FocusManager::lastConstructed_ = nullptr;
+
+void FocusManager::applyFocus(EventTarget *target) {
+    if (!target || !TargetLiveness::instance().isAlive(target)) return;
+    if (target == focused_) return;
+
+    if (focused_) {
+        DispatchEvent lost;
+        lost.type = DispatchEvent::Type::FocusLost;
+        lost.presetTarget = focused_;
+        focused_->onEvent(lost);    // 基类引用直派（组件覆写声明在 protected 不碍）
+    }
+    focused_ = target;
+
+    DispatchEvent gained;
+    gained.type = DispatchEvent::Type::FocusGained;
+    gained.presetTarget = target;
+    target->onEvent(gained);
+
+    // 焦点变化钩子（OSK 失焦自动收）与 process() 同链触发
+    if (const auto &hk = focusChangeHook()) hk(target);
+}
+
+void FocusManager::applyBlur() {
+    if (!focused_) return;
+    EventTarget *prev = focused_;
+    focused_ = nullptr;
+
+    DispatchEvent lost;
+    lost.type = DispatchEvent::Type::FocusLost;
+    lost.presetTarget = prev;
+    prev->onEvent(lost);
+
+    if (const auto &hk = focusChangeHook()) hk(nullptr);
+}
+
+void FocusManager::cycleFocus(EventTarget *root, bool backward) {
+    std::vector<EventTarget *> order;
+    if (root) root->collectFocusables(order);    // 焦序契约在 EventTarget（View 覆写顺 z 序递归子级）
+    if (order.empty()) return;
+
+    EventTarget *cur = focused();
+    if (!cur) {
+        // 无焦点 → 前移从首起、后移从末起（与 DOM 遍历同构）
+        applyFocus(backward ? order.back() : order.front());
+        return;
+    }
+    auto it = std::find(order.begin(), order.end(), cur);
+    if (it == order.end()) {
+        // 焦点不在本子树可聚焦序内（浮层内等）→ 同"无焦点"口径
+        applyFocus(backward ? order.back() : order.front());
+        return;
+    }
+    const size_t idx = static_cast<size_t>(it - order.begin());
+    const size_t next = backward ? (idx == 0 ? order.size() - 1 : idx - 1)
+                                 : (idx + 1) % order.size();
+    applyFocus(order[next]);
+}
+
 // ============================================================================
 // EventDispatcher
 // ============================================================================
@@ -626,6 +688,13 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
                     continue;
                 }
             }
+            // Tab 遍历：于聚焦控件预设之前拦截——Tab 不应落进输入框，而是
+            // 在表单焦序上循环前/后移（Shift+Tab 后移）；遍历事件随即消磁
+            if (it->type == DispatchEvent::Type::KeyAction && it->keyCode == 9 && rootTarget_) {
+                focusManager_.cycleFocus(rootTarget_, (it->modifiers & 0b10) != 0);    // bit1=Shift
+                it = events.erase(it);
+                continue;
+            }
             if (EventTarget *focused = focusManager_.focused()) {
                 it->presetTarget = focused;
                 ++it;
@@ -636,20 +705,46 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
         break;
     }
     case RawEvent::Device::Window: {
-        // 窗口生命周期事件直接包装
+        // 窗口生命周期事件直接包装；失活感知不包装入队（见下）
         DispatchEvent winEvt;
         winEvt.timestamp = ts;
+        bool emitWin = false;
         switch (scaled.action) {
-        case RawEvent::Action::WindowClose: winEvt.type = DispatchEvent::Type::WindowClose; break;
+        case RawEvent::Action::WindowClose:
+            winEvt.type = DispatchEvent::Type::WindowClose;
+            emitWin = true;
+            break;
         case RawEvent::Action::WindowResize:
             winEvt.type = DispatchEvent::Type::WindowResize;
             winEvt.resizeWidth = scaled.width;
             winEvt.resizeHeight = scaled.height;
+            emitWin = true;
             break;
-        case RawEvent::Action::WindowPaint: winEvt.type = DispatchEvent::Type::WindowPaint; break;
+        case RawEvent::Action::WindowPaint:
+            winEvt.type = DispatchEvent::Type::WindowPaint;
+            emitWin = true;
+            break;
+        case RawEvent::Action::WindowFocusOut: {
+            // X9 失活感知：点其他应用/被系统面板夺前台时，悬留弹层（已注册
+            // acceptsEscape 的 Dropdown 态/DateTimePicker 日历等）随失活关闭
+            // ——复用 ESC 显式查询既有管线自顶层下探消费者，命中才合成
+            // KeyAction{ESC}（浮层经 ESC 消费关自身），无消费者零扰动
+            if (!rootTarget_) break;
+            if (EventTarget *esc = rootTarget_->findEscapeConsumer()) {
+                DispatchEvent escKey;
+                escKey.type = DispatchEvent::Type::KeyAction;
+                escKey.keyCode = 27;
+                escKey.presetTarget = esc;
+                escKey.timestamp = ts;
+                events.push_back(escKey);
+            }
+            break;
+        }
+        case RawEvent::Action::WindowFocusIn:
+            break;    // 预留：恢复前台焦点态无需变更
         default: return;    // 未知窗口事件, 跳过
         }
-        events.push_back(winEvt);
+        if (emitWin) events.push_back(winEvt);
         break;
     }
     }

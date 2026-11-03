@@ -349,6 +349,7 @@ public:
     bool acceptsFocus() const override;
     bool scrollable() const override { return false; }
     EventTarget *findEscapeConsumer() override;    // H6：顶层优先递归（逆 z 序）
+    void collectFocusables(std::vector<EventTarget *> &out) override;    // Tab 焦序：顺 z 序先序递归
 
     // ==================== 命中测试 ====================
     /**

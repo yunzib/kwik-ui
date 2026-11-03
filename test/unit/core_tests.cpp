@@ -2964,6 +2964,155 @@ static void test_treemenu_controlled_keys() {
 }
 
 // ============================================================================
+// 焦点系统三路锁（程序化聚焦 / Tab 遍历 / X9 失活感知）
+//   ① applyFocus/applyBlur 语义：直派 FocusGained/FocusLost（onFocus/
+//      onBlur 槽经基类统一分发触发）+ 状态源 focused_ 同步（键盘路由门）
+//   ② Tab 遍历全链（EventRouter 真管线）：Tab=焦序前移一步 / Shift+Tab
+//      后移，头尾环绕；无焦点与焦点出域（非表单节点）同口径起步；
+//      遍历键由焦点管理消磁，KeyAction 不落任何组件
+//   ③ X9：RawEvent{Window, WindowFocusOut} → ESC 显式查询下探消费者 →
+//      合成 KeyAction{ESC} 关浮层（消费即关）；无消费者静默；
+//      WindowFocusIn 预留零动作
+// ============================================================================
+static void test_focus_programmatic_and_tab() {
+    // 假表单控件：acceptsFocus 纯开关 + 焦点直派计数；Focus 事件透传基类
+    // （JS 面 onFocus/onBlur 槽即基类统一焦点分发），KeyAction 计数锁
+    // "Tab 遍历不落组件"
+    struct FakeField final : View {
+        int gains = 0, losses = 0, keyActions = 0;
+        bool acceptsFocus() const override { return true; }
+        bool onEvent(const DispatchEvent &event) override {
+            if (event.type == DispatchEvent::Type::FocusGained) { ++gains; }
+            if (event.type == DispatchEvent::Type::FocusLost) { ++losses; }
+            if (event.type == DispatchEvent::Type::KeyAction) { ++keyActions; return true; }
+            return View::onEvent(event);
+        }
+    };
+    // ESC 浮层（Dropdown 开合态 registered_ 同形）：acceptsEscape 开关 +
+    // ESC 消费即关
+    struct EscapeSink final : View {
+        bool armed = true;
+        int escapes = 0;
+        bool acceptsEscape() const override { return armed; }
+        bool onEvent(const DispatchEvent &event) override {
+            if (event.type == DispatchEvent::Type::KeyAction && event.keyCode == 27) {
+                ++escapes;
+                armed = false;
+                return true;
+            }
+            return View::onEvent(event);
+        }
+    };
+
+    auto field = []() {
+        auto f = std::make_unique<FakeField>();
+        f->props.width = 100.0f;
+        f->props.height = 30.0f;
+        return f;
+    };
+
+    // ① 程序化聚焦（applyFocus/applyBlur 直派 + 状态源同步）
+    View page;
+    page.addChild(field());
+    page.addChild(field());
+    page.addChild(field());
+    auto *f0 = static_cast<FakeField *>(page.children[0].get());
+    auto *f1 = static_cast<FakeField *>(page.children[1].get());
+    auto *f2 = static_cast<FakeField *>(page.children[2].get());
+    int slotGained = 0, slotLost = 0;
+    f0->handlers.onFocus = [&]() { ++slotGained; };
+    f0->handlers.onBlur = [&]() { ++slotLost; };
+
+    FocusManager fm;                          // 独立实例（current() 定位锚刷新）
+    fm.applyFocus(f0);
+    CHECK(fm.focused() == f0);                // 状态源同步（键盘路由以此为门）
+    CHECK(f0->gains == 1 && slotGained == 1); // 直派 FocusGained + onFocus 槽
+    CHECK(f1->gains == 0 && f2->gains == 0);
+
+    fm.applyFocus(f2);                        // 聚焦新目标 = 旧目标成对失焦
+    CHECK(f0->losses == 1 && slotLost == 1);
+    CHECK(fm.focused() == f2);
+
+    fm.applyBlur();
+    CHECK(fm.focused() == nullptr);
+    CHECK(f2->losses == 1);
+    fm.applyBlur();                           // 幂等：无焦点再收零扰动
+    CHECK(f0->losses == 1 && f1->losses == 0 && f2->losses == 1);
+    CHECK(&FocusManager::current() == &fm);   // 独立实例即成为 current() 锚
+
+    // ② Tab 遍历全链（EventRouter 真管线；router 自持独立焦点管理器）
+    EventRouter router;
+    router.setRootTarget(&page);
+    auto tab = [&](uint32_t mods) {
+        RawEvent e;
+        e.device = RawEvent::Device::Keyboard;
+        e.action = RawEvent::Action::KeyDown;
+        e.keyCode = 9;
+        e.modifiers = mods;
+        e.timestamp = 1000;
+        router.feedRawEvent(e);
+    };
+
+    const int f0g0 = f0->gains, f1g0 = f1->gains, f2g0 = f2->gains;
+    const int f0l0 = f0->losses, f1l0 = f1->losses, f2l0 = f2->losses;
+
+    tab(0);
+    CHECK(router.focusManager().focused() == f0);    // 无焦点 → 前移取首个
+    tab(0);
+    CHECK(router.focusManager().focused() == f1);
+    tab(0b10);                                       // Shift+Tab → 后移回 f0
+    CHECK(router.focusManager().focused() == f0);
+    tab(0b10);
+    CHECK(router.focusManager().focused() == f2);    // 头部后移环绕 → 末个
+    tab(0);
+    CHECK(router.focusManager().focused() == f0);    // 尾部前移环绕 → 首个
+
+    // 焦点出域（落在非表单节点）→ 前移同"无焦点"口径从首个起步
+    router.focusManager().focus(&page);    // page 非 acceptsFocus，不入焦序
+    tab(0);
+    CHECK(router.focusManager().focused() == f0);
+
+    CHECK(f0->gains == f0g0 + 4);    // t1起步 / Shift环绕 / t5环绕 / 出域起步
+    CHECK(f1->gains == f1g0 + 1);
+    CHECK(f2->gains == f2g0 + 1);
+    CHECK(f0->losses == f0l0 + 2);    // t2 起步让位 / Shift 环绕让位
+    CHECK(f1->losses == f1l0 + 1);
+    CHECK(f2->losses == f2l0 + 1);
+    CHECK(f0->keyActions == 0 && f1->keyActions == 0 && f2->keyActions == 0);    // Tab 遍历不落组件
+
+    // ③ X9 失活感知：WindowFocusOut → ESC 消费者合成
+    auto sink = std::make_unique<EscapeSink>();
+    auto *sinkPtr = sink.get();
+    page.addChild(std::move(sink));
+    auto dead = std::make_unique<EscapeSink>();
+    auto *deadPtr = dead.get();
+    deadPtr->armed = false;                    // 未注册（Dropdown 关合态同形）
+    page.addChild(std::move(dead));
+
+    RawEvent out;
+    out.device = RawEvent::Device::Window;
+    out.action = RawEvent::Action::WindowFocusOut;
+    out.timestamp = 2000;
+    router.feedRawEvent(out);
+    CHECK(sinkPtr->escapes == 1);              // 消费侧收到合成 KeyAction{ESC}
+    CHECK(sinkPtr->armed == false);            // 消费即关
+
+    RawEvent in;
+    in.device = RawEvent::Device::Window;
+    in.action = RawEvent::Action::WindowFocusIn;
+    in.timestamp = 2100;
+    router.feedRawEvent(in);
+    CHECK(sinkPtr->escapes == 1);              // 激活预留零动作
+
+    RawEvent out2;
+    out2.device = RawEvent::Device::Window;
+    out2.action = RawEvent::Action::WindowFocusOut;
+    out2.timestamp = 2200;
+    router.feedRawEvent(out2);
+    CHECK(deadPtr->escapes == 0);              // 无消费者 → 不合成不空发
+}
+
+// ============================================================================
 // 横向滚轮全链派发：RawEvent.scrollX → 祖先滚链 → Horizontal ScrollView 位移
 // （win32 翻译口径：+delta 右倾在平台层取负传 scrollX——applyScroll 语义
 //   同垂直轴，dy>0=视窗上滑 → dx>0=视窗左滑，右倾需负载体）
@@ -3380,6 +3529,7 @@ int main() {
     test_expansion_hover_leave_relay();
     test_treemenu_e2e_events();
     test_treemenu_controlled_keys();
+    test_focus_programmatic_and_tab();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();

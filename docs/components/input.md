@@ -1,7 +1,8 @@
 ---
 group: form
 status: 已完成
-docsite: input（四节：基础绑定 / 外观定制 / 输入约束 / onChange 实时回显）
+docsite: input（五节：基础绑定 / 外观定制 / 输入约束 / onChange 实时回显 /
+编程聚焦 focus·blur + Tab 遍历）
 ---
 # Input — 单行文本输入
 
@@ -23,7 +24,9 @@ docsite: input（四节：基础绑定 / 外观定制 / 输入约束 / onChange 
     "placeholderColor": "#rrggbb",     // 占位符颜色 (默认 "#999999")
     "cursorColor": "#rrggbb",          // 光标颜色 (默认 "#4285F4")
     "focusedBorderColor": "#rrggbb",   // 聚焦边框色 (默认 "#4285F4")
-    "onChange": "(value) => {}"        // 文本变更回调
+    "onChange": "(value) => {}",       // 文本变更回调
+    "onFocus": "() => {}",             // 获得焦点（点选 / Tab / focus(id) 同源触发）
+    "onBlur": "() => {}"               // 失去焦点（同上）
 }
 ```
 
@@ -64,6 +67,23 @@ Input({ type:"number", min:0, max:100, step:5,
   新选区时自动折叠）
 - **密码模式（type:"password"）不参与选区**（拖选/双击/Ctrl+A/X 跳过，
   防掩码串复制歧义）
+
+## 焦点面（focus/blur + Tab 遍历）
+
+- **通报**：`onFocus` / `onBlur` 无参槽——点选、Tab 键、程序化聚焦（命令面）
+  同源经 FocusManager 统一通路直派（组件内部聚焦布尔只是渲染反馈，
+  不作为焦点事实源）
+- **命令面**（全局导出，作用任意 id 组件）：
+  - `focus(id)`：聚焦指定组件（如同点选；光标随组件内聚逻辑落位）
+  - `blur(id?)`：定点失焦（该 id 正持有焦点才收）；缺省失焦当前焦点
+  - 聚焦边框/光标反馈由组件自身渲染（程序化聚焦不改组件内聚行为）
+- **Tab 遍历**：Tab 键在 acceptsFocus 表单焦序（Input/TextArea/TextView/
+  SpinBox 数字框）顺 W3C DOM 挂载序前移一步，Shift+Tab 后移；头尾环绕，
+  无焦点或焦点在非表单节点时前移从首起/后移从末起
+- **失活感知（窗口级）**：应用失焦（点其他应用/系统面板夺前台，win32
+  WM_ACTIVATE WA_INACTIVE）时悬留弹层自动关闭——已注册 ESC 消费者的
+  Dropdown 开合态/DateTimePicker 日历等随失活收起，复用 ESC 显式查询
+  管线；窗口激活（恢复前台）无需动作
 
 ## 关联
 

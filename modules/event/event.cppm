@@ -270,6 +270,17 @@ public:
      */
     virtual EventTarget *findEscapeConsumer() { return acceptsEscape() ? this : nullptr; }
 
+    /**
+     * @brief 焦序收集（Tab 遍历）：本节点可聚焦则附加到 out
+     *
+     * 默认仅自查（无子级概念的实现）；View 覆写为顺 z 序先序递归子级。
+     * 契约落在事件层使 FocusManager::cycleFocus 无需反向依赖元素层——
+     * 子树遍历知识归属元素层（children 布局），模块依赖保持单向。
+     */
+    virtual void collectFocusables(std::vector<EventTarget *> &out) {
+        if (acceptsFocus()) out.push_back(this);
+    }
+
     virtual bool isLayerNode() const { return false; }
 
     /**
@@ -494,6 +505,8 @@ private:
  */
 export class FocusManager {
 public:
+    FocusManager() { lastConstructed_ = this; }    // 程序化聚焦入口定位：最后构造者持有输入（多树口径对齐原始事件注入器）
+
     void setRootTarget(EventTarget *root) { root_ = root; }
 
     /**
@@ -537,9 +550,46 @@ public:
         if (target && focused_ != target && TargetLiveness::instance().isAlive(target)) focused_ = target;
     }
 
+    // ── 程序化聚焦面（focus()/blur() JS 导出 + Tab 遍历的共用通路）──
+    /**
+     * @brief 全局焦点管理器定位
+     *
+     * 程序化聚焦不经原始事件注入器，需要从桥梁侧（bindings 等无 router
+     * 上下文的位置）触达目标树的管理器。按"最后构造者持有输入"定位——
+     * 与 OSK 注入器偏向首树的多树口径同源；UI 单线程，桥梁调用必发生
+     * 于活跃运行时的脚本执行期内。
+     */
+    static FocusManager &current() { return *lastConstructed_; }
+
+    /**
+     * @brief 程序化聚焦：同步状态源并直派 FocusLost/FocusGained
+     *
+     * 聚焦状态源是本管理器的 focused_（事件层的 KeyAction/焦点钩子都以
+     * 它为门），组件内部的聚焦布尔只查不改——绕过状态源的组件内部
+     * focus() 无法触发 onFocus 槽，也不能恢复键盘路由。直派即即刻生效
+     * （不经事件队列；调用点不处于事件向量遍历中，无扩容悬空风险）。
+     */
+    void applyFocus(EventTarget *target);
+
+    /**
+     * @brief 程序化失焦：直派 FocusLost（焦点钩子同链触发，OSK 自动收）
+     */
+    void applyBlur();
+
+    /**
+     * @brief Tab 遍历：对 root 子树的可聚焦序做一步循环前/后移
+     *
+     * 焦序 = DFS 先序收集 root 子树中 acceptsFocus() 的节点（普通容器
+     * 默认不参与——acceptsFocus 由表单控件族重写）。无焦点/焦点不在
+     * 本子树 → 前移取首个、后移取末个；头尾相邻处环绕（DOM 风格）。
+     * Shift+Tab 后移（meta/backward 语义由调用方按修饰键位传入）。
+     */
+    void cycleFocus(EventTarget *root, bool backward);
+
 private:
     EventTarget *focused_ = nullptr;
     EventTarget *root_ = nullptr;
+    static FocusManager *lastConstructed_;    // current() 定位锚（最后构造者胜出）
 };
 
 // ============================================================================
