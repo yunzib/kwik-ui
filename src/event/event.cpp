@@ -465,7 +465,7 @@ void FocusManager::process(std::vector<DispatchEvent> &events) {
             }
 
             // ── 焦点变化钩子（OSK 失焦自动关闭）──
-            if (const auto &hk = focusChangeHook()) hk(focusTarget);
+            if (focusHook_) focusHook_(focusTarget);
         }
     }
     // 统一追加队尾：仍由 process 之后的分发器派发（与原 range-for 进循环
@@ -506,7 +506,7 @@ void FocusManager::applyFocus(EventTarget *target) {
     target->onEvent(gained);
 
     // 焦点变化钩子（OSK 失焦自动收）与 process() 同链触发
-    if (const auto &hk = focusChangeHook()) hk(target);
+    if (focusHook_) focusHook_(target);
 }
 
 void FocusManager::applyBlur() {
@@ -519,7 +519,7 @@ void FocusManager::applyBlur() {
     lost.presetTarget = prev;
     prev->onEvent(lost);
 
-    if (const auto &hk = focusChangeHook()) hk(nullptr);
+    if (focusHook_) focusHook_(nullptr);
 }
 
 void FocusManager::cycleFocus(EventTarget *root, bool backward) {
@@ -553,6 +553,7 @@ bool EventDispatcher::dispatch(EventTarget *root, const DispatchEvent &event) {
 
     // ── 阶段①: 预设目标 (HoverEnter / HoverLeave) ──
     if (event.presetTarget) {
+        // （TEMP DBG 已撤）
         if (fireOnTarget(event.presetTarget, event)) {
             // Tap 被最深目标消费 → 祖先链状态同步通知（非冒泡：祖先不再
             // 触发自身 Tap 处理；RadioGroup 等容器经此同步派生状态）
@@ -674,6 +675,7 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
             inputStampNs_.store(ns, std::memory_order_relaxed);
         }
         keyboardHandler_.process(scaled, events);
+        // （TEMP DBG 已撤）
         // H6 键盘投递修正：无焦点丢弃 Key/Char（原无 presetTarget 落
         // hitTest(0,0) 误投左上角元素）；ESC 显式查询优先于聚焦控件——
         // 自顶层浮层（LayerStack 图层）下探 acceptsEscape 消费者
@@ -822,35 +824,5 @@ void EventRouter::resetForTreeRebuild(EventTarget *root) {
 int64_t EventRouter::consumeInputStampNs() {
     return inputStampNs_.exchange(0, std::memory_order_relaxed);
 }
-
-// ============================================================================
-// 虚拟键盘事件注入钩子实现（函数局部 static 存储，镜像 binding_registry 先例）
-// ============================================================================
-namespace {
-RawEventInjector &rawEventInjectorStorage() {
-    static RawEventInjector inj;    // 函数局部 static：注册/读取共享，无初始化顺序问题
-    return inj;
-}
-}    // namespace
-
-void setRawEventInjector(RawEventInjector inj) {
-    rawEventInjectorStorage() = std::move(inj);
-}
-
-const RawEventInjector &rawEventInjector() {
-    return rawEventInjectorStorage();
-}
-
-namespace {
-FocusChangeHook &focusChangeHookStorage() {
-    static FocusChangeHook hook;
-    return hook;
-}
-}    // namespace
-
-void setFocusChangeHook(FocusChangeHook hook) {
-    focusChangeHookStorage() = std::move(hook);
-}
-const FocusChangeHook &focusChangeHook() {
-    return focusChangeHookStorage();
-}
+// （全局键盘注入器 / 全局焦点钩子已退役：前者改 Keyboard 直取本树
+//   EventRouter（kSvcEventRouter 槽），后者改 FocusManager 实例成员）

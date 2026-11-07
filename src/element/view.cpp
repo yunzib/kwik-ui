@@ -8,6 +8,7 @@ import kwik.render.graphics;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.event;
+import kwik.core.input_session;    // TextInputTraits 完整类型（focusArgsOf 解引用 mode）
 import kwik.core.log;
 import kwik.core.prop_meta;
 import kwik.core.color_parser;
@@ -846,6 +847,16 @@ bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 	return true;
 }
 
+namespace {
+/// 焦点通报载荷构造（FocusGained/FocusLost 共用）：mode 取自本节点
+/// publishedTraits()——FocusManager 会话快照同源（非编辑器/无特征回退 Text）
+FocusArgs focusArgsOf(const View &v) {
+    FocusArgs a;
+    if (auto traits = v.publishedTraits()) a.mode = traits->mode;
+    return a;
+}
+}    // namespace
+
 bool View::onEvent(const DispatchEvent &event) {
     // 键盘事件: 使用 keyCode/charCode 而非坐标
     if (event.type == DispatchEvent::Type::KeyAction) {
@@ -861,14 +872,16 @@ bool View::onEvent(const DispatchEvent &event) {
         return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.resizeWidth),
                                  static_cast<float>(event.resizeHeight));
     }
-    // 焦点事件: FocusManager 注入、presetTarget 直投（无坐标载荷，无参回调，
-    // 消费不冒泡——焦点归属唯一，无链式传播语义）
+    // 焦点事件: FocusManager 注入、presetTarget 直投（无坐标载荷，消费不
+    // 冒泡——焦点归属唯一，无链式传播语义）。载荷 {mode 输入模式}: 取自
+    // 本节点 publishedTraits()（FocusManager 会话快照同源；非编辑器回退
+    // Text）——观察面批次，onFocus/onBlur 从无参升级为受控载荷
     if (event.type == DispatchEvent::Type::FocusGained) {
-        if (handlers.onFocus) { handlers.onFocus(); return true; }
+        if (handlers.onFocus) { handlers.onFocus(focusArgsOf(*this)); return true; }
         return false;
     }
     if (event.type == DispatchEvent::Type::FocusLost) {
-        if (handlers.onBlur) { handlers.onBlur(); return true; }
+        if (handlers.onBlur) { handlers.onBlur(focusArgsOf(*this)); return true; }
         return false;
     }
 

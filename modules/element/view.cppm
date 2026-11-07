@@ -12,6 +12,7 @@ import kwik.element.typed_prop;
 import kwik.event;
 import kwik.core.binding; // StateBinding — State 双向绑定抽象接口
 import kwik.core.theme;
+import kwik.core.input_session;    // InputMode — FocusArgs.mode（会话快照同源词汇）
 
 import std;
 
@@ -80,6 +81,29 @@ export struct KeyArgs {
     std::string value;
     uint32_t charCode = 0;
     uint32_t keyCode = 0;
+    uint32_t modifiers = 0;    ///< 修饰键位（bit0=Ctrl 0x1 / bit1=Shift 0x2，与 RawEvent 同口径）
+};
+
+/**
+ * @brief 焦点事件参数 (onFocus / onBlur，批次 observability)
+ *
+ * mode 取自本节点 EventTarget::publishedTraits()——FocusManager 会话
+ * 快照（TextInputSession）同源同值：聚焦编辑器发其真实模式（Input
+ * type:"number"→number），非编辑器/无特征节点回退 Text。
+ */
+export struct FocusArgs {
+    InputMode mode = InputMode::Text;    ///< 输入模式（会话快照 {mode} 载荷）
+};
+
+/**
+ * @brief Enter 提交事件参数 (onEnter，批次 observability)
+ *
+ * value = 引擎处理后值：Input=提交值（数字模式经 min/max/step 校验后）、
+ * TextArea=换行已插入后的全文。仅 '\n' 输入触发（隐式失焦永不触发），
+ * 次序 onChange → onEnter → onBlur（TextArea 不失焦故无 onBlur）。
+ */
+export struct EnterArgs {
+    std::string value;    ///< 引擎处理后值
 };
 
 /**
@@ -111,8 +135,9 @@ export struct ViewEventHandlers {
     std::function<void(const TreeArgs &)> onTreeExpand;       ///< TreeMenu 单节点展开通报（用户开合翻转后，受控应用不回发）
     std::function<void(const TreeArgs &)> onTreeSelect;       ///< TreeMenu 单行点击通报（行其余区域；勾选框热区不发，勾选走 onChange 族）
     std::function<void(const KeyArgs &)> onKey;               ///< 虚拟键盘按键（旁路通知，不干预注入）
-    std::function<void()> onFocus;                            ///< 获得焦点（FocusManager 注入，presetTarget 直投，无参）
-    std::function<void()> onBlur;                             ///< 失去焦点（同上）
+    std::function<void(const FocusArgs &)> onFocus;          ///< 获得焦点（FocusManager 注入，presetTarget 直投；e={mode 输入模式}）
+    std::function<void(const FocusArgs &)> onBlur;           ///< 失去焦点（同上；Enter 提交经统一失焦路由同源触发）
+    std::function<void(const EnterArgs &)> onEnter;          ///< Enter 提交（e={value 引擎处理后值}；仅 '\n' 触发，onChange 之后 onBlur 之前）
     std::function<void()> onMount;                            ///< 挂载后回调（树构建完成，仅本轮新建节点触发）
     std::function<void()> onUnmount;                          ///< 卸载前回调（reconcile 拆除、析构前；HMR 整树重建不触发）
     std::function<void(std::string)> onError;                 ///< 资源失败上报（Image：解码/装载/上传失败；参数为错误描述，与 error() 一致）
@@ -611,6 +636,8 @@ public:
     static constexpr int kSvcRenderBackend = 2; // 槽 2：RenderBackend*（Image 纹理路由用）
     static constexpr int kSvcClipboard = 3;     // 槽 3：ClipboardService*（文本组件 Ctrl+C/V/X）
     static constexpr int kSvcSelection = 4;     // 槽 4：TextSelectionService*（展示文本选区，selection.cppm）
+    static constexpr int kSvcInputSession = 5;  // 槽 5：TextInputSession*（键盘↔编辑器会话中介，input_session.cppm）
+    static constexpr int kSvcEventRouter = 6;   // 槽 6：EventRouter*（OSK 注入归属本树，Keyboard 合成事件直入）
 
     /** @brief 根节点接线（KwikRuntime::init 调用；非根调用无效果） */
     void setTreeService(int slot, void *svc);
@@ -633,7 +660,7 @@ private:
     void encodeList(Graphics &graphics);
 
     std::shared_ptr<const DisplayList> publishedList_;   ///< 已发布快照（render 线程只读）
-    static constexpr int kSvcSlotCount = 5;    // 槽容量（加槽同步扩容 treeSvc_，见下）
+    static constexpr int kSvcSlotCount = 7;    // 槽容量（加槽同步扩容 treeSvc_，见下）
     void *treeSvc_[kSvcSlotCount] = {};    ///< 树级服务槽（仅根节点有效，见 setTreeService）
     std::unique_ptr<DisplayList> pendingList_;           ///< 编码草稿（UI 线程私有）
     bool listDirty_ = true;                              ///< 视觉变化后待重编

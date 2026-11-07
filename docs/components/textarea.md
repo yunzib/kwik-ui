@@ -22,13 +22,17 @@ docsite: textarea（五节：非受控读写 / ref 绑定与 onChange / 外观�
     "textColor": "#rrggbb",            // 文字颜色 (默认 "#000000")
     "placeholderColor": "#rrggbb",     // 占位符颜色 (默认 "#999999")
     "cursorColor": "#rrggbb",          // 光标颜色 (默认 "#4285F4")
-    "focusedBorderColor": "#rrggbb"    // 聚焦边框色 (默认 "#4285F4")
+    "focusedBorderColor": "#rrggbb",   // 聚焦边框色 (默认 "#4285F4")
+    "onChange": "(value) => {}",       // 文本变更回调（逐次编辑）
+    "onEnter": "(e) => {}"             // Enter 提交（e={value} 换行插入后全文；多行不失焦无 onBlur）
 }
 ```
 
 ## 编辑与导航
 
 - Enter 换行；宽度感知软换行
+- Enter 顺带通报 `onEnter`：载荷 `e={value}` 为换行已插入后的全文，
+  次序 `onChange → onEnter`；多行编辑不失焦（隐式失焦永不触发本槽）
 - 上/下方向键行间导航；Backspace / Delete 删除
 - 光标闪烁、聚焦边框反馈（`focusedBorderColor`）
 

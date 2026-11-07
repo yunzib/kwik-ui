@@ -145,9 +145,13 @@ void KwikRuntime::teardownJsBoundRuntime() {
         tree_->setTreeService(View::kSvcAnimEngine, nullptr);
         tree_->setTreeService(View::kSvcClipboard, nullptr);
         tree_->setTreeService(View::kSvcSelection, nullptr);
+        tree_->setTreeService(View::kSvcInputSession, nullptr);
+        tree_->setTreeService(View::kSvcEventRouter, nullptr);
     }
     // 树即将销毁：选区宿主随之悬空，显式清空会话（pruneIfDead 之外的双保险）
     selectionSvc_->clear();
+    // 会话订阅不在此清场：Keyboard 实例随树析构时经 dtor→deactivate 退订
+    // （会话声明序早于 tree_，整个树析构期存活）；零强制关闭、零多余回调
     // 整树即将重建/销毁：绑定注册表的 View* 条目全部随之悬空，必须清空
     // （reconcile 路径逐节点显式 unbind 自洽，但 HMR 整树 reset 与退出
     // 不走 reconcile——残留条目在 State 地址复用时 notify 直写已释放内存）
@@ -260,6 +264,8 @@ bool KwikRuntime::init() {
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
+    tree_->setTreeService(View::kSvcInputSession, &inputSession_);
+    tree_->setTreeService(View::kSvcEventRouter, &eventRouter_);
 
     // px = 逻辑像素：布局空间与文字密度统一跟随 S 因子
     TextRenderPipeline::instance().setDpiScale(renderScale());
@@ -274,6 +280,15 @@ bool KwikRuntime::init() {
     // ⑧ 事件系统
     eventRouter_.setRootTarget(&layers_);    // 事件路由根：LayerStack
     eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
+
+    // 输入会话发布接线（焦点变化 → 快照发布）：实例级 hook，每树一份不串扰
+    // （旧进程级全局 hook 的多树串扰，就此消除）。发布内容=当前聚焦目标的
+    // publishedTraits()（聚焦编辑器发全量快照，非编辑器/无焦点发 nullopt）
+    eventRouter_.focusManager().setFocusChangeHook([this](EventTarget *t) {
+        std::optional<TextInputTraits> snap;
+        if (t) snap = t->publishedTraits();
+        inputSession_.publish(snap);
+    });
 
     // 生命周期: 首树挂载通知（前序遍历，仅新建节点触发 handlers.onMount）
     ElementParser::firePendingMounts(tree_.get());
@@ -384,6 +399,8 @@ void KwikRuntime::rebuildTree() {
     if (tree_) tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     if (tree_) tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     if (tree_) tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
+    if (tree_) tree_->setTreeService(View::kSvcInputSession, &inputSession_);
+    if (tree_) tree_->setTreeService(View::kSvcEventRouter, &eventRouter_);
     // 焦点/指针跨展开保留：State 驱动的 reconcile 复用聚焦节点（原位更新），
     // reset 后按活性恢复——打字触发的连续重渲染不再丢焦点（键入即断）。
     // 走软复位：拖拽中的指针按压/pan 状态必须跨帧存活，整表 reset 会让
@@ -439,6 +456,8 @@ void KwikRuntime::buildErrorPageTree(const std::string &title, const std::string
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
+    tree_->setTreeService(View::kSvcInputSession, &inputSession_);
+    tree_->setTreeService(View::kSvcEventRouter, &eventRouter_);
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
     eventRouter_.setContentTransform(renderScale(), 0.0f, 0.0f);
@@ -673,6 +692,8 @@ void KwikRuntime::onHotReloadTriggered(const std::string &path) {
     tree_->setTreeService(View::kSvcRenderBackend, renderThread_.backend());    // 新根重接线服务槽
     tree_->setTreeService(View::kSvcClipboard, clipSvc_.get());
     tree_->setTreeService(View::kSvcSelection, selectionSvc_.get());
+    tree_->setTreeService(View::kSvcInputSession, &inputSession_);
+    tree_->setTreeService(View::kSvcEventRouter, &eventRouter_);
     eventRouter_.setRootTarget(&layers_);
     eventRouter_.reset();
 

@@ -44,8 +44,9 @@ export const meta = {
         { title: { zh: '事件', en: 'Events' }, rows: [
             ['onChange', '(value) => {}', '-', { zh: '文本变更回调（逐键触发）', en: 'Change callback (per keystroke)' }],
             ['onClick', '(e) => {}', '-', { zh: '点击回调（可挂起键盘等 JS 逻辑）', en: 'Tap callback (e.g. open keyboard)' }],
-            ['onFocus', '() => {}', '-', { zh: '获得焦点（点选 / Tab / focus(id) 同源触发）', en: 'Focus gained (tap / Tab / focus(id))' }],
-            ['onBlur', '() => {}', '-', { zh: '失去焦点（同上；失焦同步 ref 也走此先）', en: 'Focus lost (same sources; ref sync follows)' }],
+            ['onFocus', '(e) => {}', '-', { zh: '获得焦点（载荷 e={mode: \'text\'|\'number\'}；点选 / Tab / focus(id) 同源）', en: 'Focus gained (e={mode}; tap / Tab / focus(id))' }],
+            ['onBlur', '(e) => {}', '-', { zh: '失去焦点（同上；失焦同步 ref 在此先；Enter 提交的统一失焦同源触发）', en: 'Focus lost (same sources; ref sync precedes; Enter-submit blur included)' }],
+            ['onEnter', '(e) => {}', '-', { zh: 'Enter 提交（载荷 e={value} 引擎处理后值；仅回车触发，隐式失焦不发；次序 onChange→onEnter→onBlur；TextArea 仅到 onEnter）', en: 'Enter submitted (e={value}), only on \\\\n key; order change→enter→blur; TextArea stops at enter' }],
         ] },
     ],
 };

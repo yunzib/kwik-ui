@@ -22,6 +22,18 @@ import std;
 // 构造 / 析构
 // ============================================================================
 Application::~Application() {
+    // 拆卸序契约（0xC000041D 抽发根修）：先摘窗口回调，再清运行时——
+    // 窗口实体可能在 Application 之后才析构（demo 以 keepAlive/栈对象持窗
+    // 跨 app 析构），DestroyWindow 期间 Windows 会同步回调 WndProc（焦点
+    // shift 的 WM_ACTIVATE / WM_CLOSE），届时再进回调即打悬空的
+    // rtPtr/Application（jsContext()/quitIfAllClosed() 全 dangling——
+    // QuickJSRuntime singleton 已随最后一个 ctx 释放，resetWatchdog 写
+    // 已释放块）。摘回调后空 std::function 直呼也不得崩（win32 侧各
+    // 调用点判空同批补齐）
+    for (auto &rt : runtimes_) {
+        rt->window().SetRawEventCallback(nullptr);
+        rt->window().SetModalLoopPump(nullptr);
+    }
     // 各运行时 teardown（渲染线程停 → 动画/图层清理 → Channel 关闭 → 纹理销毁）
     // 由 ~KwikRuntime 按序执行；CoreTimer 全局清场在树销毁后补一次（进程退出）
     runtimes_.clear();
@@ -60,12 +72,8 @@ int Application::run() {
     for (auto &rt : runtimes_) {
         if (!rt->init()) return -1;
     }
-    // ② 进程级服务：虚拟键盘注入（注入首个运行时的路由；全局单份为已知
-    //    限制，见 kwik_runtime.cppm 文件头）+ Scheduler
-    if (!runtimes_.empty()) {
-        auto *first = runtimes_.front().get();
-        setRawEventInjector([first](const RawEvent &r) { first->eventRouter().feedRawEvent(r); });
-    }
+    // ② 进程级服务：Scheduler（OSK 注入已随会话中介批次改走各树
+    //    kSvcEventRouter 槽——KwikRuntime::init 内接线，全局注入器退役）
     Scheduler::init(threadPool_, mainThreadTaskQueue_);
 
     running_ = true;

@@ -616,12 +616,22 @@ export enum class KeyboardLayout : std::uint8_t {
 };
 
 /**
+ * @brief 虚拟键盘锚定模式（位置三件套）
+ */
+export enum class KeyboardDock : std::uint8_t {
+    Bottom,     // dock 视口底部（默认）：widthRatio 比宽水平居中 + offsetBottom 上抬
+    Floating    // 浮动锚定：x/y 绝对定位（视口坐标系左上角，JS 全权）
+};
+
+/**
  * @brief 虚拟键盘专有属性
  *
  * 浮层组件：visible=true → LayerStack 注册为顶层（drawnElsewhere_），
- * dock 视口底部全宽，面板外点击穿透 base（可切其它输入框焦点）。
- * 按键经 rawEventInjector 合成 RawEvent→feedRawEvent 复用物理键盘管线，
- * 行为与物理键盘完全一致（CharInput/KeyAction → focused 控件）。
+ * 按位置三件套锚定（参数化锚定，控制显式——位置由 JS setProp 全权），
+ * 面板外点击穿透 base（可切其它输入框焦点）。
+ * 按键合成 RawEvent 经本树 EventRouter（树服务槽 kSvcEventRouter 接入）→
+ * feedRawEvent 复用物理键盘管线，行为与物理键盘完全一致
+ * （CharInput/KeyAction → focused 控件）。
  */
 export struct KeyboardProps {
     bool visible = false;                                    // 显隐（JS 手动 toggle，v1 无 autoShow）
@@ -636,6 +646,12 @@ export struct KeyboardProps {
     float keyRadius = 6.0f;                                   // 键圆角 px
     float panelRadius = 12.0f;                                // 面板顶角圆角 px
     EdgeInsets panelPadding{6, 6, 6, 6};                     // 面板内边距
+    // ── 位置三件套（键位锚定批）──
+    KeyboardDock dock = KeyboardDock::Bottom;                // 锚定模式（bottom / floating）
+    float widthRatio = 1.0f;                                 // 面板宽 ÷ 视口宽（[0,1]，两模式同口径取宽）
+    float offsetBottom = 0;                                  // bottom 锚定：离视口底缘上抬 px（>=0）
+    float x = 0;                                             // floating 锚定：左上角 x（视口坐标系）
+    float y = 0;                                             // floating 锚定：左上角 y（视口坐标系）
 };
 
 // ════════════════════════════════════════════════════════

@@ -15,6 +15,7 @@
 //
 // 依赖: 零 (不 import kwik.element.view, kwik.platform.window)
 //       仅依赖标准库和 kwik.core.types (Point 等基础类型)
+//       以及 kwik.core.input_session (TextInputTraits——publishedTraits 签名)
 // ============================================================================
 module;
 
@@ -28,6 +29,7 @@ module;
 export module kwik.event;
 
 import kwik.core.types;
+import kwik.core.input_session;
 
 import std;
 
@@ -284,6 +286,15 @@ public:
     virtual bool isLayerNode() const { return false; }
 
     /**
+     * @brief 输入特征快照（会话中介数据源，TextInputSession 发布面）
+     *
+     * 可编辑组件（Input/TextArea/…）返回自身输入约束快照——Keyboard 只
+     * 订阅快照而不依赖编辑器类型：新增编辑组件覆写即自动获得键盘支持，
+     * 键盘零改动。非编辑器/抽象目标返回 nullopt（负向值即"无聚焦编辑器"）。
+     */
+    virtual std::optional<TextInputTraits> publishedTraits() const { return std::nullopt; }
+
+    /**
      * @brief 是否可滚动 (ListLayout 等)
      */
     virtual bool scrollable() const { return false; }
@@ -496,6 +507,14 @@ private:
 // FocusManager — 焦点管理器
 // ============================================================================
 /**
+ * @brief 焦点变化钩子（实例级）：聚焦新目标 / 失焦 nullptr 时触发
+ *
+ * 每棵树一个 hook（FocusManager 每树一份；KwikRuntime init 装配到本树
+ * 输入会话发布）——旧进程级全局 hook 的多树串扰问题就此消除。
+ */
+export using FocusChangeHook = std::function<void(EventTarget *focused)>;
+
+/**
  * @brief 焦点管理器
  *
  * 从 Application 中提取的独立焦点管理组件:
@@ -505,7 +524,7 @@ private:
  */
 export class FocusManager {
 public:
-    FocusManager() { lastConstructed_ = this; }    // 程序化聚焦入口定位：最后构造者持有输入（多树口径对齐原始事件注入器）
+    FocusManager() { lastConstructed_ = this; }    // 程序化聚焦入口定位：最后构造者持有输入（多树"活跃树"口径，与窗口事件路由各树自理同型）
 
     void setRootTarget(EventTarget *root) { root_ = root; }
 
@@ -538,6 +557,9 @@ public:
      */
     void reset() { focused_ = nullptr; }
 
+    /** @brief 焦点变化钩子挂点（实例级；快照发布/OSK 失焦收键盘由装配方决定） */
+    void setFocusChangeHook(FocusChangeHook hook) { focusHook_ = std::move(hook); }
+
     /**
      * @brief 跨树展开恢复焦点：目标仍存活才接纳（L4 活性闸）
      *
@@ -554,9 +576,9 @@ public:
     /**
      * @brief 全局焦点管理器定位
      *
-     * 程序化聚焦不经原始事件注入器，需要从桥梁侧（bindings 等无 router
+     * 程序化聚焦不经原始事件注入，需要从桥梁侧（bindings 等无 router
      * 上下文的位置）触达目标树的管理器。按"最后构造者持有输入"定位——
-     * 与 OSK 注入器偏向首树的多树口径同源；UI 单线程，桥梁调用必发生
+     * 活跃树口径与窗口事件路由各树自理同型；UI 单线程，桥梁调用必发生
      * 于活跃运行时的脚本执行期内。
      */
     static FocusManager &current() { return *lastConstructed_; }
@@ -589,6 +611,7 @@ public:
 private:
     EventTarget *focused_ = nullptr;
     EventTarget *root_ = nullptr;
+    FocusChangeHook focusHook_;    // 焦点变化钩子（实例级；process/applyFocus/applyBlur 三路同链触发）
     static FocusManager *lastConstructed_;    // current() 定位锚（最后构造者胜出）
 };
 
@@ -763,20 +786,9 @@ private:
 // };
 
 // ============================================================================
-// 虚拟键盘事件注入钩子（OSK 用）
+// 虚拟键盘注入 / 焦点变化钩子 —— 已改实例化（会话中介批次收编）：
+//   - OSK 注入：Keyboard 经树服务槽 kSvcEventRouter 直取本树 EventRouter
+//     合成事件（多树各回各家，全局单份注入器退役）
+//   - 焦点钩子：FocusManager 实例成员（本文件 FocusManager 段），旧全局
+//     存储退役——多树 hook 串扰一并消除
 // ============================================================================
-// 合成 RawEvent→feedRawEvent 复用物理键盘整条管线：
-//   KeyboardHandler::process（KeyDown→KeyAction / TextInput→CharInput）→
-//   focusManager_.focused() 设 presetTarget → Input/TextArea::onEvent 消费。
-// Application 在 init 注册 eventRouter_.feedRawEvent；Keyboard 经此注入。
-export using RawEventInjector = std::function<void(const RawEvent &)>;
-export void setRawEventInjector(RawEventInjector inj);
-export const RawEventInjector &rawEventInjector();
-// ============================================================================
-// 焦点变化钩子（OSK 失焦自动关闭用）
-// ============================================================================
-// FocusManager 在焦点变化后（聚焦新目标 / 失焦 nullptr）调用；
-// Keyboard 经此感知"焦点是否离开文本输入框"以自动隐藏。
-export using FocusChangeHook = std::function<void(EventTarget *focused)>;
-export void setFocusChangeHook(FocusChangeHook hook);
-export const FocusChangeHook &focusChangeHook();

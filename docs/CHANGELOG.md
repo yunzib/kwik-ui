@@ -1,5 +1,72 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-06
+### 新增
+- 可聚焦组件（Input/TextArea/TextView）焦点通报载荷化：onFocus/onBlur
+  收 `e={mode: "text"|"number"}`（取自组件 publishedTraits()——焦点会话
+  快照同源；无特征可聚焦件回退 "text"，TextView 等只读控件不误报 number）
+- Enter 提交通报 onEnter（Input/TextArea）：`e={value}` 引擎处理后值——
+  数字模式=min/max/step 校验后值、TextArea=换行插入后全文；仅回车触发
+  （隐式失焦永不发），次序 onChange→onEnter→onBlur；多行 TextArea
+  回车=换行语义不失焦，故止于 onEnter
+- 虚拟键盘键表能力：text/symbol 布局首行新增降高工具行（~0.6×keyHeight，
+  ←/→/↑/↓/Home/End/Del 七功能键；number 布局不设）；number 布局底行
+  改 7 键 `abc #+= - . 0 ⌫ Enter`（abc/#+= 为布局切换键，补负号与
+  Enter 提交键，Enter 加宽 1.25）；onKey
+  载荷补 `modifiers`（bit0=Ctrl 0x1 / bit1=Shift 0x2，与 RawEvent 同
+  口径）；`panelPadding` 属性开放解析（数值/数组/对象多形态）
+- 虚拟键盘位置三件套（键位锚定批）：`dock`（"bottom"默认 / "floating"）
+  + `widthRatio`（面板宽÷视口宽，两模式同口径）+ `offsetBottom`
+  （bottom 离底缘上抬）+ `x`/`y`（floating 绝对锚定视口坐标系左上角）；
+  五项全量 setProp/getProp 实时改，bottom 随 resize 重排、floating 保持
+  坐标——位置由 JS 参数化全权（控制显式）
+### 变更
+- Input 回车统一提交语义：回车后经本树 FocusManager 统一失焦路由
+  （此前组件内部 blur() 只置自身布尔——FocusManager 端残留聚焦，键盘
+  会话快照不落空、OSK 失焦收起不触发、JS onBlur 也缺发）
+- 虚拟键盘按键链路改 down 驱动：PointerDown 即注入并亮按下态（视觉
+  反馈早一步），长按 350ms 后每 60ms 重复注入（Backspace/Del/光标键/
+  数字可连发，shift/布局切换不连发）；Tap 只吞点不发键（防双发），
+  命中间隙照旧穿透 base。按下态背景为 keyActiveBackground 深化 15%
+  的派生色（不增 props 色位）
+### 修复
+- 数字模式 Input 回车提交失效（回车被数字白名单静默吞掉——min/max/step
+  的"回车即校验"从未生效，只剩失焦路径）：提交分支先于白名单放行
+  '\n'，与文档"提交时（回车或失焦）校验"承诺对齐
+- win32 拆卸序 UAF（0xC000041D 抽发，smoke 批量运行约半数 demo 中途
+  即崩）：demo 持窗跨 Application 析构，DestroyWindow 焦点 shift 同步
+  回调 WndProc WM_ACTIVATE，窗口事件回调仍挂着 → 打悬空的
+  rtPtr/Application（QuickJSRuntime 已随最后一个 ctx 释放，resetWatchdog
+  写已释放块）。~Application 先摘窗口回调再清运行时 + win32 侧
+  WM_CLOSE/WM_ACTIVATE 两个裸调点补判空（与其余调用点同口径）
+- 虚拟键盘 `123` 键切出的不是数字键盘而是符号键盘（旧键表历史口径——
+  当时 symbol 是唯一"数字/符号"页，但其键表无数字键）：`123` 改切
+  number 布局；三布局回通经底行 abc/#+= 布局切换键达成（键面见上
+  "键表能力"条），任一页均可键面直回其余两页，不依赖 setProp
+- keyboard demo 三布局/宽度/上抬按钮"点击无效"（按钮只改参数不置
+  visible，键盘隐着无视觉反馈——floating/bottom/显示键盘三钮带
+  visible=true 故有效，与其余钮全无反馈恰好框出失效名单）：参数钮
+  统一补 `visible="true"`，隐着也一键生效
+
+# 0.0.0 — 2026-11-03
+### 新增
+- 虚拟键盘（OSK）会话中介基建：新增输入会话契约件 kwik.core.
+  input_session（TextInputSession 每树一份，发布焦点编辑器特征快照）+
+  EventTarget::publishedTraits() 虚契约——Input/TextArea 已覆写，新增
+  编辑组件覆写该钩子即自动获得软键盘支持，键盘侧零改动；树服务槽
+  扩容（kSvcInputSession / kSvcEventRouter 两槽）
+### 变更
+- 虚拟键盘失焦自动收与按键注入链路迁移：键盘 activate 期间订阅本树
+  输入会话、deactivate 退订（失焦自动收由订阅回调承载——焦点离开
+  文本控件快照落空即收起，转到另一文本控件保持）；按键注入改经树服务
+  槽直取本树事件路由，与物理键盘同一链路。对外行为零变化（demo 一行
+  未改，smoke 41/41 双模式通过）
+### 修复
+- 虚拟键盘多实例/多窗口缺陷：旧进程级全局焦点钩子仅首个构造实例
+  订阅生效、其析构后存活实例永久失去失焦自动收起；旧全局注入器在
+  多窗口下恒注入首树。现焦点钩子实例化（每树各一）、注入各回各家，
+  多实例并存与多窗口下键盘行为各自正确
+
 # 0.0.0 — 2026-11-03
 ### 新增
 - 焦点体系三子项（Tab 遍历 / focus()/blur() 导出 / X9 失活感知）：

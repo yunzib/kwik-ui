@@ -17,6 +17,7 @@ import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.core.constraints;
+import kwik.core.input_session;    // InputMode/TextInputTraits（publishedTraits 签名）
 import kwik.element.typed_prop;
 import kwik.core.binding;
 import kwik.event;
@@ -65,6 +66,17 @@ public:
     bool isFocused() const { return focused_; }
 
     bool acceptsFocus() const override { return true; }
+
+    /**
+     * @brief 会话快照发布（TextInputSession 数据源，会话中介批次）
+     *
+     * props 直映射为特征快照：type:"number"→Number、isPassword、readOnly。
+     * 键盘只消费此快照不认识 Input 类型——新编辑组件同样覆写即可接入。
+     */
+    std::optional<TextInputTraits> publishedTraits() const override {
+        return TextInputTraits{input_.isNumber ? InputMode::Number : InputMode::Text,
+                               input_.isPassword, input_.readOnly, false};
+    }
 
     void focus();
     void blur();

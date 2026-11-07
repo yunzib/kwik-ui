@@ -399,6 +399,10 @@ bool TextArea::onEvent(const DispatchEvent &event) {
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
                 .count();
         fireChange();
+        // Enter 提交通报（观察面批次）：载荷=引擎处理后值（换行已插入后的
+        // 全文）；次序 onChange→onEnter。多行编辑不失焦（TextArea Enter=
+        // 换行语义），无 onBlur；隐式失焦永不触发本槽
+        if (cp == '\n' && handlers.onEnter) handlers.onEnter(EnterArgs{text_});
         markDirty();
         return true;
     }

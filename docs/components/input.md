@@ -25,8 +25,9 @@ docsite: input（五节：基础绑定 / 外观定制 / 输入约束 / onChange 
     "cursorColor": "#rrggbb",          // 光标颜色 (默认 "#4285F4")
     "focusedBorderColor": "#rrggbb",   // 聚焦边框色 (默认 "#4285F4")
     "onChange": "(value) => {}",       // 文本变更回调
-    "onFocus": "() => {}",             // 获得焦点（点选 / Tab / focus(id) 同源触发）
-    "onBlur": "() => {}"               // 失去焦点（同上）
+    "onFocus": "(e) => {}",            // 获得焦点（载荷 e={mode: "text"|"number"}；点选/Tab/focus(id) 同源）
+    "onBlur": "(e) => {}",             // 失去焦点（同上；Enter 提交的统一失焦同源触发）
+    "onEnter": "(e) => {}"             // Enter 提交（e={value} 引擎处理后值；仅回车触发，次序 onChange→onEnter→onBlur）
 }
 ```
 
@@ -70,9 +71,15 @@ Input({ type:"number", min:0, max:100, step:5,
 
 ## 焦点面（focus/blur + Tab 遍历）
 
-- **通报**：`onFocus` / `onBlur` 无参槽——点选、Tab 键、程序化聚焦（命令面）
-  同源经 FocusManager 统一通路直派（组件内部聚焦布尔只是渲染反馈，
-  不作为焦点事实源）
+- **通报**：`onFocus` / `onBlur` 载荷 `e={mode: "text"|"number"}`（输入模式，
+  与会话快照同源；TextView 等无特征可聚焦件回退 `"text"`）——点选、Tab 键、
+  程序化聚焦（命令面）、Enter 提交的统一失焦同源经 FocusManager 统一通路
+  直派（组件内部聚焦布尔只是渲染反馈，不作为焦点事实源）
+- **Enter 提交**（`onEnter`）：仅回车触发（隐式失焦永不触发），载荷
+  `e={value}` 引擎处理后值——数字模式=校验后值、文本模式=当前文本；
+  次序 `onChange → onEnter → onBlur`（数字模式回车即提交校验并失焦）。
+  数字模式白名单对此放行：回车按"提交"消费，不入文本（此前被白名单
+  静默吞掉失焦校内验的旧缺陷顺带清除）
 - **命令面**（全局导出，作用任意 id 组件）：
   - `focus(id)`：聚焦指定组件（如同点选；光标随组件内聚逻辑落位）
   - `blur(id?)`：定点失焦（该 id 正持有焦点才收）；缺省失焦当前焦点

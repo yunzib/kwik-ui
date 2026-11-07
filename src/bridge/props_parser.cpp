@@ -1,5 +1,6 @@
 module;
 
+#include <algorithm>
 #include <cstddef>
 #include "quickjs.h"
 
@@ -833,6 +834,20 @@ KeyboardProps parseKeyboardProps(PropsExtractor &ex) {
     ex.get("keyGap", result.keyGap);
     ex.get("keyRadius", result.keyRadius);
     ex.get("panelRadius", result.panelRadius);
+    if (ex.has("panelPadding")) result.panelPadding = parseEdgeInsets(ex.raw().getProperty("panelPadding"));
+    // 位置三件套（键位锚定批）：dock 模式 + 比例/偏移/坐标；参数规范化在属性行
+    ex.get("offsetBottom", result.offsetBottom);
+    ex.get("widthRatio", result.widthRatio);
+    ex.get("x", result.x);
+    ex.get("y", result.y);
+    result.offsetBottom = std::max(result.offsetBottom, 0.0f);          // 上抬非负
+    result.widthRatio = std::clamp(result.widthRatio, 0.0f, 1.0f);      // 比宽 [0,1]
+    std::string dockStr;
+    ex.get("dock", dockStr);
+    if (dockStr == "floating")
+        result.dock = KeyboardDock::Floating;
+    else
+        result.dock = KeyboardDock::Bottom;    // 默认 bottom（未知串同口径回退）
     return result;
 }
 

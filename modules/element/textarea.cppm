@@ -14,6 +14,7 @@ import kwik.element.selection;    // Selectable / 选区服务（全局互斥登
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
+import kwik.core.input_session;    // InputMode/TextInputTraits（publishedTraits 签名）
 import kwik.render.graphics;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
@@ -60,6 +61,16 @@ public:
     }
     void focus();
     void blur();
+
+    /**
+     * @brief 会话快照发布（TextInputSession 数据源，会话中介批次）
+     *
+     * 多行编辑器：Text + multiline（Enter=换行语义）；readOnly 自 props。
+     * 键盘只消费此快照不认识 TextArea 类型。
+     */
+    std::optional<TextInputTraits> publishedTraits() const override {
+        return TextInputTraits{InputMode::Text, false, props_.readOnly, true};
+    }
 
     /** @brief tap 点击定位行（纯函数，合成字形可直测）：y → visual line 索引
      *

@@ -21,6 +21,7 @@ import kwik.element.textview; // TextView::runs — 富文本事件负载
 import kwik.engine.js_value;
 import kwik.core.props; // TextRun, FontWeight, FontStyle
 import kwik.core.types;
+import kwik.core.input_session;    // InputMode — makeFocusEvent mode 字符串映射
 import kwik.core.log;
 import kwik.bridge.js_table_data_source; // JsTableDataSource — onRowClick 行对象回取
 
@@ -114,6 +115,18 @@ JSValue makeTextViewRunsEvent(JSContext *ctx, TextView &tv) {
         JS_SetPropertyUint32(ctx, arr, static_cast<uint32_t>(i), obj);
     }
     return arr;
+}
+
+/**
+ * @brief 构造 onFocus / onBlur 的 JS 事件参数
+ *
+ * JS 契约: { mode: "text" | "number" }（输入模式=会话快照；非编辑器 Text）
+ */
+JSValue makeFocusEvent(JSContext *ctx, const FocusArgs &a) {
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "mode",
+                      JS_NewString(ctx, a.mode == InputMode::Number ? "number" : "text"));
+    return obj;
 }
 
 /**
@@ -293,13 +306,25 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         };
     }
 
-    // ── onFocus / onBlur (焦点获得/失去, 无参; FocusManager 注入直投) ──
-    // 表单校验常用：Input/TextArea/TextView 等可聚焦组件声明即生效
+    // ── onFocus / onBlur (焦点获得/失去, e={mode 输入模式}; FocusManager 注入直投) ──
+    // 表单校验常用：Input/TextArea/TextView 等可聚焦组件声明即生效。
+    // 载荷 mode 与会话快照同源（View::publishedTraits()）；旧无参形状升级
     if (auto h = dupHandler(ctx, props, "onFocus")) {
-        view.handlers.onFocus = [ctx, h]() { callJs0(ctx, h, "onFocus"); };
+        view.handlers.onFocus = [ctx, h](const FocusArgs &a) { callJs1(ctx, h, makeFocusEvent(ctx, a), "onFocus"); };
     }
     if (auto h = dupHandler(ctx, props, "onBlur")) {
-        view.handlers.onBlur = [ctx, h]() { callJs0(ctx, h, "onBlur"); };
+        view.handlers.onBlur = [ctx, h](const FocusArgs &a) { callJs1(ctx, h, makeFocusEvent(ctx, a), "onBlur"); };
+    }
+
+    // ── onEnter (Enter 提交, e={value 引擎处理后值}) ──
+    // 仅 '\n' 输入触发（隐式失焦永不触发）；次序 onChange→onEnter→onBlur。
+    // Input 提交值、TextArea 换行插入后全文——观察面批次
+    if (auto h = dupHandler(ctx, props, "onEnter")) {
+        view.handlers.onEnter = [ctx, h](const EnterArgs &a) {
+            JSValue evt = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, evt, "value", JS_NewString(ctx, a.value.c_str()));
+            return callJs1(ctx, h, evt, "onEnter");
+        };
     }
 
     // ── onError (资源失败上报, 参数 = 错误描述字符串; Image 装载/上传失败) ──
@@ -370,6 +395,7 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
                 JS_SetPropertyStr(ctx, evt, "value", JS_NewString(ctx, a.value.c_str()));
                 JS_SetPropertyStr(ctx, evt, "charCode", JS_NewUint32(ctx, a.charCode));
                 JS_SetPropertyStr(ctx, evt, "keyCode", JS_NewUint32(ctx, a.keyCode));
+                JS_SetPropertyStr(ctx, evt, "modifiers", JS_NewUint32(ctx, a.modifiers));    // bit1=Shift（0x2）等
                 JSValue ret = JS_Call(ctx, h->raw(), JS_UNDEFINED, 1, &evt);
                 JS_FreeValue(ctx, evt);
                 if (JS_IsException(ret)) {

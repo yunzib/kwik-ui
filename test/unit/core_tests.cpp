@@ -7,6 +7,7 @@ import kwik.core.types;
 import kwik.core.prop_meta;
 import kwik.core.props;
 import kwik.core.constraints;
+import kwik.core.input_session;    // InputMode / TextInputTraits（观测面 {mode} 载荷锁）
 import kwik.core.path;    // AAVertex / SweepGrad（fillTriangles 桩签名需要）
 import kwik.animation.engine;
 import kwik.render.command;
@@ -2980,7 +2981,9 @@ static void test_focus_programmatic_and_tab() {
     // "Tab 遍历不落组件"
     struct FakeField final : View {
         int gains = 0, losses = 0, keyActions = 0;
+        std::optional<TextInputTraits> traits;    // 会话快照形状（观测面批次 {mode} 载荷源）
         bool acceptsFocus() const override { return true; }
+        std::optional<TextInputTraits> publishedTraits() const override { return traits; }
         bool onEvent(const DispatchEvent &event) override {
             if (event.type == DispatchEvent::Type::FocusGained) { ++gains; }
             if (event.type == DispatchEvent::Type::FocusLost) { ++losses; }
@@ -3020,17 +3023,22 @@ static void test_focus_programmatic_and_tab() {
     auto *f1 = static_cast<FakeField *>(page.children[1].get());
     auto *f2 = static_cast<FakeField *>(page.children[2].get());
     int slotGained = 0, slotLost = 0;
-    f0->handlers.onFocus = [&]() { ++slotGained; };
-    f0->handlers.onBlur = [&]() { ++slotLost; };
+    // 非默认初值防误绿：Number 起步，触发即写回——判"到达过钩子"而非"恰巧 Text"
+    InputMode gainedMode = InputMode::Number, lostMode = InputMode::Number;
+    f0->traits = TextInputTraits{InputMode::Number, false, false, false};    // 数字编辑器同形
+    f0->handlers.onFocus = [&](const FocusArgs &a) { ++slotGained; gainedMode = a.mode; };
+    f0->handlers.onBlur = [&](const FocusArgs &a) { ++slotLost; lostMode = a.mode; };
 
     FocusManager fm;                          // 独立实例（current() 定位锚刷新）
     fm.applyFocus(f0);
     CHECK(fm.focused() == f0);                // 状态源同步（键盘路由以此为门）
     CHECK(f0->gains == 1 && slotGained == 1); // 直派 FocusGained + onFocus 槽
+    CHECK(gainedMode == InputMode::Number);   // {mode} 载荷=publishedTraits（会话快照同源）
     CHECK(f1->gains == 0 && f2->gains == 0);
 
     fm.applyFocus(f2);                        // 聚焦新目标 = 旧目标成对失焦
     CHECK(f0->losses == 1 && slotLost == 1);
+    CHECK(lostMode == InputMode::Number);     // 失焦载荷同源
     CHECK(fm.focused() == f2);
 
     fm.applyBlur();
@@ -3080,6 +3088,13 @@ static void test_focus_programmatic_and_tab() {
     CHECK(f2->losses == f2l0 + 1);
     CHECK(f0->keyActions == 0 && f1->keyActions == 0 && f2->keyActions == 0);    // Tab 遍历不落组件
 
+    // ②′ 载荷 {mode} 回退锁：无特征伪件（publishedTraits 零值）→ Text
+    int slotGained2 = 0;
+    InputMode fallbackMode = InputMode::Number;    // 非默认初值防误绿
+    f1->handlers.onFocus = [&](const FocusArgs &a) { ++slotGained2; fallbackMode = a.mode; };
+    router.focusManager().applyFocus(f1);          // f0 → f1（f1 无 traits）
+    CHECK(slotGained2 == 1 && fallbackMode == InputMode::Text);
+
     // ③ X9 失活感知：WindowFocusOut → ESC 消费者合成
     auto sink = std::make_unique<EscapeSink>();
     auto *sinkPtr = sink.get();
@@ -3110,6 +3125,64 @@ static void test_focus_programmatic_and_tab() {
     out2.timestamp = 2200;
     router.feedRawEvent(out2);
     CHECK(deadPtr->escapes == 0);              // 无消费者 → 不合成不空发
+}
+
+// ============================================================================
+// Enter 提交观察面（观察面批次）：Input '\n' → onEnter{value} + 次序
+//   onChange→onEnter→onBlur（数字模式 commitNumber 产 onChange）；
+//   Enter 经本树路由统一失焦（FocusManager 清空——会话快照落空 / OSK
+//   收起的前提）。TextArea '\n' → onChange→onEnter，多行不失焦无 onBlur
+// ============================================================================
+static void test_enter_observation() {
+    // ── Input（数字模式）：次序 / 引擎处理后载荷 / 统一失焦路由 ──
+    View page;
+    EventRouter router;
+    router.setRootTarget(&page);
+    page.setTreeService(View::kSvcEventRouter, &router);    // Enter 失焦走树服务槽
+
+    InputProps ipp;
+    ipp.isNumber = true;
+    page.addChild(std::make_unique<Input>(ViewProps{}, ipp));
+    auto *inp = static_cast<Input *>(page.children[0].get());
+    inp->setValue("42.5");
+    router.focusManager().applyFocus(inp);    // 统一通路聚焦（FocusGained → 组件置焦）
+
+    std::vector<std::string> order;
+    std::string enterValue;
+    inp->handlers.onChange = [&order](const ChangeArgs &) { order.push_back("change"); };
+    inp->handlers.onEnter = [&](const EnterArgs &a) { order.push_back("enter"); enterValue = a.value; };
+    inp->handlers.onBlur = [&order](const FocusArgs &) { order.push_back("blur"); };
+
+    RawEvent press;    // 合成 '\n'——Keyboard 注入同源{i：feedRawEvent 真管线
+    press.device = RawEvent::Device::Keyboard;
+    press.action = RawEvent::Action::TextInput;
+    press.charCode = '\n';
+    press.timestamp = 1000;
+    router.feedRawEvent(press);      // KeyboardHandler→CharInput{presetTarget=焦点}
+    CHECK(order == (std::vector<std::string>{"change", "enter", "blur"}));    // 次序锁
+    CHECK(enterValue == "42.5");     // 载荷=引擎处理后值（数字模式校验后值）
+    CHECK(router.focusManager().focused() == nullptr);    // 统一失焦路由收效
+
+    // ── TextArea：插入换行 → onChange→onEnter，保持聚焦无 onBlur ──
+    View page2;
+    EventRouter router2;
+    router2.setRootTarget(&page2);
+    page2.setTreeService(View::kSvcEventRouter, &router2);
+    page2.addChild(std::make_unique<TextArea>(ViewProps{}, TextAreaProps{}));
+    auto *ta = static_cast<TextArea *>(page2.children[0].get());
+    ta->setValue("ab");
+    router2.focusManager().applyFocus(ta);
+
+    order.clear();
+    enterValue.clear();
+    ta->handlers.onChange = [&order](const ChangeArgs &) { order.push_back("change"); };
+    ta->handlers.onEnter = [&](const EnterArgs &a) { order.push_back("enter"); enterValue = a.value; };
+    ta->handlers.onBlur = [&order](const FocusArgs &) { order.push_back("blur"); };
+
+    router2.feedRawEvent(press);     // 复用 '\n' 事件载荷
+    CHECK(order == (std::vector<std::string>{"change", "enter"}));    // 不失焦
+    CHECK(enterValue == "ab\n");     // 换行已插入后的全文
+    CHECK(router2.focusManager().focused() == ta);    // 多行编辑焦点保持
 }
 
 // ============================================================================
@@ -3530,6 +3603,7 @@ int main() {
     test_treemenu_e2e_events();
     test_treemenu_controlled_keys();
     test_focus_programmatic_and_tab();
+    test_enter_observation();
     test_horizontal_scroll_dispatch();
     test_tap_payload_scroll_compensated();
     test_text_selection();

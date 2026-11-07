@@ -336,16 +336,29 @@ bool Input::onEvent(const DispatchEvent &event) {
         uint32_t cp = event.charCode;
         // 控制字符统一过滤（DEL 与 C1 区塑形成 notdef 豆腐）；\n 允许（触发提交）
         if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
+        // Enter 提交（任何模式先于白名单）：'\n' 是提交键不入文本。提交落
+        // blur()（数字模式 commitNumber→onChange 次序在先）
+        if (cp == '\n') {
+            blur();    // 提交校验/绑定回写在先（数字模式 commitNumber→onChange，次序①）
+            // Enter 提交通报（观察面批次）：载荷=引擎处理后值（数字模式=
+            // 校验后值）；次序②——onChange 之后、onBlur 之前
+            if (handlers.onEnter) handlers.onEnter(EnterArgs{text_});
+            // 统一失焦路由（次序③）：此前 blur() 只置自身布尔，FocusManager
+            // 端残留聚焦——会话快照不落空（OSK 收不起来）且 JS onBlur 缺发。
+            // 经本树路由 applyBlur → FocusLost 直投基类 → onBlur{mode} 同源
+            // 生效；焦点已被移走时静默（applyBlur 空指针自愈，focused==this 守卫）
+            if (auto *router = static_cast<EventRouter *>(treeService(View::kSvcEventRouter))) {
+                auto &fm = router->focusManager();
+                if (fm.focused() == this) fm.applyBlur();
+            }
+            return true;
+        }
         // ── 数字模式: 白名单过滤 ──
         // 仅允许 0-9 / '-' / '.'; '-' 仅首位; '.' 至多一个
         if (input_.isNumber) {
             if (!((cp >= '0' && cp <= '9') || cp == '-' || cp == '.')) return true;
             if (cp == '-' && cursorPos_ != 0) return true;                         // 负号只允许在首字符
             if (cp == '.' && text_.find('.') != std::string::npos) return true;    // 只允许一个小数点
-        }
-        if (cp == '\n') {
-            blur();
-            return true;
         }
         // 长度限制 (按字符数, 非字节数)
         if (input_.maxLength > 0) {

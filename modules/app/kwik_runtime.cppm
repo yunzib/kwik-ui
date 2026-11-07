@@ -10,8 +10,9 @@
 // 已知限制（多树下，§十四 遗留项）：
 //   - Channel 为全局静态且绑定单一 JS ctx —— 多树时跨树共用一条通道，
 //     完整按树拆分属后续项
-//   - 虚拟键盘注入器（setRawEventInjector）全局单份 —— 多树时注入最后
-//     注册的树
+//   - （已消除）原"虚拟键盘注入器全局单份/焦点钩子全局单份"——OSK 注入
+//     经树服务槽 kSvcEventRouter 直取本树路由，焦点钩子改 FocusManager
+//     实例成员 + TextInputSession 每树一份（kwik.core.input_session）
 //   - CoreTimer 全局：树级 teardown 不清场（防误杀其它树），防线为组件
 //     析构 clear（已审计补齐）；stopAll 仅进程退出时调用
 // ============================================================================
@@ -34,6 +35,7 @@ import kwik.event;
 import kwik.element.view;
 import kwik.element.clipboard_service;    // ClipboardService（树服务槽 3 适配）
 import kwik.element.selection;    // TextSelectionService（树服务槽 4 适配）
+import kwik.core.input_session;    // TextInputSession（树服务槽 5 会话中介）
 import kwik.element.layer_stack;
 import kwik.animation.engine;
 import kwik.bridge.binding_registry;
@@ -124,6 +126,9 @@ private:
     QuickJSContext jsCtx_;
     std::unique_ptr<ClipboardService> clipSvc_;    // 剪贴板服务（每树一份，适配本树窗口）
     std::unique_ptr<TextSelectionService> selectionSvc_;    // 文本选区服务（每树一份，槽 4 接线）
+    // 输入会话（每树一份，槽 5 接线；FocusManager 焦点变化钩子发布快照）。
+    // 声明序必须早于 tree_：树析构时 Keyboard 析构退订会话，会话须存活
+    TextInputSession inputSession_;
     std::unique_ptr<View> tree_;
     EventRouter eventRouter_;
     LayerStack layers_;                  // 本树层树（S2-2 每树一份；根节点服务槽接线）
