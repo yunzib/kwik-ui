@@ -155,7 +155,7 @@ const codeH = (code) => code.split('\n').length * 19 + 26;
 
 // 示例小节：小节标题 → （可选参数说明段）→ 演示卡 → 紧随其下的示例代码卡
 const section = (title, children, code, innerW, demoOpts, noteText) => [
-    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [14, 0, 8, 4] }),
+    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [14, 0, 8, 4] }),
     ...(noteText ? [note(noteText, innerW)] : []),
     demoCard(children, innerW, demoOpts),
     codeBlock(t, code, codeH(code), innerW),

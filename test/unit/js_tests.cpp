@@ -27,6 +27,7 @@ import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构�
 import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
 import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
 import kwik.element.text;           // Text（reconcile @token 解析行为锁直驱）
+import kwik.element.theme_provider; // ThemeProvider（运行时换主题行为锁读 themeData）
 import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
 import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校验行为锁）
 import kwik.element.expansion;      // Expansion（可展开容器三锁直驱）
@@ -1105,29 +1106,40 @@ static void test_prop_bus_typed_return() {
     teardown_callbacks();
 }
 
-// ── 行为锁: reconcile 新建节点 @token 主题解析 ──
+// ── 行为锁: reconcile 新建节点 @token 主题解析 + 运行时换主题（65）──
 // resolveThemeDefaults 此前仅 ElementParser::parse 入口（初次挂载 / HMR 整树
 // 重建）调用——reconcile 新建分支（旧树为空 / 类型切换 / children 无可认领
 // 旧节点）创建的子树 token 静默落空（"@primary" 经 parseColor 失败落
 // transparent）。修复后按指针身份判新建，节点挂接（addChild 设 parent_ 链
-// 完整）后补 resolveThemeTree；复用节点零触碰——防每轮 reconcile 覆写运行期
-// setProp 已覆写的 token 属性。
-// 锁面结构说明：ThemeProvider 类未覆写 type()（返基类 View）——其根/子节点
-// 在 reconcile 判型中一律按 View 语义，锁面不以 Provider 类型身份作复用类
-// 断言；用"普通 View 根 + 复用/新建子树"与"Provider 整树重建"两组夹具覆盖。
+// 完整）后补 resolveThemeTree；复用节点无 token 字段零触碰。
+// 65 收口：ThemeProvider 覆写 type() 返本型 → reconcile 判型命中原位复用；
+// theme prop 变更经 setTheme + 子树定向重解析生效；复用节点本层 token 由
+// reconcileNode 重放（reconcile 重置 props 会把 token 字段打回默认）。
+// 锁①②③ 覆盖新建解析，锁④⑤ 覆盖 Provider 复用保色/换肤，锁⑥ 覆盖
+// 容器（不覆写 resolveThemeDefaults）的 ViewProps 级 token。
 static void test_reconcile_token_resolve() {
     JSContext *c = g_ctx->getPtr();
 
     // opaque ThemeData 经 kwikui theme() 工厂构造（与用户书写路径同源）
+    // __t2：换肤目标主题（primary/surface/圆角均与 __t 及默认主题可区分）
+    // __tp：ThemeProvider 工厂数组实参形态（全站惯用写法，锁⑦）
     CHECK(eval_module("theme_fixture.mjs",
-                      "import { theme } from 'kwikui';\n"
+                      "import { theme, ThemeProvider, Text } from 'kwikui';\n"
                       "globalThis.__t = theme({colors:{primary:'#FF2222'}});\n"
+                      "globalThis.__t2 = theme({colors:{primary:'#22FF22', surface:'#123456'},"
+                      " shape:{borderRadius:14}});\n"
+                      "globalThis.__tp = ThemeProvider({ theme: globalThis.__t },"
+                      " [Text({ text: 'x', color: '@primary' }), Text({ text: 'y' })]);\n"
                       "export default null;\n"));
     JSValue global = JS_GetGlobalObject(c);
     JSValue themeObj = JS_GetPropertyStr(c, global, "__t");    // 独立引用，末尾释放
+    JSValue themeObj2 = JS_GetPropertyStr(c, global, "__t2");  // 同上
     CHECK(!JS_IsUndefined(themeObj));
+    CHECK(!JS_IsUndefined(themeObj2));
 
-    constexpr Color tokenRed{0xFF, 0x22, 0x22, 255};    // theme primary '#FF2222' 期望值
+    constexpr Color tokenRed{0xFF, 0x22, 0x22, 255};      // __t  primary '#FF2222' 期望值
+    constexpr Color tokenGreen{0x22, 0xFF, 0x22, 255};    // __t2 primary '#22FF22' 期望值
+    constexpr Color surface2{0x12, 0x34, 0x56, 255};      // __t2 surface '#123456' 期望值
 
     // Text 节点描述符 {type:'Text', props:{text, color?}, children:[]}
     // 返回独立引用；随后调用方经 JS_SetProperty* 转移所有权
@@ -1155,18 +1167,36 @@ static void test_reconcile_token_resolve() {
     };
 
     // ThemeProvider 描述符 {type, props:{theme}, children:[...]}——子树 token
-    // 经 parent 链上溯到 Provider 数据
-    auto makeProviderNode = [&](std::initializer_list<JSValue> children) -> JSValue {
+    // 经 parent 链上溯到 Provider 数据；th 为主题 opaque（Dup 后由 props 接管，
+    // 本体由本测试持有贯穿全程）
+    auto makeProviderWith = [&](JSValue th, std::initializer_list<JSValue> children) -> JSValue {
         JSValue node = JS_NewObject(c);
         JS_SetPropertyStr(c, node, "type", JS_NewString(c, "ThemeProvider"));
         JSValue props = JS_NewObject(c);
-        // Dup 引用被 props 接管；themeObj 本体由本测试持有贯穿全程
-        JS_SetPropertyStr(c, props, "theme", JS_DupValue(c, themeObj));
+        JS_SetPropertyStr(c, props, "theme", JS_DupValue(c, th));
         JS_SetPropertyStr(c, node, "props", props);
         JSValue arr = JS_NewArray(c);
         uint32_t i = 0;
         for (auto ch : children) JS_SetPropertyUint32(c, arr, i++, ch);
         JS_SetPropertyStr(c, node, "children", arr);
+        return node;
+    };
+    // 默认主题对象 __t 的便捷形（锁②③沿用）
+    auto makeProviderNode = [&](std::initializer_list<JSValue> children) -> JSValue {
+        return makeProviderWith(themeObj, children);
+    };
+
+    // 容器 View 描述符：ViewProps 级三 token（background/borderColor/borderRadius），
+    // 覆盖不覆写 resolveThemeDefaults 的容器路径与 "@borderRadius" 短别名
+    auto makeTokenViewNode = [&]() -> JSValue {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "background", JS_NewString(c, "@surface"));
+        JS_SetPropertyStr(c, props, "borderColor", JS_NewString(c, "@primary"));
+        JS_SetPropertyStr(c, props, "borderRadius", JS_NewString(c, "@borderRadius"));
+        JS_SetPropertyStr(c, node, "props", props);
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
         return node;
     };
 
@@ -1212,20 +1242,100 @@ static void test_reconcile_token_resolve() {
         JS_FreeValue(c, oldNode);
         CHECK(tree && tree->children.size() == 1);
 
-        // 新 children[0] 与旧 Text 类型不一致（Provider 判型按 View 语义绕开
-        // 判型命中——非 Text 即新建）→ 旧节点销毁 + parseNode 新建，freshChild 标记
+        // 新 children[0] 与旧 Text 类型不一致（Text vs ThemeProvider）→ 旧节点
+        // 销毁 + parseNode 新建，freshChild 标记
         JSValue newNode = makeViewNode({makeProviderNode({makeTextNode("b", "@primary")})});
         auto switched = ElementParser::reconcile(c, newNode, std::move(tree));
         JS_FreeValue(c, newNode);
         CHECK(switched && switched->children.size() == 1);
-        CHECK(switched->type() == ElementType::View && switched->children[0]->type() == ElementType::View);
-        // 新子树内部：Provider（type()=View）的 children[0] 是解析后的 Text
+        // 65：Provider 覆写 type() 返本型（此前返 View → reconcile 判型恒不中、
+        // 子树每轮整棵重建）
+        CHECK(switched->type() == ElementType::View && switched->children[0]->type() == ElementType::ThemeProvider);
+        // 新子树内部：Provider 的 children[0] 是解析后的 Text
         auto *sub =
             dynamic_cast<Text *>(switched->children[0]->children.empty() ? nullptr
                                                                          : switched->children[0]->children[0].get());
         CHECK(sub && sub->textContent().textColor == tokenRed);    // 新建分支 + provider 上下文
     }
 
+    // ── 锁④: Provider 复用（判型命中）+ 同主题 reconcile → 复用节点 token 色保持 ──
+    // 27 潜伏缺口：reconcile 重置 props 把 '@primary' 字段打回默认色，而复用节点
+    // 此前不重解析——Provider 子树每轮整棵重建恰好掩盖；type() 修正后必须
+    // 由 reconcileNode 本层重放兜住，否则任意 State 变更即全站 token 色失效
+    {
+        JSValue oldNode = makeProviderNode({makeTextNode("a", "@primary"), makeTextNode("b", "green")});
+        auto tree = ElementParser::parse(c, oldNode);
+        JS_FreeValue(c, oldNode);
+        CHECK(tree && tree->type() == ElementType::ThemeProvider && tree->children.size() == 2);
+        View *provPtr = tree.get();
+        View *tokPtr = tree->children.size() == 2 ? tree->children[0].get() : nullptr;
+
+        JSValue newNode = makeProviderNode({makeTextNode("a", "@primary"), makeTextNode("b", "green")});
+        auto merged = ElementParser::reconcile(c, newNode, std::move(tree));
+        JS_FreeValue(c, newNode);
+        CHECK(merged.get() == provPtr);    // Provider 原位复用（不再整棵重建）
+        CHECK(merged && merged->children.size() == 2 && merged->children[0].get() == tokPtr);
+        auto *tok = dynamic_cast<Text *>(merged->children[0].get());
+        auto *lit = dynamic_cast<Text *>(merged->children[1].get());
+        CHECK(tok && tok->textContent().textColor == tokenRed);       // token 色未被重置吞掉
+        CHECK(lit && lit->textContent().textColor == Color::green()); // 字面色零触碰
+    }
+
+    // ── 锁⑤: Provider 复用 + 换主题（__t → __t2）→ setTheme + 子树定向重解析 ──
+    {
+        JSValue oldNode = makeProviderNode({makeTextNode("a", "@primary"), makeTextNode("b", "green")});
+        auto tree = ElementParser::parse(c, oldNode);
+        JS_FreeValue(c, oldNode);
+        View *provPtr = tree.get();
+        View *tokPtr = (tree && tree->children.size() == 2) ? tree->children[0].get() : nullptr;
+
+        JSValue newNode = makeProviderWith(themeObj2, {makeTextNode("a", "@primary"), makeTextNode("b", "green")});
+        auto swapped = ElementParser::reconcile(c, newNode, std::move(tree));
+        JS_FreeValue(c, newNode);
+        CHECK(swapped.get() == provPtr);    // 换肤不重建 Provider
+        auto *prov = dynamic_cast<ThemeProvider *>(swapped.get());
+        CHECK(prov && prov->themeData().colors.primary == tokenGreen);    // setTheme 写入新数据
+        CHECK(swapped && swapped->children.size() == 2 && swapped->children[0].get() == tokPtr);
+        auto *tok = dynamic_cast<Text *>(swapped->children[0].get());
+        auto *lit = dynamic_cast<Text *>(swapped->children[1].get());
+        CHECK(tok && tok->textContent().textColor == tokenGreen);     // 复用节点随主题换色
+        CHECK(lit && lit->textContent().textColor == Color::green()); // 字面色不受换肤影响
+    }
+
+    // ── 锁⑥: 容器 ViewProps 级 token（View 不覆写 resolveThemeDefaults）──
+    // 新建与复用两路径同解：background/borderColor 取色、"@borderRadius" 短别名取圆角
+    {
+        JSValue oldNode = makeProviderWith(themeObj2, {makeTokenViewNode()});
+        auto tree = ElementParser::parse(c, oldNode);
+        JS_FreeValue(c, oldNode);
+        CHECK(tree && tree->children.size() == 1);
+        auto checkBox = [&](const View *v) {
+            CHECK(v && v->props.background == surface2);
+            CHECK(v && v->props.borderColor == tokenGreen);
+            CHECK(v && v->props.borderRadius == 14.0f);
+        };
+        if (tree && tree->children.size() == 1) checkBox(tree->children[0].get());    // 新建路径
+
+        JSValue newNode = makeProviderWith(themeObj2, {makeTokenViewNode()});
+        auto merged = ElementParser::reconcile(c, newNode, std::move(tree));
+        JS_FreeValue(c, newNode);
+        if (merged && merged->children.size() == 1) checkBox(merged->children[0].get());    // 复用路径
+    }
+
+    // ── 锁⑦: ThemeProvider 工厂数组实参展开（与 Root/View 同惯例）──
+    // 此前 ThemeProvider({theme}, [a, b]) 把数组整体塞作单个子元素 → 嵌套
+    // [[a,b]]，parseNode 对无 type 的数组节点静默跳过 → 子元素全丢
+    {
+        JSValue tpDesc = JS_GetPropertyStr(c, global, "__tp");
+        auto tree = ElementParser::parse(c, tpDesc);
+        JS_FreeValue(c, tpDesc);
+        CHECK(tree && tree->type() == ElementType::ThemeProvider);
+        CHECK(tree && tree->children.size() == 2);    // 两个 Text 均入树（未嵌套丢失）
+        auto *tok = (tree && !tree->children.empty()) ? dynamic_cast<Text *>(tree->children[0].get()) : nullptr;
+        CHECK(tok && tok->textContent().textColor == tokenRed);    // 工厂路径 provider 上下文同样生效
+    }
+
+    JS_FreeValue(c, themeObj2);
     JS_FreeValue(c, themeObj);
     JS_FreeValue(c, global);
 }

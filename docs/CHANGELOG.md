@@ -1,5 +1,29 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-07
+### 新增
+- 主题运行时切换：ThemeProvider 的 `theme` 换成另一主题对象即换肤——
+  Provider 原位复用并替换主题数据（逐字段判等，同值零动作），子树
+  `@token` 按新主题重解析，节点不重建（输入内容/滚动/焦点保留）
+- 容器 `@token`：任意组件的 background / borderColor / borderRadius 均可
+  引用主题（View/Flex 等不覆写主题解析的容器此前不生效）；
+  `"@borderRadius"` 短别名等价 `"@shape.borderRadius"`
+- 文档站亮/暗主题切换：顶栏「暗色/亮色」按钮，根 ThemeProvider + 站点
+  双主题（ui/app_theme.js），壳与文稿层颜色 token 化；演示卡为默认主题
+  亮色样张（两态下组件演示外观一致）
+### 修复
+- ThemeProvider 子树每轮 reconcile 整棵重建（type() 未覆写返 View，判型
+  恒不中——子树内输入/滚动/焦点等运行态随任意 State 变更丢失）：覆写返
+  ThemeProvider 本型，判型命中原位复用
+- reconcile 复用节点 `@token` 色回落默认（props 重置把 token 字段打回
+  默认值、复用节点不重解析）：复用节点按自身 token 表重放解析
+- `ThemeProvider({ theme }, [a, b])` 数组形态子元素全丢（数组被整体塞作
+  单个子元素，解析期静默跳过）：工厂按 Root 同款展开数组实参
+- ThemeProvider 多子节点 / 带 margin 子节点帧高不足（测量只取首个子节点
+  尺寸，与纵向流布局不同口径）：测量沿用 View
+- 主题文档 token 默认值与实现不符（亮/暗色值、圆角默认 0→6）、示例
+  ThemeProvider 用法错误：按实现对齐并补运行时切换一节
+
 # 0.0.0 — 2026-11-06
 ### 新增
 - 可聚焦组件（Input/TextArea/TextView）焦点通报载荷化：onFocus/onBlur

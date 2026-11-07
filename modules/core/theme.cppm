@@ -51,6 +51,9 @@ export {
 
         /** @brief 是否已被 JS 设置过（primary.a != 0 视为已设置）*/
         bool isSet() const { return primary.a != 0; }
+
+        /** @brief 逐字段相等（运行时换主题的变更判定基元）*/
+        bool operator==(const ColorScheme &) const = default;
     };
 
     // ── 文字主题 ──
@@ -60,6 +63,8 @@ export {
     struct TextStyleToken {
         float fontSize = 16;    // 字号（像素）
         int fontWeight = 3;     // FontWeight::Normal
+
+        bool operator==(const TextStyleToken &) const = default;
     };
 
     /**
@@ -73,6 +78,8 @@ export {
         TextStyleToken heading;
         TextStyleToken body;
         TextStyleToken caption;
+
+        bool operator==(const TextTheme &) const = default;
     };
 
     // ── 形状主题 ──
@@ -81,13 +88,15 @@ export {
      */
     struct ShapeTheme {
         float borderRadius = 6;    // 按钮、卡片、输入框默认圆角
+
+        bool operator==(const ShapeTheme &) const = default;
     };
 
     // ── 主题数据（顶层）──
     /**
-     * @brief 主题数据 — 不可变配置
+     * @brief 主题数据 — 值语义配置
      *
-     * 由 JS theme({...}) 解析, ThemeProvider 持有。
+     * 由 JS theme({...}) 解析, ThemeProvider 持有（可经 setTheme 整体替换）。
      * View::theme() 沿 parent_ 向上查找返回 const 引用。
      */
     struct ThemeData {
@@ -95,6 +104,9 @@ export {
         TextTheme text;
         ShapeTheme shape;
         bool isDark = false;
+
+        /** @brief 逐字段相等——reconcile 据此判定 Provider 主题是否真变（变才重解析子树）*/
+        bool operator==(const ThemeData &) const = default;
 
         /**
          * @brief 全局默认 light 主题兜底
@@ -113,7 +125,7 @@ export {
          */
         std::optional<Color> resolveToken(std::string_view token) const;
 
-        /** @brief 解析 float 类型 token（如 "shape.borderRadius"） */
+        /** @brief 解析 float 类型 token（如 "shape.borderRadius"，别名 "borderRadius"） */
         std::optional<float> resolveFloat(std::string_view token) const;
 
         /** @brief 解析 int 类型 token（如 "text.body.fontWeight"） */

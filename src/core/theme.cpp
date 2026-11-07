@@ -93,10 +93,12 @@ std::optional<Color> ThemeData::resolveToken(std::string_view token) const {
 // ────────────────────────────────────────────────────────────
 // ThemeData::resolveFloat — "@shape.borderRadius" → float
 // 支持形状 / 文字字号等 float 类型 token
+// "borderRadius" 为 "shape.borderRadius" 的短别名——JS 侧 borderRadius:"@borderRadius"
+// 与属性同名直引（文档既有写法，此前短名无人认 → 落 nullopt 圆角不生效）
 // ────────────────────────────────────────────────────────────
 
 std::optional<float> ThemeData::resolveFloat(std::string_view token) const {
-    if (token == "shape.borderRadius")      return shape.borderRadius;
+    if (token == "shape.borderRadius" || token == "borderRadius") return shape.borderRadius;
     if (token == "text.heading.fontSize")   return text.heading.fontSize;
     if (token == "text.body.fontSize")      return text.body.fontSize;
     if (token == "text.caption.fontSize")   return text.caption.fontSize;

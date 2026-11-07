@@ -6,17 +6,18 @@
 // 分组数组 [{ title: {zh,en}, rows: [...] }, ...] = 每组前插小节标题行。
 // 列宽：类型列 170 容纳联合类型串（'number | [h,v] | [t,r,b,l]' 单行放得下），
 // 全列 wordWrap 兜底——超长内容在列宽内换行，不溢出列界。
+// 换肤：表体/边框/正文写 @token 随站点主题；表头恒深底浅字（两态通用）。
 import { View, Flex, Text } from 'kwikui';
 
 const COLS = [150, 170, 90];    // 前三列固定（属性/类型/默认值）；末列说明列吃剩余
 // 末列宽 = 表体宽 (w-2) − 前三列合计
 const LAST_W = (w) => w - 2 - COLS[0] - COLS[1] - COLS[2];
 
-// 单元格：head=true 表头白字，k=0 属性名蓝字；wordWrap 长文本列内换行
+// 单元格：head=true 表头浅字，k=0 属性名主色字；wordWrap 长文本列内换行
 const cell = (c, k, head, w) => Text({
     text: (c === '' || c == null) ? '-' : String(c),
     fontSize: 12,
-    color: head ? '#E2E8F0' : (k === 0 ? '#2563EB' : '#334155'),
+    color: head ? '#E2E8F0' : (k === 0 ? '@primary' : '@onSurface'),
     fontWeight: head ? 'bold' : 'normal',
     width: k < COLS.length ? COLS[k] : LAST_W(w),
     padding: [6, 0, 0, 10],
@@ -27,14 +28,14 @@ const cell = (c, k, head, w) => Text({
 // （Flex 专属 prop），用 View 四格会竖排叠放
 const row = (cells, i, head, w) => Flex({
     direction: 'row', width: w - 2,    // 撑满表体（w - 左右边框）
-    background: head ? '#1E293B' : (i % 2 === 1 ? '#F8FAFC' : '#FFFFFF'),
+    background: head ? '#1E293B' : (i % 2 === 1 ? '@surfaceVariant' : '@surface'),
 }, cells.map((c, k) => cell(c, k, head, w)));
 
 // 小节标题行：跨全表宽浅底粗体（属性语义分块的节名）
 const sectionRow = (title, w) => Flex({
-    direction: 'row', width: w - 2, background: '#F1F5F9',
+    direction: 'row', width: w - 2, background: '@surfaceVariant',
 }, [Text({
-    text: title, fontSize: 12, fontWeight: 'bold', color: '#475569',
+    text: title, fontSize: 12, fontWeight: 'bold', color: '@onSurfaceVariant',
     width: w - 12, padding: [7, 0, 0, 10],
 })]);
 
@@ -56,7 +57,7 @@ export const propsTable = (t, groupsOrRows, w = 884) => {
         : groupsOrRows.map((r, i) => row([r[0], r[1], r[2], t(r[3])], i, false, w));
     return View({
         width: w, margin: [0, 0, 24, 4],
-        background: '#FFFFFF', borderColor: '#E2E8F0',
+        background: '@surface', borderColor: '@divider',
         borderWidth: 1, borderRadius: 8,
     }, [
         row([

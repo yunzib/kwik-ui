@@ -13,6 +13,7 @@ import { t } from '../lang.js';
 import { pageTitle, pageDesc } from '../ui/page_parts.js';
 import { propsTable } from '../ui/props_table.js';
 import { demoCard, codeCard, codePair, chip } from '../ui/page_kit.js';
+import { isDark } from '../ui/app_theme.js';
 
 const JS = (sub, code) => ({ tag: 'JS 端', sub, accent: 'js', code });
 const CPP = (sub, code) => ({ tag: 'C++ 端', sub, accent: 'cpp', code });
@@ -118,17 +119,17 @@ const L = {
 // ── 表格积木：列宽按可用宽等比 ──
 const cellText = (txt, k, head, wid) => Text({
     text: txt, fontSize: 12,
-    color: head ? '#E2E8F0' : (k === 0 ? '#334155' : '#2563EB'),
+    color: head ? '#E2E8F0' : (k === 0 ? '@onSurface' : '@primary'),
     fontWeight: head ? 'bold' : 'normal',
     width: wid, padding: [6, 0, 0, 10], wordWrap: true,
 });
 const tableRow = (cells, i, head, w, cols) => Flex({
     direction: 'row', width: w - 2,
-    background: head ? '#1E293B' : (i % 2 === 1 ? '#F8FAFC' : '#FFFFFF'),
+    background: head ? '#1E293B' : (i % 2 === 1 ? '@surfaceVariant' : '@surface'),
 }, cells.map((c, k) => cellText(c, k, head, cols[k] === undefined ? cols[cols.length - 1] : cols[k])));
 const tableFrame = (w, rows) => View({
     width: w, margin: [0, 0, 14, 4], background: '#FFFFFF',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
+    borderColor: '@divider', borderWidth: 1, borderRadius: 8,
 }, rows);
 const grid = (w, rat) => {
     const g = 6 * (rat.length - 1);
@@ -200,17 +201,19 @@ const threadTable = (w) => {
     ]);
 };
 
-// 4.4 B 的时序条
+// 4.4 B 的时序条（页级面板：文稿色写 @token；端名强调色按站点模式取
+// 深/亮变体——琥珀/天蓝深色档在暗底上对比不足）
 const stepRow = (n, side, api, desc, w) => Flex({
     direction: 'row', alignItems: 'start', gap: 8, margin: [3, 0, 3, 0],
 }, [
-    Text({ text: n, fontSize: 12, color: '#2563EB', width: 20 }),
+    Text({ text: n, fontSize: 12, color: '@primary', width: 20 }),
     Text({
         text: side, fontSize: 10.5, fontWeight: 'bold',
-        color: side === 'JS' ? '#B45309' : '#0369A1', width: 34, padding: [1, 0, 0, 0],
+        color: side === 'JS' ? (isDark() ? '#FBBF24' : '#B45309') : (isDark() ? '#38BDF8' : '#0369A1'),
+        width: 34, padding: [1, 0, 0, 0],
     }),
-    Text({ text: api, fontSize: 11.5, color: '#0F172A', width: 236, wordWrap: true }),
-    Text({ text: desc, fontSize: 11.5, color: '#64748B', width: Math.max(110, w - 366), wordWrap: true }),
+    Text({ text: api, fontSize: 11.5, color: '@onSurface', width: 236, wordWrap: true }),
+    Text({ text: desc, fontSize: 11.5, color: '@onSurfaceVariant', width: Math.max(110, w - 366), wordWrap: true }),
 ]);
 const ASYNC_STEPS = [
     { n: '①', side: 'JS', api: "await channel.call('start_download')", d: { zh: 'Promise 挂起，UI 照常跑', en: 'Pending Promise; UI keeps running' } },
@@ -220,8 +223,8 @@ const ASYNC_STEPS = [
     { n: '⑤', side: 'JS', api: 'await 之后继续', d: { zh: 'Promise 恢复，结果在下一行', en: 'Promise resumes with the result' } },
 ];
 const stepsPanel = (innerW) => View({
-    width: innerW - 40, padding: 10, margin: [4, 0, 0, 0], background: '#F8FAFC',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
+    width: innerW - 40, padding: 10, margin: [4, 0, 0, 0], background: '@surface',
+    borderColor: '@divider', borderWidth: 1, borderRadius: 8,
 }, ASYNC_STEPS.map((s) => stepRow(s.n, s.side, s.api, t(s.d), innerW - 40)));
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -342,18 +345,18 @@ Channel::handle("process_file",
 // 装配
 // ════════════════════════════════════════════════════════════════════════════
 const h = (txt) => Text({
-    text: txt, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [22, 0, 8, 6],
+    text: txt, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [22, 0, 8, 6],
 });
 const line = (txt, color, innerW, top) => Text({
-    text: txt, fontSize: 12, color: color || '#475569',
+    text: txt, fontSize: 12, color: color || '@onSurfaceVariant',
     width: innerW - 32, wordWrap: true, margin: [top === undefined ? 4 : top, 0, 0, 0],
 });
 const bullet = (txt, innerW) => Text({
-    text: '· ' + txt, fontSize: 12, color: '#334155',
+    text: '· ' + txt, fontSize: 12, color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [3, 0, 0, 0],
 });
 const codeLabel = (txt, innerW) => Text({
-    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '#0F172A',
+    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [12, 0, 6, 2],
 });
 
@@ -404,7 +407,7 @@ export const content = (innerW = 884) => [
 
     // 4.4
     h(t(L.s44)),
-    line(t(L.f44a), '#475569', innerW, 0),
+    line(t(L.f44a), '@onSurfaceVariant', innerW, 0),
     codePair(JS('channel.call', C4js), CPP('Channel::handle（同步）', C4a), innerW),
     demoCard([
         line(t(L.callDemo), '#475569', innerW, 0),

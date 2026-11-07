@@ -93,17 +93,17 @@ const L = {
 const cellText = (c, k, head, wid) => Text({
     text: (c == null || c === '') ? '-' : String(c),
     fontSize: 12,
-    color: head ? '#E2E8F0' : (k === 0 ? '#334155' : '#475569'),
+    color: head ? '#E2E8F0' : (k === 0 ? '@onSurface' : '@onSurfaceVariant'),
     fontWeight: head ? 'bold' : 'normal',
     width: wid, padding: [6, 0, 0, 10], wordWrap: true,
 });
 const tableRow = (cells, i, head, w, cols) => Flex({
     direction: 'row', width: w - 2,
-    background: head ? '#1E293B' : (i % 2 === 1 ? '#F8FAFC' : '#FFFFFF'),
+    background: head ? '#1E293B' : (i % 2 === 1 ? '@surfaceVariant' : '@surface'),
 }, cells.map((c, k) => cellText(c, k, head, cols[k] === undefined ? cols[cols.length - 1] : cols[k])));
 const tableFrame = (w, rows) => View({
     width: w, margin: [0, 0, 14, 4], background: '#FFFFFF',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
+    borderColor: '@divider', borderWidth: 1, borderRadius: 8,
 }, rows);
 const grid = (w, rat) => {
     const g = 6 * (rat.length - 1);
@@ -306,18 +306,18 @@ const demo3 = () => [
 
 // ── 装配积木 ──
 const h = (txt) => Text({
-    text: txt, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [22, 0, 8, 6],
+    text: txt, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [22, 0, 8, 6],
 });
 const line = (txt, color, innerW, top) => Text({
-    text: txt, fontSize: 12, color: color || '#475569',
+    text: txt, fontSize: 12, color: color || '@onSurfaceVariant',
     width: innerW - 32, wordWrap: true, margin: [top === undefined ? 4 : top, 0, 0, 0],
 });
 const bullet = (txt, innerW) => Text({
-    text: '· ' + txt, fontSize: 12, color: '#334155',
+    text: '· ' + txt, fontSize: 12, color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [3, 0, 0, 0],
 });
 const codeLabel = (txt, innerW) => Text({
-    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '#0F172A',
+    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [12, 0, 6, 2],
 });
 

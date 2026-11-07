@@ -10,10 +10,13 @@
 // 开合态 openGroups 扁平单源（受控）；切页自动展开所在层级（navTo）。
 // 语言切换写 langState、切页写 nav——均为 State 写 → 框架整树 reconcile，
 // 读过这些态的节点随扩展翻转。
+// 主题切换写 themeState（ui/app_theme.js）：根 ThemeProvider 换 theme 值，
+// 壳与文稿层颜色均为 @token，随主题重解析（演示卡内为默认主题样张）。
 import {
-    Root, View, Text, Button, Flex, ScrollView, State, Expansion, getWindowSize,
+    Root, View, Text, Button, Flex, ScrollView, State, Expansion, ThemeProvider, getWindowSize,
 } from 'kwikui';
 import { langState, switchLang, t } from './lang.js';
+import { siteTheme, toggleTheme, isDark, navSelectedBg } from './ui/app_theme.js';
 // 每个菜单项一个页面文件（与 view.js / propbus.js 同契约：meta + content）。
 // 文件名按 NAV.id 镜像：连字符 id 用下划线文件名（layout-sys → layout_sys.js）。
 import * as indexPage from './pages/index.js';
@@ -174,25 +177,25 @@ const navTo = (id) => {
 // ── 导航内容净宽：ScrollView 200 − 左 padding 16（条目行满宽高亮的基准）──
 const NAV_INNER = 184;
 
-// ── 菜单条目行（满宽行 + 文字随层级缩进；选中态整行浅蓝底 + 蓝字）──
+// ── 菜单条目行（满宽行 + 文字随层级缩进；选中态整行强调底 + 主色字）──
 const menuItem = (it, indent) => {
     const on = nav.page === it.id;
     return Flex({
         direction: 'row', alignItems: 'center',
         width: NAV_INNER, height: 28, borderRadius: 4,
-        background: on ? '#E8EFFC' : 'transparent',
+        background: on ? navSelectedBg() : 'transparent',
         padding: [0, 0, 0, indent], margin: [0, 0, 2, 0],
         onClick: () => navTo(it.id),
     }, [
-        Text({ text: t(it.title), fontSize: 12.5, color: on ? '#2563EB' : '#475569' }),
+        Text({ text: t(it.title), fontSize: 12.5, color: on ? '@primary' : '@onSurfaceVariant' }),
     ]);
 };
 
 // ── 组/分类头行（children[0] 即头行契约）：箭头随开合翻转；层级经
-// 缩进 + 字号 + 色深三重区分（一级 13/#0F172A，二级 11/#64748B）──
+// 缩进 + 字号 + 色深三重区分（一级 13/@onSurface，二级 11/@onSurfaceVariant）──
 const groupHeader = (title, open, indent, fontSize, color) =>
     Flex({ direction: 'row', gap: 6, alignItems: 'center', height: 30, padding: [0, 0, 0, indent] }, [
-        Text({ text: open ? '▼' : '▶', fontSize: 9, color: '#94A3B8' }),
+        Text({ text: open ? '▼' : '▶', fontSize: 9, color: '@disabledText' }),
         Text({ text: title, fontSize, color }),
     ]);
 
@@ -204,7 +207,7 @@ const catGroup = (cat) => {
         onToggle: (e) => { openGroups[cat] = e.open; },
         headerHeight: 28, bodyGap: 0, margin: [0, 0, 2, 0],
     }, [
-        groupHeader(t(CATS[cat]), open, 16, 11, '#64748B'),
+        groupHeader(t(CATS[cat]), open, 16, 11, '@onSurfaceVariant'),
         ...NAV.filter(n => n.group === cat).map(it => menuItem(it, 30)),
     ]);
 };
@@ -220,7 +223,7 @@ const topGroup = (g) => {
         onToggle: (e) => { openGroups[g] = e.open; },
         headerHeight: 30, bodyGap: 0, margin: [0, 0, 4, 0],
     }, [
-        groupHeader(t(TOP_GROUPS[g]), open, 4, 13, '#0F172A'),
+        groupHeader(t(TOP_GROUPS[g]), open, 4, 13, '@onSurface'),
         ...body,
     ]);
 };
@@ -228,19 +231,19 @@ const topGroup = (g) => {
 const navPane = () => {
     return ScrollView({
         direction: 'vertical', width: 200,
-        background: '#FFFFFF', padding: [12, 0, 16, 16], showScrollbar: true,
+        background: '@surface', padding: [12, 0, 16, 16], showScrollbar: true,
     }, [Flex({ direction: 'column' }, TOP_ORDER.map(topGroup))]);    // 双契约：① children 必须数组（裸对象被 parseNode 静默跳过变叶子）；② ScrollView 不流式排版（子节点按 x/y 定位），多内容包一层 Flex 作唯一内容子节点
 };
 
 // ── 占位页（导航条目对应的实况页尚未编写）：标题 + 编写中提示 + 手稿路径 ──
 const pendingPage = (it) => Flex({ direction: 'column', gap: 8 }, [
-    Text({ text: t(it.title), fontSize: 20, color: '#0F172A' }),
+    Text({ text: t(it.title), fontSize: 20, color: '@onSurface' }),
     Text({
         text: t({ zh: '该篇文档正在编写中——左侧导航标注了对应手稿，实况页将按手稿补齐。',
                   en: 'This page is not written yet — the sidebar points to the draft; the live page will follow it.' }),
-        fontSize: 13, color: '#64748B',
+        fontSize: 13, color: '@onSurfaceVariant',
     }),
-    Text({ text: `${t({ zh: '手稿', en: 'Draft' })}: ${it.doc}`, fontSize: 12, color: '#94A3B8' }),
+    Text({ text: `${t({ zh: '手稿', en: 'Draft' })}: ${it.doc}`, fontSize: 12, color: '@disabledText' }),
 ]);
 
 // ── 内容区：页面自治组装——content() 由各页定义并负责全部卡片
@@ -252,13 +255,13 @@ const pageBody = (innerW) => {
     if (page && page.content) return page.content(innerW);
     const it = NAV.find(n => n.id === nav.page);
     return it ? pendingPage(it)
-              : [Text({ text: 'page not found', fontSize: 14, color: '#EF4444' })];
+              : [Text({ text: 'page not found', fontSize: 14, color: '@error' })];
 };
 
 const contentPane = () => {
     return ScrollView({
         direction: 'vertical', width: winSize.w - 200,    // 读 winSize（与根布局同源），不直查窗口
-        background: '#F5F7FB', padding: [18, 12, 32, 28], showScrollbar: true,
+        background: '@surfaceVariant', padding: [18, 12, 32, 28], showScrollbar: true,
     }, [Flex({ direction: 'column' }, pageBody(contentInner()))]);    // 同 navPane：children 数组 + Flex 内容节点双契约；净宽下传 pageBody 全量卡片
 };
 
@@ -272,19 +275,24 @@ const getWinSize = () => {
 // 最小宽 420 兜底，窗口过窄时由纵向滚动吸收（防卡片碎片化）──
 const contentInner = () => Math.max(winSize.w - 200 - 18 - 32, 420);
 
-// ── 顶栏：品牌 + 语言切换（按钮文案读 langState → 双向见当前语言）──
+// ── 顶栏：品牌 + 主题切换 + 语言切换（按钮文案显示切换目标，读
+// themeState/langState → 双向见当前态）──
+const headerBtn = (text, onClick) => Button({
+    text, width: 64, height: 30, fontSize: 13,
+    background: '@primary', color: '@onPrimary', borderRadius: 6,
+    onClick,
+});
 const header = (W) => {
     return Flex({
         direction: 'row', justifyContent: 'spaceBetween', alignItems: 'center',
-        width: W, height: 52, background: '#FFFFFF', padding: [0, 20, 0, 16],
+        width: W, height: 52, background: '@surface', padding: [0, 20, 0, 16],
     }, [
-        Text({ text: 'KwiK UI Docs', fontSize: 17, fontWeight: 'bold', color: '#0F172A' }),
-        Button({
-            text: langState.lang === 'zh' ? 'EN' : '中文',
-            width: 64, height: 30, fontSize: 13,
-            background: '#1E3A8A', color: '#FFFFFF', borderRadius: 6,
-            onClick: () => switchLang(),
-        }),
+        Text({ text: 'KwiK UI Docs', fontSize: 17, fontWeight: 'bold', color: '@onSurface' }),
+        Flex({ direction: 'row', gap: 8, alignItems: 'center' }, [
+            headerBtn(isDark() ? t({ zh: '亮色', en: 'Light' }) : t({ zh: '暗色', en: 'Dark' }),
+                      () => toggleTheme()),
+            headerBtn(langState.lang === 'zh' ? 'EN' : '中文', () => switchLang()),
+        ]),
     ]);
 };
 
@@ -302,11 +310,12 @@ export default () => {
             winSize.w = e.width; winSize.h = e.height;
         },
 
-    }, View({ width: W, height: H, background: '#F5F7FB' }, [
+    // 根 ThemeProvider：全站 @token 的主题源；切换只换 theme 值，节点原位复用
+    }, ThemeProvider({ theme: siteTheme() }, View({ width: W, height: H, background: '@surfaceVariant' }, [
         header(W),
         Flex({ direction: 'row', width: W, height: H - 52 }, [
             navPane(),
             contentPane(),
         ]),
-    ]));
+    ])));
 };

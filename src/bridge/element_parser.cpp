@@ -666,6 +666,29 @@ std::unique_ptr<View> ElementParser::parse(JSContext *ctx, JSValueConst value) {
 }
 
 /**
+ * @brief 通用 ViewProps 层 @token 解析（background/borderColor/borderRadius）
+ *
+ * 基类 View::resolveThemeDefaults 为空——本函数由 resolveThemeTree 对每个
+ * 节点统一执行，令 View/Flex/Grid/ScrollView 等不覆写 resolveThemeDefaults
+ * 的容器也能消费 ViewProps 级 @token（此前仅覆写组件可解析，容器 @token
+ * 静默落空呈透明）。组件覆写（Button/Text 等）处理各自专有字段
+ * （text_.textColor / button_ 状态色），与本函数同 token 幂等互不冲突。
+ * 仅命中 token 且解析成功才写——无 token 零动作，不扰既有 demo。
+ */
+static void resolveViewPropTokens(View *view) {
+    const ThemeData &t = view->theme();
+    for (const auto &[prop, tok] : view->props.themeTokens) {
+        if (prop == "background") {
+            if (auto v = t.resolveToken(tok)) view->props.background = *v;
+        } else if (prop == "borderColor") {
+            if (auto v = t.resolveToken(tok)) view->props.borderColor = *v;
+        } else if (prop == "borderRadius") {
+            if (auto v = t.resolveFloat(tok)) view->props.borderRadius = *v;
+        }
+    }
+}
+
+/**
  * @brief 自底向上遍历整树调用 resolveThemeDefaults
  *
  * 必须在树完全构建（所有 parent_ 已挂接）后调用，
@@ -675,7 +698,8 @@ std::unique_ptr<View> ElementParser::parse(JSContext *ctx, JSValueConst value) {
 static void resolveThemeTree(View *view) {
     if (!view) return;
     for (auto &c : view->children) resolveThemeTree(c.get());
-    view->resolveThemeDefaults();
+    resolveViewPropTokens(view);    // 通用 ViewProps token（容器可用性）
+    view->resolveThemeDefaults();   // 组件专有 token / 主题兜底
 }
 
 // ============================================================================
@@ -941,7 +965,8 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         parent->addChild(std::move(newChildren[i]));
         // 27：必须挂接（addChild 设 parent_）后再解析——theme() 需沿 parent_
         // 上溯到 ThemeProvider；此时父链已完整，token 不再落 defaultTheme。
-        // 仅新建子树解析，复用节点零触碰（防覆写运行期 setProp 覆写的 token 属性）
+        // 仅新建子树解析（复用节点的本层重解析由 reconcileNode 统一补，
+        // 不经此处；65 换肤的复用子树重解析另走 themeChanged 定向通路）
         if (freshChild[i]) resolveThemeTree(raw);
     }
 }
@@ -981,6 +1006,9 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     extractThemeTokens(oldView.get(), propsVal);
 
     // ── 组件专有属性解析（applyTextContent 作废排版缓存，text 未变不重置）──
+    // themeChanged：ThemeProvider 专属——theme 数据真变（setTheme 返 true）时
+    // 置位，函数尾部（children reconcile 完成后）对复用子树定向重解析（65）
+    bool themeChanged = false;
     switch (oldView->type()) {
     case ElementType::Text: static_cast<Text *>(oldView.get())->applyTextContent(parseTextContent(ex)); break;
     case ElementType::Button:
@@ -1134,7 +1162,31 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         static_cast<RadioGroup *>(oldView.get())->applyRadioGroupProps(parseRadioGroupProps(ex));
         break;
 
+    // ── ThemeProvider — theme prop 变更写路（65 运行时换主题）──
+    // 与创建路径（line ~517）同源：props.theme 是 wrapThemeData 的 opaque
+    // 对象，unwrap 取堆上 ThemeData 值拷贝入 setTheme；逐字段相等则零动作
+    // （同值重解析既白费又会覆写运行期 setProp 已改的 token 属性）
+    case ElementType::ThemeProvider: {
+        if (propsVal.isObject() && propsVal.hasProperty("theme")) {
+            const ThemeData *ptr = unwrapThemeData(propsVal.getProperty("theme").raw());
+            if (ptr) themeChanged = static_cast<ThemeProvider *>(oldView.get())->setTheme(*ptr);
+        }
+        break;
+    }
+
     default: break;
+    }
+
+    // ── 27 潜伏缺口收口：复用节点本层 token 重解析 ──
+    // 上方 props 重置 + 专有属性 apply 已把 token 字段打回默认（JS 侧 '@xxx'
+    // 字符串不入值），而 27 只给"新建子树"补解析 → Provider 子树内复用节点
+    // 的本层 @token 色静默回默认（透明）。此处对复用节点补本层解析：
+    // 仅重放它自己 props.themeTokens 里的字段（token 优先于 JS 字面值，reconcile
+    // 重置后两者不再冲突）；不上探子树（子孙各自走 reconcileChildren 的
+    // 新建解析 / themeChanged 定向重解析）。
+    if (!oldView->props.themeTokens.empty()) {
+        resolveViewPropTokens(oldView.get());
+        oldView->resolveThemeDefaults();
     }
 
     // ── 扩展组件专有属性重解析 (如 Video 的 src/autoplay/loop/muted) ──
@@ -1157,6 +1209,15 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
         reconcileChildren(oldView.get(), childrenVal, oldView->children);
     }
 
+    // ── 65：主题数据真变 → 复用子树定向重解析 ──
+    // 此处 children 已挂回（parent_ 链完整），theme() 上溯即得新 ThemeData；
+    // 仅换肤时让位 27 的"复用零触碰"——token 属性按新主题重解析是换肤语义
+    // 本体（对标 Flutter didChangeDependencies），无 token 字段零触碰。
+    // rebuildTree 尾部的 markAllDirty 已保障重绘，此处无需再标脏。
+    if (themeChanged) {
+        for (auto &c : oldView->children) resolveThemeTree(c.get());
+    }
+
     // ── 重新绑定事件处理器 ──
     rebindHandlers(oldView.get(), propsVal);
 
@@ -1167,9 +1228,11 @@ std::unique_ptr<View> ElementParser::reconcile(JSContext *ctx, JSValueConst valu
     JSValueRef jsVal(ctx, JS_DupValue(ctx, value));
     if (!jsVal.isObject() || jsVal.isNull()) return std::move(oldRoot);
     // 27：主题解析收口——凭指针身份区分复用与新建：返回指针与旧根相同
-    // （类型一致原位更新）则不动，避免每轮 reconcile 重解析覆写运行期
-    // setProp 已覆写的 token 属性；返回新指针（旧树为空如 HMR 失败后的
-    // rebuildTree、或根类型切换）→ 整树自底向上补 resolveThemeDefaults
+    // （类型一致原位更新）则整树不重解析，防每轮 reconcile 覆写运行期
+    // setProp 已覆写的 token 属性（复用节点的**本层** token 由 reconcileNode
+    // 统一重放，65 换肤的**子树**重解析由 themeChanged 通路定向触发）；
+    // 返回新指针（旧树为空如 HMR 失败后的 rebuildTree、或根类型切换）→
+    // 整树自底向上补 resolveThemeDefaults
     View *oldPtr = oldRoot.get();
     auto root = reconcileNode(jsVal, std::move(oldRoot));
     if (root && root.get() != oldPtr) resolveThemeTree(root.get());

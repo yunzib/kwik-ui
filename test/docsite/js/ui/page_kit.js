@@ -1,9 +1,12 @@
 // ── PageKit —— 页面装配积木（只供积木，不代装配）──
 // 每个页面文件自持 meta + content()，像 view.js / propbus.js 那样自己决定
 // 卡片顺序；这里只沉淀全站一致的“卡”与“小节”，避免样式各写一份。
-import { View, Flex, Text } from 'kwikui';
+// 换肤分层：文稿层（小节标题/说明段）写 @token 随站点主题；演示卡为
+// 亮色样张（见 demoCard）；代码卡/对照卡恒深色，两态通用。
+import { View, Flex, Text, ThemeProvider } from 'kwikui';
 import { t } from '../lang.js';
 import { codeBlock } from './code_block.js';
+import { specimenTheme } from './app_theme.js';
 
 // 代码高度按行数自适应（行高 19 + 上下 padding 24 + 余量）
 export const codeH = (code) => code.split('\n').length * 19 + 26;
@@ -68,22 +71,27 @@ export const label = (txt, dark) => Text({
     padding: [4, 0, 0, 8],
 });
 
-// 标准演示卡：白底、细边框、圆角，宽度跟随内容区
+// 标准演示卡：白底、细边框、圆角，宽度跟随内容区。
+// 亮色样张：卡底/边框恒亮，卡内包一层默认主题 ThemeProvider（specimenTheme）
+// ——演示是组件用法教学，色值与示例代码同源，站点亮/暗两态下均按框架
+// 默认外观呈现（组件主题兜底色亦然）。Provider 定宽 = 卡内容宽（innerW −
+// 左右 padding 32），子节点测量/布局基准与直挂卡下一致（纵向流/百分比/对齐）
 export const demoCard = (children, innerW) => View({
     width: innerW, padding: 16, background: '#FFFFFF',
     borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
     margin: [0, 0, 8, 4],
-}, Array.isArray(children) ? children : [children]);
+}, [ThemeProvider({ theme: specimenTheme, width: innerW - 32 },
+                  Array.isArray(children) ? children : [children])]);
 
 // 说明段落（不套卡片，保持阅读节奏）
-export const note = (text, innerW, color = '#64748B') => Text({
+export const note = (text, innerW, color = '@onSurfaceVariant') => Text({
     text, fontSize: 12, color, width: innerW - 32, wordWrap: true,
     margin: [2, 0, 10, 2],
 });
 
 // 示例小节：小节标题 → 演示卡 → 紧随其下的示例代码卡
 export const section = (title, children, code, innerW) => [
-    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [14, 0, 8, 4] }),
+    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [14, 0, 8, 4] }),
     demoCard(children, innerW),
     codeCard(code, innerW),
 ];

@@ -21,24 +21,24 @@ export const meta = {
     },
     props: [
         { title: { zh: 'ThemeProvider', en: 'ThemeProvider' }, rows: [
-            ['theme', 'Theme', '-', { zh: 'theme() 创建的主题对象（必需）', en: 'Theme object from theme() (required)' }],
-            ['mode', '"light" | "dark"', '"light"', { zh: '明暗模式；可被 theme.mode 覆盖', en: 'Light/dark; overridden by theme.mode' }],
-            ['colors', 'object', '默认色板', { zh: '覆盖部分 token，其余保留默认', en: 'Override selected tokens' }],
-            ['shape.borderRadius', 'number', '0', { zh: '全局圆角；@borderRadius 引用', en: 'Global corner radius; via @borderRadius' }],
+            ['theme', 'Theme', '-', { zh: 'theme() 创建的主题对象（必需）；运行时可换值，节点原位复用', en: 'Theme object from theme() (required); swappable at runtime, node reused in place' }],
+            ['mode', '"light" | "dark"', '"light"', { zh: 'theme() 选项：明暗基底', en: 'theme() option: light/dark base' }],
+            ['colors', 'object', '基底色板', { zh: 'theme() 选项：覆盖部分 token，其余保留基底', en: 'theme() option: override selected tokens' }],
+            ['shape.borderRadius', 'number', '6', { zh: 'theme() 选项：全局圆角；@borderRadius 引用', en: 'theme() option: global radius; via @borderRadius' }],
         ] },
-        { title: { zh: '颜色 token', en: 'Color tokens' }, rows: [
-            ['primary / onPrimary', '#rrggbb', '#1976D2 / #FFFFFF', { zh: '主色 / 主色上的内容', en: 'Primary / content on primary' }],
-            ['surface / onSurface', '#rrggbb', '#FFFFFF / #1C1C1E', { zh: '表面 / 表面内容', en: 'Surface / content on surface' }],
-            ['surfaceVariant / onSurfaceVariant', '#rrggbb', '#F5F5F5 / #6E6E72', { zh: '次级表面 / 内容', en: 'Surface variant / content' }],
-            ['outline / divider', '#rrggbb', '#C4C4C6 / #E0E0E0', { zh: '轮廓 / 分割线', en: 'Outline / divider' }],
-            ['error / onError', '#rrggbb', '#D32F2F / #FFFFFF', { zh: '错误色 / 错误色上的内容', en: 'Error / content on error' }],
-            ['disabled / disabledText', '#rrggbb', '#E0E0E0 / #A0A0A0', { zh: '禁用背景 / 禁用文字', en: 'Disabled bg / disabled text' }],
+        { title: { zh: '颜色 token（亮 / 暗基底）', en: 'Color tokens (light / dark base)' }, rows: [
+            ['primary / onPrimary', '#rrggbb', '#1976D2 / #FFFFFF', { zh: '主色 / 主色上的内容（暗：#90CAF9 / #0D0D17）', en: 'Primary / on primary (dark: #90CAF9 / #0D0D17)' }],
+            ['surface / onSurface', '#rrggbb', '#FFFFFF / #1E293B', { zh: '表面 / 表面内容（暗：#1E1E2E / #CDD6F4）', en: 'Surface / on surface (dark: #1E1E2E / #CDD6F4)' }],
+            ['surfaceVariant / onSurfaceVariant', '#rrggbb', '#F8FAFC / #64748B', { zh: '次级表面 / 内容（暗：#313244 / #A6ADC8）', en: 'Surface variant / content (dark: #313244 / #A6ADC8)' }],
+            ['outline / divider', '#rrggbb', '#CBD5E1 / #E2E8F0', { zh: '轮廓 / 分割线（暗：#45475A / #313244）', en: 'Outline / divider (dark: #45475A / #313244)' }],
+            ['error / onError', '#rrggbb', '#D32F2F / #FFFFFF', { zh: '错误色 / 错误色上的内容（暗同）', en: 'Error / on error (dark same)' }],
+            ['disabled / disabledText', '#rrggbb', '#F1F5F9 / #94A3B8', { zh: '禁用背景 / 禁用文字（暗：#313244 / #585B70）', en: 'Disabled bg / text (dark: #313244 / #585B70)' }],
         ] },
         { title: { zh: '颜色引用语法', en: 'Color reference syntax' }, rows: [
             ['"@primary"', 'string', '-', { zh: '引用主题 primary 色值', en: 'Reference theme primary' }],
             ['"#FF0000"', 'string', '-', { zh: '直接使用 hex 色值，不经主题', en: 'Direct hex, bypass theme' }],
             ['"transparent"', 'string', '-', { zh: '透明', en: 'Transparent' }],
-            ['"@borderRadius"', 'number', '-', { zh: '圆角属性同理引用 shape.borderRadius', en: 'Radius props reference shape.borderRadius' }],
+            ['"@borderRadius"', 'number', '-', { zh: '圆角属性引用 shape.borderRadius（等价 @shape.borderRadius）', en: 'Radius props reference shape.borderRadius (same as @shape.borderRadius)' }],
         ] },
     ],
 };
@@ -59,6 +59,7 @@ const L = {
     s63: { zh: '6.3 颜色 token 表', en: '6.3 Color token table' },
     s64: { zh: '6.4 创建主题与注入子树', en: '6.4 Create theme & inject subtree' },
     s65: { zh: '6.5 嵌套主题覆盖', en: '6.5 Nested theme override' },
+    s66: { zh: '6.6 运行时切换', en: '6.6 Runtime switching' },
     sImpl: { zh: '实现说明', en: 'Implementation notes' },
     sRef: { zh: '速查', en: 'Reference' },
 
@@ -76,10 +77,16 @@ const L = {
     dWrite: { zh: '写法', en: 'Syntax' },
     dMean: { zh: '含义', en: 'Meaning' },
 
-    impl1: { zh: 'ThemeProvider 不产生绘制内容，仅作为主题数据注入节点。', en: 'ThemeProvider draws nothing; it only injects theme data.' },
-    impl2: { zh: '子组件在 layout 阶段调用 resolveThemeDefaults() 解析 @ token。', en: 'Children resolve @ tokens in layout via resolveThemeDefaults().' },
+    impl1: { zh: 'ThemeProvider 不产生绘制内容，仅作为主题数据注入节点；测量/布局按 View 纵向流。', en: 'ThemeProvider draws nothing; it only injects theme data and lays out like a View column.' },
+    impl2: { zh: '树构建与 reconcile 时调用 resolveThemeDefaults() 解析 @ token（父链挂接完整后上溯最近 Provider）。', en: 'Tokens resolve via resolveThemeDefaults() at tree build / reconcile, after the parent chain is attached.' },
     impl3: { zh: '主题沿 View 树自顶向下传递，子树内嵌套的 ThemeProvider 会覆盖上层主题。', en: 'Theme propagates top-down; nested ThemeProvider overrides the outer one.' },
-    impl4: { zh: '未设置主题时使用亮色默认值；只传部分色值时其余保留默认。', en: 'Defaults to light when unset; partial colors keep defaults for the rest.' },
+    impl4: { zh: '未设置主题时使用亮色默认值；只传部分色值时其余保留基底。', en: 'Defaults to light when unset; partial colors keep the base for the rest.' },
+    impl5: { zh: '通用：任意组件的 background / borderColor / borderRadius 均可写 @token（View/Flex 等容器亦然）；组件专有颜色属性见各组件页。', en: 'Any component accepts @tokens for background / borderColor / borderRadius (containers too); component-specific color props are listed per component.' },
+
+    rt1: { zh: 'theme 值换成另一主题对象 → ThemeProvider 原位复用并 setTheme（逐字段判等，同值零动作）。', en: 'Swapping the theme value reuses the ThemeProvider in place and calls setTheme (field-wise equality; no-op when equal).' },
+    rt2: { zh: '子树 @token 按新主题重解析——节点不重建，输入内容、滚动位置、焦点等运行态全部保留。', en: 'Subtree @tokens re-resolve against the new theme — no node is rebuilt; input text, scroll and focus survive.' },
+    rt3: { zh: '本站顶栏「暗色 / 亮色」按钮即此通路：根 ThemeProvider 读站点主题态，壳与文稿层颜色均为 @token。', en: 'This site\'s header Dark / Light button uses exactly this path: the root ThemeProvider reads the site theme state; chrome and text colors are @tokens.' },
+    rt4: { zh: '主题对象应作模块级常量复用（每轮 reconcile 判等），勿在渲染函数内每次 theme({...}) 新建。', en: 'Keep theme objects as module-level constants (compared each reconcile); do not call theme({...}) inside render.' },
 };
 
 // ── 真实主题对象（与 test/ui/theme.js 同源）──
@@ -100,21 +107,22 @@ const darkTheme = theme({
 
 const st = new State({ mode: 'dark' });
 
-// ── 表格辅助（与 channel 页同构）──
+// ── 表格辅助（与 channel 页同构；表体/边框/正文写 @token 随站点主题，
+// 表头恒深底浅字两态通用）──
 const cellText = (c, k, head, wid) => Text({
     text: (c == null || c === '') ? '-' : String(c),
     fontSize: 12,
-    color: head ? '#E2E8F0' : (k === 0 ? '#334155' : '#475569'),
+    color: head ? '#E2E8F0' : (k === 0 ? '@onSurface' : '@onSurfaceVariant'),
     fontWeight: head ? 'bold' : 'normal',
     width: wid, padding: [6, 0, 0, 10], wordWrap: true,
 });
 const tableRow = (cells, i, head, w, cols) => Flex({
     direction: 'row', width: w - 2,
-    background: head ? '#1E293B' : (i % 2 === 1 ? '#F8FAFC' : '#FFFFFF'),
+    background: head ? '#1E293B' : (i % 2 === 1 ? '@surfaceVariant' : '@surface'),
 }, cells.map((c, k) => cellText(c, k, head, cols[k] === undefined ? cols[cols.length - 1] : cols[k])));
 const tableFrame = (w, rows) => View({
-    width: w, margin: [0, 0, 14, 4], background: '#FFFFFF',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
+    width: w, margin: [0, 0, 14, 4], background: '@surface',
+    borderColor: '@divider', borderWidth: 1, borderRadius: 8,
 }, rows);
 const grid = (w, rat) => {
     const g = 6 * (rat.length - 1);
@@ -141,7 +149,7 @@ const REF_ROWS = [
     ['"@primary"', { zh: '引用主题 primary 色值', en: 'Reference theme primary' }],
     ['"#FF0000"', { zh: '直接使用 hex 色值（不经主题）', en: 'Direct hex (bypass theme)' }],
     ['"transparent"', { zh: '透明', en: 'Transparent' }],
-    ['"@borderRadius"', { zh: '圆角属性引用 shape.borderRadius', en: 'Radius props reference shape.borderRadius' }],
+    ['"@borderRadius"', { zh: '圆角属性引用 shape.borderRadius（等价 @shape.borderRadius）', en: 'Radius props reference shape.borderRadius (same as @shape.borderRadius)' }],
 ];
 const refTable = (w) => {
     const cols = grid(w, [0.28, 0.72]);
@@ -151,20 +159,20 @@ const refTable = (w) => {
     ]);
 };
 
-// 6.3 颜色 token 表
+// 6.3 颜色 token 表（值与 src/core/theme.cpp defaultTheme / darkBase 逐一对齐）
 const TOKEN_ROWS = [
-    ['primary', '#1976D2', '#A5B4FC', { zh: '主色 — Button 背景、Input 聚焦边框', en: 'Primary — Button bg, Input focus border' }],
-    ['onPrimary', '#FFFFFF', '#000000', { zh: '主色上的内容 — Button 文字', en: 'Content on primary — Button text' }],
-    ['surface', '#FFFFFF', '#1C1C1E', { zh: '表面色 — 卡片/弹窗背景', en: 'Surface — card/dialog bg' }],
-    ['onSurface', '#1C1C1E', '#E5E5EA', { zh: '表面上的内容 — 正文文字', en: 'Content on surface — body text' }],
-    ['surfaceVariant', '#F5F5F5', '#2C2C2E', { zh: '表面变体 — 分割行/次级背景', en: 'Surface variant — divider/secondary bg' }],
-    ['onSurfaceVariant', '#6E6E72', '#98989D', { zh: '表面变体上的内容 — 占位文字', en: 'Content on variant — placeholder' }],
-    ['error', '#D32F2F', '#FF453A', { zh: '错误色', en: 'Error' }],
+    ['primary', '#1976D2', '#90CAF9', { zh: '主色 — Button 背景、Input 聚焦边框', en: 'Primary — Button bg, Input focus border' }],
+    ['onPrimary', '#FFFFFF', '#0D0D17', { zh: '主色上的内容 — Button 文字', en: 'Content on primary — Button text' }],
+    ['surface', '#FFFFFF', '#1E1E2E', { zh: '表面色 — 卡片/弹窗/Input 背景', en: 'Surface — card/dialog/Input bg' }],
+    ['onSurface', '#1E293B', '#CDD6F4', { zh: '表面上的内容 — 正文文字', en: 'Content on surface — body text' }],
+    ['surfaceVariant', '#F8FAFC', '#313244', { zh: '表面变体 — 分割行/次级背景', en: 'Surface variant — divider/secondary bg' }],
+    ['onSurfaceVariant', '#64748B', '#A6ADC8', { zh: '表面变体上的内容 — 占位文字', en: 'Content on variant — placeholder' }],
+    ['error', '#D32F2F', '#D32F2F', { zh: '错误色', en: 'Error' }],
     ['onError', '#FFFFFF', '#FFFFFF', { zh: '错误色上的内容', en: 'Content on error' }],
-    ['outline', '#C4C4C6', '#48484A', { zh: '轮廓色 — 边框/分割线', en: 'Outline — border/divider' }],
-    ['divider', '#E0E0E0', '#38383A', { zh: '分割线色 — List 分隔线', en: 'Divider — List separator' }],
-    ['disabled', '#E0E0E0', '#38383A', { zh: '禁用背景', en: 'Disabled bg' }],
-    ['disabledText', '#A0A0A0', '#606060', { zh: '禁用文字', en: 'Disabled text' }],
+    ['outline', '#CBD5E1', '#45475A', { zh: '轮廓色 — 输入框边框', en: 'Outline — input border' }],
+    ['divider', '#E2E8F0', '#313244', { zh: '分割线色 — List 分隔线', en: 'Divider — List separator' }],
+    ['disabled', '#F1F5F9', '#313244', { zh: '禁用背景', en: 'Disabled bg' }],
+    ['disabledText', '#94A3B8', '#585B70', { zh: '禁用文字', en: 'Disabled text' }],
 ];
 const tokenTable = (w) => {
     const cols = grid(w, [0.26, 0.18, 0.18, 0.38]);
@@ -233,6 +241,22 @@ Card("Nested Light Theme", [
         ])),
 ]);`;
 
+const C6 = `// 运行时换主题——State 驱动 theme 值（本站顶栏切换钮同款）
+// 主题对象为模块级常量：每轮 reconcile 按值判等，未切换零动作
+const ui = new State({ mode: "light" });
+
+export default () => Root(
+    ThemeProvider({ theme: ui.mode === "dark" ? darkTheme : lightTheme }, [
+        View({ background: "@surface", borderColor: "@outline",
+               borderWidth: 1, borderRadius: "@borderRadius", padding: 16 }, [
+            Text({ text: "正文", color: "@onSurface" }),
+            Input({ placeholder: "切换后输入内容与焦点保留" }),
+            Button({ text: "切换主题", background: "@primary", color: "@onPrimary",
+                     onClick: () => { ui.mode = ui.mode === "dark" ? "light" : "dark"; } }),
+        ]),
+    ])
+);`;
+
 // ── 演示：亮/暗切换 + @token 引用（复用原 demo，对接真实主题对象）──
 const demo1 = () => [
     Flex({ direction: 'row', gap: 8, margin: [0, 0, 12, 0] }, [
@@ -288,20 +312,20 @@ const demo2 = () => [
     ]),
 ];
 
-// ── 装配积木 ──
+// ── 装配积木（文稿层写 @token，随站点主题换肤）──
 const h = (txt) => Text({
-    text: txt, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [22, 0, 8, 6],
+    text: txt, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [22, 0, 8, 6],
 });
 const line = (txt, color, innerW, top) => Text({
-    text: txt, fontSize: 12, color: color || '#475569',
+    text: txt, fontSize: 12, color: color || '@onSurfaceVariant',
     width: innerW - 32, wordWrap: true, margin: [top === undefined ? 4 : top, 0, 0, 0],
 });
 const bullet = (txt, innerW) => Text({
-    text: '· ' + txt, fontSize: 12, color: '#334155',
+    text: '· ' + txt, fontSize: 12, color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [3, 0, 0, 0],
 });
 const codeLabel = (txt, innerW) => Text({
-    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '#0F172A',
+    text: txt, fontSize: 12.5, fontWeight: 'bold', color: '@onSurface',
     width: innerW - 32, wordWrap: true, margin: [12, 0, 6, 2],
 });
 
@@ -344,12 +368,22 @@ export const content = (innerW = 884) => [
     demoCard(demo2(), innerW),
     codeCard(C5, innerW),
 
+    // 6.6 运行时切换
+    h(t(L.s66)),
+    bullet(t(L.rt1), innerW),
+    bullet(t(L.rt2), innerW),
+    bullet(t(L.rt3), innerW),
+    bullet(t(L.rt4), innerW),
+    codeLabel(t({ zh: '示例：State 驱动换肤', en: 'Example: State-driven switching' }), innerW),
+    codeCard(C6, innerW),
+
     // 实现说明
     h(t(L.sImpl)),
     bullet(t(L.impl1), innerW),
     bullet(t(L.impl2), innerW),
     bullet(t(L.impl3), innerW),
     bullet(t(L.impl4), innerW),
+    bullet(t(L.impl5), innerW),
 
     // 速查
     h(t(L.sRef)),

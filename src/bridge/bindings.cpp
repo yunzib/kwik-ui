@@ -1201,12 +1201,36 @@ static JSValue js_theme(JSContext *ctx, JSValueConst this_val, int argc, JSValue
  *   )
  */
 static JSValue js_theme_provider(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    // 第一个参数是 JS 对象 → props；否则无 props
-    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
-    int childStart = (argc > 0 && JS_IsObject(argv[0])) ? 1 : 0;
+    // 第一个参数为 props 对象（含 theme 字段，非数组），其余参数为子元素。
+    // 数组实参按元素展开（与 Root 同款扁平化）——全站惯用
+    // ThemeProvider({ theme }, [a, b]) 的单数组实参即 children 本体；
+    // 此前按单元素塞入变嵌套数组 [[a,b]]，parseNode 对无 type 的数组
+    // 节点静默跳过 → 整组子元素丢失（docsite theme 页演示卡曾呈空）。
+    JSValue props = JS_UNDEFINED;
+    int first = 0;
+    if (argc > 0 && JS_IsObject(argv[0]) && !JS_IsArray(argv[0])) {
+        // 带 type 的是元素描述符（缺省 props 直传子元素），不是配置对象
+        JSValue tv = JS_GetPropertyStr(ctx, argv[0], "type");
+        bool hasType = !JS_IsUndefined(tv);
+        JS_FreeValue(ctx, tv);
+        if (!hasType) { props = argv[0]; first = 1; }
+    }
     JSValue children = JS_NewArray(ctx);
-    for (int i = childStart; i < argc; i++) {
-        JS_SetPropertyUint32(ctx, children, i - childStart, JS_DupValue(ctx, argv[i]));
+    int n = 0;
+    for (int i = first; i < argc; i++) {
+        if (JS_IsArray(argv[i])) {
+            uint32_t len = 0;
+            JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+            for (uint32_t k = 0; k < len; ++k) {
+                JSValue elem = JS_GetPropertyUint32(ctx, argv[i], k);
+                JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, elem));
+                JS_FreeValue(ctx, elem);
+            }
+        } else {
+            JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, argv[i]));
+        }
     }
     JSValue result = makeElement(ctx, "ThemeProvider", props, children);
     JS_FreeValue(ctx, children);

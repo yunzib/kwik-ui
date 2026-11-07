@@ -9,6 +9,7 @@ import { View, Flex, Text, Button, Checkbox, Slider, Input, State, ref } from 'k
 import { setProp } from 'kwikui';
 import { t } from '../lang.js';
 import { pageTitle, pageDesc } from '../ui/page_parts.js';
+import { demoCard } from '../ui/page_kit.js';
 import { codeBlock } from '../ui/code_block.js';
 import { propsTable } from '../ui/props_table.js';
 
@@ -107,17 +108,14 @@ const label = (txt, dark) => Text({
     padding: [4, 0, 0, 8],
 });
 
-const demoCard = (children, innerW) => View({
-    width: innerW, padding: 16, background: '#FFFFFF',
-    borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 8,
-    margin: [0, 0, 8, 4],
-}, children);
+// 演示卡复用 page_kit.demoCard（亮色样张：卡内按框架默认主题呈现，
+// Button/Checkbox/Slider/Input 等主题兜底色不随站点暗色漂移）
 
 // 代码高度按行数自适应（行高 19 + 上下 padding 24 + 余量）
 const codeH = (code) => code.split('\n').length * 19 + 26;
 
 const section = (title, children, code, innerW) => [
-    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '#0F172A', margin: [14, 0, 8, 4] }),
+    Text({ text: title, fontSize: 15, fontWeight: 'bold', color: '@onSurface', margin: [14, 0, 8, 4] }),
     demoCard(children, innerW),
     codeBlock(t, code, codeH(code), innerW),
 ];
