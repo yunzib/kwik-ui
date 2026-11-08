@@ -27,7 +27,7 @@ export module kwik.render.video_stream;
 import std;
 
 export {
-/** @brief 像素格式（批 1 GPU 消费 RGBA8/BGRA8；YUV 各格式布局先行、批 2 上 GPU）*/
+/** @brief 像素格式（批 1 起 RGBA8/BGRA8 直通；批 2 起 YUV 各格式经着色器转色）*/
 enum class PixelFormat : uint8_t {
     RGBA8,    // 4B/px 打包
     BGRA8,    // 4B/px 打包（Windows 采集原生序）
@@ -39,7 +39,7 @@ enum class PixelFormat : uint8_t {
     UYVY,     // 打包 4:2:2（U Y0 V Y1，宽度须为偶数）
 };
 
-/** @brief YUV→RGB 色彩矩阵（批 2 着色器转色用） */
+/** @brief YUV→RGB 色彩矩阵（着色器转色；BT.2020 为非恒定亮度版本） */
 enum class YuvMatrix : uint8_t { BT601, BT709, BT2020 };
 
 /** @brief 一帧的描述（格式 + 尺寸 + 色彩元数据 + 可选时间戳） */
@@ -111,6 +111,63 @@ struct FrameLayout {
         const auto &last = L.planes[L.planeCount - 1];
         L.totalBytes = align256(last.offset + size_t(last.stride) * last.height);
         return L;
+    }
+};
+
+/** @brief GPU 采样平面的纹素格式（后端中立；Vulkan 映射为同名 UNORM 格式） */
+enum class TexelFormat : uint8_t { R8, RG8, RGBA8, BGRA8 };
+
+/** @brief 一张 GPU 采样平面：取帧内存第 srcPlane 平面，按 texelBytes 字节/纹素重解释上传 */
+struct TexturePlane {
+    TexelFormat format = TexelFormat::RGBA8;
+    uint32_t width = 0;         // 纹素宽
+    uint32_t height = 0;        // 纹素高
+    uint32_t srcPlane = 0;      // 来源 FrameLayout 平面下标
+    uint32_t texelBytes = 4;    // 每纹素字节（拷贝行长 = 源 stride / texelBytes）
+};
+
+/**
+ * @brief 帧 → GPU 采样平面规划（纯函数，后端中立）
+ *
+ * RGB 单平面直通采样；三平面 / 双平面逐平面一张；打包 4:2:2 同一块内存
+ * 重解释为两张——亮度 RG8 (w×h，每纹素 = 一个像素的 Y + 半个色度) +
+ * 色度 RGBA8 ((w/2)×h，每纹素 = 一个宏像素 Y0 U Y1 V)，两者都可直接线性
+ * 过滤（免着色器按奇偶取纹素）。非法描述（4:2:2 奇宽等）count = 0。
+ */
+struct TexturePlan {
+    std::array<TexturePlane, 3> planes{};
+    uint32_t count = 0;
+    bool yuv = false;    // true = 需 YUV 着色器转色；false = RGB 直采样
+
+    static TexturePlan forDesc(const FrameDesc &d) {
+        TexturePlan P;
+        const FrameLayout L = FrameLayout::forDesc(d);
+        if (L.planeCount == 0) return {};
+        auto plane = [&](TexelFormat f, uint32_t src, uint32_t texelBytes, uint32_t w) {
+            P.planes[P.count++] = TexturePlane{f, w, L.planes[src].height, src, texelBytes};
+        };
+        switch (d.format) {
+        case PixelFormat::RGBA8: plane(TexelFormat::RGBA8, 0, 4, L.planes[0].width); break;
+        case PixelFormat::BGRA8: plane(TexelFormat::BGRA8, 0, 4, L.planes[0].width); break;
+        case PixelFormat::I420:
+        case PixelFormat::YV12:    // 平面序差异（U/V 互换）由着色器 mode 位处理
+            for (uint32_t p = 0; p < 3; ++p) plane(TexelFormat::R8, p, 1, L.planes[p].width);
+            P.yuv = true;
+            break;
+        case PixelFormat::NV12:
+        case PixelFormat::NV21:
+            plane(TexelFormat::R8, 0, 1, L.planes[0].width);
+            plane(TexelFormat::RG8, 1, 2, L.planes[1].width);
+            P.yuv = true;
+            break;
+        case PixelFormat::YUYV:
+        case PixelFormat::UYVY:
+            plane(TexelFormat::RG8, 0, 2, L.planes[0].width);          // 亮度视图
+            plane(TexelFormat::RGBA8, 0, 4, L.planes[0].width / 2);    // 宏像素色度视图
+            P.yuv = true;
+            break;
+        }
+        return P;
     }
 };
 

@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <cstddef>
 #include "image_shaders.h"
+#include "image_yuv_shaders.h"    // YUV 流纹理着色器（V1 推流批 2）
 module kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.context;
 import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
@@ -33,10 +34,13 @@ void ImageRenderer::destroy() {
     }
     for (auto &r : retired_) freeTexture(r.tex);
     retired_.clear();
-    // 流资源整组清场（teardown：渲染线程已停，无并发）；延迟释放队列随清
+    // 流资源整组清场（teardown：渲染线程已停，无并发）。延迟释放队列须逐项
+    // 执行而非丢弃——刚换分辨率/刚退役的旧资源组只在队列里，clear 即泄漏
+    // Vulkan 对象（须先于下方描述符池销毁：资源组含从池分配的 descSet）
     for (auto &[key, st] : streams_) freeStreamResources(st->res);
     streams_.clear();
     streamAliases_.clear();
+    for (auto &d : deferredFrees_) d.second();
     deferredFrees_.clear();
     if (streamSampler_ != VK_NULL_HANDLE) {
         vkDestroySampler(device_, streamSampler_, nullptr);
@@ -66,6 +70,18 @@ void ImageRenderer::destroy() {
     if (imageDescSetLayout_ != VK_NULL_HANDLE) {
         vkDestroyDescriptorSetLayout(device_, imageDescSetLayout_, nullptr);
         imageDescSetLayout_ = VK_NULL_HANDLE;
+    }
+    if (yuvPipeline_ != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device_, yuvPipeline_, nullptr);
+        yuvPipeline_ = VK_NULL_HANDLE;
+    }
+    if (yuvPipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device_, yuvPipelineLayout_, nullptr);
+        yuvPipelineLayout_ = VK_NULL_HANDLE;
+    }
+    if (yuvDescSetLayout_ != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device_, yuvDescSetLayout_, nullptr);
+        yuvDescSetLayout_ = VK_NULL_HANDLE;
     }
 }
 // ================================================================
@@ -105,6 +121,26 @@ bool ImageRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
     if (clipPipe.pipeline == VK_NULL_HANDLE) return false;
     imageClipPipeline_ = clipPipe.pipeline;
     imageClipPipelineLayout_ = clipPipe.layout;
+
+    // ── YUV 流纹理管线（V1 推流批 2）：三平面 combined sampler + 88B push
+    //    （84B image 布局 + mode 字）。深度模板态同 image（StencilTestEqual
+    //    + 动态比较掩码：无裁剪时掩码 0 恒通过），裁剪/非裁剪共用此一条 ──
+    static const VkDescriptorSetLayoutBinding yuvBindings[3] = {
+        {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+    };
+    PipeDesc yd = pd;
+    yd.vertSpv = kwik::shader::kImageYuvVert;  yd.vertSize = kwik::shader::kImageYuvVertSize;
+    yd.fragSpv = kwik::shader::kImageYuvFrag;  yd.fragSize = kwik::shader::kImageYuvFragSize;
+    yd.pushSize = sizeof(YuvPushConstants);
+    yd.descBindings = {yuvBindings, 3};
+    yd.externalSetLayout = VK_NULL_HANDLE;    // 工厂自建三采样器布局（勿复用 image 单采样器布局）
+    auto yuvPipe = makePipeline(device_, cache, yd);
+    if (yuvPipe.pipeline == VK_NULL_HANDLE) return false;
+    yuvPipeline_ = yuvPipe.pipeline;
+    yuvPipelineLayout_ = yuvPipe.layout;
+    yuvDescSetLayout_ = yuvPipe.setLayout;
 
     return true;
 }

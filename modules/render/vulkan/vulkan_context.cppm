@@ -43,6 +43,15 @@ export struct ImagePushConstants {
 };
 static_assert(sizeof(ImagePushConstants) == 84, "ImagePushConstants size mismatch");
 
+// ── YUV 图像绘制 Push Constants（V1 推流批 2，镜像 shaders/image_yuv.slang）──
+// = ImagePushConstants 84B + mode 4B（位表见 image_yuv.slang 文件头）。
+// 着色器侧平铺声明（不嵌套结构——std430 会把嵌套结构补齐到 16 倍数致偏移错位）
+export struct YuvPushConstants {
+    ImagePushConstants base;    // 与 image 管线同布局（offset 0..83）
+    uint32_t mode;              // offset 84
+};
+static_assert(sizeof(YuvPushConstants) == 88, "YuvPushConstants size mismatch");
+
 // ── FrameToken: 每帧由 beginFrame 产出，子渲染器通过此对象获取 Vulkan 句柄 ──
 export struct FrameToken {
     VkCommandBuffer commandBuffer;

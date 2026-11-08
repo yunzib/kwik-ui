@@ -56,6 +56,11 @@ private:
     VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout imageClipPipelineLayout_ = VK_NULL_HANDLE;    // clip 变体（工厂各建等价 layout）
     VkDescriptorSetLayout imageDescSetLayout_ = VK_NULL_HANDLE;
+    // YUV 管线（V1 批 2）：三平面 combined sampler + push 88B；裁剪/非裁剪共用
+    // 一条（深度模板态同 image 主管线 StencilTestEqual，无裁剪时比较掩码 0 恒通过）
+    VkPipeline yuvPipeline_ = VK_NULL_HANDLE;
+    VkPipelineLayout yuvPipelineLayout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout yuvDescSetLayout_ = VK_NULL_HANDLE;
     std::vector<VkDescriptorPool> descPools_;    // 描述符池（首池 256，池满扩容新池倍增——
                                                  // 旧池上已分配 descSet 全部保持有效）
     struct TextureData {
@@ -73,7 +78,7 @@ private:
     // ── 流纹理（V1 推流）：按 VideoStream* 共享 GPU 资源，别名 id 引用计数 ──
     struct StreamSlot {                          // 图像环一槽（槽距 = kMaxFramesInFlight）
         VkDeviceMemory memory = VK_NULL_HANDLE;  // 本槽全部平面共用一块（按对齐子分配）
-        std::vector<VkImage> images;             // 平面图像（RGBA/BGRA 单平面；YUV 批 2）
+        std::vector<VkImage> images;             // 采样平面图像（按 TexturePlan：RGB 1 张 / YUV 2~3 张）
         std::vector<VkImageView> views;
         VkDescriptorSet descSet = VK_NULL_HANDLE;    // 建槽时写一次，此后只读（免在飞更新）
         VkDescriptorPool pool = VK_NULL_HANDLE;      // descSet 所属池（逐 set 释放路由）
@@ -90,8 +95,9 @@ private:
     };
     struct StreamTexture {
         std::shared_ptr<VideoStream> stream;     // 数据源（持 shared：退役帧距内不悬空）
-        FrameDesc desc;                          // 当前 GPU 布局（格式/尺寸变则整组重建）
-        FrameLayout layout;                      // 与 desc 对应的平面布局（staging/拷贝依据）
+        FrameDesc desc;                          // 当前 GPU 布局（格式/尺寸变则整组重建；矩阵/range 随每次上传更新）
+        FrameLayout layout;                      // 与 desc 对应的帧内存布局（staging/拷贝依据）
+        TexturePlan plan;                        // 与 desc 对应的 GPU 采样平面规划（图像/拷贝/管线依据）
         StreamResources res;                     // 图像环 + staging + 每槽描述符集
         uint32_t ringIndex = 0;                  // 最近写入的槽（上传时先 +1 再写；绘制即采样此槽）
         uint64_t uploadedSeq = 0;                // 已上传帧序号（同帧不重复上传）
@@ -142,8 +148,8 @@ private:
     void freeTexture(const TextureData &t);
 
     // ── 流纹理内部（仅渲染线程）──
-    /** @brief PixelFormat → VkFormat（批 1：RGBA8/BGRA8；YUV 批 2 接入，其余返回 UNDEFINED） */
-    static VkFormat vkFormatFor(PixelFormat f);
+    /** @brief 纹素格式 → VkFormat（R8/RG8/RGBA8/BGRA8 均为规范强制支持采样 + 线性过滤） */
+    static VkFormat vkFormatFor(TexelFormat f);
     /** @brief 创建/重建 StreamTexture 的 GPU 资源组（图像环 + staging + 每槽描述符集）
      *         @return false = 资源创建失败（流保持未就绪，下帧重试） */
     bool createStreamResources(const DeviceContext &dc, StreamTexture &st);
@@ -151,10 +157,11 @@ private:
     void freeStreamResources(const StreamResources &r);
     /** @brief 把整组流资源推入延迟释放队列（帧距满后在 drainResources 执行） */
     void deferFreeResources(StreamResources &&r, uint64_t frameNo);
-    /** @brief 从描述符池分配一个 image descSet（复用纹理池的懒建/扩容/旧池回填逻辑） */
-    VkDescriptorSet allocDescSet(const DeviceContext &dc, VkDescriptorPool &outPool);
-    /** @brief 流纹理绘制（drawImage/drawImageClipped 按别名表分派到此；RGBA/BGRA
-     *         复用 image 管线 + 环槽 descSet） */
+    /** @brief 从描述符池分配一个 descSet（复用纹理池的懒建/扩容/旧池回填逻辑）
+     *         @param layout image（单采样器）或 yuv（三采样器）布局 */
+    VkDescriptorSet allocDescSet(const DeviceContext &dc, VkDescriptorSetLayout layout, VkDescriptorPool &outPool);
+    /** @brief 流纹理绘制（drawImage/drawImageClipped 按别名表分派到此；RGB 复用
+     *         image 管线、YUV 走 yuv 管线，均采样最近写入的环槽） */
     void drawStream(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
                     const Transform2D &t, bool clipped);
 };

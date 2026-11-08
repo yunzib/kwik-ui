@@ -2,8 +2,10 @@
  * @brief 图片着色器
  *
  * Sampler2D 为内置 combined image sampler，
- * 可选圆角裁剪使用 SDF 实现。
+ * 可选圆角裁剪使用 SDF 实现（顶点变换与圆角段见 image_common.slang，
+ * 与 image_yuv.slang 共用）。
  */
+#include "image_common.slang"
 
 // ── Push Constants ───────────────────────────────────────────
 struct ImagePushConstants {
@@ -23,63 +25,17 @@ struct ImagePushConstants {
 [[vk::binding(0, 0)]]
 Sampler2D imageTex;
 
-// ── Vertex → Fragment 传参 ─────────────────────────────────
-struct VertOutput {
-    float4 position : SV_Position;
-    [[vk::location(0)]] float2 fragUV;
-    [[vk::location(1)]] float4 fragColor;
-    [[vk::location(2)]] float2 fragSize;
-    [[vk::location(3)]] float  fragCornerRadius;
-    [[vk::location(4)]] float2 fragQuad;
-};
-
 // ── 顶点着色器 ──────────────────────────────────────────────
 [shader("vertex")]
 VertOutput vertexMain(float2 inPosition : ATTR0) {
-    VertOutput o;
-    float2 local = pc.pos + inPosition * pc.size;
-    // 矩阵变换：world = M * local
-    float2 world = float2(pc.m00 * local.x + pc.m01 * local.y + pc.m02,
-                          pc.m10 * local.x + pc.m11 * local.y + pc.m12);
-    float2 ndc = (world + 0.5) / pc.viewportSize * 2.0 - 1.0;
-    o.position = float4(ndc, 0.0, 1.0);
-    o.fragUV = float2(lerp(pc.uvRect.x, pc.uvRect.z, inPosition.x),
-                      lerp(pc.uvRect.y, pc.uvRect.w, inPosition.y));
-    o.fragColor        = pc.color;
-    o.fragSize         = pc.size;
-    o.fragCornerRadius = pc.cornerRadius;
-    o.fragQuad         = inPosition;
-    return o;
-}
-
-// ── 圆角矩形 SDF (与 rect.slang 同算法) ──────────────────────
-float sdRoundedRect(float2 p, float2 halfSize, float r) {
-    float2 q = abs(p) - halfSize + r;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    return imageVertex(inPosition, pc.pos, pc.size, pc.uvRect, pc.color, pc.viewportSize, pc.cornerRadius,
+                       float3(pc.m00, pc.m01, pc.m02), float3(pc.m10, pc.m11, pc.m12));
 }
 
 // ── 片段着色器 ──────────────────────────────────────────────
 [shader("fragment")]
 float4 fragmentMain(VertOutput input) : SV_Target0 {
     float4 texColor = imageTex.Sample(input.fragUV);
-
-    // 无圆角 → 直接输出，零额外开销
-    if (input.fragCornerRadius <= 0.0) {
-        return float4(texColor.rgb, texColor.a) * input.fragColor.a;
-    }
-
-    // ── SDF 圆角裁剪 ──────────────────────────────────────────
-    // fragCoord 必须从 quad 内坐标重构（fragQuad=顶点 0..1 插值），
-    // 不能用 (fragUV-0.5)：cover/none 的 UV 是居中裁剪子窗口（如
-    // 0.2..0.8），(uv-0.5)*size 把 SDF 坐标系整体错位——圆角切错
-    // 位置（contain/fill 满幅 UV 恰好不受影响，曾是测试页正常假象）
-    float2 halfSize  = input.fragSize * 0.5;
-    float  cr        = min(input.fragCornerRadius, min(halfSize.x, halfSize.y));
-    float2 fragCoord = (input.fragQuad - 0.5) * input.fragSize;
-    float  sdf       = sdRoundedRect(fragCoord, halfSize, cr);
-    float  rawAA     = length(fwidth(fragCoord));
-    float  aa        = clamp(rawAA, 0.10, 0.6);
-    float  alpha     = 1.0 - smoothstep(-aa, aa, sdf);
-
-    return float4(texColor.rgb, texColor.a * alpha) * input.fragColor.a;
+    // 无圆角时覆盖率恒 1（等价原直出 float4(rgb, a) * opacity）
+    return float4(texColor.rgb, texColor.a * roundedCornerAlpha(input)) * input.fragColor.a;
 }

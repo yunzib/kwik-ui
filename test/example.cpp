@@ -7,6 +7,7 @@
 #include <ctime>
 #include <thread>
 #include <coroutine>
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -85,13 +86,16 @@ private:
 // CoreTimer 驱动（无线程、退出零拆卸负担）；真实宿主在采集/解码线程
 // acquire → 写平面 → commit，用法相同。流在树构建前创建并先推一帧——
 // 首次绘制即走绑定 + 上传通路（smoke 短帧数也覆盖）；"late" 3 秒后才建，
-// 验证"先声明后建流"由轮询自动接上
+// 验证"先声明后建流"由轮询自动接上。
+// 批 2 YUV 验证：同一 RGB 测试图按各格式 + 矩阵/range 编码推送——着色器
+// 转色正确时所有格式画面一致（颜色偏差即矩阵/范围/平面序有误）
 class VideoStreamDemo {
 public:
     static void setup() {
         auto &s = state();
         s.t0 = std::chrono::steady_clock::now();
         s.main = createVideoStream("main");
+        for (int i = 0; i < 8; ++i) s.fmt[i] = createVideoStream(std::string("f_") + kFmtNames[i]);
         for (int i = 0; i < 9; ++i) s.grid[i] = createVideoStream("g" + std::to_string(i));
         s.lastGrid.fill(-1000);
         tick();                                       // 同步先推一帧
@@ -99,11 +103,18 @@ public:
     }
 
 private:
+    // 8 格式并排面板顺序（页面 stream://f_<名> 与此表同序）
+    static constexpr PixelFormat kFmts[8] = {PixelFormat::RGBA8, PixelFormat::BGRA8, PixelFormat::I420,
+                                             PixelFormat::YV12,  PixelFormat::NV12,  PixelFormat::NV21,
+                                             PixelFormat::YUYV,  PixelFormat::UYVY};
+    static constexpr const char *kFmtNames[8] = {"rgba", "bgra", "i420", "yv12", "nv12", "nv21", "yuyv", "uyvy"};
+
     struct State {
         std::chrono::steady_clock::time_point t0;
         std::shared_ptr<VideoStream> main, late;
+        std::array<std::shared_ptr<VideoStream>, 8> fmt;
         std::array<std::shared_ptr<VideoStream>, 9> grid;
-        int64_t lastMain = -1000, lastLate = -1000;
+        int64_t lastMain = -1000, lastLate = -1000, lastFmt = -1000;
         std::array<int64_t, 9> lastGrid{};
     };
     static State &state() {
@@ -111,29 +122,102 @@ private:
         return s;
     }
 
-    // 8 色竖条 + 一条随时间移动的反色竖线（证明画面在动）。BGRA 按字节序交换
-    // 写入——显示颜色应与 RGBA 路完全一致（不一致即 BGRA 映射有误）
-    static void pushBars(VideoStream &vs, PixelFormat fmt, uint32_t w, uint32_t h, uint32_t phase) {
+    // RGB 测试图（与格式无关的源）：上 2/3 为 8 色竖条，下 1/3 为灰阶渐变；
+    // 一条随时间移动的反色竖线证明画面在动
+    static void sampleRGB(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t lineX, uint8_t &r, uint8_t &g,
+                          uint8_t &b) {
         static const uint8_t kBars[8][3] = {{235, 235, 235}, {235, 235, 16}, {16, 235, 235}, {16, 235, 16},
                                             {235, 16, 235},  {235, 16, 16},  {16, 16, 235},  {16, 16, 16}};
-        auto wr = vs.acquire({.format = fmt, .width = w, .height = h});
+        if (y * 3 < h * 2) {
+            const uint8_t *c = kBars[(x * 8) / w];
+            r = c[0];
+            g = c[1];
+            b = c[2];
+        } else {
+            r = g = b = uint8_t((x * 255) / (w > 1 ? w - 1 : 1));
+        }
+        if (x >= lineX && x < lineX + 3) {
+            r = uint8_t(255 - r);
+            g = uint8_t(255 - g);
+            b = uint8_t(255 - b);
+        }
+    }
+
+    // RGB → Y'CbCr 编码（着色器解码的逆运算；Kr/Kb 按矩阵取，range 决定量化）
+    static void toYuv(uint8_t r8, uint8_t g8, uint8_t b8, YuvMatrix m, bool full, uint8_t &y8, uint8_t &u8,
+                      uint8_t &v8) {
+        const float kr = m == YuvMatrix::BT601 ? 0.299f : (m == YuvMatrix::BT709 ? 0.2126f : 0.2627f);
+        const float kb = m == YuvMatrix::BT601 ? 0.114f : (m == YuvMatrix::BT709 ? 0.0722f : 0.0593f);
+        const float r = r8 / 255.0f, g = g8 / 255.0f, b = b8 / 255.0f;
+        const float y = kr * r + (1.0f - kr - kb) * g + kb * b;
+        const float cb = (b - y) / (2.0f * (1.0f - kb));
+        const float cr = (r - y) / (2.0f * (1.0f - kr));
+        auto q = [](float v) { return uint8_t(std::clamp(v + 0.5f, 0.0f, 255.0f)); };
+        y8 = full ? q(y * 255.0f) : q(16.0f + y * 219.0f);
+        u8 = full ? q(128.0f + cb * 255.0f) : q(128.0f + cb * 224.0f);
+        v8 = full ? q(128.0f + cr * 255.0f) : q(128.0f + cr * 224.0f);
+    }
+
+    // 把测试图按 fmt 编码进池槽平面（色度 2×2/2×1 取左上采样点——测试图色块边界
+    // 对齐偶数像素，足以验证转色）
+    static void pushFrame(VideoStream &vs, PixelFormat fmt, uint32_t w, uint32_t h, uint32_t phase, YuvMatrix m,
+                          bool full) {
+        auto wr = vs.acquire({.format = fmt, .width = w, .height = h, .matrix = m, .fullRange = full});
         if (!wr) return;    // 池满丢帧（生产者不阻塞）
-        const PlaneView &p = wr.planes()[0];
-        const bool bgra = fmt == PixelFormat::BGRA8;
+        auto pl = wr.planes();
         const uint32_t lineX = phase % w;
+        uint8_t r, g, b, Y, U, V;
         for (uint32_t y = 0; y < h; ++y) {
-            uint8_t *row = p.data + size_t(p.stride) * y;
             for (uint32_t x = 0; x < w; ++x) {
-                const uint8_t *c = kBars[(x * 8) / w];
-                const bool onLine = x >= lineX && x < lineX + 3;
-                const uint8_t r = onLine ? uint8_t(255 - c[0]) : c[0];
-                const uint8_t g = onLine ? uint8_t(255 - c[1]) : c[1];
-                const uint8_t b = onLine ? uint8_t(255 - c[2]) : c[2];
-                uint8_t *px = row + size_t(x) * 4;
-                px[0] = bgra ? b : r;
-                px[1] = g;
-                px[2] = bgra ? r : b;
-                px[3] = 255;
+                sampleRGB(x, y, w, h, lineX, r, g, b);
+                switch (fmt) {
+                case PixelFormat::RGBA8:
+                case PixelFormat::BGRA8: {
+                    uint8_t *px = pl[0].data + size_t(pl[0].stride) * y + size_t(x) * 4;
+                    const bool bgra = fmt == PixelFormat::BGRA8;
+                    px[0] = bgra ? b : r;
+                    px[1] = g;
+                    px[2] = bgra ? r : b;
+                    px[3] = 255;
+                    break;
+                }
+                case PixelFormat::I420:
+                case PixelFormat::YV12: {
+                    toYuv(r, g, b, m, full, Y, U, V);
+                    pl[0].data[size_t(pl[0].stride) * y + x] = Y;
+                    if (x % 2 == 0 && y % 2 == 0) {
+                        const bool yv = fmt == PixelFormat::YV12;    // 平面序 Y/V/U
+                        pl[1].data[size_t(pl[1].stride) * (y / 2) + x / 2] = yv ? V : U;
+                        pl[2].data[size_t(pl[2].stride) * (y / 2) + x / 2] = yv ? U : V;
+                    }
+                    break;
+                }
+                case PixelFormat::NV12:
+                case PixelFormat::NV21: {
+                    toYuv(r, g, b, m, full, Y, U, V);
+                    pl[0].data[size_t(pl[0].stride) * y + x] = Y;
+                    if (x % 2 == 0 && y % 2 == 0) {
+                        uint8_t *c = pl[1].data + size_t(pl[1].stride) * (y / 2) + size_t(x / 2) * 2;
+                        const bool nv21 = fmt == PixelFormat::NV21;    // 交错序 VU
+                        c[0] = nv21 ? V : U;
+                        c[1] = nv21 ? U : V;
+                    }
+                    break;
+                }
+                case PixelFormat::YUYV:
+                case PixelFormat::UYVY: {
+                    toYuv(r, g, b, m, full, Y, U, V);
+                    uint8_t *mp = pl[0].data + size_t(pl[0].stride) * y + size_t(x / 2) * 4;    // 宏像素
+                    if (fmt == PixelFormat::YUYV) {    // Y0 U Y1 V
+                        mp[(x % 2) * 2] = Y;
+                        if (x % 2 == 0) { mp[1] = U; mp[3] = V; }
+                    } else {                           // U Y0 V Y1
+                        mp[1 + (x % 2) * 2] = Y;
+                        if (x % 2 == 0) { mp[0] = U; mp[2] = V; }
+                    }
+                    break;
+                }
+                }
             }
         }
         wr.commit();
@@ -144,24 +228,35 @@ private:
         const int64_t ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - s.t0).count();
         const uint32_t phase = uint32_t(ms / 8);
-        // main：30fps RGBA，每 5 秒在 640×360 / 480×270 间切换（换分辨率 → 后端整组重建）
+        // main：30fps；每 2 秒轮换 8 种格式（换格式 → RGB↔YUV 管线/布局整组重建），
+        // 矩阵与 range 随轮次切换；每 5 秒在 640×360 / 479×269（奇数尺寸）间切换
+        // ——偶宽才合法的 4:2:2 遇奇数尺寸改推 NV12（acquire 非法即丢帧）
         if (ms - s.lastMain >= 33) {
             s.lastMain = ms;
-            const bool small = (ms / 5000) % 2 == 1;
-            pushBars(*s.main, PixelFormat::RGBA8, small ? 480 : 640, small ? 270 : 360, phase);
+            const int round = int(ms / 2000);
+            PixelFormat f = kFmts[round % 8];
+            const bool odd = (ms / 5000) % 2 == 1;
+            if (odd && (f == PixelFormat::YUYV || f == PixelFormat::UYVY)) f = PixelFormat::NV12;
+            const YuvMatrix m = YuvMatrix((round / 8) % 3);
+            pushFrame(*s.main, f, odd ? 479 : 640, odd ? 269 : 360, phase, m, (round / 24) % 2 == 1);
         }
-        // 宫格 9 路：帧率 5..45fps 各异；奇数路 BGRA（颜色应与偶数路一致）
+        // 8 格式并排：同一测试图逐格式编码（BT.709 limited），10fps——画面应一致
+        if (ms - s.lastFmt >= 100) {
+            s.lastFmt = ms;
+            for (int i = 0; i < 8; ++i) pushFrame(*s.fmt[i], kFmts[i], 160, 90, phase, YuvMatrix::BT709, false);
+        }
+        // 宫格 9 路：帧率 5..45fps 各异；格式按序轮用（RGB/YUV 混排，验证同帧多管线切换）
         for (int i = 0; i < 9; ++i) {
             if (ms - s.lastGrid[i] >= 1000 / (5 + i * 5)) {
                 s.lastGrid[i] = ms;
-                pushBars(*s.grid[i], (i % 2) ? PixelFormat::BGRA8 : PixelFormat::RGBA8, 160, 90, phase * (i + 1) / 3);
+                pushFrame(*s.grid[i], kFmts[i % 8], 160, 90, phase * (i + 1) / 3, YuvMatrix::BT709, false);
             }
         }
         // late：启动 3 秒后才创建（页面先声明 stream://late，StreamPoller 轮询自动接上）
         if (!s.late && ms >= 3000) s.late = createVideoStream("late");
         if (s.late && ms - s.lastLate >= 33) {
             s.lastLate = ms;
-            pushBars(*s.late, PixelFormat::RGBA8, 400, 120, phase);
+            pushFrame(*s.late, PixelFormat::NV12, 400, 120, phase, YuvMatrix::BT601, true);
         }
     }
 };

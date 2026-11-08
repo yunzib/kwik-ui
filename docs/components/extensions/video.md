@@ -57,8 +57,19 @@ std::thread([cam] {
 - **接口**：`createVideoStream(名字, 池槽数=4)` / `findVideoStream` /
   `removeVideoStream`；写帧 `acquire → planes() → commit()`（未 commit 的
   writer 析构即归还），或便捷版 `push(desc, 源平面)`（按源行距逐行拷贝）
-- **格式**：当前显示 RGBA8 / BGRA8；YUV（I420 / YV12 / NV12 / NV21 /
-  YUYV / UYVY）的内存布局已就绪，GPU 显示待后续批次
+- **格式**：RGB 直接显示，YUV 按平面直传 GPU、着色器转色（不经 CPU 转换）
+
+  | format | `planes()` 平面（按各自 `stride` 写） |
+  |---|---|
+  | `RGBA8` / `BGRA8` | 1 平面，每像素 4 字节 |
+  | `I420` / `YV12` | Y / U / V 三平面（YV12 为 Y / V / U），色度 ⌈w/2⌉×⌈h/2⌉ |
+  | `NV12` / `NV21` | Y + 色度交错平面（NV12 为 UV、NV21 为 VU），色度 ⌈w/2⌉×⌈h/2⌉ |
+  | `YUYV` / `UYVY` | 1 平面打包 4:2:2，每 2 像素 4 字节，**宽度须为偶数** |
+
+  YUV 的色彩矩阵与范围随每帧描述生效：
+  `acquire({.format = PixelFormat::NV12, .width = 1920, .height = 1080,
+  .matrix = YuvMatrix::BT709, .fullRange = false})`（矩阵可选 BT601 /
+  BT709 / BT2020，默认 BT.709 limited）
 - **时序无关**：页面先声明、宿主后建流也能自动接上（4ms 轮询）；
   `removeVideoStream` 后显示端保留最后一帧
 - **多个 Video**：同一窗口显示同一路流时共享 GPU 资源、只上传一份；
@@ -83,7 +94,9 @@ JS 工厂自动生成 `__video_N` 占位 id，但它每次渲染都会变化，�
 ## 渲染与后端
 
 - **流模式**：渲染线程帧首（主渲染 pass 之前）把最新帧拷入常驻上传缓冲，
-  再拷进该流的三槽图像环；生产者线程不触碰 GPU
+  再拷进该流的三槽图像环；生产者线程不触碰 GPU。YUV 各平面以 R8 / RG8 /
+  RGBA8 纹理上传（打包 4:2:2 同一块数据按亮度、色度两种纹素宽各上传一份），
+  绘制时由 YUV 着色器（`shaders/image_yuv.slang`）在片段阶段转 RGB
 - **文件模式·拉取模型**：绘制时调 `grabFrame` 取最新帧上传纹理（解码线程
   不触碰 Vulkan）；纹理句柄 `0 = 未上传`
 - **后端接口 `VideoBackend`**（引擎中立）：`open / play / pause / seek /

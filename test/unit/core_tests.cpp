@@ -3733,6 +3733,45 @@ static void test_video_stream_threaded_no_tearing() {
     CHECK(vs.seq() + vs.droppedFrames() == uint64_t(kFrames));
 }
 
+// ── 行为锁: TexturePlan 帧 → GPU 采样平面规划（V1 批 2）──
+// 拷贝行长 = 源 stride / 纹素字节（Vulkan bufferRowLength 依据），故 texelBytes
+// 与源平面字节/像素的对应必须精确；打包 4:2:2 同一源平面重解释为两张视图
+static void test_video_texture_plan() {
+    // RGB 直采样：单平面、非 YUV，纹素宽高 = 像素宽高
+    auto P = TexturePlan::forDesc({.format = PixelFormat::RGBA8, .width = 4, .height = 2});
+    CHECK(P.count == 1 && !P.yuv && P.planes[0].format == TexelFormat::RGBA8 && P.planes[0].texelBytes == 4);
+    CHECK(P.planes[0].width == 4 && P.planes[0].height == 2);
+    P = TexturePlan::forDesc({.format = PixelFormat::BGRA8, .width = 4, .height = 2});
+    CHECK(P.count == 1 && !P.yuv && P.planes[0].format == TexelFormat::BGRA8);
+    CHECK(P.planes[0].width == 4 && P.planes[0].height == 2);
+
+    // I420 5×3：三张 R8，色度 ⌈w/2⌉×⌈h/2⌉ = 3×2，来源平面一一对应
+    P = TexturePlan::forDesc({.format = PixelFormat::I420, .width = 5, .height = 3});
+    CHECK(P.count == 3 && P.yuv);
+    CHECK(P.planes[0].format == TexelFormat::R8 && P.planes[0].width == 5 && P.planes[0].height == 3);
+    CHECK(P.planes[1].width == 3 && P.planes[1].height == 2 && P.planes[1].srcPlane == 1);
+    CHECK(P.planes[2].width == 3 && P.planes[2].height == 2 && P.planes[2].srcPlane == 2);
+    CHECK(TexturePlan::forDesc({.format = PixelFormat::YV12, .width = 5, .height = 3}).count == 3);
+
+    // NV12 4×2：Y R8 + UV 交错 RG8（2B/纹素）
+    P = TexturePlan::forDesc({.format = PixelFormat::NV12, .width = 4, .height = 2});
+    CHECK(P.count == 2 && P.yuv && P.planes[1].format == TexelFormat::RG8);
+    CHECK(P.planes[1].texelBytes == 2 && P.planes[1].width == 2 && P.planes[1].height == 1 && P.planes[1].srcPlane == 1);
+
+    // YUYV 4×2：同一源平面两视图——RG8 w×h 亮度 + RGBA8 (w/2)×h 宏像素色度
+    P = TexturePlan::forDesc({.format = PixelFormat::YUYV, .width = 4, .height = 2});
+    CHECK(P.count == 2 && P.yuv);
+    CHECK(P.planes[0].format == TexelFormat::RG8 && P.planes[0].width == 4 && P.planes[0].texelBytes == 2);
+    CHECK(P.planes[1].format == TexelFormat::RGBA8 && P.planes[1].width == 2 && P.planes[1].texelBytes == 4);
+    CHECK(P.planes[0].srcPlane == 0 && P.planes[1].srcPlane == 0);
+    // 两视图对同一源行长换算一致：256B 行距 → 128 个 RG8 纹素 / 64 个 RGBA8 纹素
+    const auto L = FrameLayout::forDesc({.format = PixelFormat::YUYV, .width = 4, .height = 2});
+    CHECK(L.planes[0].stride / P.planes[0].texelBytes == 128 && L.planes[0].stride / P.planes[1].texelBytes == 64);
+
+    // 非法描述（4:2:2 奇宽）→ 空规划
+    CHECK(TexturePlan::forDesc({.format = PixelFormat::UYVY, .width = 5, .height = 2}).count == 0);
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -3797,6 +3836,7 @@ int main() {
     test_video_stream_realloc_and_push();     // 换分辨率重分配 / push 按 stride 逐行拷贝
     test_video_stream_registry();             // 命名注册表 weak 持有 / 除名 / 覆盖
     test_video_stream_threaded_no_tearing();  // 跨线程固定帧不撕裂 / 提交+丢帧守恒
+    test_video_texture_plan();                // 批 2：帧 → GPU 采样平面规划（YUV 平面 / 4:2:2 双视图）
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

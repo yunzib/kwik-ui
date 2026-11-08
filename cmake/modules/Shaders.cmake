@@ -76,10 +76,33 @@ add_custom_command(
         -DOUTPUT=${SHADER_GEN_DIR}/image_shaders.h
         -DNAME=kImage
         -P ${SHADER_SRC_DIR}/spv_to_header.cmake
-    DEPENDS ${SHADER_SRC_DIR}/image.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    # image_common.slang 为 #include 公共段（与 image_yuv 共用），改动须触发重编
+    DEPENDS ${SHADER_SRC_DIR}/image.slang ${SHADER_SRC_DIR}/image_common.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
     COMMENT "Compiling image shaders to embedded SPIR-V header"
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/image_shaders.h)
+
+# ── Image YUV（V1 推流批 2：流纹理 YUV 平面着色器转色）────────
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/image_yuv_shaders.h
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/image_yuv.slang
+            -entry vertexMain -stage vertex
+            -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/image_yuv.vert.spv
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/image_yuv.slang
+            -entry fragmentMain -stage fragment
+            -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/image_yuv.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/image_yuv.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/image_yuv.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/image_yuv_shaders.h
+        -DNAME=kImageYuv
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/image_yuv.slang ${SHADER_SRC_DIR}/image_common.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling image YUV shaders to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/image_yuv_shaders.h)
 
 # ── Triangle ──────────────────────────────────────────────────
 add_custom_command(

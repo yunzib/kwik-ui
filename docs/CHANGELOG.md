@@ -5,14 +5,16 @@
 - Video 流模式：`src: "stream://名字"` 显示宿主 C++ 推送的视频帧——宿主
   `createVideoStream(名字)` 后在任意线程 `acquire → 写平面 → commit`（池满
   丢帧不阻塞、最新帧优先）；页面先声明、宿主后建流也能自动接上；同一路流
-  多处显示共享 GPU 资源只上传一份，不可见的显示端不上传；当前支持
-  RGBA8 / BGRA8
+  多处显示共享 GPU 资源只上传一份，不可见的显示端不上传
+- 流模式像素格式：RGBA8 / BGRA8 直接显示；YUV 六格式（I420 / YV12 /
+  NV12 / NV21 / YUYV / UYVY）按平面直传 GPU、着色器转色，支持 BT.601 /
+  BT.709 / BT.2020 矩阵与 limited / full 范围（随每帧描述生效）
 - Video `fit` 属性：contain（默认）/ cover / fill / none，语义同 Image
 - 流纹理渲染通道：帧首预处理阶段（主渲染 pass 之前）录制上传，每路流
   三槽图像环 + 常驻上传缓冲，上传无需等待 GPU；分辨率/格式中途变化自动
   重建
-- 演示：`example.exe video_stream`（fit 切换、3×3 多路宫格与打乱顺序、
-  先声明后建流）
+- 演示：`example.exe video_stream`（8 格式并排对照、格式/矩阵/范围轮换与
+  奇数尺寸、fit 切换、3×3 多路宫格与打乱顺序、先声明后建流）
 ### 修复
 - Video 任意 State 变更都会重开视频（reconcile 无条件重置打开状态，接入
   真实解码后即"点任意按钮视频重头播"）：仅 src 变化才重开/重绑，
