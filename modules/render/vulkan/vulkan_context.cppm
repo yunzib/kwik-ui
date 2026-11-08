@@ -78,6 +78,11 @@ public:
     bool present();
     void accumulateDirtyRect(const Rect &dirtyRect);   // 累积脏区 + 首帧回退
 
+    /** @brief 帧首预处理钩子（V1 推流）：beginFrame 内、fence 等待与命令缓冲
+     *         开始之后、主 render pass 之前回调——录 transfer 类命令的唯一
+     *         合法窗口（pass 内不可录 transfer）。置空清除。 */
+    void setPrePassHook(std::function<void(VkCommandBuffer)> hook) { prePassHook_ = std::move(hook); }
+
     // ── 资源访问（仅子渲染器 setup / upload 时用） ──
     VkDevice device() const;
     VkQueue graphicsQueue() const;
@@ -125,6 +130,7 @@ public:
 
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
+    std::function<void(VkCommandBuffer)> prePassHook_;    ///< 帧首预处理（见 setPrePassHook；渲染线程调用）
     VkInstance vkInstance_ = VK_NULL_HANDLE;
     VkSurfaceKHR vkSurface_ = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debugMessenger_ = VK_NULL_HANDLE;

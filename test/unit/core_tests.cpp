@@ -51,6 +51,7 @@ import kwik.element.expansion;      // Expansion（头行带悬停状态转换�
 import kwik.element.tree_menu;      // TreeMenu（事件通报/受控键/同构重喂行为锁）
 import kwik.event;
 import kwik.render.graphics;
+import kwik.render.video_stream;    // VideoStream / FrameLayout（V1 推流帧池行为锁）
 
 import std;
 
@@ -3552,6 +3553,186 @@ static void test_input_selection() {
     CHECK(!svc.activeOn(&in));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 行为锁: VideoStream 帧池（V1 推流批 1）
+// 生产者 acquire→写→commit / 消费者 pinLatest；最新帧优先、池满丢帧
+// 不阻塞、被固定槽不复用、布局 256 对齐（含奇数尺寸）
+// ═══════════════════════════════════════════════════════════════════
+
+// 把 writer 全部平面写成同一字节值（帧内容标记）
+static void vsFill(FrameWriter &w, uint8_t v) {
+    for (const auto &p : w.planes())
+        for (uint32_t y = 0; y < p.height; ++y) std::memset(p.data + size_t(p.stride) * y, v, p.stride);
+}
+
+// 布局：8 格式平面数/stride/偏移（256 对齐）+ 奇数尺寸色度 ⌈w/2⌉ + 4:2:2 奇宽非法
+static void test_video_stream_layout() {
+    auto L = FrameLayout::forDesc({.format = PixelFormat::RGBA8, .width = 4, .height = 3});
+    CHECK(L.planeCount == 1 && L.planes[0].stride == 256 && L.planes[0].bytesPerTexel == 4);
+    CHECK(L.totalBytes == 768);    // 256 × 3 行
+    CHECK(FrameLayout::forDesc({.format = PixelFormat::BGRA8, .width = 100, .height = 1}).planes[0].stride == 512);
+
+    // I420 5×3（奇数）：Y 5×3、U/V ⌈5/2⌉×⌈3/2⌉ = 3×2；平面起点逐个 256 对齐
+    L = FrameLayout::forDesc({.format = PixelFormat::I420, .width = 5, .height = 3});
+    CHECK(L.planeCount == 3);
+    CHECK(L.planes[0].width == 5 && L.planes[0].height == 3 && L.planes[0].offset == 0);
+    CHECK(L.planes[1].width == 3 && L.planes[1].height == 2 && L.planes[1].offset == 768);
+    CHECK(L.planes[2].width == 3 && L.planes[2].height == 2 && L.planes[2].offset == 1280);
+    CHECK(L.totalBytes == 1792);
+    CHECK(FrameLayout::forDesc({.format = PixelFormat::YV12, .width = 5, .height = 3}).planeCount == 3);
+
+    // NV12 5×3：Y + UV 交错（3×2 texel、2B/texel）
+    L = FrameLayout::forDesc({.format = PixelFormat::NV12, .width = 5, .height = 3});
+    CHECK(L.planeCount == 2 && L.planes[1].bytesPerTexel == 2 && L.planes[1].width == 3 && L.planes[1].height == 2);
+    CHECK(L.planes[1].offset == 768 && L.totalBytes == 1280);
+    CHECK(FrameLayout::forDesc({.format = PixelFormat::NV21, .width = 5, .height = 3}).planeCount == 2);
+
+    // 打包 4:2:2：偶宽合法（2B/texel），奇宽非法（planeCount=0 → acquire 丢帧）
+    L = FrameLayout::forDesc({.format = PixelFormat::YUYV, .width = 4, .height = 2});
+    CHECK(L.planeCount == 1 && L.planes[0].bytesPerTexel == 2 && L.planes[0].stride == 256);
+    CHECK(FrameLayout::forDesc({.format = PixelFormat::UYVY, .width = 5, .height = 2}).planeCount == 0);
+}
+
+// 最新帧优先 + 未 commit 的 writer 析构归还 + 无帧时 pin 为空
+static void test_video_stream_latest_wins() {
+    VideoStream vs(3);
+    const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
+    CHECK(vs.seq() == 0 && vs.desc().width == 0);    // 尚无帧：desc 全默认
+    CHECK(!vs.pinLatest());
+    {
+        auto w = vs.acquire(d);
+        CHECK(static_cast<bool>(w));
+        vsFill(w, 0xA0);
+        w.commit();
+    }
+    {
+        auto w = vs.acquire(d);
+        vsFill(w, 0xB0);
+        w.commit();
+    }
+    CHECK(vs.seq() == 2 && vs.desc().width == 2);
+    {
+        auto pin = vs.pinLatest();
+        CHECK(pin && pin.seq() == 2 && pin.planes().size() == 1 && pin.planes()[0].data[0] == 0xB0);
+    }
+    { auto w = vs.acquire(d); }    // 未 commit 即析构 → 槽归还，序号不变
+    CHECK(vs.seq() == 2 && vs.droppedFrames() == 0);
+    // 非法描述（4:2:2 奇宽 / 零尺寸）→ 空 writer
+    CHECK(!vs.acquire({.format = PixelFormat::YUYV, .width = 3, .height = 2}));
+    CHECK(!vs.acquire({.format = PixelFormat::RGBA8, .width = 0, .height = 2}));
+}
+
+// 池满丢帧不阻塞 + 被固定的槽在新帧发布后不被复用（解除固定才还池）
+static void test_video_stream_pool_full_and_pin() {
+    VideoStream vs(2);
+    const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
+    {
+        auto a = vs.acquire(d);
+        vsFill(a, 0xAA);
+        a.commit();
+    }
+    {
+        auto pinA = vs.pinLatest();    // 固定 A（最新）
+        CHECK(pinA && pinA.planes()[0].data[0] == 0xAA);
+        auto wB = vs.acquire(d);       // 第 2 槽
+        CHECK(static_cast<bool>(wB));
+        CHECK(!vs.acquire(d));         // 池满（A 被固定 + B 在写）→ 丢帧，不阻塞
+        CHECK(vs.droppedFrames() == 1);
+        vsFill(wB, 0xBB);
+        wB.commit();                   // B 成最新；A 仍被固定 → 不得作废
+        CHECK(!vs.acquire(d));         // A 固定 / B 最新 → 无可用槽
+        CHECK(vs.droppedFrames() == 2);
+        CHECK(pinA.planes()[0].data[0] == 0xAA);    // 固定期间 A 内容未被覆写
+    }
+    // 解除固定：A 非最新 → 还池，可再取
+    auto e = vs.acquire(d);
+    CHECK(static_cast<bool>(e));
+    vsFill(e, 0xEE);
+    e.commit();
+    auto pin = vs.pinLatest();
+    CHECK(pin && pin.planes()[0].data[0] == 0xEE && vs.seq() == 3);
+}
+
+// 换分辨率重分配 + push 按源 stride 逐行拷贝（池 stride 256 对齐）
+static void test_video_stream_realloc_and_push() {
+    VideoStream vs(2);
+    {
+        auto w = vs.acquire({.format = PixelFormat::RGBA8, .width = 2, .height = 2});
+        w.commit();
+    }
+    {
+        auto w = vs.acquire({.format = PixelFormat::RGBA8, .width = 64, .height = 64});    // 容量不足 → 重分配
+        CHECK(w && w.planes()[0].width == 64 && w.planes()[0].stride == 256);
+        vsFill(w, 0x11);    // 写满整个 64 行平面（容量不足会越界）
+        w.commit();
+    }
+    CHECK(vs.desc().width == 64 && vs.desc().height == 64);
+
+    // 源 3×2 RGBA、行距 20（12B 内容 + 8B 填充）→ 池行距 256
+    std::array<uint8_t, 40> src{};
+    for (uint32_t y = 0; y < 2; ++y)
+        for (uint32_t i = 0; i < 20; ++i) src[y * 20 + i] = i < 12 ? uint8_t(y * 16 + i) : 0xFF;
+    const PlaneView sp{src.data(), 20, 3, 2};
+    vs.push({.format = PixelFormat::RGBA8, .width = 3, .height = 2}, std::span<const PlaneView>(&sp, 1));
+    auto pin = vs.pinLatest();
+    CHECK(pin && pin.desc().width == 3 && pin.planes()[0].stride == 256);
+    bool rowsOk = true;
+    for (uint32_t y = 0; y < 2; ++y)
+        for (uint32_t i = 0; i < 12; ++i)
+            if (pin.planes()[0].data[size_t(256) * y + i] != uint8_t(y * 16 + i)) rowsOk = false;
+    CHECK(rowsOk);
+}
+
+// 命名注册表：weak 持有（不延长寿命）/ 除名不影响持有者 / 同名覆盖
+static void test_video_stream_registry() {
+    auto s = createVideoStream("ut_cam");
+    CHECK(findVideoStream("ut_cam") == s);
+    removeVideoStream("ut_cam");
+    CHECK(!findVideoStream("ut_cam"));
+    CHECK(s && s->seq() == 0);    // 除名后持有者照常可用
+    { (void)createVideoStream("ut_tmp"); }    // 返回值即弃 → 注册表 weak 失效
+    CHECK(!findVideoStream("ut_tmp"));
+    auto a = createVideoStream("ut_dup");
+    auto b = createVideoStream("ut_dup");
+    CHECK(findVideoStream("ut_dup") == b && a != b);
+    removeVideoStream("ut_dup");
+}
+
+// 跨线程：生产者连续推帧、消费者反复固定读取——固定帧内容恒整帧一致（不撕裂），
+// 且每次 acquire 非提交即丢帧（seq + 丢帧 == 总尝试）
+static void test_video_stream_threaded_no_tearing() {
+    VideoStream vs(3);
+    constexpr int kFrames = 2000;
+    const FrameDesc d{.format = PixelFormat::RGBA8, .width = 64, .height = 8};
+    std::atomic<bool> done{false};
+    std::thread producer([&] {
+        for (int i = 0; i < kFrames; ++i) {
+            auto w = vs.acquire(d);
+            if (!w) continue;    // 池满丢帧（计入 droppedFrames）
+            vsFill(w, uint8_t(i % 251 + 1));
+            w.commit();
+        }
+        done = true;
+    });
+    int torn = 0, reads = 0;
+    while (!done.load() || reads == 0) {
+        auto pin = vs.pinLatest();
+        if (!pin) continue;
+        const auto &p = pin.planes()[0];
+        const uint8_t first = p.data[0];
+        for (uint32_t y = 0; y < p.height && torn == 0; ++y)
+            for (uint32_t x = 0; x < p.width * 4; ++x)
+                if (p.data[size_t(p.stride) * y + x] != first) {
+                    ++torn;
+                    break;
+                }
+        ++reads;
+    }
+    producer.join();
+    CHECK(torn == 0);
+    CHECK(vs.seq() + vs.droppedFrames() == uint64_t(kFrames));
+}
+
 int main() {
     test_t07a_event_focus();
     test_text_layout_wrap_rules();
@@ -3610,6 +3791,12 @@ int main() {
     test_text_selection_dispatch();
     test_baking_container_subtree_reencode();
     test_input_selection();
+    test_video_stream_layout();               // V1 推流：帧布局（8 格式 / 奇数尺寸 / 4:2:2 偶宽）
+    test_video_stream_latest_wins();          // 最新帧优先 / 未提交归还 / 非法描述
+    test_video_stream_pool_full_and_pin();    // 池满丢帧不阻塞 / 固定槽不复用
+    test_video_stream_realloc_and_push();     // 换分辨率重分配 / push 按 stride 逐行拷贝
+    test_video_stream_registry();             // 命名注册表 weak 持有 / 除名 / 覆盖
+    test_video_stream_threaded_no_tearing();  // 跨线程固定帧不撕裂 / 提交+丢帧守恒
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

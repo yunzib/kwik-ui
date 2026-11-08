@@ -499,6 +499,12 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
                              0, 0, nullptr, 0, nullptr, 1, &toAtt);
     }
 
+    // ── ③'' 帧首预处理钩子（V1 推流）──
+    // 此刻 fence 等待刚完成（③ 前）且命令缓冲已开始（③ 后）、主 pass 未开：
+    // 录流纹理上传等 transfer 命令的唯一合法窗口。资源通道 drain 也移此
+    // （VulkanBackend::prePassRecord），语义与原 beginFrame 内调用一致。
+    if (prePassHook_) prePassHook_(commandBuffers_[frameIndex_]);
+
     // ── ④ 开始 canvas render pass（LOAD_OP_LOAD，全屏 renderArea）──
     VkRenderPassBeginInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     rpInfo.renderPass = renderPass_;

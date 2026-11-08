@@ -7,6 +7,9 @@
 #include <ctime>
 #include <thread>
 #include <coroutine>
+#include <array>
+#include <chrono>
+#include <memory>
 
 import kwik.platform.window;
 import kwik.platform.win32_window;
@@ -15,6 +18,8 @@ import kwik.engine.channel;
 import kwik.core.log;
 import kwik.ext.video; // 视频扩展插件
 import kwik.ext.g3d;
+import kwik.render.video_stream;    // VideoStream（video_stream demo 合成生产者）
+import kwik.core.timer;             // CoreTimer（生产者节拍）
 
 class ChannelTest {
 public:
@@ -73,6 +78,91 @@ private:
         Channel::send("sensor:temp", payload);
         Log::info("[传感器] #{}/{} -> {:.1f}C / {:.1f}%", seq, 6, temp, humid);
         Channel::setTimeout(3000, [count]() { sensorLoop(count + 1); });
+    }
+};
+
+// ── video_stream demo：主线程合成生产者（V1 推流验证）──
+// CoreTimer 驱动（无线程、退出零拆卸负担）；真实宿主在采集/解码线程
+// acquire → 写平面 → commit，用法相同。流在树构建前创建并先推一帧——
+// 首次绘制即走绑定 + 上传通路（smoke 短帧数也覆盖）；"late" 3 秒后才建，
+// 验证"先声明后建流"由轮询自动接上
+class VideoStreamDemo {
+public:
+    static void setup() {
+        auto &s = state();
+        s.t0 = std::chrono::steady_clock::now();
+        s.main = createVideoStream("main");
+        for (int i = 0; i < 9; ++i) s.grid[i] = createVideoStream("g" + std::to_string(i));
+        s.lastGrid.fill(-1000);
+        tick();                                       // 同步先推一帧
+        CoreTimer::setInterval(8, [] { tick(); });    // 8ms 节拍驱动各路不同帧率
+    }
+
+private:
+    struct State {
+        std::chrono::steady_clock::time_point t0;
+        std::shared_ptr<VideoStream> main, late;
+        std::array<std::shared_ptr<VideoStream>, 9> grid;
+        int64_t lastMain = -1000, lastLate = -1000;
+        std::array<int64_t, 9> lastGrid{};
+    };
+    static State &state() {
+        static State s;
+        return s;
+    }
+
+    // 8 色竖条 + 一条随时间移动的反色竖线（证明画面在动）。BGRA 按字节序交换
+    // 写入——显示颜色应与 RGBA 路完全一致（不一致即 BGRA 映射有误）
+    static void pushBars(VideoStream &vs, PixelFormat fmt, uint32_t w, uint32_t h, uint32_t phase) {
+        static const uint8_t kBars[8][3] = {{235, 235, 235}, {235, 235, 16}, {16, 235, 235}, {16, 235, 16},
+                                            {235, 16, 235},  {235, 16, 16},  {16, 16, 235},  {16, 16, 16}};
+        auto wr = vs.acquire({.format = fmt, .width = w, .height = h});
+        if (!wr) return;    // 池满丢帧（生产者不阻塞）
+        const PlaneView &p = wr.planes()[0];
+        const bool bgra = fmt == PixelFormat::BGRA8;
+        const uint32_t lineX = phase % w;
+        for (uint32_t y = 0; y < h; ++y) {
+            uint8_t *row = p.data + size_t(p.stride) * y;
+            for (uint32_t x = 0; x < w; ++x) {
+                const uint8_t *c = kBars[(x * 8) / w];
+                const bool onLine = x >= lineX && x < lineX + 3;
+                const uint8_t r = onLine ? uint8_t(255 - c[0]) : c[0];
+                const uint8_t g = onLine ? uint8_t(255 - c[1]) : c[1];
+                const uint8_t b = onLine ? uint8_t(255 - c[2]) : c[2];
+                uint8_t *px = row + size_t(x) * 4;
+                px[0] = bgra ? b : r;
+                px[1] = g;
+                px[2] = bgra ? r : b;
+                px[3] = 255;
+            }
+        }
+        wr.commit();
+    }
+
+    static void tick() {
+        auto &s = state();
+        const int64_t ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - s.t0).count();
+        const uint32_t phase = uint32_t(ms / 8);
+        // main：30fps RGBA，每 5 秒在 640×360 / 480×270 间切换（换分辨率 → 后端整组重建）
+        if (ms - s.lastMain >= 33) {
+            s.lastMain = ms;
+            const bool small = (ms / 5000) % 2 == 1;
+            pushBars(*s.main, PixelFormat::RGBA8, small ? 480 : 640, small ? 270 : 360, phase);
+        }
+        // 宫格 9 路：帧率 5..45fps 各异；奇数路 BGRA（颜色应与偶数路一致）
+        for (int i = 0; i < 9; ++i) {
+            if (ms - s.lastGrid[i] >= 1000 / (5 + i * 5)) {
+                s.lastGrid[i] = ms;
+                pushBars(*s.grid[i], (i % 2) ? PixelFormat::BGRA8 : PixelFormat::RGBA8, 160, 90, phase * (i + 1) / 3);
+            }
+        }
+        // late：启动 3 秒后才创建（页面先声明 stream://late，StreamPoller 轮询自动接上）
+        if (!s.late && ms >= 3000) s.late = createVideoStream("late");
+        if (s.late && ms - s.lastLate >= 33) {
+            s.lastLate = ms;
+            pushBars(*s.late, PixelFormat::RGBA8, 400, 120, phase);
+        }
     }
 };
 
@@ -135,6 +225,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "timer") return "../../test/ui/timer.js";
         if (arg == "car") return "../../test/ui/car/ivi.js";
         if (arg == "video") return "../../test/ui/video.js";
+        if (arg == "video_stream") return "../../test/ui/video_stream.js";    // V1 推流（C++ 合成生产者）
         return arg;
     }
     return "../../test/ui/example.js";
@@ -151,6 +242,9 @@ int main(int argc, char *argv[]) {
 
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
     registerG3DElement();
+
+    // video_stream：流须在树构建（createRuntime 执行 JS）之前创建并推首帧
+    if (argc >= 2 && std::string(argv[1]) == "video_stream") { VideoStreamDemo::setup(); }
 
     Application app;
     app.createRuntime(*window, {.jsPath = resolveDemo(argc, argv), .fontDirs = {"../../resources/fonts"}});

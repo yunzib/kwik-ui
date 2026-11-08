@@ -11,6 +11,7 @@ import kwik.core.types;
 import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.core.log;
+import kwik.render.video_stream;    // VideoStream（createStreamTexture 转发）
 
 import std;
 
@@ -72,10 +73,13 @@ bool VulkanBackend::initialize(void *native) {
     Log::info("[startup] pipeline_create = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count());
 
+    // 帧首预处理钩子：资源通道 drain + 流纹理上传（须在主 pass 之前录制）
+    ctx_.setPrePassHook([this](VkCommandBuffer cb) { prePassRecord(cb); });
     return true;
 }
 
 void VulkanBackend::shutdown() {
+    ctx_.setPrePassHook(nullptr);    // 先摘钩子：shutdown 后回调不允许再触碰设备
     if (ctx_.device() != VK_NULL_HANDLE) vkDeviceWaitIdle(ctx_.device());
     image_.destroy();
     glyph_.destroy();
@@ -89,16 +93,25 @@ bool VulkanBackend::resize(int w, int h) {
 }
 
 // ================================================================
-// beginFrame — 获取 FrameToken + 设置裁剪初始状态
+// prePassRecord — 帧首预处理（VulkanContext 钩子回调：fence 已等待、
+// 命令缓冲已开始、主 render pass 未开）
 // ================================================================
-bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
-    auto token = ctx_.beginFrame();
-    if (!token) return false;
-    currentToken_ = std::move(token);
-
+void VulkanBackend::prePassRecord(VkCommandBuffer cb) {
     // 纹理资源通道消费：此刻 fence 等待刚完成——retire 回收的安全性前提成立
     // （在飞帧命令缓冲已结束），且本帧回放前新纹理已就绪（同帧入队同帧可用）
     image_.drainResources(deviceCtx_, ++resourceFrame_);
+    // 流纹理上传：本帧被触碰且有新帧的流 → staging[帧槽] → 图像环下一槽
+    // （transfer 命令只能录在 pass 外，故与 drain 同处帧首窗口）
+    image_.recordStreamUploads(deviceCtx_, cb, ctx_.frameIndex(), resourceFrame_);
+}
+
+// ================================================================
+// beginFrame — 获取 FrameToken + 设置裁剪初始状态
+// ================================================================
+bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
+    auto token = ctx_.beginFrame();    // 内含帧首预处理钩子（prePassRecord）
+    if (!token) return false;
+    currentToken_ = std::move(token);
 
     int32_t sx = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.x)));
     int32_t sy = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.y)));
@@ -216,6 +229,16 @@ void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
 
 uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
     return image_.enqueueTexture(rgba, w, h);    // 通道入队，渲染线程帧首上传
+}
+
+// 流纹理：通道入队（id 同步返回），渲染线程帧首注册并按流共享 GPU 资源
+uint32_t VulkanBackend::createStreamTexture(std::shared_ptr<VideoStream> stream) {
+    return image_.enqueueStream(std::move(stream));
+}
+
+// 本帧将绘制该流纹理：入队触碰标记，帧首据此决定是否上传新帧
+void VulkanBackend::touchStreamTexture(uint32_t id) {
+    image_.enqueueTouch(id);
 }
 
 // 17 号：异步上传回执查询（UI 线程轮询；查询即摘除该 id 回执，0=在途 1=落地 2=失败）

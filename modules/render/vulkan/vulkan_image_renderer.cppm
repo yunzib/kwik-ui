@@ -2,6 +2,8 @@ module;
 #include <vulkan/vulkan.h>
 #include <atomic>
 #include <deque>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -9,6 +11,7 @@ export module kwik.render.vulkan.image_renderer;
 import kwik.core.types;
 import kwik.render.command;
 import kwik.render.vulkan.context;
+import kwik.render.video_stream;    // VideoStream / FrameDesc / FrameLayout（流纹理）
 
 export class ImageRenderer {
 public:
@@ -24,9 +27,19 @@ public:
     /** @brief 入队纹理销毁（UI 线程调用）：id 即失效；实际释放由渲染线程延迟执行
      *         （retire 队列保证在飞帧引用安全），UI 线程不阻塞等待 GPU */
     void enqueueDestroy(uint32_t id);
-    /** @brief 消费挂起的创建/销毁作业（渲染线程调用，须在帧首 fence 等待之后）
+    /** @brief 入队流纹理绑定（UI 线程调用）：id 同步返回；渲染线程帧首按
+     *         VideoStream* 共享 GPU 资源并引用计数（同流多显示端各自持 id） */
+    uint32_t enqueueStream(std::shared_ptr<VideoStream> stream);
+    /** @brief 入队流纹理触碰（UI 线程录制该 id 绘制命令时调用）：标记本帧
+     *         将绘制——未被触碰的流帧首不上传新帧（不可见不占带宽） */
+    void enqueueTouch(uint32_t id);
+    /** @brief 消费挂起的创建/销毁/流绑定作业（渲染线程调用，须在帧首 fence 等待之后）
      *         @param frameNo 单调递增帧号——retire 队列回收帧距的基准 */
     void drainResources(const DeviceContext &dc, uint64_t frameNo);
+    /** @brief 流纹理上传（渲染线程帧首、主 render pass 之前调用——transfer
+     *         命令唯一合法窗口）：被触碰且有新帧的流 → memcpy 进 staging[帧槽]
+     *         → 拷入图像环下一槽（fence 证明该槽已无在飞帧引用，免执行依赖） */
+    void recordStreamUploads(const DeviceContext &dc, VkCommandBuffer cb, uint32_t frameSlot, uint64_t frameNo);
     /** @brief 查询某 id 的异步上传结果（UI 线程调用，查询即摘除该 id 回执）
      *         @return 0=在途 1=已落地（源像素可释放） 2=上传失败（可重试） */
     int queryUploadResult(uint32_t id);
@@ -57,6 +70,40 @@ private:
     };
     std::unordered_map<uint32_t, TextureData> textures_;    // 仅渲染线程访问（资源编组后）
 
+    // ── 流纹理（V1 推流）：按 VideoStream* 共享 GPU 资源，别名 id 引用计数 ──
+    struct StreamSlot {                          // 图像环一槽（槽距 = kMaxFramesInFlight）
+        VkDeviceMemory memory = VK_NULL_HANDLE;  // 本槽全部平面共用一块（按对齐子分配）
+        std::vector<VkImage> images;             // 平面图像（RGBA/BGRA 单平面；YUV 批 2）
+        std::vector<VkImageView> views;
+        VkDescriptorSet descSet = VK_NULL_HANDLE;    // 建槽时写一次，此后只读（免在飞更新）
+        VkDescriptorPool pool = VK_NULL_HANDLE;      // descSet 所属池（逐 set 释放路由）
+    };
+    struct StreamStage {                         // 每在飞帧一份常驻 staging（fence 保证复用安全）
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        void *mapped = nullptr;
+        VkDeviceSize capacity = 0;
+    };
+    struct StreamResources {                     // GPU 资源组（格式/尺寸变更时整组换新，旧组延迟释放）
+        std::vector<StreamSlot> slots;           // kMaxFramesInFlight 槽图像环
+        std::vector<StreamStage> stages;         // kMaxFramesInFlight 份 staging
+    };
+    struct StreamTexture {
+        std::shared_ptr<VideoStream> stream;     // 数据源（持 shared：退役帧距内不悬空）
+        FrameDesc desc;                          // 当前 GPU 布局（格式/尺寸变则整组重建）
+        FrameLayout layout;                      // 与 desc 对应的平面布局（staging/拷贝依据）
+        StreamResources res;                     // 图像环 + staging + 每槽描述符集
+        uint32_t ringIndex = 0;                  // 最近写入的槽（上传时先 +1 再写；绘制即采样此槽）
+        uint64_t uploadedSeq = 0;                // 已上传帧序号（同帧不重复上传）
+        bool hasUpload = false;                  // 首帧上传前绘制跳过（元素侧占位）
+        uint64_t touchedFrame = 0;               // 最近被录制触碰的帧号（不可见跳过上传）
+        int32_t refCount = 0;                    // 别名计数（归零延后一帧退役）
+        uint64_t retireAt = 0;                   // 退役执行帧号（0 = 未挂起；复活即取消）
+    };
+    std::unordered_map<VideoStream *, std::unique_ptr<StreamTexture>> streams_;    // 仅渲染线程
+    std::unordered_map<uint32_t, VideoStream *> streamAliases_;    // 别名 id → 流（仅渲染线程）
+    VkSampler streamSampler_ = VK_NULL_HANDLE;   // 流专用采样器（线性 + clamp，无 mip；全流共享）
+
     // ── 资源通道：UI 线程生产（enqueue）↔ 渲染线程消费（drain） ──
     struct PendingCreate {
         std::vector<uint8_t> pixels;    // 像素拷贝（入队即脱离调用方内存）
@@ -64,15 +111,22 @@ private:
         uint32_t width;
         uint32_t height;
     };
+    struct PendingStream {              // 流绑定作业（id 已在 UI 线程预分配）
+        uint32_t id;
+        std::shared_ptr<VideoStream> stream;
+    };
     struct RetiredTexture {
         TextureData tex;
         uint64_t frameNo;    // 退役帧号；帧距达到 kMaxFramesInFlight 后回收
     };
     std::mutex jobsMutex_;                      // 生产/消费交接锁（仅护交接，执行段无锁）
     std::vector<PendingCreate> pendingCreates_; // 待创建（UI 线程 push / 渲染线程 drain）
-    std::vector<uint32_t> pendingDestroys_;     // 待销毁（同上）
+    std::vector<uint32_t> pendingDestroys_;     // 待销毁（同上；流别名 id 混用此队列）
+    std::vector<PendingStream> pendingStreams_; // 待绑定流（同上）
+    std::vector<uint32_t> pendingTouches_;      // 本帧被触碰的流别名 id（同上）
     std::deque<RetiredTexture> retired_;        // 退役中：帧距未满不释放（仅渲染线程）
-    std::atomic<uint32_t> nextId_{1};           // id 分配（UI 线程无锁递增）
+    std::deque<std::pair<uint64_t, std::function<void()>>> deferredFrees_;    // 流资源延迟释放（帧距满执行，仅渲染线程）
+    std::atomic<uint32_t> nextId_{1};           // id 分配（UI 线程无锁递增；流别名共用此空间）
 
     // ── 上传回执（渲染线程在 drainResources 写入，UI 线程执行 query）──
     // 查询即摘除。渲染线程不入 textures_ 的失败 id 也在此留痕，调用方
@@ -86,4 +140,21 @@ private:
     uint32_t createTextureWithId(const DeviceContext &dc, uint32_t id, const uint8_t *rgba, uint32_t w, uint32_t h);
     /** @brief 立即释放一套纹理资源（渲染线程；调用方保证无在飞帧引用） */
     void freeTexture(const TextureData &t);
+
+    // ── 流纹理内部（仅渲染线程）──
+    /** @brief PixelFormat → VkFormat（批 1：RGBA8/BGRA8；YUV 批 2 接入，其余返回 UNDEFINED） */
+    static VkFormat vkFormatFor(PixelFormat f);
+    /** @brief 创建/重建 StreamTexture 的 GPU 资源组（图像环 + staging + 每槽描述符集）
+     *         @return false = 资源创建失败（流保持未就绪，下帧重试） */
+    bool createStreamResources(const DeviceContext &dc, StreamTexture &st);
+    /** @brief 立即释放一组流资源（调用方保证无在飞帧引用） */
+    void freeStreamResources(const StreamResources &r);
+    /** @brief 把整组流资源推入延迟释放队列（帧距满后在 drainResources 执行） */
+    void deferFreeResources(StreamResources &&r, uint64_t frameNo);
+    /** @brief 从描述符池分配一个 image descSet（复用纹理池的懒建/扩容/旧池回填逻辑） */
+    VkDescriptorSet allocDescSet(const DeviceContext &dc, VkDescriptorPool &outPool);
+    /** @brief 流纹理绘制（drawImage/drawImageClipped 按别名表分派到此；RGBA/BGRA
+     *         复用 image 管线 + 环槽 descSet） */
+    void drawStream(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
+                    const Transform2D &t, bool clipped);
 };

@@ -1,10 +1,12 @@
 module;
 #include <cstdint>
+#include <memory>
 
 export module kwik.render.backend;
 
 import kwik.core.types;
 import kwik.render.command;
+import kwik.render.video_stream;    // VideoStream（流纹理接口参数）
 import kwik.platform.window;
 import kwik.core.path; // Vec2 定义在此模块中
 
@@ -121,6 +123,25 @@ public:
      *         实际释放由后端延迟到在飞帧引用全部结束后，调用方线程不阻塞
      */
     virtual void destroyImageTexture(uint32_t id) = 0;
+
+    /**
+     * @brief 创建流纹理（资源通道，V1 推流）：绑定一路 VideoStream 持续取最新帧
+     *        上传 GPU；id 同步返回、可立即用于绘制引用（首帧上传后可见）。
+     *        后端按流共享 GPU 资源并引用计数，销毁同 destroyImageTexture
+     *        （同流多显示端各自持 id，计数归零才真释放）。
+     *        默认返回 0 = 本后端不支持流纹理（调用方按无纹理占位处理）。
+     */
+    virtual uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) {
+        (void)stream;
+        return 0;
+    }
+
+    /**
+     * @brief 触碰流纹理（UI 线程录制该 id 的绘制命令时调用）：标记"本帧将
+     *        绘制"，后端帧首据此决定是否上传新帧——不可见（未录制）的显示端
+     *        不触碰、不上传。默认无操作。
+     */
+    virtual void touchStreamTexture(uint32_t id) { (void)id; }
 
     /**
      * @brief 图像纹理异步上传回执状态（UI 线程查询用，资源通道）

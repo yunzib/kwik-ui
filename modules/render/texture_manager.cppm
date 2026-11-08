@@ -5,6 +5,7 @@ module;
 export module kwik.render.texture_manager;
 import kwik.render.backend;
 import kwik.render.command;
+import kwik.render.video_stream;    // VideoStream（流纹理转发）
 import std;
 /**
  * @brief GPU 纹理管理器（单例，按渲染后端分域）
@@ -47,6 +48,30 @@ public:
             it->second.push_back(id);
         }
         return id;
+    }
+
+    /**
+     * @brief 创建流纹理并绑定视频流（按 backend 域路由转发）
+     *
+     * id 语义与销毁路径（destroyTexture）和普通纹理一致；域记账同 createTexture。
+     * 后端内按 VideoStream* 共享 GPU 资源（同流多显示端各自持 id 引用计数）。
+     */
+    uint32_t createStreamTexture(RenderBackend *backend, std::shared_ptr<VideoStream> stream) {
+        if (!backend || !stream) return 0;
+        auto it = domains_.find(backend);
+        if (it == domains_.end()) return 0;    // 未注册域（防御）
+        uint32_t id = backend->createStreamTexture(std::move(stream));
+        if (id != 0) {
+            it->second.push_back(id);
+        }
+        return id;
+    }
+
+    /**
+     * @brief 触碰流纹理（录制绘制时调用；后端帧首按触碰决定是否上传新帧）
+     */
+    void touchStreamTexture(RenderBackend *backend, uint32_t id) {
+        if (backend && id != 0) backend->touchStreamTexture(id);
     }
 
     /**

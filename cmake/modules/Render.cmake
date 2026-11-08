@@ -13,6 +13,7 @@ set(RENDER_PUBLIC_MODULES
     modules/render/command_queue.cppm
     modules/render/command_buffer.cppm
     modules/render/texture_manager.cppm
+    modules/render/video_stream.cppm
     modules/render/text/text_types.cppm
     modules/render/text/text_face.cppm
     modules/render/text/text_shaper.cppm
@@ -28,6 +29,7 @@ set(RENDER_PRIVATE_SOURCES
     src/render/render_thread.cpp
     src/render/command_queue.cpp
     src/render/command_buffer.cpp
+    src/render/video_stream.cpp
     src/render/text/text_face_ft.cpp
     src/render/text/text_shaper.cpp
     src/render/text/text_font_manager.cpp
@@ -63,6 +65,7 @@ if(KWIK_RENDER_VULKAN)
         src/render/vulkan/vulkan_rect_renderer.cpp
         src/render/vulkan/vulkan_glyph_renderer.cpp
         src/render/vulkan/vulkan_image_renderer.cpp
+        src/render/vulkan/vulkan_image_stream.cpp
         src/render/vulkan/vulkan_clip_manager.cpp
         src/render/vulkan/vulkan_backend.cpp
         src/render/vulkan/vulkan_triangle_renderer.cpp

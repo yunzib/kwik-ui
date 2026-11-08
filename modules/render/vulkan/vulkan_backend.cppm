@@ -17,6 +17,7 @@ import kwik.core.path;
 import kwik.render.vulkan.mesh_renderer;
 import kwik.core.types;
 import kwik.render.vulkan.backdrop_renderer;
+import kwik.render.video_stream;    // VideoStream（流纹理接口参数）
 
 import std;
 
@@ -49,6 +50,8 @@ public:
     void drawImage(const DrawImageCmd &cmd) override;
     uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
     void destroyImageTexture(uint32_t id) override;
+    uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) override;
+    void touchStreamTexture(uint32_t id) override;
     RenderBackend::TextureUploadStatus imageTextureResult(uint32_t id) override;
     void pushClipRoundedRect(const Rect &rect, float radius, const Transform2D &t, const Rect &clipRect) override;
     void popState() override;
@@ -68,6 +71,10 @@ public:
     void invalidateCaches() override {}
 
 private:
+    /** @brief 帧首预处理（经 VulkanContext::setPrePassHook 注册）：资源通道 drain
+     *         + 流纹理上传录制——主 render pass 开始之前的 transfer 窗口 */
+    void prePassRecord(VkCommandBuffer cb);
+
     VulkanContext ctx_;
     RectRenderer rect_;
     GlyphRenderer glyph_;

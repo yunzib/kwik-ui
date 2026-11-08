@@ -39,6 +39,9 @@ import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.event;                  // DispatchEvent（onWindowResize 直投行为锁）
 import kwik.platform.window;        // PlatformWindow（StubWindow 夹具全虚面）
 import kwik.core.log;
+#if defined(KWIK_TEST_VIDEO)
+import kwik.ext.video;              // Video（stream:// 路由 / fit / reconcile 不重开行为锁直驱）
+#endif
 
 import std;
 
@@ -1340,6 +1343,111 @@ static void test_reconcile_token_resolve() {
     JS_FreeValue(c, global);
 }
 
+#if defined(KWIK_TEST_VIDEO)
+// ── 行为锁: Video 流模式（V1 推流批 1）──
+// Video 描述符 {type:'Video', props:{id?, src, fit?, loop}, children:[]}（独立引用，调用方 Free）
+static JSValue makeVideoNode(JSContext *c, const char *id, const char *src, const char *fit, bool loop) {
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Video"));
+    JSValue props = JS_NewObject(c);
+    if (id) JS_SetPropertyStr(c, props, "id", JS_NewString(c, id));
+    JS_SetPropertyStr(c, props, "src", JS_NewString(c, src));
+    if (fit) JS_SetPropertyStr(c, props, "fit", JS_NewString(c, fit));
+    JS_SetPropertyStr(c, props, "loop", JS_NewBool(c, loop));
+    JS_SetPropertyStr(c, node, "props", props);
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    return node;
+}
+
+// 锁①: stream:// 流名解析 + fit 映射（显式 cover/none、缺省 contain、未知串保留默认）
+static void test_video_stream_mode_parse() {
+    JSContext *c = g_ctx->getPtr();
+    registerVideoElement();    // 扩展注册（真进程由 main 在构造 Application 前调用）
+
+    CHECK(Video::streamNameOf("stream://cam0") == "cam0");
+    CHECK(Video::streamNameOf("media/a.mp4").empty());
+    CHECK(Video::streamNameOf("stream://").empty());
+
+    auto parseFit = [&](const char *fit) -> std::optional<ImageFit> {
+        JSValue n = makeVideoNode(c, nullptr, "stream://cam0", fit, false);
+        auto v = ElementParser::parse(c, n);
+        JS_FreeValue(c, n);
+        auto *video = dynamic_cast<Video *>(v.get());
+        return video ? std::optional<ImageFit>(video->videoProps().fit) : std::nullopt;
+    };
+    CHECK(parseFit("cover") == ImageFit::Cover);
+    CHECK(parseFit("none") == ImageFit::None);
+    CHECK(parseFit(nullptr) == ImageFit::Contain);    // 缺省 contain（同 HTML video）
+    CHECK(parseFit("zoom") == ImageFit::Contain);     // 未知串不落别的枚举
+}
+
+// 锁②: reconcile 仅 src 变化才重开（此前 applyVideoProps 无条件 opened_=false——
+// 任意 State 变更整树 reconcile 即重开，接真实后端表现为"点任意按钮视频重头播"）
+static void test_video_reconcile_no_reopen() {
+    JSContext *c = g_ctx->getPtr();
+    JSValue n1 = makeVideoNode(c, "v", "clip.mp4", nullptr, false);
+    auto tree = ElementParser::parse(c, n1);
+    JS_FreeValue(c, n1);
+    auto *v = dynamic_cast<Video *>(tree.get());
+    CHECK(v != nullptr);
+    if (!v) return;
+    v->play();    // 惰性建 Null 后端并 open
+    CHECK(v->isOpened());
+    View *ptr = tree.get();
+
+    JSValue n2 = makeVideoNode(c, "v", "clip.mp4", nullptr, true);    // 同 src、仅改 loop
+    auto merged = ElementParser::reconcile(c, n2, std::move(tree));
+    JS_FreeValue(c, n2);
+    CHECK(merged.get() == ptr);                               // 原位复用
+    CHECK(v->isOpened() && v->videoProps().loop);             // 不重开，loop 原位生效
+
+    JSValue n3 = makeVideoNode(c, "v", "other.mp4", nullptr, true);    // 换 src
+    auto merged2 = ElementParser::reconcile(c, n3, std::move(merged));
+    JS_FreeValue(c, n3);
+    CHECK(merged2.get() == ptr && !v->isOpened() && v->videoProps().src == "other.mp4");
+}
+
+// 锁③: 显式 id 重排——reconcile 按 id 认领，节点随 id 移动、流绑定（src）不错配
+// （位置匹配会把 cam0 的节点复用给 cam1 → 整体重绑；宫格打乱即此场景）
+static void test_video_explicit_id_reorder() {
+    JSContext *c = g_ctx->getPtr();
+    auto makeRow = [&](std::initializer_list<int> order) {
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
+        JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
+        JSValue arr = JS_NewArray(c);
+        uint32_t i = 0;
+        for (int k : order) {
+            const std::string id = "g" + std::to_string(k);
+            const std::string src = "stream://" + id;
+            JS_SetPropertyUint32(c, arr, i++, makeVideoNode(c, id.c_str(), src.c_str(), "cover", false));
+        }
+        JS_SetPropertyStr(c, node, "children", arr);
+        return node;
+    };
+    JSValue a = makeRow({0, 1, 2});
+    auto tree = ElementParser::parse(c, a);
+    JS_FreeValue(c, a);
+    CHECK(tree && tree->children.size() == 3);
+    if (!tree || tree->children.size() != 3) return;
+    std::unordered_map<std::string, View *> byId;
+    for (auto &ch : tree->children) byId[ch->props.id] = ch.get();
+
+    JSValue b = makeRow({2, 0, 1});
+    auto merged = ElementParser::reconcile(c, b, std::move(tree));
+    JS_FreeValue(c, b);
+    CHECK(merged && merged->children.size() == 3);
+    bool ok = merged && merged->children.size() == 3;
+    for (size_t i = 0; ok && i < merged->children.size(); ++i) {
+        auto *v = dynamic_cast<Video *>(merged->children[i].get());
+        const std::string &id = merged->children[i]->props.id;
+        if (!v || byId[id] != v || v->videoProps().src != "stream://" + id) ok = false;
+    }
+    CHECK(ok);
+    CHECK(merged && merged->children.size() == 3 && merged->children[0]->props.id == "g2");    // 新序生效
+}
+#endif
+
 // ── 行为锁: g2d 数值参数校验（21⑧）──
 // 非数值/缺失参数此前 NaN 坐标直进绘制命令 + 转换挂起的 JS 异常被吞、
 // 延迟到下一个不相关调用错位冒出；现抛 TypeError 即时失败。
@@ -1401,6 +1509,11 @@ int main() {
     test_expansion_uncontrolled_state();    // 同上（Expansion ①：defaultOpen 不回灌 + 保活隐藏；纯解析无 storm 面）
     test_expansion_controlled_and_mutex();  // 同上（Expansion ②③：受控 onToggle 通报专用无固写 + 互斥规约）
     test_image_fit_parse();              // 同上（ImageFit "cover" 解析映射；纯解析无 storm 面）
+#if defined(KWIK_TEST_VIDEO)
+    test_video_stream_mode_parse();      // 同上（Video stream:// 路由 / fit 映射；纯解析无 storm 面）
+    test_video_reconcile_no_reopen();    // 同上（reconcile 仅 src 变化才重开）
+    test_video_explicit_id_reorder();    // 同上（显式 id 重排不错绑流）
+#endif
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清

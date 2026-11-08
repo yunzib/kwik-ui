@@ -26,11 +26,22 @@ void ImageRenderer::destroy() {
         std::lock_guard<std::mutex> lock(jobsMutex_);
         pendingCreates_.clear();
         pendingDestroys_.clear();
+        pendingStreams_.clear();    // 流绑定/触碰挂起作业一并丢弃（id 从未落地，无设备资源可泄）
+        pendingTouches_.clear();
         landedIds_.clear();     // 17 号：上传回执一并清场
         failedCreates_.clear();
     }
     for (auto &r : retired_) freeTexture(r.tex);
     retired_.clear();
+    // 流资源整组清场（teardown：渲染线程已停，无并发）；延迟释放队列随清
+    for (auto &[key, st] : streams_) freeStreamResources(st->res);
+    streams_.clear();
+    streamAliases_.clear();
+    deferredFrees_.clear();
+    if (streamSampler_ != VK_NULL_HANDLE) {
+        vkDestroySampler(device_, streamSampler_, nullptr);
+        streamSampler_ = VK_NULL_HANDLE;
+    }
     for (auto &[id, t] : textures_) freeTexture(t);
     textures_.clear();
     for (auto p : descPools_)
@@ -351,6 +362,26 @@ void ImageRenderer::enqueueDestroy(uint32_t id) {
     pendingDestroys_.push_back(id);
 }
 
+// 流绑定：id 同步返回（UI 线程立即可录绘制引用）；GPU 资源由渲染线程
+// 帧首按 VideoStream* 去重复用（refCount 计数）
+uint32_t ImageRenderer::enqueueStream(std::shared_ptr<VideoStream> stream) {
+    if (!stream) return 0;
+    uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        pendingStreams_.push_back({id, std::move(stream)});
+    }
+    return id;
+}
+
+// 触碰：UI 线程录制该 id 的绘制命令时标记"本帧将绘制"——未被触碰的流
+// 帧首不上传新帧（滚出视口/被裁剪的显示端不占带宽）
+void ImageRenderer::enqueueTouch(uint32_t id) {
+    if (id == 0) return;
+    std::lock_guard<std::mutex> lock(jobsMutex_);
+    pendingTouches_.push_back(id);
+}
+
 // ================================================================
 // queryUploadResult — 查询某 id 的异步上传结果（UI 线程；查询即摘除）
 // ================================================================
@@ -371,10 +402,38 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     // ① 交接挂起作业（锁内只做 swap，执行段无锁）
     std::vector<PendingCreate> creates;
     std::vector<uint32_t> destroys;
+    std::vector<PendingStream> streamBinds;
+    std::vector<uint32_t> touches;
     {
         std::lock_guard<std::mutex> lock(jobsMutex_);
         creates.swap(pendingCreates_);
         destroys.swap(pendingDestroys_);
+        streamBinds.swap(pendingStreams_);
+        touches.swap(pendingTouches_);
+    }
+    // ①' 流绑定（先于销毁处理：同帧「A 放掉 + B 绑同流」两序均正确——
+    //     复活取消挂起退役 / 计数一增一减殊途同归）
+    for (auto &b : streamBinds) {
+        VideoStream *key = b.stream.get();
+        auto it = streams_.find(key);
+        if (it == streams_.end()) {
+            auto st = std::make_unique<StreamTexture>();
+            st->stream = std::move(b.stream);
+            st->refCount = 1;
+            st->touchedFrame = frameNo;    // 新建视为刚触碰：保证首帧上传
+            it = streams_.emplace(key, std::move(st)).first;
+        } else {
+            it->second->refCount++;
+            it->second->retireAt = 0;      // 复活：取消挂起退役（同帧重绑不断流）
+        }
+        streamAliases_[b.id] = key;
+    }
+    // ①'' 触碰入账：本帧被录制绘制的流 → touchedFrame（帧首上传判据）
+    for (uint32_t id : touches) {
+        auto sa = streamAliases_.find(id);
+        if (sa == streamAliases_.end()) continue;
+        auto it = streams_.find(sa->second);
+        if (it != streams_.end()) it->second->touchedFrame = frameNo;
     }
     // ② 执行创建：设备上传（渲染线程串行，队列不再与 UI 线程并发）。
     // 17 号：成败均录回执——成功 id 供调用方确认落地后释放源像素；
@@ -409,16 +468,44 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     //    frameNo+kMaxFramesInFlight 的 drain 回收（该帧 beginFrame 的 fence
     //    等待已保证 ≤ frameNo-1 帧全部完成，帧距 3 留一帧裕量）
     for (uint32_t id : destroys) {
+        // 流别名 id：计数递减；归零挂起退役（延后一帧执行——同帧内被重新
+        // 绑定即复活，避免列表重排时图像环销毁重建/闪占位）
+        auto sa = streamAliases_.find(id);
+        if (sa != streamAliases_.end()) {
+            auto it = streams_.find(sa->second);
+            streamAliases_.erase(sa);
+            if (it != streams_.end()) {
+                auto &st = *it->second;
+                if (st.refCount > 0) --st.refCount;
+                if (st.refCount <= 0 && st.retireAt == 0) st.retireAt = frameNo + 1;
+            }
+            continue;
+        }
         auto it = textures_.find(id);
         if (it == textures_.end()) continue;
         retired_.push_back({it->second, frameNo});
         textures_.erase(it);
     }
-    // ④ 回收帧距已满的退役纹理（deque 头部帧号最小）
+    // ④ 流退役到期：摘表 + 资源组入延迟释放队列（帧距保护在飞帧引用）
+    for (auto it = streams_.begin(); it != streams_.end();) {
+        if (it->second->retireAt != 0 && frameNo >= it->second->retireAt) {
+            deferFreeResources(std::move(it->second->res), frameNo);
+            it = streams_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    // ⑤ 回收帧距已满的退役纹理（deque 头部帧号最小）
     while (!retired_.empty()
            && frameNo - retired_.front().frameNo >= VulkanContext::kMaxFramesInFlight) {
         freeTexture(retired_.front().tex);
         retired_.pop_front();
+    }
+    // ⑥ 流资源延迟释放到期执行（同 ⑤ 的帧距口径）
+    while (!deferredFrees_.empty()
+           && frameNo - deferredFrees_.front().first >= VulkanContext::kMaxFramesInFlight) {
+        deferredFrees_.front().second();
+        deferredFrees_.pop_front();
     }
 }
 
@@ -435,6 +522,10 @@ void ImageRenderer::freeTexture(const TextureData &t) {
 // ================================================================
 void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
                               const Transform2D &t) {
+    if (streamAliases_.count(cmd.textureId)) {    // 流纹理别名 → 环槽绘制（V1 推流）
+        drawStream(cb, extent, cmd, globalAlpha, t, false);
+        return;
+    }
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
     auto &tex = it->second;
@@ -474,6 +565,10 @@ void ImageRenderer::drawImage(VkCommandBuffer cb, VkExtent2D extent, const DrawI
 // ================================================================
 void ImageRenderer::drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
                                      const Transform2D &t) {
+    if (streamAliases_.count(cmd.textureId)) {    // 流纹理别名 → 环槽绘制（clip 管线）
+        drawStream(cb, extent, cmd, globalAlpha, t, true);
+        return;
+    }
     auto it = textures_.find(cmd.textureId);
     if (it == textures_.end()) return;
     auto &tex = it->second;

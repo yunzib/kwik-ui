@@ -79,6 +79,11 @@ if(KWIK_BUILD_EXAMPLES)
         kwik_element kwik_core kwik_event
         qjs qjs-libc      # quickjs.h 头与库（engine 亦为 PRIVATE 链接）
     )
+    # Video 扩展开启时补链并启用其行为锁（KWIK_ENABLE_VIDEO=OFF 时跳过，不破构建）
+    if(TARGET kwik_ext_video)
+        target_link_libraries(kwik_js_tests PRIVATE kwik_ext_video kwik_render)
+        target_compile_definitions(kwik_js_tests PRIVATE KWIK_TEST_VIDEO)
+    endif()
     add_test(NAME js_tests COMMAND kwik_js_tests)
 
     # shaper_probe — 诊断探针（不入测试集）：TextShaper 对 \n / \r\n 塑形实况

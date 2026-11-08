@@ -27,6 +27,14 @@ static VideoProps parseVideoProps(PropsExtractor &ex) {
     ex.get("autoplay", r.autoplay);
     ex.get("loop", r.loop);
     ex.get("muted", r.muted);
+    // fit 映射与 Image 同表（props_parser parseImageProps）；未知串保留默认 contain
+    ex.getEnum("fit", r.fit,
+               {
+                   {"fill", ImageFit::Fill},
+                   {"contain", ImageFit::Contain},
+                   {"cover", ImageFit::Cover},
+                   {"none", ImageFit::None},
+               });
     return r;
 }
 

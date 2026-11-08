@@ -12,15 +12,17 @@ import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
+import kwik.render.video_stream;    // VideoStream（stream:// 流模式绑定）
 
 import std;
 
 /** @brief Video 特有属性。 */
 export struct VideoProps {
-    std::string src;       /**< 视频源路径 */
+    std::string src;       /**< 视频源：文件路径 / "stream://名字"（宿主 C++ 推流） */
     bool autoplay = false; /**< 是否自动播放 */
     bool loop = false;     /**< 是否循环 */
     bool muted = false;    /**< 是否静音 */
+    ImageFit fit = ImageFit::Contain; /**< 画面适配（默认 contain，同 HTML video；Image 默认 cover） */
 };
 
 /** @brief 解码后的一帧 (RGBA 像素缓冲)。 */
@@ -102,11 +104,29 @@ public:
     /** @brief 跳转 @param t 秒 */
     void seek(float t);
 
-    /** @brief 属性增量更新 (src/autoplay/loop/muted)。 */
+    /** @brief 属性增量更新 (src/autoplay/loop/muted/fit)。 */
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
-    /** @brief reconcile 复用旧 View 时的专有属性写入 (reconcileProps 钩子)。 */
+    /** @brief reconcile 复用旧 View 时的专有属性写入 (reconcileProps 钩子)；
+     *         仅 src 变化才重开/重绑——其余属性原位生效（loop/muted 直接下发后端） */
     void applyVideoProps(VideoProps p);
+
+    /** @brief 当前专有属性（只读；行为锁/调试用） */
+    const VideoProps &videoProps() const { return video_; }
+
+    /** @brief 解码后端是否已 open（只读；行为锁/调试用——流模式恒 false） */
+    bool isOpened() const { return opened_; }
+
+    /**
+     * @brief 解析 "stream://名字" 源
+     * @param src 视频源串
+     * @return 流名；非流源（文件路径等）或空名返回空串
+     */
+    static std::string_view streamNameOf(std::string_view src);
+
+    /** @brief StreamPoller 回调（UI 线程，4ms 周期）：流 seq 变化 → 标脏一次；
+     *         流尚未创建 → 重查注册表（先声明后建流顺序无关） */
+    void pollStream();
 
 protected:
     Size onMeasure(Constraints c) override;
@@ -114,15 +134,29 @@ protected:
 
 private:
     VideoProps video_;
-    std::unique_ptr<VideoBackend> backend_;
+    std::unique_ptr<VideoBackend> backend_;    // 解码后端（文件源惰性创建；流模式不建）
     uint32_t textureId_ = 0; /**< GPU 纹理句柄 (0=未上传) */
     uint32_t texW_ = 0, texH_ = 0;
     bool opened_ = false; /**< 后端是否已 open */
     bool playing_ = false;
     float position_ = 0.0f;
 
-    /** @brief 首次使用后端前确保 open(src)。 */
+    // ── 流模式（src = "stream://名字"）──
+    std::shared_ptr<VideoStream> stream_;      // 绑定的命名流（持 shared：除名后仍显示最后一帧）
+    uint32_t streamTexId_ = 0;                 // 后端流纹理别名 id（0 = 未绑定）
+    std::string boundName_;                    // 当前绑定/待查找的流名
+    uint64_t lastSeenSeq_ = 0;                 // 轮询已见的帧序号
+    bool pendingDirty_ = false;                // 已标脏待绘制（未绘制前不重复标脏：不可见不空转）
+    bool polling_ = false;                     // 是否已注册 StreamPoller
+
+    /** @brief 首次使用后端前确保 open(src)（文件源；流源直接返回）。 */
     void ensureOpened();
+    /** @brief 流绑定（幂等）：按名查找 + 建流纹理别名 + 注册轮询 */
+    void bindStream();
+    /** @brief 解绑：注销轮询 + 释放别名 id + 放开流引用 */
+    void unbindStream();
+    /** @brief 流模式绘制：fit 求解 → drawImageUv；无流/无帧时画占位 */
+    void drawStreamFrame(Graphics &g);
 };
 
 /** @brief 自注册入口 (App 在 register_kwikui_module 前调用)。 */
