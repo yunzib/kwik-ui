@@ -10,75 +10,86 @@ import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.texture_manager;
 import kwik.render.backend;         // RenderBackend（纹理按本树后端路由）
-import kwik.render.video_stream;    // VideoStream / findVideoStream（流模式）
+import kwik.render.video_stream;    // VideoStream / findVideoStream（两模式共用显示通路）
 import kwik.element.image;          // Image::resolveFit（fit 求解与 Image 同源）
 import kwik.core.timer;             // CoreTimer（StreamPoller 4ms 轮询）
 
 import std;
 
 // ═══════════════════════════════════════════════════════════
-// 后端工厂钩子 (Meyer's Singleton, 与 lazyListSourceFactory 同构)
+// 播放器工厂钩子 (Meyer's Singleton, 与 lazyListSourceFactory 同构)
 // ═══════════════════════════════════════════════════════════
 namespace {
-VideoBackendFactory &backendFactory() {
-    static VideoBackendFactory f;
+MediaPlayerFactory &playerFactory() {
+    static MediaPlayerFactory f;
     return f;
 }
 }    // namespace
 
-void registerVideoBackendFactory(VideoBackendFactory f) {
-    backendFactory() = std::move(f);
+void registerMediaPlayerFactory(MediaPlayerFactory f) {
+    playerFactory() = std::move(f);
 }
-const VideoBackendFactory &videoBackendFactory() {
-    return backendFactory();
+const MediaPlayerFactory &mediaPlayerFactory() {
+    return playerFactory();
 }
 
 // ═══════════════════════════════════════════════════════════
-// Null 后端 — 无外部依赖, 生成静态灰度帧用于验证管线
+// Null 播放器 — 无外部依赖兜底（KWIK_VIDEO_FFMPEG=OFF / 工厂未注册）。
+// 推一帧静态图进私有流 + 立即 Loaded/End 事件：管线（打开→事件→流显示）全链
+// 可验证，只是画面不动——与 FFmpeg 播放器同一条显示通路
 // ═══════════════════════════════════════════════════════════
 namespace {
-class NullVideoBackend final : public VideoBackend {
+class NullMediaPlayer final : public MediaPlayer {
 public:
-    bool open(const std::string &) override { opened_ = true; return true; }
-    void play() override { playing_ = true; }
-    void pause() override { playing_ = false; }
-    void seek(float s) override { position_ = s; }
-    float position() const override { return position_; }
-    float duration() const override { return duration_; }
-    bool grabFrame(VideoFrame &out) override {
-        if (!opened_ || frameEmitted_) return false;
-        // 生成 480x270 深灰帧, 中间一条水平亮带以示"有画面"
+    bool open(std::string url) override {
+        url_ = std::move(url);
+        // 私有流推一帧 480×270 深灰 + 中部亮带（静态"画面"）
         constexpr uint32_t w = 480, h = 270;
-        out.width = w;
-        out.height = h;
-        out.rgba.resize(size_t(w) * h * 4);
-        for (uint32_t y = 0; y < h; ++y)
-            for (uint32_t x = 0; x < w; ++x) {
-                size_t i = (size_t(y) * w + x) * 4;
-                uint8_t v = (y > h / 2 - 8 && y < h / 2 + 8) ? 90 : 26;
-                out.rgba[i] = v;
-                out.rgba[i + 1] = v;
-                out.rgba[i + 2] = v;
-                out.rgba[i + 3] = 255;
+        auto wr = stream_->acquire({.format = PixelFormat::RGBA8, .width = w, .height = h});
+        if (wr) {
+            const PlaneView &p = wr.planes()[0];
+            for (uint32_t y = 0; y < h; ++y) {
+                uint8_t *row = p.data + size_t(p.stride) * y;
+                for (uint32_t x = 0; x < w; ++x) {
+                    const uint8_t v = (y > h / 2 - 8 && y < h / 2 + 8) ? 90 : 26;
+                    row[x * 4] = row[x * 4 + 1] = row[x * 4 + 2] = v;
+                    row[x * 4 + 3] = 255;
+                }
             }
-        frameEmitted_ = true;
+            wr.commit();
+        }
+        post(MediaEvent{.kind = MediaEvent::Kind::Loaded,
+                        .info = {.duration = 1.0, .width = w, .height = h, .fps = 1, .hasAudio = false}});
         return true;
     }
+    void play() override { playing_ = true; post(MediaEvent{.kind = MediaEvent::Kind::Playing}); }
+    void pause() override { playing_ = false; }
+    void seek(double s) override { time_ = s; }
     void setLoop(bool) override {}
     void setMuted(bool) override {}
-    void close() override { opened_ = false; }
+    std::shared_ptr<VideoStream> stream() override { return stream_; }
+    double currentTime() const override { return time_; }
+    double duration() const override { return 1.0; }
+    bool isPaused() const override { return !playing_; }
 
 private:
-    bool opened_ = false, frameEmitted_ = false, playing_ = false;
-    float position_ = 0.0f, duration_ = 0.0f;
+    void post(MediaEvent e) {
+        if (onEvent) onEvent(e);    // Null 无工作线程：调用即 UI 线程，直投
+    }
+    std::shared_ptr<VideoStream> stream_ = std::make_shared<VideoStream>(2);
+    bool playing_ = false;
+    double time_ = 0;
+    std::string url_;
 };
+}    // namespace
 
 // ═══════════════════════════════════════════════════════════
-// StreamPoller — 全部流模式 Video 共用一个 4ms 定时器
+// StreamPoller — 全部流显示 Video 共用一个 4ms 定时器
 // （与主循环空闲休眠同粒度，新帧显示延迟 ≤ 4ms）。逐个读原子 seq，变了
 // 才标脏；未找到流的同时重查注册表。首个注册启动，末个注销停止。
 // 仅 UI 线程访问（CoreTimer 在主循环 tick 内回调）
 // ═══════════════════════════════════════════════════════════
+namespace {
 struct StreamPoller {
     std::vector<Video *> list;
     CoreTimer::Id timer = 0;
@@ -110,61 +121,75 @@ struct StreamPoller {
 // Video 实现
 // ═══════════════════════════════════════════════════════════
 Video::Video(ViewProps vp, VideoProps lp) : View(std::move(vp)), video_(std::move(lp)) {
-    // 解码后端惰性创建（ensureOpened）：流模式（stream://）全程不建，
-    // 文件源首次绘制/play 时按工厂创建（未注册回退 Null 后端）
+    alive_ = std::make_shared<std::atomic<bool>>(true);
+    // 播放器惰性创建（ensureOpened）：流模式（stream://）全程不建，
+    // 文件源首次绘制/play 时按工厂创建（未注册回退 Null 播放器）
 }
 
 Video::~Video() {
-    unbindStream();    // 注销轮询 + 释放流纹理别名（析构前 this 仍有效）
-    if (backend_) backend_->close();
-    if (textureId_ != 0) {
-        TextureManager::instance().destroyTexture(
-            static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)), textureId_);
-    }
-}
-
-void Video::setBackend(std::unique_ptr<VideoBackend> backend) {
-    if (backend_) backend_->close();
-    backend_ = std::move(backend);
-    opened_ = false;
-    markDirty();
+    alive_->store(false);    // 在途事件转发不再解引用 this（投递方持 alive 副本检查）
+    unbindStream();          // 注销轮询 + 释放流纹理别名（析构前 this 仍有效）
+    player_.reset();         // 播放器析构：停会话线程 + join
 }
 
 void Video::ensureOpened() {
-    if (opened_ || !streamNameOf(video_.src).empty()) return;    // 流源不走解码后端
-    if (!backend_) {
-        const auto &f = videoBackendFactory();
-        backend_ = f ? f() : std::make_unique<NullVideoBackend>();
+    if (opened_ || !streamNameOf(video_.src).empty()) return;    // 流源不走播放器
+    if (!player_) {
+        const auto &f = mediaPlayerFactory();
+        player_ = f ? f() : std::make_unique<NullMediaPlayer>();
+        // 事件桥：播放器保证 onEvent 在 UI 线程回调；alive 防析构后在途解引用
+        player_->onEvent = [this, alive = alive_](const MediaEvent &e) {
+            if (!alive->load()) return;
+            onPlayerEvent(e);
+        };
     }
-    backend_->setLoop(video_.loop);
-    backend_->setMuted(video_.muted);
-    opened_ = backend_->open(video_.src);
-    // autoplay 直调后端（不经 play()：open 失败时 play→ensureOpened→play 会无限递归）
+    player_->setLoop(video_.loop);
+    player_->setMuted(video_.muted);
+    opened_ = player_->open(video_.src);
+    // autoplay 直调播放器（不经 play()：open 失败时 play→ensureOpened→play 会无限递归）
     if (opened_ && video_.autoplay) {
-        backend_->play();
-        playing_ = true;
+        player_->play();
+        paused_ = false;
     }
 }
 
+void Video::onPlayerEvent(const MediaEvent &e) {
+    using K = MediaEvent::Kind;
+    switch (e.kind) {
+    case K::Loaded:
+        duration_ = e.info.duration;
+        videoW_ = e.info.width;
+        videoH_ = e.info.height;
+        break;
+    case K::TimeUpdate: curTime_ = e.currentTime; break;
+    case K::End: paused_ = true; break;
+    case K::Playing: paused_ = false; buffering_ = false; break;
+    case K::Buffering: buffering_ = true; break;
+    case K::Error: paused_ = true; break;
+    }
+    if (onMediaEvent) onMediaEvent(e);
+    markDirty();    // 状态变化（时间文本等）随事件刷新
+}
+
 void Video::play() {
-    ensureOpened();    // 惰性后端：先建再播
-    if (!backend_) return;
-    backend_->play();
-    playing_ = true;
+    ensureOpened();    // 惰性播放器：先建再播
+    if (!player_) return;
+    player_->play();
+    paused_ = false;
     markDirty();
 }
 
 void Video::pause() {
-    if (!backend_) return;
-    backend_->pause();
-    playing_ = false;
+    if (!player_) return;
+    player_->pause();
+    paused_ = true;
     markDirty();
 }
 
 void Video::seek(float t) {
-    if (!backend_) return;
-    backend_->seek(t);
-    position_ = t;
+    if (!player_) return;
+    player_->seek(t);
+    curTime_ = t;
     markDirty();
 }
 
@@ -173,8 +198,12 @@ bool Video::setPropertyTyped(const char *name, const TypedProp &value) {
     if (n == "src") {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (*s != video_.src) {
-                unbindStream();     // 流名变更：释放旧绑定，下次绘制按新名重绑
-                opened_ = false;    // 文件源：下次绘制按新源重新 open
+                unbindStream();     // 流名/源变更：释放旧绑定；文件源播放器随解绑一并停播
+                player_.reset();
+                opened_ = false;    // 下次绘制按新源重新 open
+                curTime_ = duration_ = 0;
+                paused_ = true;
+                videoW_ = videoH_ = 0;
             }
             video_.src = *s;
             markDirty();
@@ -201,7 +230,7 @@ bool Video::setPropertyTyped(const char *name, const TypedProp &value) {
     if (n == "loop") {
         if (auto b = typedToBool(value)) {
             video_.loop = *b;
-            if (backend_) backend_->setLoop(video_.loop);
+            if (player_) player_->setLoop(video_.loop);
             return true;
         }
         return false;
@@ -209,15 +238,31 @@ bool Video::setPropertyTyped(const char *name, const TypedProp &value) {
     if (n == "muted") {
         if (auto b = typedToBool(value)) {
             video_.muted = *b;
-            if (backend_) backend_->setMuted(video_.muted);
+            if (player_) player_->setMuted(video_.muted);
             return true;
         }
         return false;
     }
+    // 播放控制命令面（PropBus setProp）：paused=false 播放 / true 暂停；currentTime=秒 seek
+    if (n == "paused") {
+        if (auto b = typedToBool(value)) {
+            *b ? pause() : play();
+            return true;
+        }
+        return false;
+    }
+    if (n == "currentTime") {
+        double t = 0;
+        if (auto *d = std::get_if<double>(&value)) t = *d;
+        else if (auto *i = std::get_if<int64_t>(&value)) t = double(*i);
+        else return false;
+        seek(float(t));
+        return true;
+    }
     return View::setPropertyTyped(name, value);
 }
 
-// ── 属性读取：专有属性 + 流模式只读读数（getProp 命令式读出）──
+// ── 属性读取：专有属性 + 两模式只读读数（getProp 命令式读出）──
 std::string Video::getProperty(const char *name) const {
     const std::string_view n(name);
     if (n == "src") return video_.src;
@@ -232,18 +277,27 @@ std::string Video::getProperty(const char *name) const {
         case ImageFit::None: return "none";
         }
     }
-    // 只读读数：未绑定流（文件模式 / 流未建）一律 0
+    // 流读数（两模式通用）：未绑定流一律 0
     if (n == "fps") return std::format("{:.1f}", stream_ ? stream_->fps() : 0.0f);
     if (n == "droppedFrames") return std::to_string(stream_ ? stream_->droppedFrames() : 0);
     if (n == "frameWidth") return std::to_string(stream_ ? stream_->desc().width : 0);
     if (n == "frameHeight") return std::to_string(stream_ ? stream_->desc().height : 0);
+    // 播放读数（文件模式；缓存自事件，UI 线程一致）
+    if (n == "currentTime") return std::format("{:.3f}", player_ ? player_->currentTime() : 0.0);
+    if (n == "duration") return std::format("{:.3f}", duration_);
+    if (n == "paused") return paused_ ? "true" : "false";
+    if (n == "buffering") return buffering_ ? "true" : "false";
+    if (n == "videoWidth") return std::to_string(videoW_);
+    if (n == "videoHeight") return std::to_string(videoH_);
     return View::getProperty(name);
 }
 
 PropType Video::readOnlyPropType(const char *name) const {
     const std::string_view n(name);
-    if (n == "fps") return PropType::Float;
+    if (n == "fps" || n == "currentTime" || n == "duration") return PropType::Float;
     if (n == "droppedFrames" || n == "frameWidth" || n == "frameHeight") return PropType::Int;
+    if (n == "videoWidth" || n == "videoHeight") return PropType::Int;
+    if (n == "paused" || n == "buffering") return PropType::Bool;
     return View::readOnlyPropType(name);
 }
 
@@ -255,11 +309,15 @@ void Video::applyVideoProps(VideoProps p) {
     const bool mutedChanged = p.muted != video_.muted;
     video_ = std::move(p);
     if (srcChanged) {
-        unbindStream();     // 流名变更：释放旧绑定
-        opened_ = false;    // 文件源：下次绘制按新源重新 open
-    } else if (backend_) {
-        if (loopChanged) backend_->setLoop(video_.loop);       // 原位下发，不重开
-        if (mutedChanged) backend_->setMuted(video_.muted);
+        unbindStream();     // 流名变更：释放旧绑定；文件源播放器随解绑停播
+        player_.reset();
+        opened_ = false;    // 下次绘制按新源重新 open
+        curTime_ = duration_ = 0;
+        paused_ = true;
+        videoW_ = videoH_ = 0;
+    } else if (player_) {
+        if (loopChanged) player_->setLoop(video_.loop);       // 原位下发，不重开
+        if (mutedChanged) player_->setMuted(video_.muted);
     }
     markDirty();
 }
@@ -272,54 +330,43 @@ Size Video::onMeasure(Constraints c) {
 
 void Video::onDraw(Graphics &g) {
     View::onDraw(g);    // 背景 + 边框
-    if (!streamNameOf(video_.src).empty()) {    // 流模式：宿主 C++ 推帧（V1）
-        drawStreamFrame(g);
-        return;
-    }
-    ensureOpened();
-
-    // 拉取最新帧 → 上传纹理 (在渲染线程, 避免 Vulkan 线程竞态)
-    VideoFrame f;
-    if (backend_ && backend_->grabFrame(f) && f.width > 0 && f.height > 0) {
-        // 尺寸变化 → 重建纹理
-        auto *be = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
-        if (textureId_ != 0 && (texW_ != f.width || texH_ != f.height)) {
-            TextureManager::instance().destroyTexture(be, textureId_);
-            textureId_ = 0;
-        }
-        if (textureId_ == 0) {
-            textureId_ = TextureManager::instance().createTexture(be, f.rgba.data(), f.width, f.height);
-            texW_ = f.width;
-            texH_ = f.height;
-        }
-    }
-
-    if (textureId_ != 0) {
-        g.drawImage(textureId_, frame, props.opacity, props.borderRadius);
+    if (streamNameOf(video_.src).empty()) {
+        // 文件源：确保播放器打开；绑定其私有流
+        ensureOpened();
+        bindStream(player_ ? player_->stream() : nullptr);
     } else {
-        // 无帧占位: 深灰底
-        g.drawRect(frame, Color(0x1a, 0x1a, 0x1a));
+        // 命名流：按名查找/等建（先声明后建流由轮询重查）——幂等
+        bindStream(nullptr);
     }
+    drawStreamFrame(g);
 }
 
 // ═══════════════════════════════════════════════════════════
-// 流模式（src = "stream://名字"，V1 推流）
+// 流显示（stream:// 命名流 / 文件源播放器私有流 — 同一条通路）
 // ═══════════════════════════════════════════════════════════
 std::string_view Video::streamNameOf(std::string_view src) {
     constexpr std::string_view kScheme = "stream://";
     return src.starts_with(kScheme) ? src.substr(kScheme.size()) : std::string_view{};
 }
 
-void Video::bindStream() {
-    std::string_view name = streamNameOf(video_.src);
-    if (name != boundName_) unbindStream();    // 名字变更兜底（setProp/reconcile 已先行解绑）
-    boundName_ = std::string(name);
-    // 先注册轮询再查流：流尚未创建时由轮询周期重查（先声明后建流顺序无关）
+void Video::bindStream(const std::shared_ptr<VideoStream> &target) {
+    // 先注册轮询（流未就绪时由轮询周期重查/重绑）
     if (!polling_) {
         StreamPoller::get().add(this);
         polling_ = true;
     }
-    if (!stream_) stream_ = findVideoStream(boundName_);
+    if (streamNameOf(video_.src).empty()) {
+        // 文件源：绑定播放器私有流（每次 open 都是同一流对象实例）
+        if (stream_ != target) {
+            releaseAlias();
+            stream_ = target;
+        }
+    } else {
+        const std::string name(streamNameOf(video_.src));
+        if (name != boundName_) releaseAlias();    // 名字变更兜底（setProp/reconcile 已先行解绑）
+        boundName_ = name;
+        if (!stream_) stream_ = findVideoStream(boundName_);
+    }
     if (stream_ && streamTexId_ == 0) {
         // 别名 id 同步返回、本帧即可录制引用；后端按流共享 GPU 资源（同流多 Video 只上传一份）
         streamTexId_ = TextureManager::instance().createStreamTexture(
@@ -327,11 +374,7 @@ void Video::bindStream() {
     }
 }
 
-void Video::unbindStream() {
-    if (polling_) {
-        StreamPoller::get().remove(this);
-        polling_ = false;
-    }
+void Video::releaseAlias() {
     if (streamTexId_ != 0) {
         // 别名计数 -1；归零由后端延后一帧退役（同帧被他处重绑即复活）
         TextureManager::instance().destroyTexture(
@@ -339,6 +382,14 @@ void Video::unbindStream() {
         streamTexId_ = 0;
     }
     stream_.reset();
+}
+
+void Video::unbindStream() {
+    if (polling_) {
+        StreamPoller::get().remove(this);
+        polling_ = false;
+    }
+    releaseAlias();
     boundName_.clear();
     lastSeenSeq_ = 0;
     pendingDirty_ = false;
@@ -346,8 +397,8 @@ void Video::unbindStream() {
 
 void Video::pollStream() {
     if (!stream_) {
-        // 流尚未创建（或已除名后重建）：重查注册表，命中即标脏——下次绘制完成绑定
-        if (!pendingDirty_ && findVideoStream(boundName_)) {
+        // 命名流尚未创建（或已除名后重建）：重查注册表，命中即标脏——下次绘制完成绑定
+        if (!boundName_.empty() && !pendingDirty_ && findVideoStream(boundName_)) {
             pendingDirty_ = true;
             markDirty();
         }
@@ -366,7 +417,6 @@ void Video::pollStream() {
 
 void Video::drawStreamFrame(Graphics &g) {
     pendingDirty_ = false;    // 本次绘制消费掉轮询标脏
-    bindStream();             // 幂等：首次绘制完成绑定（此时 parent 链已通、树服务可达）
     if (!stream_ || streamTexId_ == 0 || stream_->seq() == 0) {
         g.drawRect(frame, Color(0x1a, 0x1a, 0x1a));    // 流未建 / 尚无帧：深灰占位
         return;

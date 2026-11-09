@@ -1473,6 +1473,27 @@ static void test_video_readout_getprop() {
 }
 #endif
 
+// ── 行为锁: 容器子节点收集（View/Flex/Grid/Stack）──
+// 此前容器工厂只取第 2 个实参：`Flex({...}, ...arr.map(...))`（展开写在实参
+// 位置）第 3 个起全部静默丢弃——整行 UI 消失且无告警（video_stream 8 格并排
+// 踩过）。现与 Root 同惯例：props 之后全部实参逐个收入、数组按元素展开；
+// 首参为元素描述符（含 type）时按子节点处理而非 props
+static void test_container_children_collect() {
+    JSContext *c = g_ctx->getPtr();
+    CHECK(eval_module("container_children.mjs",
+                      "import { View, Flex, Grid, Stack } from 'kwikui';\n"
+                      "const kids = [View({}), View({}), View({})];\n"
+                      "const a = Flex({ direction: 'row' }, ...kids);          // 实参展开\n"
+                      "const b = Flex({ direction: 'row' }, [View({}), View({})]);  // 数组字面量（旧写法）\n"
+                      "const d = Flex({ direction: 'row' }, ...[[View({}), View({})]]);  // 展开后是数组 → 再展开\n"
+                      "const e = View(View({}), View({}));                      // 首参是描述符 → 两个子节点\n"
+                      "const g = Grid({}, ...kids); const s = Stack({}, ...kids);\n"
+                      "globalThis.__cc = [a.children.length, b.children.length, d.children.length,\n"
+                      "                   e.children.length, g.children.length, s.children.length].join(',');\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__cc") == "3,2,2,2,3,3");
+}
+
 // ── 行为锁: g2d 数值参数校验（21⑧）──
 // 非数值/缺失参数此前 NaN 坐标直进绘制命令 + 转换挂起的 JS 异常被吞、
 // 延迟到下一个不相关调用错位冒出；现抛 TypeError 即时失败。
@@ -1540,6 +1561,7 @@ int main() {
     test_video_explicit_id_reorder();    // 同上（显式 id 重排不错绑流）
     test_video_readout_getprop();        // 同上（批 3：getProp 读数原生 number）
 #endif
+    test_container_children_collect();   // 容器子节点收集（多实参 + 数组展开；纯解析无 storm 面）#endif
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清

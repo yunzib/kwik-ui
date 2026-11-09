@@ -39,34 +39,37 @@ export default function () {
     return View({ background: "#0F172A", padding: 20 }, [
         Text({ text: "视频流推流（stream://）", fontSize: 18, fontWeight: "bold", color: "#F8FAFC" }),
         label("① 8 格式并排（同一测试图逐格式编码；转色正确时 8 格画面一致）"),
-        Flex({ direction: "row", gap: 8 },
-            FORMATS.map((f) => View({}, [
+        Flex({ direction: "row", gap: 8 }, [
+            ...FORMATS.map((f) => View({}, [
                 Video({ id: "f_" + f, src: "stream://f_" + f, width: 120, height: 68, fit: "fill",
                         borderRadius: 4 }),
                 cap(f),
-            ]))),
+            ])),
+        ]),
         Flex({ direction: "row", gap: 24 }, [
             View({}, [
                 label("② 格式轮换 + fit（每 2 秒换格式；每 5 秒切奇数尺寸 479×269）"),
                 Video({ id: "main", src: "stream://main", width: 400, height: 240, fit: st.fit,
                         background: "#000000", borderRadius: 8 }),
-                Flex({ direction: "row", gap: 6, margin: [8, 0, 0, 0] },
-                    FITS.map((f) => Button({
+                Flex({ direction: "row", gap: 6, margin: [8, 0, 0, 0] }, [
+                    ...FITS.map((f) => Button({
                         text: f, width: 72, height: 28, fontSize: 12, borderRadius: 6,
                         background: st.fit === f ? "#2563EB" : "#334155", color: "#FFFFFF",
                         onClick: () => { st.fit = f; },
-                    }))),
+                    })),
+                ]),
                 label("④ 先声明后建流（stream://late 3 秒后创建，NV12 BT.601 full）"),
                 Video({ id: "late", src: "stream://late", width: 400, height: 120, fit: "cover",
                         background: "#000000", borderRadius: 8 }),
             ]),
             View({}, [
                 label("③ 3×3 宫格（帧率各异；RGB/YUV 混排）"),
-                Flex({ direction: "row", flexWrap: "wrap", gap: 6, width: 492 },
-                    st.order.split(",").map((i) => Video({
+                Flex({ direction: "row", flexWrap: "wrap", gap: 6, width: 492 }, [
+                    ...st.order.split(",").map((i) => Video({
                         id: "g" + i, src: "stream://g" + i,
                         width: 160, height: 90, fit: "cover", borderRadius: 4,
-                    }))),
+                    })),
+                ]),
                 Button({
                     text: "打乱顺序", width: 120, height: 30, fontSize: 13, borderRadius: 6,
                     background: "#2563EB", color: "#FFFFFF", margin: [10, 0, 0, 0], onClick: shuffle,

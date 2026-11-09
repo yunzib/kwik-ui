@@ -321,6 +321,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "car") return "../../test/ui/car/ivi.js";
         if (arg == "video") return "../../test/ui/video.js";
         if (arg == "video_stream") return "../../test/ui/video_stream.js";    // V1 推流（C++ 合成生产者）
+        if (arg == "video_media") return "../../test/ui/video_media.js";      // V1 批 4：文件播放（FFmpeg）
         return arg;
     }
     return "../../test/ui/example.js";

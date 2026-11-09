@@ -195,6 +195,45 @@ JSValue makeElementHelper(JSContext *ctx, const char *type, JSValueConst props, 
     return makeElement(ctx, type, props, children);
 }
 
+/**
+ * @brief 收集容器子节点（props 之后的全部实参，数组按元素展开）
+ *
+ * 与 Root(props?, ...children) 同惯例。此前容器工厂只取第 2 个实参，
+ * `Flex({...}, ...arr.map(...))` 这类展开写在**实参位置**（而非数组字面量内）
+ * 时，第 3 个起全部静默丢弃——整行 UI 消失且无任何告警（video_stream demo
+ * 踩过）。嵌套数组（数组元素本身是数组）不展开，交由 parseNode 告警。
+ * @return 新数组（调用方负责 JS_FreeValue）
+ */
+static JSValue collectChildren(JSContext *ctx, int argc, JSValueConst *argv, int first) {
+    JSValue arr = JS_NewArray(ctx);
+    uint32_t n = 0;
+    for (int i = first; i < argc; ++i) {
+        if (JS_IsArray(argv[i])) {
+            JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
+            uint32_t len = 0;
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+            for (uint32_t k = 0; k < len; ++k) {
+                JSValue e = JS_GetPropertyUint32(ctx, argv[i], k);
+                JS_SetPropertyUint32(ctx, arr, n++, JS_DupValue(ctx, e));
+                JS_FreeValue(ctx, e);
+            }
+        } else {
+            JS_SetPropertyUint32(ctx, arr, n++, JS_DupValue(ctx, argv[i]));
+        }
+    }
+    return arr;
+}
+
+/** @brief 首参是否配置对象（非数组、非已是元素描述符 {type:...} 的对象） */
+static bool isPropsArg(JSContext *ctx, JSValueConst v) {
+    if (!JS_IsObject(v) || JS_IsArray(v)) return false;
+    JSValue tv = JS_GetPropertyStr(ctx, v, "type");
+    const bool hasType = !JS_IsUndefined(tv);
+    JS_FreeValue(ctx, tv);
+    return !hasType;
+}
+
 static void state_gc_mark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func) {
     Log::debug("State gc_mark called");
     StateData *sd = static_cast<StateData *>(JS_GetOpaque(val, state_class_id));
@@ -281,14 +320,15 @@ static void channel_finalizer(JSRuntime *rt, JSValue val) {
 
 // ---------- 导出的 JS 绑定函数实现 ----------
 static JSValue js_view(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = JS_UNDEFINED, children = JS_UNDEFINED;
-    if (argc >= 1 && JS_IsObject(argv[0])) {
-        props = argv[0];
-        if (argc >= 2) children = argv[1];
-    } else if (argc >= 1) {
-        children = argv[0];
-    }
-    return makeElement(ctx, "View", props, children);
+    // View(props?, ...children)：props 之后的多实参逐个收入并展开数组
+    // （`View({...}, a, b)` / `View({...}, ...arr)` 与 `View({...}, [a, b])` 等价）
+    JSValue props = JS_UNDEFINED;
+    const int first = (argc >= 1 && isPropsArg(ctx, argv[0])) ? 1 : 0;
+    if (first == 1) props = argv[0];
+    JSValue children = collectChildren(ctx, argc, argv, first);
+    JSValue r = makeElement(ctx, "View", props, children);
+    JS_FreeValue(ctx, children);
+    return r;
 }
 
 // Root(props?, ...children) — 应用入口容器：首参为配置对象（非手写
@@ -338,21 +378,34 @@ static JSValue js_button(JSContext *ctx, JSValueConst this_val, int argc, JSValu
 }
 
 static JSValue js_flex(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
-    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    return makeElement(ctx, "Flex", props, children);
+    // Flex(props?, ...children)：子节点收集同 View（多实参 + 数组展开）
+    JSValue props = JS_UNDEFINED;
+    const int first = (argc >= 1 && isPropsArg(ctx, argv[0])) ? 1 : 0;
+    if (first == 1) props = argv[0];
+    JSValue children = collectChildren(ctx, argc, argv, first);
+    JSValue r = makeElement(ctx, "Flex", props, children);
+    JS_FreeValue(ctx, children);
+    return r;
 }
 
 static JSValue js_grid(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
-    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    return makeElement(ctx, "Grid", props, children);
+    JSValue props = JS_UNDEFINED;
+    const int first = (argc >= 1 && isPropsArg(ctx, argv[0])) ? 1 : 0;
+    if (first == 1) props = argv[0];
+    JSValue children = collectChildren(ctx, argc, argv, first);
+    JSValue r = makeElement(ctx, "Grid", props, children);
+    JS_FreeValue(ctx, children);
+    return r;
 }
 
 static JSValue js_stack(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
-    JSValue children = (argc >= 2) ? argv[1] : JS_UNDEFINED;
-    return makeElement(ctx, "Stack", props, children);
+    JSValue props = JS_UNDEFINED;
+    const int first = (argc >= 1 && isPropsArg(ctx, argv[0])) ? 1 : 0;
+    if (first == 1) props = argv[0];
+    JSValue children = collectChildren(ctx, argc, argv, first);
+    JSValue r = makeElement(ctx, "Stack", props, children);
+    JS_FreeValue(ctx, children);
+    return r;
 }
 
 static JSValue js_list(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {

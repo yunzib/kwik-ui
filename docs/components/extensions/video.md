@@ -1,8 +1,7 @@
 ---
 group: ext
 status: 已完成
-docsite: video（单节：autoplay 播放演示 + play/pause/seek 方法卡——
-高级组实况页，Null 后端静态帧）
+docsite: video（流模式一页；文件播放见 video_media demo）
 ---
 # Video — 视频组件
 
@@ -10,8 +9,9 @@ docsite: video（单节：autoplay 播放演示 + play/pause/seek 方法卡—�
 
 - **流模式**（`src: "stream://名字"`）：显示宿主 C++ 推送的帧（摄像头、
   解码器、网络流等宿主自管的数据），见下文「流模式」；
-- **文件模式**（其余 src）：解码后端抽象（引擎中立，FFmpeg / mpv / 平台
-  原生可插拔）。当前随库只有 Null 后端（静态灰帧），FFmpeg 播放待接入。
+- **文件模式**（其余 src）：内置 FFmpeg 解码播放（本地文件；网络协议批 5
+  开启），见下文「文件播放」。未编入 FFmpeg（`KWIK_VIDEO_FFMPEG=OFF`）时
+  回退 Null 播放器（静态帧，管线可验证）。
 
 ## 专有属性
 
@@ -20,7 +20,7 @@ docsite: video（单节：autoplay 播放演示 + play/pause/seek 方法卡—�
     "src": "string",       // 视频源："stream://名字"（宿主推流）或文件路径（相对运行目录）
     "autoplay": "boolean", // 是否自动播放 (默认 false；文件模式)
     "loop": "boolean",     // 是否循环 (默认 false；文件模式)
-    "muted": "boolean",    // 是否静音 (默认 false；文件模式)
+    "muted": "boolean",    // 是否静音 (默认 false；文件模式；音频未接入，仅记录)
     "fit": "string"        // 画面适配："contain"(默认) | "cover" | "fill" | "none"，语义同 Image
 }
 ```
@@ -88,6 +88,43 @@ std::thread([cam] {
 
   C++ 侧同名读数：`VideoStream::fps()` / `droppedFrames()` / `desc()`
 
+## 文件播放（FFmpeg）
+
+```js
+Video({ src: '../../test/assets/sample.mp4', width: 640, height: 360,
+        autoplay: true, loop: false, fit: 'contain',
+        onLoaded: e => console.log(e.duration, e.width, e.height, e.fps, e.hasAudio),
+        onTimeUpdate: e => { /* e.currentTime，约 4Hz */ },
+        onEnd: () => {}, onError: e => console.log(e.message),
+        onBuffering: () => {}, onPlaying: () => {} })
+```
+
+- **控制**：方法 `play()` / `pause()` / `seek(t)`；或命令式
+  `setProp(id, 'paused', 'true'|'false')`、`setProp(id, 'currentTime', 秒)`
+- **读数**：`getProp(id, 'currentTime'|'duration'|'paused'|'buffering'|
+  'videoWidth'|'videoHeight')`；流读数 `fps`/`droppedFrames`/`frameWidth`/
+  `frameHeight` 同样可用
+- **事件**：`onLoaded{duration,width,height,fps,hasAudio}` / `onTimeUpdate
+  {currentTime}` / `onEnd` / `onError{message}` / `onBuffering` / `onPlaying`
+- **像素映射**：YUV420P / NV12 / NV21 / YUYV422 / UYVY422 直拷（零转换），
+  10bit 等其余格式经 swscale 兜底转 NV12；显示走与流模式同一条 GPU 通路
+  （零拷贝可用时同样生效）
+- **音频**：解码器不编入音频解码器，`hasAudio` 仅上报轨道存在；音频子系统
+  接入点见源码 `IMediaClock`/NullAudioSink 注释（结构已预留）
+- **构建**：FFmpeg 源内树随主构建一次编译（`cmake --build build` 自动
+  configure + 编静态库，首次约 3 分钟，产物缓存于 `build/ffmpeg-build`）；
+  工具链复用 llvm-mingw，`KWIK_VIDEO_FFMPEG=ON` 默认开启
+- **示例素材**（`test/assets/`，demo 内可切换）：
+
+  | 文件 | 规格 | 用途 |
+  |---|---|---|
+  | `sample.mp4` | 640×360 / 6s / 30fps，底部进度条 | 合成素材，目视 seek/循环 |
+  | `video.mp4` | 1152×720 / 24s / 60fps，含 aac 音轨 | 横屏真实素材（`hasAudio=true`） |
+  | `video1.mp4` | 720×1440 竖屏 / 37s / 60fps，含 aac | 竖屏素材（测 fit letterbox） |
+
+  `sample.mp4` 生成工具 `test/tools/gen_sample_video.cpp`（需带编码器的临时
+  FFmpeg 构建，不进主构建）
+
 ## 方法
 
 | 方法 | 说明 |
@@ -112,13 +149,13 @@ JS 工厂自动生成 `__video_N` 占位 id，但它每次渲染都会变化，�
   阶段转 RGB
 - **文件模式·拉取模型**：绘制时调 `grabFrame` 取最新帧上传纹理（解码线程
   不触碰 Vulkan）；纹理句柄 `0 = 未上传`
-- **后端接口 `VideoBackend`**（引擎中立）：`open / play / pause / seek /
-  position / duration / grabFrame / setLoop / setMuted / close`，各平台
-  / 解码器实现后经 `registerVideoBackendFactory` 工厂注入；首次使用时按需
-  创建（流模式不创建）
-- **当前随库实现**：Null 后端（静态帧，用于验证 解码→纹理→绘制 管线）
-- **事件**：v1 复用通用指针事件（onClick / onChange 等）；视频专属事件
-  onEnd / onTimeUpdate / onError 待后端增加槽位后扩展
+- **播放器接口 `MediaPlayer`**（引擎中立）：`open / play / pause / seek /
+  setLoop / setMuted / stream() / currentTime / duration / isPaused` +
+  `onEvent` 槽；实现把解码帧写进私有 VideoStream（与流模式同一条显示通路）。
+  经 `registerMediaPlayerFactory` 注入；首次使用时按需创建（流模式不创建）
+- **随库实现**：FFmpeg（本地文件；`extensions/video/impl/ffmpeg/player.cpp`）
+  与 Null 播放器（静态帧兜底）
+- **事件**：通用指针事件（onClick 等）+ 媒体事件（见「文件播放」六事件）
 
 ## 注册与构建
 
@@ -127,11 +164,14 @@ JS 工厂自动生成 `__video_N` 占位 id，但它每次渲染都会变化，�
   `applyVideoProps` 专有属性钩子）
 - `registerVideoElement()` 必须在 **Application 构造之前**调用
   （对照 `test/example.cpp` main 内注册处注释）
-- 构建开关：`KWIK_ENABLE_VIDEO` option
-  （`cmake/modules/Extension.cmake:4`，默认 ON；关闭则不构建）
-- demo：`test/ui/video.js`（`example.exe video`，文件模式 Null 后端）；
-  `test/ui/video_stream.js`（`example.exe video_stream`，流模式，C++ 合成
-  生产者在 `test/example.cpp` 的 VideoStreamDemo，已入 smoke 默认集）
+- 构建开关：`KWIK_ENABLE_VIDEO`（默认 ON，关闭则不构建扩展）、
+  `KWIK_VIDEO_FFMPEG`（默认 ON，关闭则回退 Null 播放器）——
+  `cmake/modules/Extension.cmake`
+- demo：`test/ui/video_media.js`（`example.exe video_media`，FFmpeg 文件
+  播放）；`test/ui/video_stream.js`（`example.exe video_stream`，流模式，
+  C++ 合成生产者在 `test/example.cpp` 的 VideoStreamDemo）；
+  `test/ui/video.js`（`example.exe video`，最小文件模式样例）——均入 smoke
+  默认集
 
 ## 关联
 

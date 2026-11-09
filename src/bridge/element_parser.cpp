@@ -771,7 +771,11 @@ std::unique_ptr<View> ElementParser::parseNodeImpl(const JSValueRef &jsVal) {
     if (typeVal.isNull() || typeVal.isUndefined() || (type.empty() && typeVal.isBool() && !typeVal.toBool())) {
         // 仅 null/false/undefined 标量属条件渲染惯例静默；无 type 的
         // 对象节点几乎必是手误（props 误入 children 等），warn 出声
-        if (jsVal.isObject()) {
+        if (jsVal.isArray()) {
+            // 嵌套数组（`children.map(...)` 未加展开）——框架不展开子数组，
+            // 整组 UI 会静默消失；点名写法而非笼统的"无 type 对象"
+            Log::warn("parseNode: children 中出现嵌套数组（框架不展开）——请用展开语法 ...expr 或拼平后传入");
+        } else if (jsVal.isObject()) {
             Log::warn("parseNode: children 中存在无 type 的对象节点（非 null/false 条件值）— 请求 import 元素工厂; node=\"{}\"",
                       jsVal.toString().substr(0, 200));
         }

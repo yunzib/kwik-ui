@@ -127,13 +127,83 @@ static JSValue js_video(JSContext *ctx, JSValueConst, int argc, JSValueConst *ar
 // onEnd/onTimeUpdate/onError 待 Video 增加 std::function 槽位后扩展)
 // ═══════════════════════════════════════════════════════════
 static void attachVideoHandlers(View &view, const JSValueRef &props) {
-    attachJsHandlers(view, props);
+    attachJsHandlers(view, props);    // 通用指针事件（onClick 等）
+
+    // ── 媒体事件（批 4）：onLoaded / onTimeUpdate / onEnd / onError / onBuffering /
+    //    onPlaying → 单一 onMediaEvent 分派器。JS 函数以 JSValueRef 持有（析构即
+    //    释放；Video 销毁先于 ctx——同 attachJsHandlers 的生命周期前提）。
+    //    载荷：onLoaded {duration,width,height,fps,hasAudio}；onTimeUpdate
+    //    {currentTime}；onError {message}；其余无参 ──
+    auto *video = dynamic_cast<Video *>(&view);
+    if (!video || !props.isObject()) return;
+    JSContext *ctx = props.context();
+    auto take = [&](const char *name) -> std::shared_ptr<JSValueRef> {
+        if (!props.hasProperty(name)) return nullptr;
+        JSValueRef fn = props.getProperty(name);
+        if (!JS_IsFunction(ctx, fn.raw())) return nullptr;
+        return std::make_shared<JSValueRef>(ctx, JS_DupValue(ctx, fn.raw()));
+    };
+    auto onLoaded = take("onLoaded"), onTime = take("onTimeUpdate"), onEnd = take("onEnd");
+    auto onError = take("onError"), onBuffering = take("onBuffering"), onPlaying = take("onPlaying");
+    if (!onLoaded && !onTime && !onEnd && !onError && !onBuffering && !onPlaying) {
+        video->onMediaEvent = nullptr;
+        return;
+    }
+    video->onMediaEvent = [ctx, onLoaded, onTime, onEnd, onError, onBuffering, onPlaying](const MediaEvent &e) {
+        using K = MediaEvent::Kind;
+        std::shared_ptr<JSValueRef> fn;
+        JSValue arg = JS_UNDEFINED;
+        switch (e.kind) {
+        case K::Loaded:
+            fn = onLoaded;
+            if (fn) {
+                arg = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, arg, "duration", JS_NewFloat64(ctx, e.info.duration));
+                JS_SetPropertyStr(ctx, arg, "width", JS_NewInt32(ctx, int32_t(e.info.width)));
+                JS_SetPropertyStr(ctx, arg, "height", JS_NewInt32(ctx, int32_t(e.info.height)));
+                JS_SetPropertyStr(ctx, arg, "fps", JS_NewFloat64(ctx, e.info.fps));
+                JS_SetPropertyStr(ctx, arg, "hasAudio", JS_NewBool(ctx, e.info.hasAudio));
+            }
+            break;
+        case K::TimeUpdate:
+            fn = onTime;
+            if (fn) {
+                arg = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, arg, "currentTime", JS_NewFloat64(ctx, e.currentTime));
+            }
+            break;
+        case K::Error:
+            fn = onError;
+            if (fn) {
+                arg = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, arg, "message", JS_NewString(ctx, e.message.c_str()));
+            }
+            break;
+        case K::End: fn = onEnd; break;
+        case K::Buffering: fn = onBuffering; break;
+        case K::Playing: fn = onPlaying; break;
+        }
+        if (!fn) return;
+        JSValue ret = JS_Call(ctx, fn->raw(), JS_UNDEFINED, JS_IsUndefined(arg) ? 0 : 1, &arg);
+        if (JS_IsException(ret)) {
+            JSValue ex = JS_GetException(ctx);
+            const char *msg = JS_ToCString(ctx, ex);
+            std::fprintf(stderr, "[video] media event handler threw: %s\n", msg ? msg : "?");
+            if (msg) JS_FreeCString(ctx, msg);
+            JS_FreeValue(ctx, ex);
+        }
+        JS_FreeValue(ctx, ret);
+        JS_FreeValue(ctx, arg);
+    };
 }
 
 // ═══════════════════════════════════════════════════════════
 // 自注册 — 组装 ElementSpec 交给 ElementParser::registerExtension
 // ═══════════════════════════════════════════════════════════
 void registerVideoElement() {
+#if defined(KWIK_VIDEO_FFMPEG)
+    registerFfmpegPlayer();    // FFmpeg 后端编入时自动生效（未编入回退 Null 播放器）
+#endif
     ElementSpec spec;
     spec.typeName = "Video";
     spec.creator = createVideo;

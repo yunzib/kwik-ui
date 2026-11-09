@@ -1,5 +1,31 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-10
+### 新增
+- Video 文件播放（FFmpeg）：`src` 指向本地媒体文件即真正解码播放——
+  play/pause/seek/loop、autoplay；事件 onLoaded / onTimeUpdate / onEnd /
+  onError / onBuffering / onPlaying；getProp 读 currentTime / duration /
+  paused / buffering / videoWidth / videoHeight；setProp 可写 paused /
+  currentTime / loop 做命令式控制
+- FFmpeg 随主构建一次编译：`cmake --build build` 自动完成 configure 与
+  静态库构建（llvm-mingw 同工具链，产物缓存 build/ffmpeg-build，首次约
+  3 分钟），KWIK_VIDEO_FFMPEG=OFF 可回退 Null 播放器
+- 解码像素直拷：YUV420P / NV12 / NV21 / YUYV / UYVY 零转换入流，其余格式
+  swscale 兜底转 NV12；显示复用流模式 GPU 通路（含零拷贝）
+- 示例素材与 demo：`video_media` 支持三路素材切换（sample.mp4 合成
+  640×360/6s；video.mp4 1152×720/24s、video1.mp4 竖屏 720×1440/37s，
+  后两者含 aac 音轨），换 src 走重开/重绑路径
+### 变更
+- 视频后端接口 VideoBackend（拉模型 grabFrame）替换为 MediaPlayer（解码写入
+  私有流），不保留兼容层；FrameDesc 成为帧交接的唯一描述
+### 修复
+- 容器组件子节点丢弃：View/Flex/Grid/Stack 此前只取第 2 个实参，
+  `Flex({...}, ...arr.map(...))`（展开写在实参位置）第 3 个起全部静默丢弃，
+  整行 UI 消失且无告警——现与 Root 同惯例收全部实参并按元素展开数组；
+  子节点中残留嵌套数组时告警点名原因（此前笼统报"无 type 的对象"）
+- headless 环境媒体事件投递崩溃：主线程任务队列未初始化时解引用空指针
+  （新增 Channel::hasMainThreadQueue 守卫，无队列即丢弃事件）
+
 # 0.0.0 — 2026-11-09
 ### 新增
 - Video 流模式零拷贝上传：设备支持 VK_EXT_external_memory_host 时，帧池

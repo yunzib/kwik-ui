@@ -234,6 +234,10 @@ public:
     /** @brief 获取主线程任务队列（用于手动投递） */
     static TaskQueue &getMainThreadQueue();
 
+    /** @brief 主线程队列是否可用（headless / 无 Channel::init 时为 false——
+     *         跨线程投递方据此跳过，而非解引用空指针） */
+    static bool hasMainThreadQueue() { return s_mainThreadQueue != nullptr; }
+
     // ── JS native 入口 ──
     static void jsSend(JSContext *ctx, const char *topic, JSValueConst data);
     static void jsOn(JSContext *ctx, const char *topic, JSValue handler);
