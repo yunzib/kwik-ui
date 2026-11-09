@@ -35,9 +35,10 @@ static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     } else {
         std::string val = target->getProperty(prop);
         // 类型化返回：bool/int/float 出原生值（字符串 "false" 在 JS 判真
-        // 的陷阱根除）。类型来源两级：propMeta 条目（解析期 get<T> 无条件
+        // 的陷阱根除）。类型来源三级：propMeta 条目（解析期 get<T> 无条件
         // 记录）→ 无条目时按属性描述符 reader 假读反推（与 applyBindings
-        // 补记同源）；仍未知（Color/EdgeInsets/数据面键）保持字符串
+        // 补记同源）→ 组件只读属性声明（readOnlyPropType，如 Video 读数）；
+        // 仍未知（Color/EdgeInsets/数据面键）保持字符串
         const PropEntry *e = target->propMeta.find(prop);
         PropType hint = e ? e->typeHint : PropType::String;
         if (!e) {
@@ -50,6 +51,8 @@ static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
                     else if (std::get_if<int64_t>(&expect)) { hint = PropType::Int; }
                     else if (std::get_if<bool>(&expect)) { hint = PropType::Bool; }
                 }
+            } else if (PropType ro = target->readOnlyPropType(prop); ro != PropType::Unknown) {
+                hint = ro;
             }
         }
         switch (hint) {

@@ -66,6 +66,10 @@ export struct DeviceContext {
     VkPhysicalDevice physicalDevice;
     VkCommandPool commandPool;
     VkQueue queue;
+    // 宿主内存导入（VK_EXT_external_memory_host，V1 推流批 3 零拷贝）：
+    // 扩展未启用时为空——调用方据此走 memcpy 拷贝路径
+    PFN_vkGetMemoryHostPointerPropertiesEXT getHostPointerProps = nullptr;
+    VkDeviceSize hostImportAlignment = 0;    // minImportedHostPointerAlignment（地址与尺寸均须满足）
 };
 
 export class VulkanContext {
@@ -91,6 +95,13 @@ public:
      *         开始之后、主 render pass 之前回调——录 transfer 类命令的唯一
      *         合法窗口（pass 内不可录 transfer）。置空清除。 */
     void setPrePassHook(std::function<void(VkCommandBuffer)> hook) { prePassHook_ = std::move(hook); }
+
+    /** @brief 宿主内存导入是否可用（扩展受支持且未被 KWIK_VK_NO_HOST_IMPORT=1 禁用） */
+    bool hostImportEnabled() const { return getHostPointerProps_ != nullptr; }
+    /** @brief vkGetMemoryHostPointerPropertiesEXT（未启用为空） */
+    PFN_vkGetMemoryHostPointerPropertiesEXT hostPointerPropsFn() const { return getHostPointerProps_; }
+    /** @brief 导入地址/尺寸对齐要求（未启用为 0） */
+    VkDeviceSize hostImportAlignment() const { return hostImportAlignment_; }
 
     // ── 资源访问（仅子渲染器 setup / upload 时用） ──
     VkDevice device() const;
@@ -140,6 +151,8 @@ public:
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
     std::function<void(VkCommandBuffer)> prePassHook_;    ///< 帧首预处理（见 setPrePassHook；渲染线程调用）
+    PFN_vkGetMemoryHostPointerPropertiesEXT getHostPointerProps_ = nullptr;    ///< 宿主内存导入（未启用为空）
+    VkDeviceSize hostImportAlignment_ = 0;                                     ///< 导入对齐要求
     VkInstance vkInstance_ = VK_NULL_HANDLE;
     VkSurfaceKHR vkSurface_ = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debugMessenger_ = VK_NULL_HANDLE;

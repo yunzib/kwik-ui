@@ -217,6 +217,36 @@ bool Video::setPropertyTyped(const char *name, const TypedProp &value) {
     return View::setPropertyTyped(name, value);
 }
 
+// ── 属性读取：专有属性 + 流模式只读读数（getProp 命令式读出）──
+std::string Video::getProperty(const char *name) const {
+    const std::string_view n(name);
+    if (n == "src") return video_.src;
+    if (n == "autoplay") return video_.autoplay ? "true" : "false";
+    if (n == "loop") return video_.loop ? "true" : "false";
+    if (n == "muted") return video_.muted ? "true" : "false";
+    if (n == "fit") {
+        switch (video_.fit) {
+        case ImageFit::Fill: return "fill";
+        case ImageFit::Contain: return "contain";
+        case ImageFit::Cover: return "cover";
+        case ImageFit::None: return "none";
+        }
+    }
+    // 只读读数：未绑定流（文件模式 / 流未建）一律 0
+    if (n == "fps") return std::format("{:.1f}", stream_ ? stream_->fps() : 0.0f);
+    if (n == "droppedFrames") return std::to_string(stream_ ? stream_->droppedFrames() : 0);
+    if (n == "frameWidth") return std::to_string(stream_ ? stream_->desc().width : 0);
+    if (n == "frameHeight") return std::to_string(stream_ ? stream_->desc().height : 0);
+    return View::getProperty(name);
+}
+
+PropType Video::readOnlyPropType(const char *name) const {
+    const std::string_view n(name);
+    if (n == "fps") return PropType::Float;
+    if (n == "droppedFrames" || n == "frameWidth" || n == "frameHeight") return PropType::Int;
+    return View::readOnlyPropType(name);
+}
+
 void Video::applyVideoProps(VideoProps p) {
     // 此前无条件 opened_=false：任意 State 变更 → 整树 reconcile → 每轮重新
     // open（接真实后端即"点任意按钮视频重头播"）。现仅 src 变化才重开/重绑

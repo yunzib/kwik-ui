@@ -34,10 +34,12 @@ void ImageRenderer::destroy() {
     }
     for (auto &r : retired_) freeTexture(r.tex);
     retired_.clear();
-    // 流资源整组清场（teardown：渲染线程已停，无并发）。延迟释放队列须逐项
-    // 执行而非丢弃——刚换分辨率/刚退役的旧资源组只在队列里，clear 即泄漏
-    // Vulkan 对象（须先于下方描述符池销毁：资源组含从池分配的 descSet）
-    for (auto &[key, st] : streams_) freeStreamResources(st->res);
+    // 流资源整组清场（teardown：渲染线程已停，无并发）。全部流经 retireStream
+    // 汇入延迟释放队列（资源组 + 零拷贝导入 + 跨帧固定），再逐项执行而非丢弃
+    // ——刚换分辨率/刚退役的旧资源组只在队列里，clear 即泄漏 Vulkan 对象；
+    // 导入缓冲/内存须先于宿主块释放（lambda 先执行销毁、析构时才放块）。
+    // 须先于下方描述符池销毁：资源组含从池分配的 descSet
+    for (auto &[key, st] : streams_) retireStream(*st, 0);
     streams_.clear();
     streamAliases_.clear();
     for (auto &d : deferredFrees_) d.second();
@@ -522,10 +524,10 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
         retired_.push_back({it->second, frameNo});
         textures_.erase(it);
     }
-    // ④ 流退役到期：摘表 + 资源组入延迟释放队列（帧距保护在飞帧引用）
+    // ④ 流退役到期：摘表 + 资源组/零拷贝导入/跨帧固定入延迟释放队列（帧距保护在飞帧引用）
     for (auto it = streams_.begin(); it != streams_.end();) {
         if (it->second->retireAt != 0 && frameNo >= it->second->retireAt) {
-            deferFreeResources(std::move(it->second->res), frameNo);
+            retireStream(*it->second, frameNo);
             it = streams_.erase(it);
         } else {
             ++it;

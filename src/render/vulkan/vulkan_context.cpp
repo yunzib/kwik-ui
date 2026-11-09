@@ -373,7 +373,33 @@ bool VulkanContext::pickPhysicalDevice() {
 bool VulkanContext::createLogicalDevice() {
     float pri = 1.0f;
     VkDeviceQueueCreateInfo qi{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, nullptr, 0, queueFamilyIndex_, 1, &pri};
-    const char *exts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char *> exts = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    // ── 宿主内存导入（V1 推流批 3 零拷贝）：设备支持即启用；
+    //    KWIK_VK_NO_HOST_IMPORT=1 强制关（回退 memcpy 路径，A/B 对比与兜底）。
+    //    依赖 VK_KHR_external_memory（1.1 核心，实例 API 1.1 满足）──
+    bool hostImport = false;
+    {
+        const char *off = std::getenv("KWIK_VK_NO_HOST_IMPORT");
+        uint32_t n = 0;
+        vkEnumerateDeviceExtensionProperties(vkPhysicalDevice_, nullptr, &n, nullptr);
+        std::vector<VkExtensionProperties> props(n);
+        vkEnumerateDeviceExtensionProperties(vkPhysicalDevice_, nullptr, &n, props.data());
+        for (const auto &p : props)
+            if (std::strcmp(p.extensionName, VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME) == 0) hostImport = true;
+        if (off && off[0] == '1') hostImport = false;
+        if (hostImport) {
+            // 拷贝源缓冲（TRANSFER_SRC）须支持宿主分配句柄的导入——规范要求先查能力
+            VkPhysicalDeviceExternalBufferInfo bi{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO};
+            bi.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            bi.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT;
+            VkExternalBufferProperties ep{VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES};
+            vkGetPhysicalDeviceExternalBufferProperties(vkPhysicalDevice_, &bi, &ep);
+            if (!(ep.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT))
+                hostImport = false;
+        }
+    }
+    if (hostImport) exts.push_back(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
 
     // 启用 dualSrcBlend: LCD 子像素文字需要每通道独立混合因子
     VkPhysicalDeviceFeatures supported{};
@@ -384,10 +410,25 @@ bool VulkanContext::createLogicalDevice() {
     VkDeviceCreateInfo di{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     di.queueCreateInfoCount = 1;
     di.pQueueCreateInfos = &qi;
-    di.enabledExtensionCount = 1;
-    di.ppEnabledExtensionNames = exts;
+    di.enabledExtensionCount = static_cast<uint32_t>(exts.size());
+    di.ppEnabledExtensionNames = exts.data();
     di.pEnabledFeatures = &enabled;
-    return vkCreateDevice(vkPhysicalDevice_, &di, nullptr, &vkDevice_) == VK_SUCCESS;
+    if (vkCreateDevice(vkPhysicalDevice_, &di, nullptr, &vkDevice_) != VK_SUCCESS) return false;
+
+    if (hostImport) {
+        getHostPointerProps_ = reinterpret_cast<PFN_vkGetMemoryHostPointerPropertiesEXT>(
+            vkGetDeviceProcAddr(vkDevice_, "vkGetMemoryHostPointerPropertiesEXT"));
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT hp{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
+        VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        p2.pNext = &hp;
+        vkGetPhysicalDeviceProperties2(vkPhysicalDevice_, &p2);
+        hostImportAlignment_ = hp.minImportedHostPointerAlignment;
+        if (!getHostPointerProps_ || hostImportAlignment_ == 0) getHostPointerProps_ = nullptr;
+    }
+    Log::info("[startup] host memory import (zero-copy video) = {}{}", getHostPointerProps_ ? "on" : "off",
+              getHostPointerProps_ ? std::format(", align {}", hostImportAlignment_) : std::string());
+    return true;
 }
 // ================================================================
 // beginFrame — 获取 swapchain + 开始 canvas render pass

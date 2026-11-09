@@ -7,6 +7,8 @@
  * 本文件全部函数仅在渲染线程执行（streams_/streamAliases_ 无锁访问前提）。
  * 格式支持：RGBA8/BGRA8 直采样（image 管线）；YUV 六格式按 TexturePlan 分平面
  * 上传、image_yuv 管线片段阶段转色（批 2）。
+ * 拷贝源（批 3）：设备支持 VK_EXT_external_memory_host 时池槽内存块直接导入为
+ * 拷贝源缓冲（零 CPU 拷贝，固定持有到该帧 fence）；否则 memcpy 进 staging。
  */
 module;
 #include <vulkan/vulkan.h>
@@ -16,6 +18,7 @@ import kwik.render.vulkan.context;
 import kwik.render.command;
 import kwik.render.video_stream;
 import kwik.core.types;
+import kwik.core.log;    // 零拷贝回退告警
 import std;
 
 VkFormat ImageRenderer::vkFormatFor(TexelFormat f) {
@@ -182,24 +185,8 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
             }
         }
     }
-    // ③ staging：每在飞帧一份常驻映射（HOST_COHERENT）——写入按帧槽轮转，
-    //    复用安全由 fence 等待保证（与顶点分槽同源）
-    for (uint32_t s = 0; s < N; ++s) {
-        auto &stage = r.stages[s];
-        if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice, st.layout.totalBytes,
-                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                         stage.buffer, stage.memory)) {
-            freeStreamResources(r);
-            return false;
-        }
-        if (vkMapMemory(dc.device, stage.memory, 0, st.layout.totalBytes, 0, &stage.mapped) != VK_SUCCESS) {
-            stage.mapped = nullptr;
-            freeStreamResources(r);
-            return false;
-        }
-        stage.capacity = st.layout.totalBytes;
-    }
+    // ③ staging 不在此建：拷贝路径按帧槽懒建（ensureStage）；零拷贝路径直接以
+    //    导入的池槽内存块为拷贝源，全程不需要 staging（省 3 份帧大小内存）
     // ④ 每槽描述符集：写一次此后只读——绝不更新在飞帧正在采样的 set（规范
     //    禁止）。YUV 三绑定缺的平面用 plane0 占位（着色器按 mode 只取用到的
     //    绑定，占位仅满足"静态使用须有效"）；RGB 单绑定走 image 布局
@@ -254,12 +241,136 @@ void ImageRenderer::deferFreeResources(StreamResources &&r, uint64_t frameNo) {
     deferredFrees_.push_back({frameNo, [this, r = std::move(r)]() { freeStreamResources(r); }});
 }
 
+// ── 拷贝路径 staging 懒建：每在飞帧一份常驻映射（HOST_COHERENT）——写入按帧槽
+//    轮转，复用安全由 fence 等待保证（与顶点分槽同源）──
+bool ImageRenderer::ensureStage(const DeviceContext &dc, StreamTexture &st, uint32_t frameSlot) {
+    if (st.res.stages.size() <= frameSlot) st.res.stages.resize(VulkanContext::kMaxFramesInFlight);
+    StreamStage &stage = st.res.stages[frameSlot];
+    if (stage.buffer != VK_NULL_HANDLE) return stage.capacity >= st.layout.totalBytes;
+    if (!VulkanContext::createBuffer(dc.device, dc.physicalDevice, st.layout.totalBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     stage.buffer, stage.memory))
+        return false;
+    if (vkMapMemory(dc.device, stage.memory, 0, st.layout.totalBytes, 0, &stage.mapped) != VK_SUCCESS) {
+        vkDestroyBuffer(dc.device, stage.buffer, nullptr);
+        vkFreeMemory(dc.device, stage.memory, nullptr);
+        stage = StreamStage{};
+        return false;
+    }
+    stage.capacity = st.layout.totalBytes;
+    return true;
+}
+
+// ── 零拷贝：池槽内存块 → VK_EXT_external_memory_host 导入的拷贝源缓冲 ──
+// 块大小恒定（换分辨率即换块），故一块一个导入、按块对象地址缓存复用；
+// 块的 shared_ptr 存入缓存续命——导入存续期间宿主内存不得释放（规范要求）
+VkBuffer ImageRenderer::importBlock(const DeviceContext &dc, StreamTexture &st,
+                                    const std::shared_ptr<MemoryBlock> &block) {
+    if (!block || !block->data() || !dc.getHostPointerProps || dc.hostImportAlignment == 0) return VK_NULL_HANDLE;
+    if (auto it = st.imports.find(block.get()); it != st.imports.end()) return it->second.buffer;
+    // 地址与尺寸须为 minImportedHostPointerAlignment 整数倍（块按 64KiB 分配，主流驱动 4KiB 恒满足）
+    const auto addr = reinterpret_cast<uintptr_t>(block->data());
+    if (addr % dc.hostImportAlignment != 0 || block->size() % dc.hostImportAlignment != 0) return VK_NULL_HANDLE;
+    VkMemoryHostPointerPropertiesEXT hp{VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT};
+    if (dc.getHostPointerProps(dc.device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, block->data(), &hp)
+        != VK_SUCCESS)
+        return VK_NULL_HANDLE;
+
+    ImportedBlock ib;
+    ib.block = block;
+    VkExternalMemoryBufferCreateInfo eb{VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO};
+    eb.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT;
+    VkBufferCreateInfo bi{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bi.pNext = &eb;
+    bi.size = block->size();
+    bi.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    if (vkCreateBuffer(dc.device, &bi, nullptr, &ib.buffer) != VK_SUCCESS) return VK_NULL_HANDLE;
+    VkMemoryRequirements mr;
+    vkGetBufferMemoryRequirements(dc.device, ib.buffer, &mr);
+    // 内存类型：导入指针允许的类型 ∩ 缓冲要求，且须 HOST_COHERENT——生产者 CPU
+    // 写入经队列提交的隐式宿主依赖对 GPU 可见（与 staging 路径同一前提，免 flush）
+    const uint32_t bits = hp.memoryTypeBits & mr.memoryTypeBits;
+    VkPhysicalDeviceMemoryProperties mp;
+    vkGetPhysicalDeviceMemoryProperties(dc.physicalDevice, &mp);
+    const VkMemoryPropertyFlags want = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    uint32_t type = UINT32_MAX;
+    for (uint32_t i = 0; i < mp.memoryTypeCount; ++i)
+        if ((bits & (1u << i)) && (mp.memoryTypes[i].propertyFlags & want) == want) {
+            type = i;
+            break;
+        }
+    if (type == UINT32_MAX || mr.size > block->size()) {
+        vkDestroyBuffer(dc.device, ib.buffer, nullptr);
+        return VK_NULL_HANDLE;
+    }
+    VkImportMemoryHostPointerInfoEXT imp{VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT};
+    imp.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT;
+    imp.pHostPointer = block->data();
+    VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    ai.pNext = &imp;
+    ai.allocationSize = block->size();
+    ai.memoryTypeIndex = type;
+    if (vkAllocateMemory(dc.device, &ai, nullptr, &ib.memory) != VK_SUCCESS) {
+        vkDestroyBuffer(dc.device, ib.buffer, nullptr);
+        return VK_NULL_HANDLE;
+    }
+    if (vkBindBufferMemory(dc.device, ib.buffer, ib.memory, 0) != VK_SUCCESS) {
+        vkDestroyBuffer(dc.device, ib.buffer, nullptr);
+        vkFreeMemory(dc.device, ib.memory, nullptr);
+        return VK_NULL_HANDLE;
+    }
+    const VkBuffer buf = ib.buffer;
+    st.imports.emplace(block.get(), std::move(ib));
+    return buf;
+}
+
+// ── 释放已退役块的导入对象：块退役 = 池已换块，本流再不会从它拷贝；但此前
+//    帧的拷贝可能仍在飞——延迟到帧距满再销毁缓冲/内存，最后才放开块（宿主
+//    内存释放必须晚于导入对象销毁）──
+void ImageRenderer::pruneImports(StreamTexture &st, uint64_t frameNo) {
+    for (auto it = st.imports.begin(); it != st.imports.end();) {
+        if (it->second.block->retired()) {
+            // lambda 持块 shared_ptr：先执行销毁 GPU 对象，lambda 析构时才释放块
+            deferredFrees_.push_back({frameNo, [this, ib = it->second]() {
+                                          vkDestroyBuffer(device_, ib.buffer, nullptr);
+                                          vkFreeMemory(device_, ib.memory, nullptr);
+                                      }});
+            it = st.imports.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// ── 流整体退役：GPU 资源组、全部导入块、跨帧固定一并延迟到帧距满释放；
+//    长时持有登记即时撤销（只影响池后续扩容，已启用槽不回收）──
+void ImageRenderer::retireStream(StreamTexture &st, uint64_t frameNo) {
+    deferFreeResources(std::move(st.res), frameNo);
+    for (auto &[key, ib] : st.imports) {
+        deferredFrees_.push_back({frameNo, [this, ib]() {
+                                      vkDestroyBuffer(device_, ib.buffer, nullptr);
+                                      vkFreeMemory(device_, ib.memory, nullptr);
+                                  }});
+    }
+    st.imports.clear();
+    // 固定须持有到在飞帧读完：转入延迟队列（std::function 须可复制 → shared_ptr 包装）
+    auto pins = std::make_shared<std::vector<PinGuard>>(std::move(st.heldPins));
+    deferredFrees_.push_back({frameNo, [pins]() {}});    // 帧距满后 lambda 析构 → 解除固定
+    if (st.reservedPins != 0 && st.stream) st.stream->releaseConsumerPins(st.reservedPins);
+    st.reservedPins = 0;
+}
+
 void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer cb, uint32_t frameSlot,
                                         uint64_t frameNo) {
     if (streams_.empty()) return;
+    const bool zeroCopyAvail = dc.getHostPointerProps != nullptr;
+    constexpr uint32_t kImportFailLimit = 3;    // 同一流连续导入失败达此数 → 永久回退 memcpy
 
-    // ① 逐流取最新帧：memcpy 进本帧 staging（host 写先于 submit，HOST_COHERENT
-    //    + 同线程提交顺序保证可见）——只收集 barrier/copy 描述，统一批量录制
+    // ① 逐流取最新帧，决定拷贝源：零拷贝 = 池槽内存块导入的缓冲（无 CPU 拷贝）；
+    //    拷贝路径 = memcpy 进本帧 staging。两者均为主机可见一致性内存，CPU 写
+    //    先于 submit、同线程提交的隐式宿主依赖保证 GPU 可见——只收集 barrier/
+    //    copy 描述，统一批量录制
     struct CopyItem {
         VkBuffer buf;
         VkImage img;
@@ -270,8 +381,12 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
     for (auto &[key, up] : streams_) {
         StreamTexture &st = *up;
         if (st.retireAt != 0) continue;                  // 挂起退役不再投喂
-        if (frameNo > st.touchedFrame + 2) continue;     // 不可见（近期未录制绘制）跳过上传
         if (!st.stream) continue;
+        // 本帧槽 fence 已等：该槽上次零拷贝帧 GPU 已读完 → 解除其固定（还池）。
+        // 须先于可见性判断——不可见的流也得及时放手，否则占槽致生产者丢帧
+        if (st.heldPins.size() > frameSlot) st.heldPins[frameSlot] = PinGuard{};
+        pruneImports(st, frameNo);                       // 池已换块的旧导入延迟释放
+        if (frameNo > st.touchedFrame + 2) continue;     // 不可见（近期未录制绘制）跳过上传
         PinGuard pin = st.stream->pinLatest();
         if (!pin) continue;                              // 尚无任何帧
         const FrameDesc &d = pin.desc();
@@ -289,15 +404,34 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
         }
         if (pin.seq() == st.uploadedSeq) continue;       // 无新帧（屏 60Hz < 流帧率时多数帧跳过）
 
-        StreamStage &stage = st.res.stages[frameSlot];
-        if (stage.capacity < st.layout.totalBytes) continue;    // 防御（重建组必配对）
-        auto planes = pin.planes();
-        for (uint32_t p = 0; p < st.layout.planeCount && p < planes.size(); ++p) {
-            const auto &pl = st.layout.planes[p];
-            uint8_t *dst = static_cast<uint8_t *>(stage.mapped) + pl.offset;
-            uint32_t rowBytes = pl.width * pl.bytesPerTexel;
-            for (uint32_t y = 0; y < pl.height; ++y)
-                std::memcpy(dst + size_t(pl.stride) * y, planes[p].data + size_t(planes[p].stride) * y, rowBytes);
+        // 拷贝源选择：零拷贝优先。池按构造把平面放在 块首 + FrameLayout 偏移
+        // （VideoStream::acquire），与 staging 布局一致——两路拷贝区域偏移同源
+        VkBuffer srcBuf = VK_NULL_HANDLE;
+        bool zeroCopy = false;
+        if (zeroCopyAvail && st.importFailures < kImportFailLimit && pin.block()) {
+            srcBuf = importBlock(dc, st, pin.block());
+            if (srcBuf != VK_NULL_HANDLE) {
+                zeroCopy = true;
+                if (!zeroCopyLogged_) {    // 每渲染器一次：日志可确认实际走零拷贝（非仅扩展已启用）
+                    zeroCopyLogged_ = true;
+                    Log::info("[video] stream upload path = zero-copy (host memory import)");
+                }
+            } else if (++st.importFailures == kImportFailLimit) {
+                Log::warn("流纹理零拷贝导入连续失败，该流回退 memcpy 拷贝路径");
+            }
+        }
+        if (!zeroCopy) {
+            if (!ensureStage(dc, st, frameSlot)) continue;    // staging 建失败：本帧跳过，下帧重试
+            StreamStage &stage = st.res.stages[frameSlot];
+            auto planes = pin.planes();
+            for (uint32_t p = 0; p < st.layout.planeCount && p < planes.size(); ++p) {
+                const auto &pl = st.layout.planes[p];
+                uint8_t *dst = static_cast<uint8_t *>(stage.mapped) + pl.offset;
+                uint32_t rowBytes = pl.width * pl.bytesPerTexel;
+                for (uint32_t y = 0; y < pl.height; ++y)
+                    std::memcpy(dst + size_t(pl.stride) * y, planes[p].data + size_t(planes[p].stride) * y, rowBytes);
+            }
+            srcBuf = stage.buffer;
         }
 
         // 环推进 + 屏障/拷贝描述收集——槽复用安全由 fence 证明：第 n 次上传在
@@ -306,7 +440,7 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
         // src 阶段 TOP_OF_PIPE 即合法，与在飞帧无执行依赖（GPU 无同步气泡）
         st.ringIndex = (st.ringIndex + 1) % uint32_t(st.res.slots.size());
         StreamSlot &slot = st.res.slots[st.ringIndex];
-        // 逐 GPU 采样平面：拷贝源 = staging 中第 srcPlane 平面，行长按该视图
+        // 逐 GPU 采样平面：拷贝源 = 源缓冲中第 srcPlane 平面，行长按该视图
         // 纹素字节换算（打包 4:2:2 同一源平面拷两次：RG8 亮度视图 + RGBA8 色度视图）
         for (uint32_t p = 0; p < st.plan.count; ++p) {
             const auto &tp = st.plan.planes[p];
@@ -335,14 +469,26 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
             region.bufferImageHeight = 0;                           // 0 = 行紧随行长排布
             region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             region.imageExtent = {tp.width, tp.height, 1};
-            copies.push_back({stage.buffer, slot.images[p], region});
+            copies.push_back({srcBuf, slot.images[p], region});
         }
         st.uploadedSeq = pin.seq();
         st.hasUpload = true;
+        st.zeroCopyUploads = zeroCopy;
         // 矩阵/range 不触发重建（只影响 push 常量），随上传帧更新——绘制采样的
         // 正是本次上传的槽，二者同帧对应
         st.desc.matrix = d.matrix;
         st.desc.fullRange = d.fullRange;
+        if (zeroCopy) {
+            // GPU 在本帧直接读池槽内存：固定须持有到本帧槽 fence 再等到（kMaxFramesInFlight
+            // 帧后同一 frameSlot 回到此处才放手）。首次走零拷贝向流登记长时持有，
+            // 池按需扩容——生产者在 GPU 持有期间仍有槽可写
+            if (st.heldPins.empty()) st.heldPins.resize(VulkanContext::kMaxFramesInFlight);
+            if (st.reservedPins == 0) {
+                st.reservedPins = VulkanContext::kMaxFramesInFlight;
+                st.stream->reserveConsumerPins(st.reservedPins);
+            }
+            st.heldPins[frameSlot] = std::move(pin);
+        }
     }
 
     // ② 批量录制：前屏障（全部流合并）→ 拷贝 → 后屏障——屏障次数与流数无关

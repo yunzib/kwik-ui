@@ -13,6 +13,7 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.video_stream;    // VideoStream（stream:// 流模式绑定）
+import kwik.element.typed_prop;     // PropType（只读读数类型声明）
 
 import std;
 
@@ -113,6 +114,15 @@ public:
 
     /** @brief 当前专有属性（只读；行为锁/调试用） */
     const VideoProps &videoProps() const { return video_; }
+
+    /**
+     * @brief 属性读取：专有属性（src/fit/autoplay/loop/muted）+ 流模式只读读数
+     *        fps（生产者近期提交帧率）/ droppedFrames（池满丢帧累计）/
+     *        frameWidth / frameHeight（最新帧尺寸）——未绑定流时读数为 0
+     */
+    std::string getProperty(const char *name) const override;
+    /** @brief 只读读数的类型声明（getProp 返回 JS 原生 number） */
+    PropType readOnlyPropType(const char *name) const override;
 
     /** @brief 解码后端是否已 open（只读；行为锁/调试用——流模式恒 false） */
     bool isOpened() const { return opened_; }

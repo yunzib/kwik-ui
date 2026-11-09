@@ -1,5 +1,16 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-09
+### 新增
+- Video 流模式零拷贝上传：设备支持 VK_EXT_external_memory_host 时，帧池
+  槽内存直接导入为 GPU 拷贝源，渲染线程不再 memcpy（1080p NV12 每帧省
+  约 0.3ms 与 3 份 staging 内存）；不支持或导入失败自动回退拷贝路径，
+  KWIK_VK_NO_HOST_IMPORT=1 可强制禁用（对比/兜底）
+- Video 流读数：getProp 可读 fps / droppedFrames / frameWidth /
+  frameHeight（返回 number）；C++ 侧 VideoStream 同名接口
+- 组件只读属性可声明类型（View::readOnlyPropType）：getProp 对无 JS
+  写入痕迹的读数也能返回原生 number/boolean
+
 # 0.0.0 — 2026-11-08
 ### 新增
 - Video 流模式：`src: "stream://名字"` 显示宿主 C++ 推送的视频帧——宿主

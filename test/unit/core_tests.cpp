@@ -3595,7 +3595,8 @@ static void test_video_stream_layout() {
 
 // 最新帧优先 + 未 commit 的 writer 析构归还 + 无帧时 pin 为空
 static void test_video_stream_latest_wins() {
-    VideoStream vs(3);
+    auto vsp = std::make_shared<VideoStream>(3);
+    auto &vs = *vsp;    // pinLatest 句柄共享持有流（shared_from_this）——须经 shared_ptr 构造
     const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
     CHECK(vs.seq() == 0 && vs.desc().width == 0);    // 尚无帧：desc 全默认
     CHECK(!vs.pinLatest());
@@ -3624,7 +3625,8 @@ static void test_video_stream_latest_wins() {
 
 // 池满丢帧不阻塞 + 被固定的槽在新帧发布后不被复用（解除固定才还池）
 static void test_video_stream_pool_full_and_pin() {
-    VideoStream vs(2);
+    auto vsp = std::make_shared<VideoStream>(2);
+    auto &vs = *vsp;    // pinLatest 句柄共享持有流（shared_from_this）——须经 shared_ptr 构造
     const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
     {
         auto a = vs.acquire(d);
@@ -3655,7 +3657,8 @@ static void test_video_stream_pool_full_and_pin() {
 
 // 换分辨率重分配 + push 按源 stride 逐行拷贝（池 stride 256 对齐）
 static void test_video_stream_realloc_and_push() {
-    VideoStream vs(2);
+    auto vsp = std::make_shared<VideoStream>(2);
+    auto &vs = *vsp;    // pinLatest 句柄共享持有流（shared_from_this）——须经 shared_ptr 构造
     {
         auto w = vs.acquire({.format = PixelFormat::RGBA8, .width = 2, .height = 2});
         w.commit();
@@ -3701,7 +3704,8 @@ static void test_video_stream_registry() {
 // 跨线程：生产者连续推帧、消费者反复固定读取——固定帧内容恒整帧一致（不撕裂），
 // 且每次 acquire 非提交即丢帧（seq + 丢帧 == 总尝试）
 static void test_video_stream_threaded_no_tearing() {
-    VideoStream vs(3);
+    auto vsp = std::make_shared<VideoStream>(3);
+    auto &vs = *vsp;    // pinLatest 句柄共享持有流（shared_from_this）——须经 shared_ptr 构造
     constexpr int kFrames = 2000;
     const FrameDesc d{.format = PixelFormat::RGBA8, .width = 64, .height = 8};
     std::atomic<bool> done{false};
@@ -3731,6 +3735,106 @@ static void test_video_stream_threaded_no_tearing() {
     producer.join();
     CHECK(torn == 0);
     CHECK(vs.seq() + vs.droppedFrames() == uint64_t(kFrames));
+}
+
+// ── 行为锁: 批 3 数据层 — 内存块 / 长时持有扩容 / 帧率 ──
+// MemoryBlock：64KiB 对齐与尺寸取整（零拷贝导入前提）；块退役标记（后端导入
+// 缓存据此释放）；跨帧固定（零拷贝持有路径）期间生产者仍有槽可写
+static void test_video_stream_zero_copy_layer() {
+    // ① MemoryBlock 对齐/尺寸
+    MemoryBlock blk(1);
+    CHECK(blk.data() != nullptr);
+    CHECK(reinterpret_cast<uintptr_t>(blk.data()) % MemoryBlock::kAlignment == 0);
+    CHECK(blk.size() == MemoryBlock::kAlignment);
+    CHECK(!blk.retired());
+    blk.markRetired();
+    CHECK(blk.retired());
+
+    // ② 跨帧固定 + 消费端登记扩容（零拷贝每窗口持有 kMaxFramesInFlight 帧到 fence）
+    const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
+    const auto holdN = 3u;    // 与 VulkanContext::kMaxFramesInFlight 同值（渲染器持有数）
+    //   ②a 对照：未登记时 2 槽池被跨帧固定占满 → 生产者丢帧；登记后扩容恢复可写
+    {
+        auto p2 = std::make_shared<VideoStream>(2);    // pinLatest 句柄共享持有流——须经 shared_ptr
+        std::vector<PinGuard> held;
+        for (int f = 0; f < 2; ++f) {
+            auto w = p2->acquire(d);
+            CHECK(static_cast<bool>(w));
+            w.commit();
+            held.push_back(p2->pinLatest());
+        }
+        CHECK(!p2->acquire(d));            // 两槽均被固定（其一为最新）→ 丢帧
+        CHECK(p2->droppedFrames() == 1);
+        p2->reserveConsumerPins(holdN);    // 扩容 → 新启用槽可写
+        CHECK(p2->slotCount() == 2 + holdN);
+        auto w = p2->acquire(d);
+        CHECK(static_cast<bool>(w));
+    }
+    //   ②b 渲染器真实时序：首次零拷贝即先登记、后持有——持有满 holdN 帧期间生产者不丢帧
+    {
+        auto p3 = std::make_shared<VideoStream>(2);
+        p3->reserveConsumerPins(holdN);
+        std::vector<PinGuard> held;
+        for (uint32_t f = 0; f < holdN; ++f) {
+            auto w = p3->acquire(d);
+            CHECK(static_cast<bool>(w));
+            w.commit();
+            held.push_back(p3->pinLatest());
+            CHECK(held.back() && held.back().block() && held.back().block()->data() != nullptr);
+        }
+        auto w = p3->acquire(d);           // 持有 holdN 帧时仍有槽可写
+        CHECK(static_cast<bool>(w));
+        w.commit();
+        CHECK(p3->droppedFrames() == 0 && p3->seq() == holdN + 1);
+        p3->releaseConsumerPins(holdN);    // 撤销登记：已启用槽不回收
+        CHECK(p3->slotCount() == 2 + holdN);
+    }
+
+    // ③ 块退役续命：导入缓存（此处以 shared_ptr 副本模拟）仍持有块时，该槽被复用
+    //    为更大帧 → 池换块并标记旧块退役，但内存由持有者续命直到其放手。
+    //    （被固定的槽不会被复用，故退役只发生在已解除固定、仅缓存持有的块上）
+    {
+        auto p4 = std::make_shared<VideoStream>(2);
+        std::shared_ptr<MemoryBlock> cached;
+        {
+            auto a = p4->acquire(d);    // → 槽 0
+            a.commit();
+            cached = p4->pinLatest().block();    // 缓存持块；固定随临时句柄即刻解除
+        }
+        {
+            auto b = p4->acquire(d);    // → 槽 1；提交后槽 0 非最新且未固定 → 还池
+            b.commit();
+        }
+        auto big = p4->acquire({.format = PixelFormat::RGBA8, .width = 512, .height = 512});    // 复用槽 0、容量不足 → 换块
+        CHECK(static_cast<bool>(big));
+        big.commit();
+        CHECK(cached->retired());              // 池已弃用旧块（后端导入缓存据此释放）
+        CHECK(cached->data() != nullptr);      // 持有者续命：内存未释放
+        CHECK(p4->pinLatest().block() != cached);    // 新帧在新块
+        cached.reset();                        // 最后持有者放手 → 块析构
+    }
+}
+
+// 帧率环：fpsAt 可注入读数时刻（免依赖睡眠时长）；停推 1 秒后归零
+static void test_video_stream_fps() {
+    auto vsp = std::make_shared<VideoStream>(2);
+    auto &vs = *vsp;
+    const FrameDesc d{.format = PixelFormat::RGBA8, .width = 2, .height = 2};
+    auto commitOne = [&] {
+        auto w = vs.acquire(d);
+        CHECK(static_cast<bool>(w));
+        w.commit();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));    // 保证相邻提交时刻可分辨
+    };
+    CHECK(vs.fps() == 0.0f);    // 无帧 → 0
+    commitOne();
+    CHECK(vs.fps() == 0.0f);    // 仅 1 帧（无区间）→ 0
+    for (int i = 0; i < 9; ++i) commitOne();
+    const auto tLast = std::chrono::steady_clock::now();
+    CHECK(vs.fpsAt(tLast) > 0.0f);                                          // 10 帧 → 有读数
+    CHECK(vs.fpsAt(tLast + std::chrono::milliseconds(1100)) == 0.0f);       // 停推 1 秒后归零
+    for (int i = 0; i < 40; ++i) commitOne();    // 超过环长（32）仍稳定：最旧点随环推进、不越界
+    CHECK(vs.fpsAt(std::chrono::steady_clock::now()) > 0.0f);
 }
 
 // ── 行为锁: TexturePlan 帧 → GPU 采样平面规划（V1 批 2）──
@@ -3837,6 +3941,8 @@ int main() {
     test_video_stream_registry();             // 命名注册表 weak 持有 / 除名 / 覆盖
     test_video_stream_threaded_no_tearing();  // 跨线程固定帧不撕裂 / 提交+丢帧守恒
     test_video_texture_plan();                // 批 2：帧 → GPU 采样平面规划（YUV 平面 / 4:2:2 双视图）
+    test_video_stream_zero_copy_layer();     // 批 3：内存块 / 跨帧固定扩容 / 块退役续命
+    test_video_stream_fps();                 // 批 3：帧率环（注入取时 / 停推归零 / 环滚动）
     std::println("[tests] total={} failed={}", g_total, g_failed);
     return g_failed > 0 ? 1 : 0;
 }

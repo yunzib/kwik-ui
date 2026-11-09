@@ -2,17 +2,21 @@
  * @file video_stream.cppm
  * @brief 视频流数据层 — 生产者推帧 / 消费者取帧（引擎与渲染后端中立）
  *
- * 三线程契约（V1 推流方案批 1）：
+ * 三线程契约：
  *   生产者线程：acquire() → 写池槽平面（零中间缓冲）→ commit()；池满即丢帧，从不阻塞
- *   UI 线程：   只读 seq()（原子）与 desc()，据此标脏
- *   渲染线程：  pinLatest() 固定最新帧拷贝进 staging，PinGuard 析构解除固定
+ *   UI 线程：   只读 seq()（原子）、desc()、fps()，据此标脏/读数
+ *   渲染线程：  pinLatest() 固定最新帧，或拷入 staging（拷贝路径），或把槽内存
+ *               块直接导入为 GPU 拷贝源（零拷贝路径，批 3）——后者须把固定
+ *               持有到 GPU 读完（fence），故 PinGuard 可移动、可跨帧持有
  *
  * 本模块不持有任何 GPU 资源；GPU 侧绑定见各渲染后端的 createStreamTexture。
- * 槽内存 4096 对齐（为批 3 外部内存零拷贝导入预留），平面偏移/stride 256 对齐。
+ * 槽内存为 MemoryBlock：64KiB 对齐、整块独占（满足 VK_EXT_external_memory_host
+ * 导入的地址/尺寸对齐，且导入范围不与他人分配共页）；平面偏移/stride 256 对齐。
  */
 module;
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -174,6 +178,39 @@ struct TexturePlan {
 class VideoStream;
 
 /**
+ * @brief 池槽内存块（零拷贝导入单元）
+ *
+ * 64KiB 对齐、尺寸按 64KiB 向上取整、整块独占（Windows VirtualAlloc /
+ * POSIX mmap）——覆盖各驱动 minImportedHostPointerAlignment（常见 4KiB /
+ * 64KiB），且导入页内无他人数据。块不可复制；对象地址即后端导入缓存键。
+ *
+ * 生命周期：槽扩容/缩容换块时旧块并不立即释放——标记退役（retired），由
+ * 持有的 shared_ptr 续命至最后一个使用者（池槽、PinGuard、后端导入缓存）
+ * 放手；后端见 retired() 即释放其导入对象，块随之析构。
+ */
+class MemoryBlock {
+public:
+    /** @brief 分配 bytes 字节（向上取整到 64KiB）；失败时 data()==nullptr */
+    explicit MemoryBlock(size_t bytes);
+    ~MemoryBlock();
+    MemoryBlock(const MemoryBlock &) = delete;
+    MemoryBlock &operator=(const MemoryBlock &) = delete;
+
+    static constexpr size_t kAlignment = 64 * 1024;    // 导入对齐（≥ 主流驱动最小导入对齐）
+
+    uint8_t *data() const { return data_; }
+    size_t size() const { return size_; }
+    /** @brief 池已弃用本块（换块后标记）——导入缓存据此释放 GPU 侧导入对象 */
+    bool retired() const { return retired_.load(std::memory_order_acquire); }
+    void markRetired() { retired_.store(true, std::memory_order_release); }
+
+private:
+    uint8_t *data_ = nullptr;
+    size_t size_ = 0;
+    std::atomic<bool> retired_{false};
+};
+
+/**
  * @brief 生产者写帧句柄（acquire 返回；move-only）
  *
  * planes() 给出框架分配的可写平面（写满 width×height，行距 stride）；
@@ -209,6 +246,8 @@ private:
  * @brief 消费端固定句柄（pinLatest 返回；move-only）
  *
  * 存活期间对应池槽不被回收复用；析构解除固定（此时若已非最新帧则槽归还）。
+ * 可移动、可跨帧持有——零拷贝路径把它保留到 GPU 读完该槽内存为止（fence）。
+ * 句柄共享持有其流（shared_ptr），流对象不早于任何句柄析构。
  */
 class PinGuard {
 public:
@@ -226,11 +265,13 @@ public:
     const FrameDesc &desc() const;
     /** @brief 被固定帧的序号（== pin 时刻的 stream->seq()） */
     uint64_t seq() const { return seq_; }
+    /** @brief 被固定帧所在的内存块（零拷贝导入源；平面地址均落在其内） */
+    const std::shared_ptr<MemoryBlock> &block() const;
 
 private:
     friend class VideoStream;
-    PinGuard(VideoStream *s, size_t idx, uint64_t seq) : stream_(s), idx_(idx), seq_(seq) {}
-    VideoStream *stream_ = nullptr;
+    PinGuard(std::shared_ptr<VideoStream> s, size_t idx, uint64_t seq) : stream_(std::move(s)), idx_(idx), seq_(seq) {}
+    std::shared_ptr<VideoStream> stream_;
     size_t idx_ = 0;
     uint64_t seq_ = 0;
 };
@@ -240,12 +281,18 @@ private:
  *
  * 线程约定：单生产者（acquire/push 仅生产者线程）；消费者（pinLatest）
  * 可多个（渲染线程 × 窗口数）。互斥锁只护槽状态切换，锁内不做 memcpy。
+ * 须经 shared_ptr 持有（createVideoStream / make_shared）——pinLatest 的
+ * 句柄共享持有流本身。
  */
-class VideoStream {
+class VideoStream : public std::enable_shared_from_this<VideoStream> {
 public:
+    /** @brief 槽数上限（槽数组定长、建流即构造，扩容只启用不挪动——无锁读路径安全） */
+    static constexpr uint32_t kMaxSlots = 16;
+
     /**
-     * @param poolSlots 池槽数。每窗口渲染线程每帧最多固定 1 帧存活到下帧，
-     *        多窗口显示同一路流时建议 ≥ 2 + 窗口数（默认 4 覆盖双窗口）
+     * @param poolSlots 池槽数（夹到 [2, kMaxSlots]）。拷贝路径每消费端仅瞬时
+     *        固定；零拷贝路径每消费端最多持有约在飞帧数个槽到 GPU 读完——
+     *        后端会经 reserveConsumerPins 自动补足，宿主无需按路径手调
      */
     explicit VideoStream(uint32_t poolSlots = 4);
     ~VideoStream();
@@ -271,6 +318,24 @@ public:
     /** @brief 累计丢帧数（池满丢弃） */
     uint64_t droppedFrames() const noexcept { return dropped_.load(std::memory_order_relaxed); }
 
+    /** @brief 近期提交帧率（最近 32 次提交的平均间隔；任意线程）——尚无两帧或
+     *         超过 1 秒无新帧（生产者停推）时为 0 */
+    float fps() const { return fpsAt(std::chrono::steady_clock::now()); }
+    /** @brief fps() 的取时可注入版本（now 为读数时刻；行为锁用） */
+    float fpsAt(std::chrono::steady_clock::time_point now) const;
+
+    /** @brief 当前启用的池槽数 */
+    uint32_t slotCount() const;
+
+    /**
+     * @brief 消费端登记长时持有需求（后端调用：零拷贝路径每窗口最多持有
+     *        n 个槽到 GPU 读完）。按全部登记之和扩容池槽（不超过 kMaxSlots），
+     *        保证生产者在消费端持有期间仍有槽可写。须与 releaseConsumerPins 配对
+     */
+    void reserveConsumerPins(uint32_t n);
+    /** @brief 撤销 reserveConsumerPins 的登记（已启用的槽不回收） */
+    void releaseConsumerPins(uint32_t n);
+
     /** @brief 固定最新帧（消费端；空 = 尚无任何帧） */
     PinGuard pinLatest();
 
@@ -280,11 +345,10 @@ private:
     struct Slot {
         enum class St : uint8_t { Free, Writing, Ready };
         St st = St::Free;
-        uint32_t pins = 0;                 // 消费端固定计数（仅 Ready 态有意义）
-        uint8_t *base = nullptr;           // 4096 对齐槽内存（alignedAlloc 分配）
-        size_t capBytes = 0;               // 已分配容量
-        FrameDesc desc;                    // 本槽帧描述（Writing 起有效）
-        std::array<PlaneView, 3> views{};  // 按 FrameLayout 生成的可写视图
+        uint32_t pins = 0;                    // 消费端固定计数（仅 Ready 态有意义）
+        std::shared_ptr<MemoryBlock> block;   // 槽内存（换块时旧块标记退役、由持有者续命）
+        FrameDesc desc;                       // 本槽帧描述（Writing 起有效）
+        std::array<PlaneView, 3> views{};     // 按 FrameLayout 生成的可写视图
     };
 
     void commitSlot(size_t idx);       // FrameWriter::commit 落点（锁内切态，锁外 seq++）
@@ -294,14 +358,23 @@ private:
     std::span<const PlaneView> planesFor(size_t idx) const;
     /** @brief 槽 idx 的帧描述（同上） */
     const FrameDesc &descFor(size_t idx) const;
+    /** @brief 槽 idx 的内存块（同上） */
+    const std::shared_ptr<MemoryBlock> &blockFor(size_t idx) const;
 
     mutable std::mutex mtx_;
-    std::vector<Slot> slots_;
+    std::array<Slot, kMaxSlots> slots_{};        // 定长：扩容只增 slotCount_，元素地址恒定
+    uint32_t slotCount_ = 0;                     // 当前启用槽数（mtx_ 护）
+    uint32_t basePoolSlots_ = 0;                 // 构造时请求的槽数（扩容基数）
+    uint32_t consumerPins_ = 0;                  // 消费端登记的长时持有总数（mtx_ 护）
     int latest_ = -1;                            // 最新 Ready 槽下标（-1 = 无帧）
     bool hasFrame_ = false;                      // 曾 commit 过（desc 可读）
     FrameDesc latestDesc_{};                     // 最新帧描述（mtx_ 护）
     std::atomic<uint64_t> seq_{0};               // 帧序号（release 发布/acquire 读取）
     std::atomic<uint64_t> dropped_{0};
+    // 帧率：最近 kFpsRing 次提交时刻的环（mtx_ 护）
+    static constexpr uint32_t kFpsRing = 32;
+    std::array<std::chrono::steady_clock::time_point, kFpsRing> commitTimes_{};
+    uint64_t commitCount_ = 0;
 };
 
 /** @brief 创建命名流并注册（同名覆盖旧条目；旧流的已有消费者不受影响） */

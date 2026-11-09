@@ -6,11 +6,21 @@
 //   stream://f_<格式>  8 格式并排：同一测试图逐格式编码——着色器转色正确时 8 格画面一致
 //   stream://g0..g8    宫格 9 路，5~45fps 各异，格式 RGB/YUV 混排
 //   stream://late      启动 3 秒后才创建——先声明后建流，StreamPoller 轮询自动接上
-import { View, Flex, Text, Button, Video, State } from "kwikui";
+// 读数面板：getProp 读 main 的 fps / droppedFrames / frameWidth×frameHeight
+//（命令式读数面，500ms 刷新；数值为原生 number）
+import { View, Flex, Text, Button, Video, State, getProp, setInterval } from "kwikui";
 
 const FITS = ["contain", "cover", "fill", "none"];
 const FORMATS = ["rgba", "bgra", "i420", "yv12", "nv12", "nv21", "yuyv", "uyvy"];
 const st = new State({ fit: "contain", order: "0,1,2,3,4,5,6,7,8" });
+const ro = new State({ fps: 0, dropped: 0, size: "-" });
+
+setInterval(() => {
+    ro.fps = getProp("main", "fps");
+    ro.dropped = getProp("main", "droppedFrames");
+    const w = getProp("main", "frameWidth"), h = getProp("main", "frameHeight");
+    ro.size = w > 0 ? w + "×" + h : "-";
+}, 500);
 
 // 打乱宫格顺序：显式 id（g0..g8）让 reconcile 按 id 认领节点——重排后每格仍绑原流、不错绑
 const shuffle = () => {
@@ -61,6 +71,9 @@ export default function () {
                     text: "打乱顺序", width: 120, height: 30, fontSize: 13, borderRadius: 6,
                     background: "#2563EB", color: "#FFFFFF", margin: [10, 0, 0, 0], onClick: shuffle,
                 }),
+                label("⑤ main 读数（getProp，每 500ms）"),
+                Text({ text: "fps " + ro.fps + "    丢帧 " + ro.dropped + "    帧尺寸 " + ro.size,
+                       fontSize: 12, color: "#7DD3FC", margin: [4, 0, 0, 0] }),
             ]),
         ]),
     ]);

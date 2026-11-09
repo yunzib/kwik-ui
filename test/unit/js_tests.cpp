@@ -1446,6 +1446,31 @@ static void test_video_explicit_id_reorder() {
     CHECK(ok);
     CHECK(merged && merged->children.size() == 3 && merged->children[0]->props.id == "g2");    // 新序生效
 }
+
+// 锁④（批 3）: getProp 读 Video 只读读数——类型来自 readOnlyPropType（getProp
+// 第三级来源），JS 侧拿原生 number（此前只读读数无 propMeta/描述符 → 恒字符串）；
+// 未绑定流时读数为 0；专有属性 fit 仍按字符串
+static void test_video_readout_getprop() {
+    JSContext *c = g_ctx->getPtr();
+    auto root = std::make_unique<View>();
+    JSValue n = makeVideoNode(c, "vro", "stream://ro_none", "cover", false);
+    auto v = ElementParser::parse(c, n);
+    JS_FreeValue(c, n);
+    CHECK(v != nullptr);
+    if (!v) return;
+    root->addChild(std::move(v));
+    g_ctx->setUserPointer(root.get());
+    CHECK(eval_module("video_readout.mjs",
+                      "import { getProp } from 'kwikui';\n"
+                      "const f = getProp('vro', 'fps'), d = getProp('vro', 'droppedFrames');\n"
+                      "const w = getProp('vro', 'frameWidth'), fit = getProp('vro', 'fit');\n"
+                      "globalThis.__ro = (typeof f === 'number' && f === 0 && typeof d === 'number' && d === 0\n"
+                      "                   && typeof w === 'number' && fit === 'cover') ? 'ok'\n"
+                      "                 : [typeof f, f, typeof d, d, typeof w, w, fit].join(',');\n"
+                      "export default null;\n"));
+    CHECK(jsGlobalStr(c, "__ro") == "ok");
+    g_ctx->setUserPointer(nullptr);
+}
 #endif
 
 // ── 行为锁: g2d 数值参数校验（21⑧）──
@@ -1513,6 +1538,7 @@ int main() {
     test_video_stream_mode_parse();      // 同上（Video stream:// 路由 / fit 映射；纯解析无 storm 面）
     test_video_reconcile_no_reopen();    // 同上（reconcile 仅 src 变化才重开）
     test_video_explicit_id_reorder();    // 同上（显式 id 重排不错绑流）
+    test_video_readout_getprop();        // 同上（批 3：getProp 读数原生 number）
 #endif
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
     test_microtask_budget();

@@ -317,6 +317,20 @@ public:
     virtual std::string getProperty(const char *name) const;
 
     /**
+     * @brief 只读/计算属性的类型提示（getProp 类型化返回的第三级来源）
+     *
+     * getProp 依次查：propMeta 条目（JS 写过的属性）→ ViewProps 描述符反推 →
+     * 本钩子。组件覆写，为不来自 JS 的读数（如 Video 的 fps / droppedFrames）
+     * 声明数值/布尔类型，使 JS 侧拿到原生 number/boolean 而非字符串。
+     * @param name 属性名
+     * @return 类型；Unknown = 无声明（按字符串返回）
+     */
+    virtual PropType readOnlyPropType(const char *name) const {
+        (void)name;
+        return PropType::Unknown;
+    }
+
+    /**
      * @brief 设置控件属性值（字符串便捷入口，非虚模板方法）
      *
      * 仅命令式路径使用（PropBus setProp / 内部联动 / parse 初值）。

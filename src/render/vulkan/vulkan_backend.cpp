@@ -33,6 +33,8 @@ bool VulkanBackend::initialize(void *native) {
         .physicalDevice = ctx_.physicalDevice(),
         .commandPool = ctx_.commandPool(),
         .queue = ctx_.graphicsQueue(),
+        .getHostPointerProps = ctx_.hostPointerPropsFn(),       // 零拷贝能力（未启用为空 → memcpy 路径）
+        .hostImportAlignment = ctx_.hostImportAlignment(),
     };
     auto t1 = std::chrono::steady_clock::now();
 
