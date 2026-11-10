@@ -215,9 +215,9 @@ graphics.save()/restore() 进入录制模式，保证增量动画帧图形正常
 规避细长三角形的 barycentric 数值不稳定与共享边接缝。
 - 饼图扇形：drawPie 显式 lineTo 弧起点，把圆心纳入轮廓（Path::moveTo
 不 push 顶点），否则 closePath 只围出弓形导致圆心尖角空白。
-- donut 环带：fillPath 形心扇剖分在大扫角环带下（形心落入中孔）会产生覆盖
-失真，故环带扇形走 fillRing SDF 管线（实心饼仍走 Path 扇形，二者按
-pie.innerRatio 自动分派）。
+- donut 环带：环带扇形走 fillRing SDF 管线（fillPath 已支持凹多边形 ear
+  clipping，但大扫角环带的 6 顶点 fillRing 更省且端帽品质更优，按 innerRatio
+  自动分派不变）。
 - 嵌套子对象解析守卫：style/gauge 字段读取走扩展本地守卫（字符串不进
 数值/颜色转换、非有限数值拒绝），与核心 PropsExtractor::get 同口径——
 "@caption" 不会变 NaN、"@error" 不会变透明色；颜色 token 由扩展本地

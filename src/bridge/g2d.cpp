@@ -6,6 +6,7 @@ module;
 module kwik.bridge.g2d;
 
 import kwik.element.g2d;           // G2D 类
+import kwik.core.types;            // Gradient / GradientType
 import kwik.element.view;          // View (findById / unique_ptr<View>)
 import kwik.element.typed_prop;    // TypedPropMap
 import kwik.bridge.props_parser;   // PropsExtractor / parseViewProps
@@ -224,9 +225,85 @@ static JSValue js_g2d_drawImage(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
+// ── 渐变对象 → Gradient（JS 侧 {__g2d_grad:true,type,x0..y1,c0,c1}）──
+static bool g2dGradFromJS(JSContext *ctx, JSValueConst v, Gradient &out) {
+    JSValue tag = JS_GetPropertyStr(ctx, v, "__g2d_grad");
+    bool isGrad = JS_ToBool(ctx, tag) != 0;
+    JS_FreeValue(ctx, tag);
+    if (!isGrad) return false;
+    JSValue type = JS_GetPropertyStr(ctx, v, "type");
+    const char *ts = JS_ToCString(ctx, type);
+    out.type = (ts && std::strcmp(ts, "radial") == 0) ? GradientType::Radial : GradientType::Linear;
+    JS_FreeCString(ctx, ts);
+    JS_FreeValue(ctx, type);
+    auto num = [&](const char *k, float &dst) {
+        JSValue p = JS_GetPropertyStr(ctx, v, k);
+        double d = 0;
+        JS_ToFloat64(ctx, &d, p);
+        dst = static_cast<float>(d);
+        JS_FreeValue(ctx, p);
+    };
+    num("x0", out.x0);
+    num("y0", out.y0);
+    num("x1", out.x1);
+    num("y1", out.y1);
+    auto col = [&](const char *k, Color &dst) {
+        JSValue p = JS_GetPropertyStr(ctx, v, k);
+        const char *s = JS_ToCString(ctx, p);
+        if (s) dst = parseColor(s);
+        JS_FreeCString(ctx, s);
+        JS_FreeValue(ctx, p);
+    };
+    col("c0", out.color0);
+    col("c1", out.color1);
+    return true;
+}
+
+// ── 渐变工厂：createLinearGradient(x0,y0,x1,y1,c0,c1) / createRadialGradient(x0,y0,r,c0,c1) ──
+static JSValue g2dMakeGradient(JSContext *ctx, const char *type, float x0, float y0, float x1, float y1,
+                               const char *c0s, const char *c1s) {
+    JSValue o = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, o, "__g2d_grad", JS_TRUE);
+    JS_SetPropertyStr(ctx, o, "type", JS_NewString(ctx, type));
+    JS_SetPropertyStr(ctx, o, "x0", JS_NewFloat64(ctx, x0));
+    JS_SetPropertyStr(ctx, o, "y0", JS_NewFloat64(ctx, y0));
+    JS_SetPropertyStr(ctx, o, "x1", JS_NewFloat64(ctx, x1));
+    JS_SetPropertyStr(ctx, o, "y1", JS_NewFloat64(ctx, y1));
+    JS_SetPropertyStr(ctx, o, "c0", JS_NewString(ctx, c0s ? c0s : "#000000"));
+    JS_SetPropertyStr(ctx, o, "c1", JS_NewString(ctx, c1s ? c1s : "#000000"));
+    return o;
+}
+
+static JSValue js_g2d_createLinearGradient(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    G2D_NUM_ARGS(4);
+    const char *c0 = argc > 4 ? JS_ToCString(ctx, argv[4]) : nullptr;
+    const char *c1 = argc > 5 ? JS_ToCString(ctx, argv[5]) : nullptr;
+    JSValue o = g2dMakeGradient(ctx, "linear", _a[0], _a[1], _a[2], _a[3], c0, c1);
+    if (c0) JS_FreeCString(ctx, c0);
+    if (c1) JS_FreeCString(ctx, c1);
+    return o;
+}
+
+static JSValue js_g2d_createRadialGradient(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    G2D_NUM_ARGS(3);
+    const char *c0 = argc > 3 ? JS_ToCString(ctx, argv[3]) : nullptr;
+    const char *c1 = argc > 4 ? JS_ToCString(ctx, argv[4]) : nullptr;
+    JSValue o = g2dMakeGradient(ctx, "radial", _a[0], _a[1], _a[2], 0, c0, c1);
+    if (c0) JS_FreeCString(ctx, c0);
+    if (c1) JS_FreeCString(ctx, c1);
+    return o;
+}
+
 static JSValue js_g2d_setFillStyle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
+    Gradient grad;
+    if (argc > 0 && !JS_IsString(argv[0]) && g2dGradFromJS(ctx, argv[0], grad)) {
+        g2d->setFillGradient(grad);    // 渐变画刷
+        return JS_UNDEFINED;
+    }
     const char *s = JS_ToCString(ctx, argv[0]);
     if (s) {
         g2d->setFillStyle(parseColor(s));
@@ -238,11 +315,61 @@ static JSValue js_g2d_setFillStyle(JSContext *ctx, JSValueConst this_val, int ar
 static JSValue js_g2d_setStrokeStyle(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *g2d = G2D_FROM_THIS(ctx, this_val);
     if (!g2d) return JS_UNDEFINED;
+    Gradient grad;
+    if (argc > 0 && !JS_IsString(argv[0]) && g2dGradFromJS(ctx, argv[0], grad)) {
+        g2d->setStrokeGradient(grad);
+        return JS_UNDEFINED;
+    }
     const char *s = JS_ToCString(ctx, argv[0]);
     if (s) {
         g2d->setStrokeStyle(parseColor(s));
         JS_FreeCString(ctx, s);
     }
+    return JS_UNDEFINED;
+}
+
+// ── P0 新增：fillText / translate / rotate / scale ──
+static JSValue js_g2d_fillText(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (!s) return JS_EXCEPTION;
+    std::string text = s;
+    JS_FreeCString(ctx, s);
+    auto x = g2dNumArg(ctx, argc, argv, 1);
+    auto y = g2dNumArg(ctx, argc, argv, 2);
+    if (!x || !y) return JS_EXCEPTION;
+    float fs = 14.0f;
+    if (argc > 3) {
+        auto v = g2dNumArg(ctx, argc, argv, 3);
+        if (!v) return JS_EXCEPTION;
+        fs = *v;
+    }
+    g2d->fillText(text, *x, *y, fs);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_translate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    G2D_NUM_ARGS(2);
+    g2d->translate(_a[0], _a[1]);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_rotate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    G2D_NUM_ARGS(1);
+    g2d->rotate(_a[0]);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_g2d_scale(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g2d = G2D_FROM_THIS(ctx, this_val);
+    if (!g2d) return JS_UNDEFINED;
+    G2D_NUM_ARGS(2);
+    g2d->scale(_a[0], _a[1]);
     return JS_UNDEFINED;
 }
 
@@ -295,6 +422,12 @@ static void bindG2DMethods(JSContext *ctx, JSValue obj) {
         {"save", js_g2d_save, 0},
         {"restore", js_g2d_restore, 0},
         {"drawImage", js_g2d_drawImage, 5},
+        {"fillText", js_g2d_fillText, 4},
+        {"translate", js_g2d_translate, 2},
+        {"rotate", js_g2d_rotate, 1},
+        {"scale", js_g2d_scale, 2},
+        {"createLinearGradient", js_g2d_createLinearGradient, 6},
+        {"createRadialGradient", js_g2d_createRadialGradient, 5},
         {"reset", js_g2d_reset, 0},
         {"setFillStyle", js_g2d_setFillStyle, 1},
         {"setStrokeStyle", js_g2d_setStrokeStyle, 1},

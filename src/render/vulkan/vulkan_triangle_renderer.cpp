@@ -21,30 +21,8 @@ import kwik.core.log;
 import std;
 
 namespace {
-/**
- * @brief Push constants 布局（必须与 shader 对齐）
- * 总计 128 bytes: color(16) + viewport(8) + opacity(4) + pad(8) + 矩阵(24)
- *                 + 渐变/环参数(68)，对齐 Vulkan 最小保证 128B
- */
-struct PushConstants {
-    float r, g, b, a;      // color      (offset 0)
-    float viewportW;       // viewport   (offset 16)
-    float viewportH;       //            (offset 20)
-    float opacity;         //            (offset 24)
-    float _pad0, _pad1;    // pad        (offset 28)
-    float m00, m01, m02, m10, m11, m12;   // 矩阵（36B→60B）
-    // ── Sweep 渐变 / SDF 圆环（gradMode==1/2 时启用）──
-    float gradMode;        // 0=纯色 1=扫描渐变 2=SDF圆环 (offset 60)
-    float gradCx, gradCy;  // 圆心（本地逻辑坐标）    (offset 64)
-    float gradA0, gradA1;  // 起止角（弧度）          (offset 72)
-    float gc1r, gc1g, gc1b, gc1a;   // 渐变终点色    (offset 80)
-    // ── SDF 圆环参数（gradMode==2 时启用）──
-    float ringMidR;        // 圆环中径（本地逻辑坐标） (offset 96)
-    float ringHalfW;       // 半带宽（本地逻辑坐标）   (offset 100)
-    float ringCapMode;     // 0=圆头 1=平头           (offset 104)
-    float _pad3, _pad4, _pad5, _pad6, _pad7;         // pad  → 128B
-};
-static_assert(sizeof(PushConstants) == 128, "PushConstants size mismatch");
+// PushConstants 已迁入 TriangleRenderer 类内（合批需持有 pending 快照成员）；
+// 布局校验在 drawTriangles 内 static_assert
 
 /**
  * @brief GPU 顶点布局（与 triangle.slang 对齐）
@@ -155,8 +133,37 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
                                      const AAVertex *vertices, uint32_t vertexCount,
                                      const Color &color, float alpha, const Transform2D &t,
                                      const SweepGrad *sweep) {
+    static_assert(sizeof(PushConstants) == 128, "PushConstants size mismatch");
     // 顶点校验：至少 1 个三角形，且数量为 3 的倍数
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
+
+    // ── Push constants：颜色 + 视口 + 透明度 + 矩阵 + Sweep 渐变 ──
+    // memset 清零保证 pad 字节确定 → 合批等价比较可用 memcmp
+    PushConstants pc{};
+    pc.r = color.r / 255.0f;
+    pc.g = color.g / 255.0f;
+    pc.b = color.b / 255.0f;
+    pc.a = color.a / 255.0f;
+    pc.viewportW = static_cast<float>(extent.width);
+    pc.viewportH = static_cast<float>(extent.height);
+    pc.opacity = alpha;
+    pc.m00 = t.m00; pc.m01 = t.m01; pc.m02 = t.m02;
+    pc.m10 = t.m10; pc.m11 = t.m11; pc.m12 = t.m12;
+    // ── Sweep 渐变参数（sweep==nullptr 时 gradMode=0 → 纯色路径，现有调用零影响）──
+    pc.gradMode = (sweep != nullptr) ? 1.0f : 0.0f;
+    pc.gradCx = sweep ? sweep->cx : 0.0f;
+    pc.gradCy = sweep ? sweep->cy : 0.0f;
+    pc.gradA0 = sweep ? sweep->a0 : 0.0f;
+    pc.gradA1 = sweep ? sweep->a1 : 0.0f;
+    pc.gc1r = sweep ? sweep->color1.r / 255.0f : 0.0f;
+    pc.gc1g = sweep ? sweep->color1.g / 255.0f : 0.0f;
+    pc.gc1b = sweep ? sweep->color1.b / 255.0f : 0.0f;
+    pc.gc1a = sweep ? sweep->color1.a / 255.0f : 0.0f;
+
+    // ── 合批判定：pending 存续且 push constants 逐字节相同 → 延长区间，
+    //    否则先冲刷旧区间再开启新区间（绘制次序与逐命令绘制完全一致）──
+    const bool merge = hasPending_ && pcEqual(pendingPc_, pc);
+    if (!merge) flushPending(cmd);
 
     VkDeviceSize dataSize = vertexCount * sizeof(GpuVertex);
     // 检测本帧槽剩余空间是否足够；不足时动态扩容重建（2× 递增），不再静默丢弃
@@ -181,51 +188,40 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
         dst[i].em = vertices[i].edgeMask;    // 三个顶点相同，插值不变
     }
 
-    // ── Push constants：颜色 + 视口 + 透明度 + 矩阵 + Sweep 渐变 ──
-    // 布局与 triangle.slang TrianglePushConstants 严格对齐（96B），
-    // 渐变参数用本地逻辑坐标（与 Linear/Radial 渐变同一语义，随矩阵变换）
-    PushConstants pc;
-    pc.r = color.r / 255.0f;
-    pc.g = color.g / 255.0f;
-    pc.b = color.b / 255.0f;
-    pc.a = color.a / 255.0f;
-    pc.viewportW = static_cast<float>(extent.width);
-    pc.viewportH = static_cast<float>(extent.height);
-    pc.opacity = alpha;
-    pc._pad0 = 0.0f;
-    pc._pad1 = 0.0f;
-    pc.m00 = t.m00; pc.m01 = t.m01; pc.m02 = t.m02;
-    pc.m10 = t.m10; pc.m11 = t.m11; pc.m12 = t.m12;
-    // ── Sweep 渐变参数（sweep==nullptr 时 gradMode=0 → 纯色路径，现有调用零影响）──
-    pc.gradMode = (sweep != nullptr) ? 1.0f : 0.0f;
-    pc.gradCx = sweep ? sweep->cx : 0.0f;
-    pc.gradCy = sweep ? sweep->cy : 0.0f;
-    pc.gradA0 = sweep ? sweep->a0 : 0.0f;
-    pc.gradA1 = sweep ? sweep->a1 : 0.0f;
-    pc.gc1r = sweep ? sweep->color1.r / 255.0f : 0.0f;
-    pc.gc1g = sweep ? sweep->color1.g / 255.0f : 0.0f;
-    pc.gc1b = sweep ? sweep->color1.b / 255.0f : 0.0f;
-    pc.gc1a = sweep ? sweep->color1.a / 255.0f : 0.0f;
+    if (merge) {
+        pendingCount_ += vertexCount;    // 顶点物理连续（staging 顺序写入）→ 仅延长
+    } else {
+        pendingPc_ = pc;
+        pendingExtent_ = extent;
+        pendingOffset_ = writeOffset_;
+        pendingCount_ = vertexCount;
+        hasPending_ = true;
+    }
+    writeOffset_ += dataSize;
+}
+
+// ── flushPending — 冲刷未提交合批区间（backend 于非三角形绘制前/帧末调用）──
+// bind/pushConstants/viewport 一次成型 + 单次 vkCmdDraw 覆盖整个区间，
+// 命令序仍与录制序一致（区间内顶点物理连续），混合结果与逐命令绘制相同。
+void TriangleRenderer::flushPending(VkCommandBuffer cmd) {
+    if (!hasPending_) return;
+    hasPending_ = false;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
     vkCmdPushConstants(cmd, pipelineLayout_,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       0, sizeof(PushConstants), &pc);
+                       0, sizeof(PushConstants), &pendingPc_);
 
     // ── 视口（Y 翻转：NDC Y↑ → 屏幕 Y↓）──
     VkViewport vp{0.0f, 0.0f,
-                  static_cast<float>(extent.width),
-                  static_cast<float>(extent.height),
+                  static_cast<float>(pendingExtent_.width),
+                  static_cast<float>(pendingExtent_.height),
                   0.0f, 1.0f};
     vkCmdSetViewport(cmd, 0, 1, &vp);
 
-    // ── 绑定 staging buffer 并绘制 ──
-    VkDeviceSize offset = writeOffset_;
+    VkDeviceSize offset = pendingOffset_;
     vkCmdBindVertexBuffers(cmd, 0, 1, &stagingBuffer_, &offset);
-    vkCmdDraw(cmd, vertexCount, 1, 0, 0);
-
-    // 写入偏移前移，为下一组顶点腾出空间
-    writeOffset_ += dataSize;
+    vkCmdDraw(cmd, pendingCount_, 1, 0, 0);
 }
 
 /**
@@ -237,6 +233,7 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
  * 顶点 ATTR1（bary 槽）复用为本地坐标，fragment 用插值结果计算 SDF。
  */
 void TriangleRenderer::drawRing(VkCommandBuffer cmd, VkExtent2D extent, const FillRingCmd &ring, float alpha) {
+    flushPending(cmd);    // ring 走 gradMode=2 分支，先冲刷三角形合批区间
     // ── 覆盖整圆包围盒的 quad（外扩 pad 覆盖 AA 过渡带）──
     float R = ring.midR + ring.halfW + ring.pad;
     float x0 = ring.cx - R, y0 = ring.cy - R;

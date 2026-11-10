@@ -311,12 +311,14 @@ void Graphics::drawImageUv(uint32_t textureId, const Rect &rect, float u0, float
 
 void Graphics::fillPath(const Path &path, const Color &color) {
     if (!recording_) return;
-    auto triangles = triangulateFill(path);
-    if (triangles.empty()) return;
-
     // 矩阵缩放因子：AA 的 dist=λ·h 需物理像素，h 乘缩放（旋转保距不影响）
     const auto &m = currentState_.m;
     float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
+    // AA 外扩 1 物理像素（逻辑 = 1/sc）：栅格化只覆盖像素中心在形内的片元，
+    // 不外扩时 AA 过渡带被裁成仅形内半带（放大后边缘锯齿的根因）；
+    // shader 端 dist -= flag*1.0 减回
+    auto triangles = triangulateFill(path, sc > 1e-4f ? 1.0f / sc : 1.0f);
+    if (triangles.empty()) return;
 
     std::vector<AAVertex> verts(triangles.size() * 3);
     uint32_t i = 0;
@@ -372,10 +374,32 @@ std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
 
 void Graphics::strokePath(const Path &path, const Color &color, float lineWidth) {
     if (!recording_) return;
-    auto verts = strokeVerts(path, lineWidth);
-    if (verts.empty()) return;
-    size_t off = appendVerts(verts.data(), verts.size());
-    appendCmd(StrokeTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), currentState_.m});
+    float halfW = lineWidth * 0.5f;
+    if (halfW <= 0.0f) return;
+    // 逐段 SDF 胶囊（与 chart 折线 / drawSegment 同管线）：fragment 级像素精确
+    // AA、关节圆头自然补角——替代旧「逐段矩形条带 + CPU 三角化 AA」管线的
+    // 弧线/斜线锯齿与粗线拐角楔形缺口（内部 join 从未实现）。
+    // 注：drawSegment 内部已 applyOpacity，这里传原始色。
+    // 已知语义：端帽/关节为圆头（同 chart）；半透明描边在关节圆头重叠处
+    // 会有轻微加深（不透明色无此现象）。
+    for (auto &contour : path.contours()) {
+        auto &pts = contour.points;
+        size_t n = pts.size();
+        for (size_t i = 0; i + 1 < n; ++i) {
+            const Vec2 &a = pts[i];
+            const Vec2 &b = pts[i + 1];
+            float dx = b.x - a.x, dy = b.y - a.y;
+            if (dx * dx + dy * dy < 1e-12f) continue;    // 零长段（整圆首尾重复点）
+            drawSegment(a.x, a.y, b.x, b.y, halfW, color);
+        }
+        // 闭合轮廓补首尾段（closePath 只打标志不追加重复点）
+        if (contour.closed && n >= 2) {
+            const Vec2 &a = pts.back();
+            const Vec2 &b = pts.front();
+            float dx = b.x - a.x, dy = b.y - a.y;
+            if (dx * dx + dy * dy >= 1e-12f) drawSegment(a.x, a.y, b.x, b.y, halfW, color);
+        }
+    }
 }
 
 void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1, float width, const Color &color0,

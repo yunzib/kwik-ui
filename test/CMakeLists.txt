@@ -80,6 +80,18 @@ if(KWIK_BUILD_EXAMPLES)
     target_link_libraries(chart_hit_probe PRIVATE kwik_ext_chart kwik_element kwik_core kwik_event kwik_render)
     add_test(NAME chart_hit_probe COMMAND chart_hit_probe)
 
+    # path_fill_probe — triangulateFill ear clipping 剖分探针（无窗口/GPU）：
+    # 凹多边形/星形/CW 环绕/圆弧/共线点/多轮廓的面积守恒 + edgeMask 轮廓边计数锁
+    add_executable(path_fill_probe unit/path_fill_probe.cpp)
+    target_link_libraries(path_fill_probe PRIVATE kwik_core)
+    add_test(NAME path_fill_probe COMMAND path_fill_probe)
+
+    # sector_fill_probe — 饼图扇形覆盖缺口探针（无窗口/GPU）：
+    # 示例④ moveTo圆心→arc→closePath→fill 的软件栅格化覆盖锁
+    add_executable(sector_fill_probe unit/sector_fill_probe.cpp)
+    target_link_libraries(sector_fill_probe PRIVATE kwik_core)
+    add_test(NAME sector_fill_probe COMMAND sector_fill_probe)
+
     # kwik_js_tests — T0-00 headless JS 桥接行为锁：QuickJSContext 脱窗实例化 +
     # 临时模块文件 evalFile，不需要窗口/根 View。bridge/engine 的依赖为
     # PRIVATE 链接不下发，测试目标需显式补齐（模块 BMI 传递可达性）。

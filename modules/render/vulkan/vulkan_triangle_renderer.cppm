@@ -9,6 +9,7 @@
 module;
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <cstring>
 #include <tuple>
 #include <vector>
 
@@ -63,21 +64,25 @@ public:
         curSlot_ = frameSlot % kFrameSlots;
         curSlotBase_ = curSlot_ * slotCapacity();
         writeOffset_ = curSlotBase_;
+        hasPending_ = false;    // 跨帧不保留未提交合批（新帧新命令缓冲）
     }
 
     /**
-     * @brief 绘制三角形列表
+     * @brief 绘制三角形列表（同 push constants 的连续命令自动合批为一次
+     *        vkCmdDraw——bind/pushConstants/viewport 仅在换参数时重发）
      * @param cmd      命令缓冲区
      * @param extent   视口尺寸
      * @param vertices float2 数组 (每 3 个一组 = 1 个三角形)
      * @param color    填充颜色
      * @param alpha    全局透明度
-     * @brief 绘制三角形列表
-     * @param sweep 非空时启用 Sweep 扫描渐变（push constant 传圆心/角度/终点色）
+     * @param sweep    非空时启用 Sweep 扫描渐变（push constant 传圆心/角度/终点色）
      *
      * 顶点数据通过 memcpy 写入内部 host-visible 顶点缓冲，
      * 避免在 render pass 内使用 vkCmdUpdateBuffer。
-     * 适合单帧 ≤64KB 三角形数据，Canvas Phase 1 使用。
+     * 合批语义：pending 区间 [pendingOffset_, pendingCount_) 在
+     *   ① push constants 变化 ② 非三角形绘制插入（backend 于其它绘制前调
+     *   flushPending）③ render pass 结束 三种时机统一冲刷——绘制次序与
+     *   逐命令立即绘制完全一致（命令序 = 混合序），像素零差异。
      */
     void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const AAVertex *vertices, uint32_t vertexCount,
                        const Color &color, float alpha, const Transform2D &t, const SweepGrad *sweep = nullptr);
@@ -87,10 +92,37 @@ public:
      */
     void drawRing(VkCommandBuffer cmd, VkExtent2D extent, const FillRingCmd &ring, float alpha);
 
+    /** @brief 冲刷未提交的合批区间（backend 在任何非三角形绘制前与帧末调用；
+     *  无 pending 时零操作） */
+    void flushPending(VkCommandBuffer cmd);
+
     /** @brief 获取 pipeline layout（供外部使用） */
     VkPipelineLayout layout() const { return pipelineLayout_; }
 
 private:
+    /**
+     * @brief Push constants 布局（必须与 triangle.slang 对齐，128B）
+     * 自匿名命名空间迁入类内（合批需持有 pending 快照成员）
+     */
+    struct PushConstants {
+        float r, g, b, a;      // color      (offset 0)
+        float viewportW;       // viewport   (offset 16)
+        float viewportH;       //            (offset 20)
+        float opacity;         //            (offset 24)
+        float _pad0, _pad1;    // pad        (offset 28)
+        float m00, m01, m02, m10, m11, m12;   // 矩阵（36B→60B）
+        // ── Sweep 渐变 / SDF 圆环（gradMode==1/2 时启用）──
+        float gradMode;        // 0=纯色 1=扫描渐变 2=SDF圆环 (offset 60)
+        float gradCx, gradCy;  // 圆心（本地逻辑坐标）    (offset 64)
+        float gradA0, gradA1;  // 起止角（弧度）          (offset 72)
+        float gc1r, gc1g, gc1b, gc1a;   // 渐变终点色    (offset 80)
+        // ── SDF 圆环参数（gradMode==2 时启用）──
+        float ringMidR;        // 圆环中径（本地逻辑坐标） (offset 96)
+        float ringHalfW;       // 半带宽（本地逻辑坐标）   (offset 100)
+        float ringCapMode;     // 0=圆头 1=平头           (offset 104)
+        float _pad3, _pad4, _pad5, _pad6, _pad7;         // pad  → 128B
+    };
+
     VkDevice device_ = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
     VkPipeline pipeline_ = VK_NULL_HANDLE;
@@ -104,6 +136,17 @@ private:
     size_t writeOffset_ = 0;                           ///< 当前帧顶点写入偏移（帧内逐命令累加）
     size_t curSlotBase_ = 0;                           ///< 当前帧槽基址（resetOffset 设定）
     uint32_t curSlot_ = 0;                             ///< 当前帧槽号（扩容迁移数据用）
+
+    // ── 合批状态（同 push constants 连续三角形命令并成一次 vkCmdDraw）──
+    bool hasPending_ = false;          ///< 有未提交合批区间
+    PushConstants pendingPc_{};        ///< pending 区间的 push constants 快照
+    VkExtent2D pendingExtent_{};       ///< pending 视口（pc 已含，冗余存防 memcmp 假同）
+    VkDeviceSize pendingOffset_ = 0;   ///< pending 区间在 staging 中的起始偏移
+    uint32_t pendingCount_ = 0;        ///< pending 区间顶点数
+    /// push constants 逐字节相等（两处填充均已 memset 清零 pad，可 memcmp）
+    static bool pcEqual(const PushConstants &a, const PushConstants &b) {
+        return std::memcmp(&a, &b, sizeof(PushConstants)) == 0;
+    }
 
     static constexpr uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
     /** @brief 单帧槽容量（向下对齐 16B：槽基址作 vkCmdBindVertexBuffers 偏移

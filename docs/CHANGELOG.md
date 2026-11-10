@@ -20,6 +20,15 @@
   不变）：盘心当前值 + `detailUnit` 单位 / `detailFormat` 规格 / `detailFontSize`
   / `detailColor`（支持 "@token"）/ `detailOffsetY`；数字随动画与 morph 插值
   同步走，指针模式默认自动下沉避让 hub（显式 detailOffsetY 覆盖）
+- G2D 能力补齐（Canvas 常用子集）：`fillText`（走 TextRenderPipeline 与 Text
+  同管线，HarfBuzz 整形 + glyph cache）；线性/径向渐变画刷 `fillRect`；`translate`
+  / `rotate` / `scale` 变换命令（save/restore 同时覆盖样式+变换）；单弧描边
+  自动走 Ring SDF（像素级圆弧，详见修复节）；示例扩容 test/ui/g2d.js 12 画布
+- G2D 渲染质量与性能：路径填充形心扇 → **ear clipping**（凹/凸/星形/多轮廓
+  一次 fill 正确成型）；描边重写为 **SDF 胶囊管线**（与 chart 折线同源，弧线
+  /斜线像素级平滑，strokeRect 走 SDF 直角描边）；录制层 std::function 闭包 →
+  13 种命令变体内联存储（高频重绘零堆分配）；三角形渲染器同 push constants
+  连续命令自动合批（绘制次序不变，像素零差异）
 ### 修复
 - `axis:{yMin,yMax}` 文档承诺但从未接线（死导出）——补齐全链路
 - Chart::hitTestAt 坐标系错位：命中点按图表局部坐标换算，而渲染几何按 frame
@@ -28,6 +37,20 @@
 - reconcile 无条件 applyChartProps：整页重建都让全部图表重放入场动画——数据
   未变时只更新非数据字段，动画状态延续
 - 图例按可见系列过滤导致隐藏系列无法再点开——改全量生成（隐藏灰显占位）
+- 填充路径/矩形放大后边缘锯齿：栅格化只对像素中心落在形内的片元求值，解析 AA
+  过渡带的外侧半带没有片元可跑（有效过渡带仅约 0.5px）。修复 = 几何外扩
+  1 物理像素 + shader 端减回：triangle 管线 triangulateFill 多边形级 miter
+  外扩 + dist -= flag；rect 管线 fill/gradient/stroke quad 外扩 + SDF 精确
+  加回（sd(p,hs+e,r+e)=sd(p,hs,r)-e 恒等式，无需额外传真实矩形）。实测边缘
+  过渡带 0.38→1.27px；胶囊/圆环此前因 quad 自身外扩不受影响
+- Path::moveTo 不建轮廓导致 moveTo+arc+closePath+fill 的扇形退化成月牙（弦线
+  围成"内切三角形"白缝、月牙尖端外扩钳制产生弧缘毛刺）——moveTo 立即创建轮廓
+  记录点（Canvas 规范），arc/ellipse 自动 moveTo 后跳过重复起点；新增
+  sector_fill_probe 扇形覆盖探针入 ctest
+- 单弧描边弧缘周期性凸起：stroke() 逐段 SDF 胶囊在关节处 SrcOver 覆盖率叠加
+  （αA+αB−αAαB > max），AA 半覆盖等值线每段外凸约 0.2px 呈扇贝状。G2D 录制期
+  识别"beginPath 后仅一次 arc"的单弧路径，重放改走 Ring SDF（gradMode=2）——
+  像素级圆弧、零细分、无关节叠加，实测拱顶边缘上下各 1px 对称过渡带
 
 # 0.0.0 — 2026-11-10
 ### 新增

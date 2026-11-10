@@ -19,7 +19,10 @@ struct RectPushConstants {
     uint  drawMode;        // 0=fill 1=stroke 2=shadow 3=segment 4=linear渐变 5=radial渐变
     float2 shadowOffset;   // 渐变复用：linear=起点 / radial=中心（相对 rect 左上）
     float shadowBlur;
-    float _pad2;
+    float sdfOffset;       // AA 外扩量：quad 外扩 e、size/radius 同步放大后，SDF 加回 e
+                           // （圆角矩形 SDF 精确性质：sd(p,hs+e,r+e)=sd(p,hs,r)-e）。
+                           // 栅格化只覆盖像素中心在 quad 内的片元，外扩给 AA 过渡带
+                           // 外侧半带留出片元；shadow/segment 不外扩传 0
     float2 viewportSize;
     float m00, m01, m02;
     float m10, m11, m12;
@@ -43,6 +46,7 @@ struct VertOutput {
     [[vk::location(9)]] float  fragShadowBlur;
     [[vk::location(10)]] float2 fragViewportSize;
     [[vk::location(11)]] float2 fragGradientVec;
+    [[vk::location(12)]] float  fragSdfOffset;
 };
 
 // ── 顶点着色器 ──────────────────────────────────────────────
@@ -67,6 +71,7 @@ VertOutput vertexMain(float2 inPosition : ATTR0) {
     o.fragGradientVec = pc.gradientVec;
     o.fragShadowBlur   = pc.shadowBlur;
     o.fragViewportSize = pc.viewportSize;
+    o.fragSdfOffset    = pc.sdfOffset;
     return o;
 }
 
@@ -89,7 +94,9 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
     float2 center  = input.fragSize * 0.5;
     float  cr      = min(input.fragRadius, min(input.fragSize.x, input.fragSize.y) * 0.5);
     float2 pos     = input.fragPos * input.fragSize;
-    float  sdf     = sdRoundedRect(pos - center, input.fragSize * 0.5, cr);
+    // quad 已外扩 sdfOffset、size/radius 同步放大 → SDF 加回偏移 = 原始形状 SDF
+    // （sd(p,hs+e,r+e)=sd(p,hs,r)-e 的精确逆运算），AA 过渡带两侧均有片元
+    float  sdf     = sdRoundedRect(pos - center, input.fragSize * 0.5, cr) + input.fragSdfOffset;
 
     // 1 pixel NDC → 自适应抗锯齿
     float rawAA = length(fwidth(pos));
@@ -148,7 +155,7 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
         float2 innerHalf  = float2(0.5) - input.fragBorderWidth / input.fragSize;
         float2 innerSize  = input.fragSize * innerHalf;
         float  innerR     = max(cr - input.fragBorderWidth, 0.0);
-        float  innerSDF   = sdRoundedRect(pos - center, innerSize, innerR);
+        float  innerSDF   = sdRoundedRect(pos - center, innerSize, innerR) + input.fragSdfOffset;
         float  outerAlpha = 1.0 - smoothstep(-aa, aa, sdf);
         float  innerAlpha = 1.0 - smoothstep(-aa, aa, innerSDF);
         float  borderAlpha = (outerAlpha - innerAlpha) * input.fragOpacity;

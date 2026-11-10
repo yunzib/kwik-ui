@@ -76,8 +76,12 @@ void Path::arc(float cx, float cy, float r, float startAngle, float endAngle, bo
     // 密度系数 1.0：弦长 ≈1px（Skia 弧细分同量级），0.5→1.0 消除 AA 边缘波纹；
     // 4 环顶点预算 ~833KB < 1MB，不触发扩容
     int steps = std::max(static_cast<int>(std::ceil(da * r * 1.0f)), 12);
-    if (!hasOpenContour()) { moveTo(cx + r * std::cos(startAngle), cy + r * std::sin(startAngle)); }
-    for (int i = 0; i <= steps; ++i) {
+    int i0 = 0;
+    if (!hasOpenContour()) {
+        moveTo(cx + r * std::cos(startAngle), cy + r * std::sin(startAngle));
+        i0 = 1;    // moveTo 已写入弧起点，跳过 i=0 重复点
+    }
+    for (int i = i0; i <= steps; ++i) {
         float a = startAngle + (endAngle - startAngle) * static_cast<float>(i) / static_cast<float>(steps);
         addPoint(cx + r * std::cos(a), cy + r * std::sin(a));
     }
@@ -90,11 +94,13 @@ void Path::ellipse(float cx, float cy, float rx, float ry, float rotation, float
     int steps = std::max(static_cast<int>(std::ceil(da * std::max(rx, ry) * 1.0f)), 12);
     float cosR = std::cos(rotation);
     float sinR = std::sin(rotation);
+    int i0 = 0;
     if (!hasOpenContour()) {
         float c = std::cos(startAngle), s = std::sin(startAngle);
         moveTo(cx + rx * c * cosR - ry * s * sinR, cy + rx * c * sinR + ry * s * cosR);
+        i0 = 1;    // moveTo 已写入弧起点，跳过 i=0 重复点
     }
-    for (int i = 0; i <= steps; ++i) {
+    for (int i = i0; i <= steps; ++i) {
         float a = startAngle + (endAngle - startAngle) * static_cast<float>(i) / static_cast<float>(steps);
         float c = std::cos(a), s = std::sin(a);
         addPoint(cx + rx * c * cosR - ry * s * sinR, cy + rx * c * sinR + ry * s * cosR);
@@ -102,25 +108,175 @@ void Path::ellipse(float cx, float cy, float rx, float ry, float rotation, float
 }
 
 // ============================================================================
-// 填充三角剖分（形心扇形剖分）
+// 填充三角剖分（ear clipping，O(n²)——支持凹多边形）
+//
+// 旧实现为形心扇剖分：仅对凸多边形/形心落在多边形内的形状正确；donut 环带
+// （形心落入中孔）曾因此被迫改走 fillRing SDF 管线。ear clipping 对任意
+// 简单多边形（凹/凸/斜）正确剖分，且每条三角形边可精确区分「轮廓边」（AA）
+// 与「剖分对角线」（内部边不 AA）——AAVertex edgeMask 机制不变。
+//
+// 已知限制（与 Canvas 一致的子集边界）：
+//   - 多轮廓各自独立填充（nonzero 全局缠绕数语义不支持带洞填充）——
+//     donut 类带洞形状仍建议 fillRing；每个轮廓自身的凹凸形状已完整支持
+//   - 自交多边形走数值兜底路径（忽略包含测试的凸耳剪裁），保证终止不保证
+//     严格正确覆盖（与 Canvas nonzero 对自交的行为天然相近）
 // ============================================================================
-std::vector<Triangle> triangulateFill(const Path &path) {
+std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
     std::vector<Triangle> result;
     for (auto &contour : path.contours()) {
-        if (!contour.closed || contour.points.size() < 3) continue;
-        auto &pts = contour.points;
-        // 计算形心作为扇形公共顶点
-        Vec2 c{0, 0};
-        for (auto &p : pts) { c.x += p.x; c.y += p.y; }
-        c.x /= static_cast<float>(pts.size());
-        c.y /= static_cast<float>(pts.size());
-        // 从形心到每对相邻顶点生成三角扇
-        // 三角形 {c, p_i, p_{i+1}}：边(p_i,p_{i+1})是轮廓边(bit1)，形心边是内部边
-        constexpr uint8_t kOutline = 0b010;    // bit1 = 边(p1,p2) = 轮廓边
-        for (size_t i = 0; i + 1 < pts.size(); ++i) {
-            result.push_back({c, pts[i], pts[i + 1], kOutline});
+        if (!contour.closed) continue;
+
+        // ── 预处理：去闭合重复点（arc 首尾相接轮廓）+ 去共线点（防剪裁死循环）──
+        std::vector<Vec2> pts = contour.points;
+        while (pts.size() >= 2) {
+            float dx = pts.front().x - pts.back().x;
+            float dy = pts.front().y - pts.back().y;
+            if (dx * dx + dy * dy < 1e-12f)
+                pts.pop_back();
+            else
+                break;
         }
-        result.push_back({c, pts.back(), pts.front(), kOutline});
+        if (pts.size() < 3) continue;
+
+        // 包围盒对角线 → 尺度相对 epsilon（cross 单位是长度²）
+        float minX = pts[0].x, maxX = minX, minY = pts[0].y, maxY = minY;
+        for (auto &p : pts) {
+            minX = std::min(minX, p.x); maxX = std::max(maxX, p.x);
+            minY = std::min(minY, p.y); maxY = std::max(maxY, p.y);
+        }
+        float diag = std::hypot(maxX - minX, maxY - minY);
+        float eps = 1e-6f * diag * diag;    // 共线判定/耳内测试共享尺度
+        if (diag < 1e-6f) continue;
+
+        auto cross3 = [&](const Vec2 &a, const Vec2 &b, const Vec2 &c) {
+            return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+        };
+
+        // 去共线点（逐点判相邻三点叉积；剔除后保留点数 >= 3 才采用）
+        {
+            std::vector<Vec2> filtered;
+            filtered.reserve(pts.size());
+            const size_t m = pts.size();
+            for (size_t i = 0; i < m; ++i) {
+                const Vec2 &prev = pts[(i + m - 1) % m];
+                const Vec2 &cur = pts[i];
+                const Vec2 &next = pts[(i + 1) % m];
+                if (std::fabs(cross3(prev, cur, next)) > eps) filtered.push_back(cur);
+            }
+            if (filtered.size() >= 3) pts = std::move(filtered);
+        }
+
+        const size_t n = pts.size();
+        if (n < 3) continue;
+
+        // 统一逆时针（CCW）环绕：signed area
+        float area2 = 0.0f;
+        for (size_t i = 0; i < n; ++i) {
+            const Vec2 &a = pts[i];
+            const Vec2 &b = pts[(i + 1) % n];
+            area2 += a.x * b.y - b.x * a.y;
+        }
+        if (area2 < 0.0f) std::reverse(pts.begin(), pts.end());
+
+        // ── AA 外扩（dilate>0 时）：多边形级 miter 偏移，每个顶点沿相邻两条
+        //    轮廓边的外法线偏移，保证每条轮廓边精确外移 dilate（CCW → 外侧
+        //    在行进方向右侧 = (dy,-dx)）。外扩后的多边形仍被 ear clipping
+        //    精确剖分（无裂缝/无重叠）；shader 端 dist -= flag*1.0 减回外扩量，
+        //    alpha=0.5 仍落在原始几何边上。栅格化只覆盖像素中心在形内的片元，
+        //    不外扩时 AA 过渡带被裁成「仅形内半带」（约 0.5px，放大锯齿根因）──
+        if (dilate > 0.0f) {
+            std::vector<Vec2> off(n, {0.0f, 0.0f});
+            auto outNormal = [](const Vec2 &a, const Vec2 &b) {
+                float dx = b.x - a.x, dy = b.y - a.y;
+                float l = std::hypot(dx, dy);
+                if (l < 1e-9f) return Vec2{0.0f, 0.0f};
+                return Vec2{dy / l, -dx / l};    // CCW 多边形外侧
+            };
+            for (size_t i = 0; i < n; ++i) {
+                const Vec2 &P = pts[(i + n - 1) % n];
+                const Vec2 &V = pts[i];
+                const Vec2 &N = pts[(i + 1) % n];
+                Vec2 n1 = outNormal(P, V);
+                Vec2 n2 = outNormal(V, N);
+                float dn = n1.x * n2.x + n1.y * n2.y;
+                float k = dilate / std::max(1.0f + dn, 0.05f);    // 尖角钳制
+                off[i] = {(n1.x + n2.x) * k, (n1.y + n2.y) * k};
+                float ol = std::hypot(off[i].x, off[i].y);
+                float maxOff = dilate * 2.0f;
+                if (ol > maxOff) { off[i].x *= maxOff / ol; off[i].y *= maxOff / ol; }
+            }
+            for (size_t i = 0; i < n; ++i) {
+                pts[i].x += off[i].x;
+                pts[i].y += off[i].y;
+            }
+        }
+
+        // ── ear clipping 主循环 ──
+        auto inTri = [&](const Vec2 &p, const Vec2 &A, const Vec2 &B, const Vec2 &C) {
+            float d1 = cross3(A, B, p);
+            float d2 = cross3(B, C, p);
+            float d3 = cross3(C, A, p);
+            bool hasNeg = (d1 < -eps) || (d2 < -eps) || (d3 < -eps);
+            bool hasPos = (d1 > eps) || (d2 > eps) || (d3 > eps);
+            return !(hasNeg && hasPos);    // 边界点含 eps 容差算内
+        };
+        // 轮廓边掩码：两顶点在（预处理后）多边形中相邻 → 轮廓边需 AA；
+        // 剖分对角线（索引距 > 1）→ 内部边不 AA
+        auto outlineBit = [&](size_t i, size_t j) -> uint8_t {
+            size_t d = i > j ? i - j : j - i;
+            return (d == 1 || d == n - 1) ? 1 : 0;
+        };
+        auto emit = [&](size_t a, size_t b, size_t c) {
+            uint8_t m = outlineBit(a, b) | static_cast<uint8_t>(outlineBit(b, c) << 1) |
+                        static_cast<uint8_t>(outlineBit(c, a) << 2);
+            result.push_back({pts[a], pts[b], pts[c], m});
+        };
+
+        std::vector<size_t> live;
+        live.reserve(n);
+        for (size_t i = 0; i < n; ++i) live.push_back(i);
+
+        while (live.size() > 3) {
+            bool clipped = false;
+            for (size_t k = 0; k < live.size(); ++k) {
+                size_t prev = live[(k + live.size() - 1) % live.size()];
+                size_t cur = live[k];
+                size_t next = live[(k + 1) % live.size()];
+                if (cross3(pts[prev], pts[cur], pts[next]) <= eps) continue;    // 反射/共线非耳
+                bool isEar = true;
+                for (size_t t : live) {
+                    if (t == prev || t == cur || t == next) continue;
+                    if (inTri(pts[t], pts[prev], pts[cur], pts[next])) { isEar = false; break; }
+                }
+                if (!isEar) continue;
+                emit(prev, cur, next);
+                live.erase(live.begin() + static_cast<long>(k));
+                clipped = true;
+                break;
+            }
+            if (!clipped) {
+                // 数值兜底（自交/退化多边形找不到严格耳）：忽略包含测试剪任意凸耳，
+                // 保证终止；全非凸（理论不可达）时从首点扇收尾
+                bool fallback = false;
+                for (size_t k = 0; k < live.size(); ++k) {
+                    size_t prev = live[(k + live.size() - 1) % live.size()];
+                    size_t cur = live[k];
+                    size_t next = live[(k + 1) % live.size()];
+                    if (cross3(pts[prev], pts[cur], pts[next]) > eps) {
+                        emit(prev, cur, next);
+                        live.erase(live.begin() + static_cast<long>(k));
+                        fallback = true;
+                        break;
+                    }
+                }
+                if (!fallback) {
+                    for (size_t k = 1; k + 1 < live.size(); ++k) emit(live[0], live[k], live[k + 1]);
+                    live.clear();
+                    break;
+                }
+            }
+        }
+        if (live.size() == 3) emit(live[0], live[1], live[2]);
     }
     return result;
 }

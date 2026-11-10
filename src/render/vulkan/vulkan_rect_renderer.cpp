@@ -23,7 +23,9 @@ struct PushConstants {
     uint32_t drawMode;
     float shadowOffsetX, shadowOffsetY;   // 渐变复用：linear=起点 / radial=中心（相对 rect 左上）
     float shadowBlur;
-    float _pad2;
+    float sdfOffset;                      // AA 外扩量：quad 外扩 e、size/radius 同步放大，
+                                          // shader SDF 加回 e（fill/gradient/stroke = 1，
+                                          // shadow/segment = 0）
     float viewportW, viewportH;
     float m00, m01, m02, m10, m11, m12;   // ← 2D 变换矩阵
     float gradientVecX, gradientVecY;     // ← 渐变：linear=终点-起点向量 / radial=(半径,0)
@@ -113,21 +115,24 @@ void RectRenderer::fillRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, const
     else if (gradient.type == GradientType::Radial) mode = 5;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fillPipeline_);
+    // AA 外扩：同 strokeRoundedRect（fill/gradient 模式共用此入口）
+    constexpr float kSdfPad = 1.0f;
     PushConstants pc{};
-    pc.topLeftX = rect.x;
-    pc.topLeftY = rect.y;
-    pc.sizeX    = rect.width;
-    pc.sizeY    = rect.height;
+    pc.topLeftX = rect.x - kSdfPad;
+    pc.topLeftY = rect.y - kSdfPad;
+    pc.sizeX    = rect.width + 2.0f * kSdfPad;
+    pc.sizeY    = rect.height + 2.0f * kSdfPad;
     pc.fillR = color.r / 255.f;              // color0（Graphics 已烘焙透明度）
     pc.fillG = color.g / 255.f;
     pc.fillB = color.b / 255.f;
     pc.fillA = color.a / 255.f;
-    pc.radius = radius;
+    pc.radius = radius + kSdfPad;
     pc.opacity = globalAlpha;
     pc.drawMode = mode;
-    // 渐变参数（相对 rect 左上，由 Graphics 换算好）
-    pc.shadowOffsetX = gradient.x0;
-    pc.shadowOffsetY = gradient.y0;
+    pc.sdfOffset = kSdfPad;
+    // 渐变参数（相对 rect 左上，由 Graphics 换算好；quad 外扩 e → 锚点同步 +e）
+    pc.shadowOffsetX = gradient.x0 + kSdfPad;
+    pc.shadowOffsetY = gradient.y0 + kSdfPad;
     pc.gradientVecX  = gradient.x1;
     pc.gradientVecY  = gradient.y1;
     // 第二色复用 borderColor 通道
@@ -193,11 +198,15 @@ void RectRenderer::strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, con
                                      const Color &color, float strokeWidth, float globalAlpha, const Transform2D &t) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, strokePipeline_);
     PushConstants pc{};
-    pc.topLeftX = rect.x;
-    pc.topLeftY = rect.y;
-    pc.sizeX = rect.width;
-    pc.sizeY = rect.height;
-    pc.radius = radius;
+    // AA 外扩（栅格化只覆盖像素中心在 quad 内的片元——不外扩时描边外缘过渡带
+    // 被裁成仅形内半带）：quad 外扩 1 逻辑 px、size/radius 同步放大，shader 端
+    // 外/内 SDF 加回 sdfOffset=1 → alpha=0.5 仍落在原始几何边上
+    constexpr float kSdfPad = 1.0f;
+    pc.topLeftX = rect.x - kSdfPad;
+    pc.topLeftY = rect.y - kSdfPad;
+    pc.sizeX = rect.width + 2.0f * kSdfPad;
+    pc.sizeY = rect.height + 2.0f * kSdfPad;
+    pc.radius = radius + kSdfPad;
     pc.borderWidth = strokeWidth;
     pc.borderR = color.r / 255.f;
     pc.borderG = color.g / 255.f;
@@ -205,6 +214,7 @@ void RectRenderer::strokeRoundedRect(VkCommandBuffer cmd, VkExtent2D extent, con
     pc.borderA = color.a / 255.f;
     pc.opacity = globalAlpha;
     pc.drawMode = 1;
+    pc.sdfOffset = kSdfPad;
     pc.viewportW = static_cast<float>(extent.width);
     pc.viewportH = static_cast<float>(extent.height);
     pc.m00 = t.m00;

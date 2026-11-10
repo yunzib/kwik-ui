@@ -146,6 +146,8 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
 }
 
 void VulkanBackend::endFrame() {
+    // 帧末冲刷三角形合批区间（render pass 内最后提交，命令序不变）
+    if (currentToken_) { triangle_.flushPending(currentToken_->commandBuffer); }
     drawCalls_ = 0;
     glyph_.uploadPendingGlyphs(deviceCtx_);
     ctx_.endFrame();
@@ -161,10 +163,12 @@ bool VulkanBackend::present() {
 // 委托 — 全部通过 currentToken_ 获取 Vulkan 句柄，并透传矩阵
 // ================================================================
 void VulkanBackend::clear(const Color &c) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     rect_.clear(currentToken_->commandBuffer, currentToken_->extent, c);
 }
 
 void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, const Transform2D &t) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     if (mode == BlendMode::SrcCopy) {
         // 清除路径：r 已是物理坐标（clearRectArea 用 transformRect 烘焙），t 为单位矩阵，忽略。
@@ -189,28 +193,33 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, cons
 
 void VulkanBackend::fillRoundedRect(const Rect &r, float rad, const Color &c, const Gradient &gradient,
                                     const Transform2D &t) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     rect_.fillRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, gradient, clip_.globalAlpha(),
                           t);
 }
 
 void VulkanBackend::drawSegment(const DrawSegmentCmd &cmd) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     rect_.drawSegment(currentToken_->commandBuffer, currentToken_->extent, cmd.ax, cmd.ay, cmd.bx, cmd.by, cmd.halfW,
                       cmd.color, clip_.globalAlpha(), cmd.t);
 }
 
 void VulkanBackend::strokeRoundedRect(const Rect &r, float rad, const Color &c, float sw, const Transform2D &t) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     rect_.strokeRoundedRect(currentToken_->commandBuffer, currentToken_->extent, r, rad, c, sw, clip_.globalAlpha(), t);
 }
 
 void VulkanBackend::drawShadow(const Rect &r, float rad, const Shadow &s, const Transform2D &t) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     rect_.drawShadow(currentToken_->commandBuffer, currentToken_->extent, r, rad, s, clip_.globalAlpha(), t);
 }
 
 void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     if (clip_.level() > 0) {
         // stencil 裁剪路径：同样透传矩阵（字形随 View 变换）
@@ -221,6 +230,7 @@ void VulkanBackend::drawGlyph(const DrawGlyphCmd &cmd) {
 }
 
 void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     if (clip_.level() > 0) {
         image_.drawImageClipped(currentToken_->commandBuffer, currentToken_->extent, cmd, clip_.globalAlpha(), cmd.t);
@@ -257,6 +267,7 @@ void VulkanBackend::destroyImageTexture(uint32_t id) {
 }
 
 void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad, const Transform2D &t, const Rect &clipRect) {
+    triangle_.flushPending(currentToken_->commandBuffer);    // stencil 写入也是绘制（画序）
     if (clip_.level() == 0) {
         vkCmdSetStencilReference(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 1);
         vkCmdSetStencilWriteMask(currentToken_->commandBuffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0xFF);
@@ -270,6 +281,9 @@ void VulkanBackend::pushClipRoundedRect(const Rect &r, float rad, const Transfor
 }
 
 void VulkanBackend::popState() {
+    // 裁剪域变化也是动态态边界：clip 域内录制的 pending 三角形必须先按旧
+    // scissor 提交，否则冲刷时拿到恢复后的 scissor 逃逸裁剪
+    triangle_.flushPending(currentToken_->commandBuffer);
     if (pushKinds_.empty()) return;
     PushKind kind = pushKinds_.back();
     pushKinds_.pop_back();
@@ -293,6 +307,7 @@ void VulkanBackend::fillRing(const FillRingCmd &cmd) {
 }
 
 void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     // mesh 视口定位几何；scissor 收口 = viewport ∩ 当前可画域（裁剪栈/伤害带）
     // ——元素滚出滚动视口即空剪不画（原恒全屏，docsite 滚动后 3D 盖到顶栏）
@@ -313,6 +328,7 @@ void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
 // ================================================================
 void VulkanBackend::backdropBlur(const BackdropBlurCmd &cmd) {
     if (!currentToken_) return;
+    triangle_.flushPending(currentToken_->commandBuffer);
     drawCalls_++;
     // 捕获盒 ∩ scissor ∩ 画布，取整对齐：blit 子区域与画布同构映射，
     // 离屏/出界元素不错位（composite UV = 世界坐标/视口，与 cap 解耦）。

@@ -48,9 +48,14 @@ export class Path {
 public:
     Path() = default;
 
-    /** @brief 移动当前点到 (x, y) */
+    /** @brief 移动当前点到 (x, y)——开始新子路径（Canvas 规范：moveTo 即建轮廓，
+     *         后续 arc/lineTo 追加到该轮廓；此前只改当前点不建轮廓，导致
+     *         moveTo(圆心)→arc(...) 的扇形丢失圆心、填充退化成月牙） */
     void moveTo(float x, float y) {
-        if (hasOpenContour()) contours_.back().closed = false;
+        Contour c;
+        c.points.push_back({x, y});
+        c.closed = false;
+        contours_.push_back(std::move(c));
         startX_ = x; startY_ = y;
         curX_ = x; curY_ = y;
     }
@@ -115,8 +120,14 @@ private:
     static float dist(float x1, float y1, float x2, float y2);
 };
 
-/** @brief 填充三角剖分 */
-export std::vector<Triangle> triangulateFill(const Path &path);
+/**
+ * @brief 填充三角剖分（ear clipping；支持凹多边形，AA 轮廓边/内部边精确区分）
+ * @param dilate 轮廓外扩量（路径单位，通常传 1 物理像素 = 1/矩阵缩放，默认 0 不外扩）。
+ *   栅格化只覆盖像素中心在三角形内的片元，AA 过渡带的外侧半带没有片元可跑
+ *   （放大后边缘锯齿的根因）；外扩后 shader 端 dist -= flag*1.0 减回。
+ *   多边形级 miter 偏移保证相邻三角形无裂缝/无重叠。
+ */
+export std::vector<Triangle> triangulateFill(const Path &path, float dilate = 0.0f);
 
 /** @brief 描边三角剖分 */
 export std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth);

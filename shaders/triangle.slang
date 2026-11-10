@@ -120,12 +120,15 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
         return float4(col.rgb, col.a * pc.uOpacity * alpha);
     }
 
-    // ── 常规三角形：解析覆盖率抗锯齿（原有路径，零改动）──
+    // ── 常规三角形：解析覆盖率抗锯齿 ──
+    // CPU 端 triangulateFill(dilate) 已把 AA 轮廓边外扩 1 物理像素（栅格化只
+    // 覆盖像素中心在形内的片元，外扩给过渡带的外侧半带留出片元），此处按
+    // edgeMask 减回外扩量 → alpha=0.5 精确落在原始几何边上
     float3 bary = float3(input.bary, 1.0 - input.bary.x - input.bary.y);
-    float3 dist = bary * input.h;
-    float3 cov = smoothstep(float3(-0.5, -0.5, -0.5), float3(0.5, 0.5, 0.5), dist);
     uint m = uint(input.edgeMask);
     float3 flag = float3(float((m >> 1) & 1u), float((m >> 2) & 1u), float((m >> 0) & 1u));
+    float3 dist = bary * input.h - flag * 1.0;
+    float3 cov = smoothstep(float3(-0.5, -0.5, -0.5), float3(0.5, 0.5, 0.5), dist);
     cov = lerp(float3(1.0, 1.0, 1.0), cov, flag);
     float alpha = min(min(cov.x, cov.y), cov.z);
     return float4(input.vColor.rgb, input.vColor.a * alpha);
