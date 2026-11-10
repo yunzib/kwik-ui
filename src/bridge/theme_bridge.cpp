@@ -88,6 +88,43 @@ ThemeData parseTheme(JSContext* ctx, JSValue val) {
         parseColorField(ctx, colors, "divider",           theme.colors.divider);
         parseColorField(ctx, colors, "disabled",          theme.colors.disabled);
         parseColorField(ctx, colors, "disabledText",      theme.colors.disabledText);
+
+        // chartPalette: 颜色数组（图表系列调色板，空数组 = 用图表扩展内置默认板）
+        // 数组项两种形态：字符串 "#RRGGBB" / 数组 [r,g,b(,a)]（对齐 convertTo<Color> 语义）
+        JSValue pal = JS_GetPropertyStr(ctx, colors, "chartPalette");
+        if (JS_IsArray(pal)) {
+            theme.colors.chartPalette.clear();
+            JSValue lenVal = JS_GetPropertyStr(ctx, pal, "length");
+            uint32_t len = 0;
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+            for (uint32_t i = 0; i < len; ++i) {
+                JSValue item = JS_GetPropertyUint32(ctx, pal, i);
+                if (JS_IsString(item)) {
+                    const char* str = JS_ToCString(ctx, item);
+                    if (str) theme.colors.chartPalette.push_back(parseColor(str));
+                    if (str) JS_FreeCString(ctx, str);
+                } else if (JS_IsArray(item)) {
+                    // [r,g,b] / [r,g,b,a] 按通道取值，缺省 alpha=255
+                    JSValue lenV = JS_GetPropertyStr(ctx, item, "length");
+                    uint32_t n = 0;
+                    JS_ToUint32(ctx, &n, lenV);
+                    JS_FreeValue(ctx, lenV);
+                    if (n >= 3) {
+                        int32_t ch[4] = {0, 0, 0, 255};
+                        for (uint32_t k = 0; k < 4 && k < n; ++k) {
+                            JSValue cv = JS_GetPropertyUint32(ctx, item, k);
+                            JS_ToInt32(ctx, &ch[k], cv);
+                            JS_FreeValue(ctx, cv);
+                        }
+                        auto clamp8 = [](int32_t x) { return static_cast<uint8_t>(x < 0 ? 0 : (x > 255 ? 255 : x)); };
+                        theme.colors.chartPalette.push_back({clamp8(ch[0]), clamp8(ch[1]), clamp8(ch[2]), clamp8(ch[3])});
+                    }
+                }
+                JS_FreeValue(ctx, item);
+            }
+        }
+        JS_FreeValue(ctx, pal);
     }
     JS_FreeValue(ctx, colors);
 

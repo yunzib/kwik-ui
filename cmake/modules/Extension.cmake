@@ -120,6 +120,36 @@ endforeach()
     target_compile_definitions(kwik_ext_video PRIVATE KWIK_EXT_VIDEO_MODULE)
 endif()
 
+# 图表扩展开关（零第三方依赖；OFF = 不编译图表子系统 —— 框架裁剪）
+option(KWIK_ENABLE_CHART "Build chart extension" ON)
+
+if(KWIK_ENABLE_CHART)
+    # 扩展静态库: 单模块 kwik.ext.chart（接口 + 外壳/渲染器/绑定三实现单元）
+    # 渲染器注册表内置于扩展：外部扩展可链接 kwik_ext_chart 调 registerChartRenderer 注入新图表类型
+    add_library(kwik_ext_chart)
+    target_sources(kwik_ext_chart
+        PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES
+            BASE_DIRS ${CMAKE_SOURCE_DIR}/extensions/chart
+            FILES
+                extensions/chart/interface/chart.cppm
+        PRIVATE
+            extensions/chart/impl/chart.cpp
+            extensions/chart/impl/chart_renderers.cpp
+            extensions/chart/impl/bindings.cpp
+    )
+    target_link_libraries(kwik_ext_chart
+        PRIVATE
+            kwik_core
+            kwik_element
+            kwik_render
+            kwik_bridge
+            kwik_engine
+            qjs
+    )
+    target_compile_definitions(kwik_ext_chart PRIVATE KWIK_EXT_CHART_MODULE)
+endif()
+
 # G3D 3D 扩展开关
 option(KWIK_ENABLE_G3D "Build G3D extension" ON)
 

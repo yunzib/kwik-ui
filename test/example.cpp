@@ -19,6 +19,9 @@ import kwik.engine.channel;
 import kwik.core.log;
 import kwik.ext.video; // 视频扩展插件
 import kwik.ext.g3d;
+#ifdef KWIK_HAVE_CHART
+import kwik.ext.chart;    // 图表扩展插件（Chart pie/line/bar/gauge + 渲染器注册表）
+#endif
 import kwik.render.video_stream;    // VideoStream（video_stream demo 合成生产者）
 import kwik.core.timer;             // CoreTimer（生产者节拍）
 
@@ -338,6 +341,9 @@ int main(int argc, char *argv[]) {
 
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
     registerG3DElement();
+#ifdef KWIK_HAVE_CHART
+    registerChartElement();    // Chart 扩展（JS 工厂 Chart({...}) 由此注入，示例 JS 零改动）
+#endif
 
     // video_stream：流须在树构建（createRuntime 执行 JS）之前创建并推首帧
     if (argc >= 2 && std::string(argv[1]) == "video_stream") { VideoStreamDemo::setup(); }

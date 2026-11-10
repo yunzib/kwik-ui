@@ -20,6 +20,7 @@ import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.core.path;
+import kwik.core.ring_geom;    // 圆环共享几何（与扩展 Chart gauge 同口径）
 import kwik.render.graphics;
 import kwik.render.command;
 import kwik.element.typed_prop;
@@ -62,24 +63,24 @@ void ProgressRing::onDraw(Graphics &graphics) {
     float h = frame.height - props.padding.vertical();
     if (w < 1.0f || h < 1.0f) return;
 
-    float cx = l + w * 0.5f;
-    float cy = t + h * 0.5f;
-    float r = std::min(w, h) * 0.5f;
-    if (r < 6.0f) return;
+    // 中心/半径/角度/带宽统一走共享几何（ring_geom，与扩展 Chart gauge 同源）
+    RingCenter c = ringCenterOf(l, t, w, h);
+    if (c.r < 6.0f) return;
 
     const float PI = std::acos(-1.0f);
     float a0 = pp_.startAngle * (PI / 180.0f);
     float a1 = a0 + pp_.sweep * (PI / 180.0f);
 
-    // 外环中径（外缘贴近 r，留 2px 边距）；内环与外环同中心半径（嵌入式）
-    float rT = r - pp_.trackThickness * 0.5f - 2.0f;
+    // 外环（像素带宽口径：外缘留 2px 边距）；内环与外环同中径（嵌入式）
+    RingBand track = ringBandByThickness(c.r, pp_.trackThickness);
+    float rT = track.midR;
     float rP = rT;
     if (rP - pp_.thickness * 0.5f < 2.0f) return;    // 空间不足（组件过小）
 
     // ── ① 外环：背景轨道（SDF 全扫角，单色 color0==color1）──
     //    sweep=360° 时 span=2π，fragment 跳过角度裁剪 → 闭合无缝；
     //    sweep<360° 时两端按 roundCap 收口
-    graphics.fillRing(cx, cy, rT, pp_.trackThickness * 0.5f, a0, a1,
+    graphics.fillRing(c.cx, c.cy, track.midR, track.halfW, a0, a1,
                       pp_.trackColor, pp_.trackColor, pp_.roundCap);
 
     // ── ② 内环：进度段（SDF 渐变弧，color0@a0 → color1@va）──
@@ -87,7 +88,7 @@ void ProgressRing::onDraw(Graphics &graphics) {
     float fillRatio = std::clamp(ratio(), 0.0f, 1.0f);
     float va = a0 + (a1 - a0) * fillRatio;
     if (fillRatio > 1e-4f) {
-        graphics.fillRing(cx, cy, rP, pp_.thickness * 0.5f, a0, va,
+        graphics.fillRing(c.cx, c.cy, rP, pp_.thickness * 0.5f, a0, va,
                           pp_.startColor, pp_.endColor, pp_.roundCap);
     }
 

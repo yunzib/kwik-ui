@@ -24,6 +24,7 @@ target_sources(kwik_core
             modules/core/theme.cppm
             modules/core/binding.cppm
             modules/core/input_session.cppm
+            modules/core/ring_geom.cppm
            
     PRIVATE
         src/core/log.cpp

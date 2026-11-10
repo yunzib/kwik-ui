@@ -44,7 +44,7 @@ export default () => {
 
     return Root(View({ width: 960, height: 860, background: [245, 245, 245, 255], padding: 24 }, [
         Text({ text: "仪表盘 (gauge) — 动态测试", fontSize: 18, margin: [0, 0, 4, 0] }),
-        Text({ text: "弧式 + 指针式(pointer) · State+ref 绑定 · 阈值分段实时跟随 · labelEvery 每刻度显示值 · 带宽可调",
+        Text({ text: "弧式 + 指针式(pointer) · State+ref 绑定 · 阈值分段实时跟随 · labelEvery/刻度几何(outerRatio/tickInnerOffset/tickLength/tickLabelOffset)可调 · style.valueFormat 数值格式",
               fontSize: 12, color: [120, 120, 120, 255], margin: [0, 0, 16, 0] }),
 
         // ── 弧式仪表控制按钮（蓝=随机 / 绿=步进 / 红=归零），仅驱动首行 ──
@@ -100,11 +100,14 @@ export default () => {
                     gauge: {
                         min: 0, max: 8, ticks: 8, labelEvery: 1,
                         trackRatio: 0.27, innerRatio: 0.22,
+                        // ── 刻度几何自定义演示（默认 0.95/6/8/22）──
+                        outerRatio: 0.92, tickInnerOffset: 4, tickLength: 12, tickLabelOffset: 20,
                         segments: [
                             { value: 6, color: [66, 165, 245, 255] },
                             { value: 8, color: [255, 167, 38, 255] },
                         ],
                     },
+                    style: { valueFormat: "%.1f" },    // 刻度值一位小数（0.0..8.0）
                 }, [
                     Text({ text: ref(memLabel, "label"), align: "center", fontSize: 30, color: [20, 30, 45, 255] }),
                     Text({ text: "0-8 GB", align: "center", y: 34, fontSize: 11, color: [120, 120, 120, 255] }),
@@ -148,6 +151,7 @@ export default () => {
                 gauge: {
                     min: 0, max: 100, ticks: 10, labelEvery: 1,
                     pointer: true, needleStyle: "torpedo",
+                    needleBaseRatio: 0.11,    // 底座圆加大（默认 0.075）
                     segments: thrSegments,
                 },
             }, [
@@ -163,6 +167,7 @@ export default () => {
                 gauge: {
                     min: 0, max: 100, ticks: 10, labelEvery: 1,
                     pointer: true, needleStyle: "counterweight",
+                    needleTailRatio: 0.45,    // 配重尾加长（默认 0.30）
                     segments: thrSegments,
                 },
             }, [

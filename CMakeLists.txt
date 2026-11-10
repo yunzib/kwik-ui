@@ -175,6 +175,10 @@ target_link_libraries(kwik INTERFACE
     kwik_ext_video
     kwik_ext_g3d
 )
+# 图表扩展可裁剪：KWIK_ENABLE_CHART=OFF 时不链接（目标不存在则跳过）
+if(TARGET kwik_ext_chart)
+    target_link_libraries(kwik INTERFACE kwik_ext_chart)
+endif()
 
 # 示例程序
 if(KWIK_BUILD_EXAMPLES)

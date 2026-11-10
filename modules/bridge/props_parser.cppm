@@ -309,6 +309,6 @@ export TreeMenuProps parseTreeMenuProps(PropsExtractor &ex);
 export LazyListProps parseLazyListProps(PropsExtractor &ex);
 export KeyboardProps parseKeyboardProps(PropsExtractor &ex);
 export DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex);
-export ChartProps parseChartProps(PropsExtractor &ex);
+// Chart 属性解析已随组件迁移 extensions/chart/impl/bindings.cpp（扩展自有解析）
 export ProgressRingProps parseProgressRingProps(PropsExtractor &ex);
 export SpinBoxProps parseSpinBoxProps(PropsExtractor &ex);

@@ -1330,10 +1330,7 @@ static JSValue js_datepicker(JSContext *ctx, JSValueConst this_val, int argc, JS
     return makeElement(ctx, "DateTimePicker", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
 }
 
-static JSValue js_chart(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
-    return makeElement(ctx, "Chart", props, (argc >= 2) ? argv[1] : JS_UNDEFINED);
-}
+// Chart 工厂已随组件迁移 extensions/chart/impl/bindings.cpp（kwik.ext.chart 运行时注入）
 
 static JSValue js_progressring(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     JSValue props = (argc >= 1) ? argv[0] : JS_UNDEFINED;
@@ -1526,7 +1523,6 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("LazyList", 1, js_lazylist),
         JS_CFUNC_DEF("Keyboard", 1, js_keyboard),
         JS_CFUNC_DEF("DateTimePicker", 2, js_datepicker),
-        JS_CFUNC_DEF("Chart", 2, js_chart),
         JS_CFUNC_DEF("ProgressRing", 2, js_progressring),
         JS_CFUNC_DEF("SpinBox", 1, js_spinbox),
         JS_CFUNC_DEF("setTimeout", 2, js_setTimeout),

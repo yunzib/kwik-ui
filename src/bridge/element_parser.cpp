@@ -60,7 +60,7 @@ import kwik.element.lazy_list; // LazyList — 虚拟化列表
 import kwik.element.lazy_list_source;
 import kwik.element.keyboard;
 import kwik.element.datepicker;
-import kwik.element.chart;
+// Chart 已迁移扩展 kwik.ext.chart（注册走 ElementParser::registerExtension）
 import kwik.element.progressring;
 import kwik.element.spinbox;
 import kwik.bridge.element_spec; // ElementSpec / ElementRegistry — 扩展契约
@@ -617,16 +617,6 @@ static struct InitBuiltinTypes {
             return dp;
         });
 
-        // ── Chart ──
-        ElementParser::registerType("Chart", [](const JSValueRef &pv) {
-            TypedPropMap meta;
-            PropsExtractor ex(pv, &meta);
-            auto v = std::make_unique<Chart>(parseViewProps(ex), parseChartProps(ex));
-            v->propMeta = std::move(meta);
-            applyBindings(v.get(), pv);
-            return v;
-        });
-
         // ── ProgressRing ──
         ElementParser::registerType("ProgressRing", [](const JSValueRef &pv) {
             TypedPropMap meta;
@@ -1091,7 +1081,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     case ElementType::DateTimePicker:
         static_cast<DateTimePicker *>(oldView.get())->applyDateTimePickerProps(parseDateTimePickerProps(ex));
         break;
-    case ElementType::Chart: static_cast<Chart *>(oldView.get())->applyChartProps(parseChartProps(ex)); break;
+    // Chart 已迁移扩展：extension spec.reconcileProps 统一钩子处理（见本函数尾部）
     case ElementType::FlexLayout:
         // 前置缺陷修复：容器属性（direction/gap/flexWrap/justifyContent/...）
         // 之前从不更新（只刷 ViewProps），flexWrap 改了不生效

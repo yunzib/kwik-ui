@@ -35,12 +35,20 @@ export const meta = {
             ['min / max', 'number', '0 / 100', { zh: '量程', en: 'Range' }],
             ['start / sweep', 'number', '135 / 270', { zh: '起始角 / 扫过角（度，默认正下方开口）', en: 'Start / sweep angle (deg)' }],
             ['ticks / labelEvery', 'number', '0 / 1', { zh: '主刻度数 / 刻度值显示间隔（0=不显）', en: 'Major ticks / label interval' }],
-            ['trackRatio / innerRatio', 'number', '0.23 / 0.18', { zh: '轨道 / 内环带宽占 r（外缘固定 0.95r）', en: 'Track / inner band ratios of r' }],
+            ['trackRatio / innerRatio', 'number', '0.23 / 0.18', { zh: '轨道 / 内环带宽占 r（外缘 outerRatio 默认 0.95）', en: 'Track / inner band ratios of r' }],
+            ['outerRatio', 'number', '0.95', { zh: '外缘占 r（轨道/指示弧/刻度基准缘）', en: 'Outer radius ratio (base for track/arc/ticks)' }],
+            ['tickInnerOffset / tickLength / tickLabelOffset', 'number', '6 / 8 / 22', { zh: '刻度线起点距外缘 / 线长 / 值标签距外缘', en: 'Tick start offset from rim / tick length / label offset' }],
             ['pointer', 'boolean', 'false', { zh: '指针模式（③指示弧替换为指针+hub）', en: 'Pointer mode (arc → needle + hub)' }],
             ['needleStyle', 'triangle | torpedo | counterweight | blade', 'triangle', { zh: '指针造型', en: 'Needle style' }],
-            ['needleColor / hubColor', '#rrggbb', '#D32F2F / #141E2D', { zh: '指针 / 中心 hub 颜色', en: 'Needle / hub colors' }],
+            ['needleColor / hubColor', '#rrggbb | "@token"', '#D32F2F / #141E2D', { zh: '指针 / 中心 hub 颜色（可 @token）', en: 'Needle / hub colors (@token aware)' }],
             ['hubRadius / needleWidth', 'number', '0 / 0', { zh: '0 = 按造型自动', en: '0 = auto per style' }],
+            ['needleTailRatio / needleBaseRatio', 'number', '0.30 / 0.075', { zh: 'counterweight 尾长 / torpedo 底座半径占 r', en: 'Counterweight tail / torpedo base radius ratio' }],
             ['segments', '{value, color}[]', '-', { zh: '阈值分段（超出部分显示轨道色）', en: 'Threshold segments' }],
+        ] },
+        { title: { zh: 'style 子对象（仪表常用）', en: 'style sub-object (gauge)' }, rows: [
+            ['valueFormat', 'printf 规格', '-', { zh: '刻度值格式（如 "%.1f"；空=旧 %.0f）', en: 'Tick value format like "%.1f" (empty = legacy %.0f)' }],
+            ['indicatorColor', '#rrggbb | "@token"', '主题 primary', { zh: '指示弧色（可 @token）', en: 'Indicator arc color (@token aware)' }],
+            ['axisTickFontSize', 'number', '10', { zh: '刻度值字号', en: 'Tick label font size' }],
         ] },
     ],
 };
@@ -61,10 +69,13 @@ const L = {
     hint1: { zh: 'value 走 ref(State, "key") 绑定：写 State 即改值——改值经 setPropertyTyped '
                + '重置入场动画 → 平滑扫动，归零恒落 min 角；中央数值是 children 组合'
                + '（Text align:"center"），环带中心透明不被弧体遮挡；segments 阈值带跟随值域着色、'
-               + '段间 1px 软边衔接。',
+               + '段间 1px 软边衔接。内存表演示刻度几何自定义（outerRatio/tickInnerOffset/'
+               + 'tickLength/tickLabelOffset）与 style.valueFormat "%.1f" 一位小数刻度值。',
             en: 'value ref-binds (State, "key"): writing State updates it and resets the sweep '
                + 'animation; at zero the needle rests at the min angle. The center value is composed '
-               + 'from children (align:"center"); segment bands follow the value domain.' },
+               + 'from children (align:"center"); segment bands follow the value domain. The memory '
+               + 'gauge demos custom tick geometry (outerRatio/tickInnerOffset/tickLength/'
+               + 'tickLabelOffset) and style.valueFormat "%.1f" one-decimal ticks.' },
     hint2: { zh: 'pointer:true 时指示弧替换为指针 + hub（外缘 0.95r，尾部穿出 hub 后方）；'
                + 'needleStyle 四造型并排、同一 State ref 联动四针；指针数值文本下沉 y 偏移避让针体。',
             en: 'With pointer:true the arc becomes needle + hub; four needleStyle variants side by '
@@ -149,7 +160,8 @@ const demo1 = () => [
             ]),
             makeBtn(t(L.waterRand), [0, 151, 167, 255], () => { setWater(Math.round(Math.random() * 100)); }),
         ]),
-        // ── ③ 270° 内存仪表：步进按钮；宽带演示 trackRatio/innerRatio ──
+        // ── ③ 270° 内存仪表：步进按钮；宽带演示 trackRatio/innerRatio；
+        //    刻度几何自定义（outerRatio/tick*）+ style.valueFormat 一位小数 ──
         Flex({ direction: 'column', gap: 8, alignItems: 'flex-start' }, [
             Chart({
                 id: 'ds-gauge-mem',
@@ -158,11 +170,13 @@ const demo1 = () => [
                 gauge: {
                     min: 0, max: 8, ticks: 8, labelEvery: 1,
                     trackRatio: 0.27, innerRatio: 0.22,
+                    outerRatio: 0.92, tickInnerOffset: 4, tickLength: 12, tickLabelOffset: 20,
                     segments: [
                         { value: 6, color: [66, 165, 245, 255] },
                         { value: 8, color: [255, 167, 38, 255] },
                     ],
                 },
+                style: { valueFormat: '%.1f' },
             }, [
                 Text({ text: ref(memLabel, 'label'), align: 'center', fontSize: 30, color: [20, 30, 45, 255] }),
                 Text({ text: '0-8 GB', align: 'center', y: 34, fontSize: 11, color: [120, 120, 120, 255] }),
@@ -195,7 +209,7 @@ const demo2 = () => [
             Text({ text: ref(speedLabel, 'label'), align: 'center', y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
             Text({ text: 'triangle', align: 'center', y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
         ]),
-        // ── ② torpedo 圆底梭形（一体式，无独立 hub）──
+        // ── ② torpedo 圆底梭形（一体式，无独立 hub）——底座半径加大演示 ──
         Chart({
             id: 'ds-gauge-ptr-torp',
             type: 'gauge', width: 200, height: 240, value: ref(speed, 'v'),
@@ -203,13 +217,14 @@ const demo2 = () => [
             gauge: {
                 min: 0, max: 100, ticks: 10, labelEvery: 1,
                 pointer: true, needleStyle: 'torpedo',
+                needleBaseRatio: 0.11,    // 底座圆加大（默认 0.075）
                 segments: thrSegments,
             },
         }, [
             Text({ text: ref(speedLabel, 'label'), align: 'center', y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
             Text({ text: 'torpedo', align: 'center', y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
         ]),
-        // ── ③ counterweight 配重尾针（尾部穿出 hub 后方）──
+        // ── ③ counterweight 配重尾针（尾部穿出 hub 后方）——尾长加长演示 ──
         Chart({
             id: 'ds-gauge-ptr-cw',
             type: 'gauge', width: 200, height: 240, value: ref(speed, 'v'),
@@ -217,6 +232,7 @@ const demo2 = () => [
             gauge: {
                 min: 0, max: 100, ticks: 10, labelEvery: 1,
                 pointer: true, needleStyle: 'counterweight',
+                needleTailRatio: 0.45,    // 配重尾加长（默认 0.30）
                 segments: thrSegments,
             },
         }, [
@@ -268,7 +284,10 @@ Chart({
 ]);
 
 // 弧形可调：180° 半圆水位仪 start:180, sweep:180（segments 蓝双色带）
-// 量程/带宽可调：内存仪表 max:8, trackRatio:0.27, innerRatio:0.22
+// 量程/带宽/刻度几何可调：内存仪表 max:8, trackRatio:0.27, innerRatio:0.22,
+//   outerRatio:0.92, tickInnerOffset:4, tickLength:12, tickLabelOffset:20
+//   + style:{ valueFormat:'%.1f' } 刻度值一位小数
+// 指针比例可调：torpedo needleBaseRatio / counterweight needleTailRatio
 // 控制按钮写 State 即全链联动（setCpu(…) → ref → 扫动 + 中央文本同步）`;
 
 const C2 = `// 指针模式：pointer:true → 指示弧替换为指针 + hub；needleStyle 四造型并排

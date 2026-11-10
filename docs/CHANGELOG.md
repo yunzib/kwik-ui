@@ -2,6 +2,45 @@
 
 # 0.0.0 — 2026-11-10
 ### 新增
+- Chart 扩展化（extensions/chart/，kwik.ext.chart）：组件自内置迁移为可插拔
+  扩展（ChartRenderer 类型注册表 + Axis/Legend 共享图层），`KWIK_ENABLE_CHART=OFF`
+  可整体裁剪；类型身份经 registerExtensionType("Chart") 与内置枚举幂等复用，
+  JS 用法零改动
+- 饼图/环形图：`pie` 子对象——innerRatio 开 donut 环带（SDF fillRing 管线）、
+  labelRadiusRatio 标签半径、startAngle 起始角
+- 仪表盘刻度几何与指针比例可调：`outerRatio` / `tickInnerOffset` / `tickLength` /
+  `tickLabelOffset` / `needleTailRatio` / `needleBaseRatio`（缺省 = 原硬编码，
+  不传零视觉变化）
+- 折线增强：`style.lineAreaOpacity` 面积填充、`style.lineCurve` Catmull-Rom
+  过点平滑（细分采样仍走 SDF 胶囊管线）
+- 图例位置 `legendPosition`（"top"/"bottom"，bottom 时 line/bar 绘图区自动让位）
+- 数值格式化 `style.valueFormat`：printf 规格（"%.1f" 等），轴刻度/柱标签/仪表
+  刻度三处生效，空 = 各处旧格式
+- 主题 chartPalette 数组项支持 `[r,g,b(,a)]` 形态（此前只收字符串，静默丢弃）
+### 变更
+- Chart 主题 token 解析收口：style/gauge 子对象颜色字段（indicatorColor /
+  needleColor / hubColor）支持 "@token"（扩展本地 extractNestedColorTokens 以
+  "style.xxx"/"gauge.xxx" 键注册，reconcile 钩子重提取清旧防 stale）；
+  子对象字符串值一律拒绝转换（与核心 PropsExtractor::get 同口径），
+  字号字段缺省时走主题 caption 兜底
+### 修复
+- Chart style/gauge 子对象传 "@token" 字符串会注入 NaN（数值字段）/透明色
+  （颜色字段）——根因为核心 extractThemeTokens 不递归子对象且扩展本地解析
+  无守卫；现字符串拒绝 + 非有限数值拒绝 + token 正常解析
+- gauge.labelEvery 历史从未被解析（props 文档声称支持），静默无效——补解析
+- KWIK_ENABLE_CHART=OFF 时 example 编译失败（无条件 import 扩展模块）——
+  example 侧以 KWIK_HAVE_CHART 条件编译
+- 图例回退序号用可见项索引而非原系列索引（series[0] 隐藏 + series[1] 无名时
+  显示 "1"，旧实现显示 "2"）
+- 饼图负值计入总和而绘制跳过 ≤0 → 正值扇区按被夸大的份额绘制（缺口/重叠
+  失真）——分母改只累有限正值，绘制与标签同口径
+- 数据 NaN/Inf 无防线直落绘制命令（值域扫描首值即被永久污染、gauge 值
+  钳制两比较对 NaN 恒 false 逃逸）——轴扫描/饼/bar/line 各消费点跳过非
+  有限（line 断开处成对跳段、面积按有限连续段分段闭底缘、数据点跳过，
+  NaN=无数据点且 categories 索引保持对齐）；gauge NaN 值先归 minV 再钳制
+
+# 0.0.0 — 2026-11-10
+### 新增
 - Video 文件播放（FFmpeg）：`src` 指向本地媒体文件即真正解码播放——
   play/pause/seek/loop、autoplay；事件 onLoaded / onTimeUpdate / onEnd /
   onError / onBuffering / onPlaying；getProp 读 currentTime / duration /

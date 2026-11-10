@@ -702,83 +702,8 @@ export struct DateTimePickerProps {
 };
 
 // ════════════════════════════════════════════════════════════
-// Chart 属性 — 饼图 / 折线图
+// Chart 属性 — 已迁移至 extensions/chart（kwik.ext.chart 接口共置）
 // ════════════════════════════════════════════════════════════
-/**
- * @brief 数据系列
- *
- * 饼图 (pie):   取第一个可见 series 的 data 作为扇区值列表，
- *               每个扇区角度 = 值 / 总和 * 360°。
- * 折线图 (line): 每个 series 绘制一条折线，data[i] 为第 i 个点 y 值。
- */
-export struct ChartSeries {
-    std::string label;                 // 系列名（图例 / 标签）
-    std::vector<float> data;           // 数据点（饼图=扇区值, 折线=各点 y）
-    Color color{0, 0, 0, 0};           // 系列颜色（transparent=自动分配调色板色）
-    bool visible = true;
-};
-
-/**
- * @brief 仪表盘阈值分段（type=="gauge" 专用）
- * @note 段按值域顺序排列，值单调不减；value 为段上限（位于 [gauge.min, gauge.max]）
- */
-export struct GaugeSegment {
-    float value;                    ///< 段上限（值域 [min,max] 内）
-    Color color;                    ///< 段色（transparent = 跳过该段）
-};
-
-/**
- * @brief 仪表盘专用属性 — ChartProps.gauge 子结构
- *
- * 子结构模式：新图表类型专用字段一律各自子结构内嵌，避免 ChartProps 顶层字段
- * 无限膨胀；顶层只允许跨类型通用字段。JS 侧嵌套用法：
- *   Chart({ type: "gauge", series:[{data:[68]}],
- *          gauge: { min:0, max:100, ticks:10,
- *                   segments:[{value:60,color:"#4CAF50"},{value:85,color:"#FF9800"}] } })
- */
-export struct GaugeProps {
-    float min = 0.0f;               ///< 仪表最小值（默认 0）
-    float max = 100.0f;             ///< 仪表最大值（默认 100）
-    float start = 135.0f;           ///< 起始角（度，默认 135 → 与默认 270° 扫角组合终点 45°，圆弧在正下方开口）
-    float sweep = 270.0f;           ///< 扫过角（度，默认 270 = 3/4 圆环仪表）
-    int ticks = 0;                  ///< 主刻度数（0 = 不画刻度）
-    int labelEvery = 1;             ///< 刻度值标签间隔（1=每个刻度都显示；2=隔一个；0=不显示标签）
-    float trackRatio = 0.23f;       ///< 外环轨道带宽占 r 比例（外缘固定 0.95r，向内收；0=不画轨道）
-    float innerRatio = 0.18f;       ///< 内环指示带宽占 r 比例（与外环同心居中于轨道带内）
-
-    // ── 指针模式（speedometer 风）──
-    bool pointer = false;                  ///< true → 指针模式（③指示弧替换为指针+hub）
-    std::string needleStyle = "triangle";  ///< 指针造型: triangle / torpedo / counterweight / blade
-    Color needleColor{211, 47, 47, 255};   ///< 指针颜色（默认经典红）
-    Color hubColor{20, 30, 45, 255};       ///< 中心 hub 颜色
-    float hubRadius = 0.0f;                ///< hub 半径（0=自动 0.07r）
-    float needleWidth = 0.0f;              ///< 指针基准半宽（0=按造型自动）
-
-    std::vector<GaugeSegment> segments;   ///< 阈值分段（按值域着色，超出分段范围部分显示背景轨道色）
-};
-
-/**
- * @brief 图表专有属性
- *
- * 过渡动画: 数据首次渲染或 series 更新时, 按 duration 时长
- * 从 0 缓动展开到目标值（smoothstep 插值）。
- */
-export struct ChartProps {
-    std::string type = "pie";          // "pie" | "line"
-    std::vector<ChartSeries> series;   // 数据系列
-    float duration = 600.0f;           // 过渡动画时长（毫秒）
-    float strokeWidth = 2.0f;          // 折线线宽 (像素)
-    bool showGrid = true;              // 折线图: 水平网格线
-    bool showLabels = true;            // 数据标签（饼图=百分比, 折线=x 轴分类名）
-    bool showLegend = true;            // 图例（顶部横向排列）
-    std::vector<std::string> categories;  // 折线图 x 轴分类标签
-    Color gridColor{230, 230, 230, 255};  // 网格线色
-    Color labelColor{120, 120, 120, 255}; // 数据标签色
-    Color legendColor{80, 80, 80, 255};   // 图例文字色
-    Color emptyColor{235, 235, 235, 255}; // 饼图扇区分隔细缝色
-    float value = 0.0f;             ///< 仪表盘当前值（type=="gauge" 时生效，支持 ref 绑定增量更新；series 此时仅提供图例标签）
-    GaugeProps gauge;               ///< 仪表盘专用（type=="gauge" 时生效；子结构模式，其他类型忽略）
-};
 
 // ════════════════════════════════════════════════════════
 // ProgressRing 属性 — 圆环进度（外层背景环 + 内层渐变进度环）

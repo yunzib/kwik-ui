@@ -62,6 +62,10 @@ if(KWIK_BUILD_EXAMPLES)
     # example
     add_executable(example ${CMAKE_SOURCE_DIR}/test/example.cpp)
     target_link_libraries(example PRIVATE kwik)
+    # 图表扩展开启时启用示例的 chart/gauge demo 分支（KWIK_ENABLE_CHART=OFF 时不编译）
+    if(TARGET kwik_ext_chart)
+        target_compile_definitions(example PRIVATE KWIK_HAVE_CHART)
+    endif()
 
     # kwik_unit_tests — 纯逻辑单测（不依赖窗口/GPU）：Rect / PropMeta 一致性 / DisplayList / 事件代理对重组
     # enable_testing() 在顶层 CMakeLists（ctest 只发现顶层注册的用例）
@@ -83,6 +87,11 @@ if(KWIK_BUILD_EXAMPLES)
     if(TARGET kwik_ext_video)
         target_link_libraries(kwik_js_tests PRIVATE kwik_ext_video kwik_render)
         target_compile_definitions(kwik_js_tests PRIVATE KWIK_TEST_VIDEO)
+    endif()
+    # Chart 扩展开启时补链并启用其行为锁（KWIK_ENABLE_CHART=OFF 时跳过，不破构建）
+    if(TARGET kwik_ext_chart)
+        target_link_libraries(kwik_js_tests PRIVATE kwik_ext_chart kwik_render)
+        target_compile_definitions(kwik_js_tests PRIVATE KWIK_TEST_CHART)
     endif()
     add_test(NAME js_tests COMMAND kwik_js_tests)
 

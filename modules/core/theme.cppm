@@ -9,6 +9,7 @@ module;
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 export module kwik.core.theme;
 
@@ -48,6 +49,9 @@ export {
         Color divider = {};
         Color disabled = {};
         Color disabledText = {};
+        // 图表系列调色板（可空）：JS theme({chartPalette:[...]}) 注入；
+        // 空时图表组件用扩展内置默认调色板（对标 Qt ChartTheme）
+        std::vector<Color> chartPalette;
 
         /** @brief 是否已被 JS 设置过（primary.a != 0 视为已设置）*/
         bool isSet() const { return primary.a != 0; }

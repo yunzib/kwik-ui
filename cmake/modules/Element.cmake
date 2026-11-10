@@ -44,7 +44,6 @@ target_sources(kwik_element
             modules/element/lazy_list.cppm
             modules/element/keyboard.cppm
             modules/element/datepicker.cppm
-            modules/element/chart.cppm
             modules/element/progressring.cppm
             modules/element/spinbox.cppm
             modules/element/element_type.cppm
@@ -96,7 +95,6 @@ target_sources(kwik_element
         src/element/lazy_list.cpp
         src/element/keyboard.cpp
         src/element/datepicker.cpp
-        src/element/chart.cpp
         src/element/progressring.cpp
         src/element/spinbox.cpp
         src/element/element_type.cpp

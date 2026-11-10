@@ -9,6 +9,7 @@
 #include "quickjs.h"    // JSContext / JSValueConst（IncrementalCallback 签名）
 #include <print>
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 
@@ -41,6 +42,9 @@ import kwik.platform.window;        // PlatformWindow（StubWindow 夹具全虚�
 import kwik.core.log;
 #if defined(KWIK_TEST_VIDEO)
 import kwik.ext.video;              // Video（stream:// 路由 / fit / reconcile 不重开行为锁直驱）
+#endif
+#if defined(KWIK_TEST_CHART)
+import kwik.ext.chart;              // Chart 扩展（工厂注入 / 嵌套 token 守卫行为锁直驱）
 #endif
 
 import std;
@@ -1537,6 +1541,109 @@ static void test_g2d_numeric_args() {
     CHECK(jsGlobalStr(c, "__alive") == "1");
 }
 
+#if defined(KWIK_TEST_CHART)
+// ── 行为锁: Chart 扩展（扩展化迁移）──
+// ① 工厂注入 + 类型身份：Chart 描述符经 spec.creator 解析出 Chart 本体，
+//    type() 与内置注册名幂等复用同一 id（to_string 仍为 "Chart"）
+// ② 嵌套子对象 @token 守卫：style.pieLabelFontSize:"@caption" 不产 NaN
+//    （字符串拒绝 → 保持默认哨兵 12）；颜色 token 以 "style." 前缀注册待解析
+// ③ 新字段解析：pie/gauge 子对象、legendPosition、valueFormat 落地
+// ④ reconcile 钩子：applyChartProps 重解析 + 嵌套 token 重提取（清旧防 stale）
+// 描述符 C 侧手工构造（同 Video 的 makeVideoNode 惯例）：kwikui C 模块导出表
+// 在 register_kwikui_module 时即冻结（JS_AddModuleExport 只声明当时已注册的
+// 扩展名），测试内后置的 registerChartElement() 无法再补 `import { Chart }`
+// 导出 → headless 夹具取不到 JS 工厂。直接构造与 js_chart 输出同形的
+// {type,props,children}，走完全相同的 spec.creator 解析路径；JS 导出绑定由
+// 真实进程（Application 构造前注册）/ smoke demo 覆盖。
+// （独立引用，调用方 Free）
+static JSValue makeChartNode(JSContext *c) {
+    JSValue node = JS_NewObject(c);
+    JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Chart"));
+    JSValue props = JS_NewObject(c);
+    JS_SetPropertyStr(c, props, "id", JS_NewString(c, "cx"));
+    JS_SetPropertyStr(c, props, "type", JS_NewString(c, "pie"));    // 图表子类型
+    JS_SetPropertyStr(c, props, "width", JS_NewFloat64(c, 200));
+    JS_SetPropertyStr(c, props, "height", JS_NewFloat64(c, 100));
+    JS_SetPropertyStr(c, props, "legendPosition", JS_NewString(c, "bottom"));
+    JSValue series = JS_NewArray(c);
+    JSValue s0 = JS_NewObject(c);
+    JS_SetPropertyStr(c, s0, "label", JS_NewString(c, "a"));
+    JSValue data = JS_NewArray(c);
+    JS_SetPropertyUint32(c, data, 0, JS_NewInt32(c, 1));
+    JS_SetPropertyUint32(c, data, 1, JS_NewInt32(c, 2));
+    JS_SetPropertyUint32(c, data, 2, JS_NewInt32(c, 3));
+    JS_SetPropertyStr(c, s0, "data", data);
+    JS_SetPropertyUint32(c, series, 0, s0);
+    JS_SetPropertyStr(c, props, "series", series);
+    JSValue pie = JS_NewObject(c);
+    JS_SetPropertyStr(c, pie, "innerRatio", JS_NewFloat64(c, 0.55));
+    JS_SetPropertyStr(c, pie, "startAngle", JS_NewFloat64(c, -45));
+    JS_SetPropertyStr(c, props, "pie", pie);
+    JSValue gauge = JS_NewObject(c);
+    JS_SetPropertyStr(c, gauge, "labelEvery", JS_NewInt32(c, 2));
+    JS_SetPropertyStr(c, gauge, "outerRatio", JS_NewFloat64(c, 0.9));
+    JS_SetPropertyStr(c, props, "gauge", gauge);
+    JSValue style = JS_NewObject(c);
+    JS_SetPropertyStr(c, style, "pieLabelFontSize", JS_NewString(c, "@caption"));
+    JS_SetPropertyStr(c, style, "indicatorColor", JS_NewString(c, "@primary"));
+    JS_SetPropertyStr(c, style, "valueFormat", JS_NewString(c, "%.2f"));
+    JS_SetPropertyStr(c, props, "style", style);
+    JS_SetPropertyStr(c, node, "props", props);
+    JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+    return node;
+}
+
+static void test_chart_extension_parse() {
+    JSContext *c = g_ctx->getPtr();
+    registerChartElement();    // 扩展注册（真进程由 main 在构造 Application 前调用）
+
+    JSValue n = makeChartNode(c);
+    auto tree = ElementParser::parse(c, n);
+    JS_FreeValue(c, n);
+    auto *chart = dynamic_cast<Chart *>(tree.get());
+    CHECK(chart != nullptr);
+    if (!chart) return;
+    CHECK(to_string(chart->type()) == "Chart");    // 幂等复用内置 id → 名字回归
+
+    // ③ 新字段落地
+    const auto &cp = chart->chartProps();
+    CHECK(cp.legendPosition == "bottom");
+    CHECK(std::abs(cp.pie.innerRatio - 0.55f) < 1e-6f);
+    CHECK(std::abs(cp.pie.startAngle + 45.0f) < 1e-6f);
+    CHECK(cp.gauge.labelEvery == 2);
+    CHECK(std::abs(cp.gauge.outerRatio - 0.9f) < 1e-6f);
+    CHECK(cp.style.valueFormat == "%.2f");
+    // ② @token 守卫：字符串不进数值转换（修复前注入 NaN），保持默认哨兵；
+    //    颜色 token 以 "style." 前缀注册，交 resolveThemeDefaults 解析
+    CHECK(std::isfinite(cp.style.pieLabelFontSize) && cp.style.pieLabelFontSize == 12.0f);
+    auto tok = chart->props.themeTokens.find("style.indicatorColor");
+    CHECK(tok != chart->props.themeTokens.end() && tok->second == "primary");
+
+    // ④ reconcile 钩子：新 props 无 style → 旧嵌套 token 键已清（防 stale）
+    JSValue n2 = JS_NewObject(c);
+    JS_SetPropertyStr(c, n2, "type", JS_NewString(c, "Chart"));
+    JSValue props2 = JS_NewObject(c);
+    JS_SetPropertyStr(c, props2, "legendPosition", JS_NewString(c, "top"));
+    JS_SetPropertyStr(c, n2, "props", props2);
+    JSValue empty2 = JS_NewArray(c);
+    JS_SetPropertyStr(c, n2, "children", empty2);
+    auto merged = ElementParser::reconcile(c, n2, std::move(tree));
+    JS_FreeValue(c, n2);
+    CHECK(merged.get() == chart);                                    // 原位复用
+    CHECK(chart->chartProps().legendPosition == "top");              // 专有属性重解析生效
+    CHECK(chart->props.themeTokens.count("style.indicatorColor") == 0);    // 嵌套 token 清旧
+}
+
+// ── 行为锁: chartFormatValue 白名单 ──
+// 误配规格（如 "%s"）回退调用点历史格式，防 printf 未定义行为
+static void test_chart_format_value() {
+    CHECK(chartFormatValue(3.14159f, "%.1f", "%g") == "3.1");
+    CHECK(chartFormatValue(3.14159f, "%s", "%g") == "3.14159");    // 白名单外 → legacy
+    CHECK(chartFormatValue(3.14159f, "", "%g") == "3.14159");      // 空 = legacy（旧行为）
+    CHECK(chartFormatValue(50.0f, "%.0f%%", "%g") == "50%");       // 字面 %% 尾合法
+}
+#endif
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -1563,6 +1670,10 @@ int main() {
 #endif
     test_container_children_collect();   // 容器子节点收集（多实参 + 数组展开；纯解析无 storm 面）#endif
     test_g2d_numeric_args();             // 同上（g2d 数值参数校验）
+#if defined(KWIK_TEST_CHART)
+    test_chart_extension_parse();        // 同上（Chart 扩展：工厂注入 / @token 守卫 / 新字段 / reconcile 钩子）
+    test_chart_format_value();           // 同上（valueFormat 白名单回退）
+#endif
     test_microtask_budget();
     test_channel_e4_hygiene();           // Channel 单例持 JSValue，shutdown 已清
     test_layer_view_dtor_unregisters();

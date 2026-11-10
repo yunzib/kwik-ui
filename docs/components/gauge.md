@@ -24,7 +24,7 @@ docsite: gauge（两节：弧式仪表 value ref 绑定 / 指针模式四造型�
 }
 ```
 
-gauge 子对象：
+gauge 子对象（几何字段缺省 = 原硬编码，不传零视觉变化）：
 
 ```json
 {
@@ -32,16 +32,25 @@ gauge 子对象：
     "start": 135, "sweep": 270,               // 起始角/扫过角（度，默认正下方开口）
     "ticks": 0,                               // 主刻度数（0=不画刻度）
     "labelEvery": 1,                          // 刻度值标签间隔（1=每个刻度都显示；0=不显）
-    "trackRatio": 0.23, "innerRatio": 0.18,   // 轨道/内环带宽占 r 比例（外缘固定 0.95r）
+    "trackRatio": 0.23, "innerRatio": 0.18,   // 轨道/内环带宽占 r 比例
+    "outerRatio": 0.95,                       // 外缘占 r（轨道/指示弧/刻度的基准缘）
+    "tickInnerOffset": 6, "tickLength": 8,    // 刻度线起点距外缘 / 线长
+    "tickLabelOffset": 22,                    // 刻度值标签距外缘
     "pointer": false,                         // 指针模式：③指示弧替换为指针+hub
     "needleStyle": "triangle",                // 指针造型: triangle/torpedo/counterweight/blade
-    "needleColor": "#D32F2F",                 // 指针颜色（默认经典红）
-    "hubColor": "#141E2D",                    // 中心 hub 颜色
+    "needleColor": "#D32F2F",                 // 指针颜色（支持 "@token"；默认经典红）
+    "hubColor": "#141E2D",                    // 中心 hub 颜色（支持 "@token"）
     "hubRadius": 0,                           // hub 半径（0=自动 0.07r）
     "needleWidth": 0,                         // 指针基准半宽（0=按造型自动）
+    "needleTailRatio": 0.30,                  // counterweight 尾长占 r
+    "needleBaseRatio": 0.075,                 // torpedo 底座圆半径占 r
     "segments": [{ "value": 60, "color": "#4CAF50" }]   // 阈值分段（超出部分显示轨道色）
 }
 ```
+
+style 子对象常用项（详见 [chart](chart.md)）：`valueFormat` 刻度值 printf 规格
+（如 `"%.1f"`，空=旧 `%.0f`）、`indicatorColor` 指示弧色（可 `"@token"`）、
+`axisTickFontSize` 刻度值字号、`gaugeRadiusInset` 半径缩进。
 
 ## 动态面（value 绑定）
 
@@ -57,9 +66,13 @@ gauge 子对象：
 | needleStyle | 形态 |
 | --- | --- |
 | `triangle` | 细长三角 + hub 圆盘 |
-| `torpedo` | 圆底梭形（一体式，无独立 hub） |
-| `counterweight` | 配重尾针（尾部穿出 hub 后方） |
+| `torpedo` | 圆底梭形（一体式，无独立 hub；底座半径 needleBaseRatio，默认 0.075r） |
+| `counterweight` | 配重尾针（尾部穿出 hub 后方；尾长 needleTailRatio，默认 0.30r） |
 | `blade` | 宽刀片梯形 |
+
+刻度几何：`outerRatio`（外缘，默认 0.95r）+ `tickInnerOffset`/`tickLength`/
+`tickLabelOffset`（刻度线起点/长度/值标签距外缘，默认 6/8/22）可调，
+量程刻度值经 `style.valueFormat` 格式化。
 
 ## 示例
 
