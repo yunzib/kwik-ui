@@ -70,6 +70,33 @@ r2d.stroke();
 - Vulkan 侧三角形渲染器同 push constants 的连续命令自动合批为一次 vkCmdDraw
   （backend 于非三角形绘制/裁剪栈变化/帧末冲刷，绘制次序不变）。
 
+## 性能基准（示波器/频谱仪负载）
+
+基准页 test/ui/scope_bench.js（example.exe scope_bench）：黑底荧光屏三面板，
+60Hz 定时器内 `reset()` + 全量重录，实测（2026-11-10，2880×1800 / sc≈1.5）：
+
+| 面板 | 负载 | 帧均（avgMs） | 结论 |
+|---|---|---|---|
+| CH1 波形 | 4000 点 lineTo 胶囊描边（0.5px 荧光细线） | 合计 **2.44ms** ≈409fps，dropped 0 | 60Hz 预算 16.6ms 仅用 ~15% |
+| CH2 波形 | 2000 点 lineTo | ↑（三面板合计） | |
+| FFT 频谱 | 256 bin fillRect 细柱 | ↑ | |
+
+即每帧 JS 生成 6256 点数据 + ~8500 次 JS→C++ FFI 调用 + GPU 重绘，帧均
+2.44ms——G2D 每帧全量重录链路足以承载示波器/频谱仪级仪器刷新。对照 Chart
+series 桥接链路（4000+2000 点 60Hz 全量替换）帧均 6.19ms，同样达标。
+
+**高频重绘要点**：G2D 实例须提升到模块级，定时器内 `reset()` 清命令列表后
+重录——reconcile 复用元素实例时，组件渲染函数内重录的 drawList_ 不上屏
+（Chart 数据走 props 更新无此问题）。样例：
+
+```js
+const ch1 = G2D({ id: "scope-ch1", width: 1232, height: 250 });
+setInterval(() => {
+    ch1.reset();
+    // ...beginPath/moveTo/lineTo/stroke 全量重录
+}, 16);
+```
+
 ## 示例
 
 - demo：test/ui/g2d.js（example.exe g2d）——12 画布全景：基础图形 / 描边

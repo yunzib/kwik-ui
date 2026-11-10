@@ -29,6 +29,12 @@
   /斜线像素级平滑，strokeRect 走 SDF 直角描边）；录制层 std::function 闭包 →
   13 种命令变体内联存储（高频重绘零堆分配）；三角形渲染器同 push constants
   连续命令自动合批（绘制次序不变，像素零差异）
+- 示波器/频谱仪性能基准页 `example.exe scope_bench`（test/ui/scope_bench.js）：
+  黑底荧光屏三面板，60Hz 定时器 reset+全量重录。实测 G2D 链路每帧 JS 生成
+  6256 点 + ~8500 次 FFI 重录 + GPU 重绘 = **帧均 2.44ms ≈409fps dropped 0**
+  （60Hz 预算仅用 ~15%）；对照 Chart series 桥接链路同负载帧均 6.19ms 同样
+  达标——示波器/频谱仪级仪器刷新性能验证通过。要点：G2D 高频重绘须模块级
+  实例 + 定时器内 reset() 重录（reconcile 复用实例时渲染函数内重录不上屏）
 ### 修复
 - `axis:{yMin,yMax}` 文档承诺但从未接线（死导出）——补齐全链路
 - Chart::hitTestAt 坐标系错位：命中点按图表局部坐标换算，而渲染几何按 frame
