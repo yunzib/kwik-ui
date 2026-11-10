@@ -151,8 +151,21 @@ export default () => Root(
   </tr>
 </table>
 
+<table>
+  <tr>
+    <td><img src="docs/image/scop.png" alt="Oscilloscope / spectrum analyzer benchmark" width="100%"></td>
+    <td><img src="" alt="Chart components" width="100%"></td>
+  </tr>
+</table>
+
 - More examples: [examples/](examples/)
 - Component reference: [docs/1.kwik-ui 组件.md](docs/1.kwik-ui%20组件.md) (Chinese)
+- Doc site examples: [test/docsite](test/docsite), as shown below:
+<table>
+  <tr>
+    <td><img src="docs/image/docsite.png" alt="Doc site demo" width="50%"></td>
+  </tr>
+</table>
 
 ## 3.3 Channel Communication Example
 

@@ -150,9 +150,16 @@ export default () => Root(
   </tr>
 </table>
 
+<table>
+  <tr>
+    <td><img src="docs/image/scop.png" alt="图片描述1" width="100%"></td>
+    <td><img src="" alt="图表组件" width="100%"></td>
+  </tr>
+</table>
+
 - 更多示例可参考:  test/
 - 更多组件相关参考:  [docs/0. 快速上手.md](docs/0.%20快速上手.md)
-- 文档示例参考：test\docsite， 示例如下：
+- 文档示例参考：test/docsite， 示例如下：
 <table>
   <tr>
     <td><img src="docs/image/docsite.png" alt="图片描述1" width="50%"></td>
