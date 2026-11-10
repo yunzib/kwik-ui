@@ -44,6 +44,12 @@ gauge 子对象（几何字段缺省 = 原硬编码，不传零视觉变化）�
     "needleWidth": 0,                         // 指针基准半宽（0=按造型自动）
     "needleTailRatio": 0.30,                  // counterweight 尾长占 r
     "needleBaseRatio": 0.075,                 // torpedo 底座圆半径占 r
+    "detail": false,                          // 中央数值读数（opt-in；true=盘心显示当前值）
+    "detailFormat": "",                       // 读数 printf 规格（空=style.valueFormat，再空="%.0f"）
+    "detailUnit": "",                         // 单位后缀（如 "%" / "°C"，追加在数值后）
+    "detailFontSize": 0,                      // 读数字号（0=自动 0.16r，clamp 10..40）
+    "detailColor": "#787878",                 // 读数色（支持 "@token"；缺省=labelColor）
+    "detailOffsetY": 0,                       // 读数中心 y 偏移 px（指针模式 0=自动下沉避让 hub）
     "segments": [{ "value": 60, "color": "#4CAF50" }]   // 阈值分段（超出部分显示轨道色）
 }
 ```
@@ -56,8 +62,11 @@ style 子对象常用项（详见 [chart](chart.md)）：`valueFormat` 刻度值
 
 - `value: ref(State, "key")` 绑定——写 State 即改值：经 setPropertyTyped 重置
   入场动画 → animProgress_ 平滑扫动；归零恒落 min 角（无残留）。
-- 中央数值**不内置**：children 组合自由度（`Text({ align: "center" })` 值 + 单位
-  同行、附加信息行）；环带中心透明（gradMode==2）→ 弧式子组件文字不被遮挡。
+- 中央数值两用：简单读数开 `gauge.detail: true`（盘心当前值 + `detailUnit`
+  单位 + `detailFormat` 规格，数字随 morph/动画同步走；指针模式自动下沉避让
+  hub，`detailOffsetY` 可覆盖）；复杂布局仍走 children 组合自由度
+  （`Text({ align: "center" })` 值 + 单位同行、附加信息行）；环带中心透明
+  （gradMode==2）→ 弧式子组件文字不被遮挡。
 - 指针表 caption 文本下沉（y 偏移）避让针体/hub。
 - 常配双 State（value + 文本镜像）由同一更新函数驱动。
 

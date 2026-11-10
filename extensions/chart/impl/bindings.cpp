@@ -169,6 +169,16 @@ static ChartProps parseChartProps(PropsExtractor &ex) {
 			nestedNum(gv, "needleTailRatio", g.needleTailRatio);    // counterweight 尾长比例
 			nestedNum(gv, "needleBaseRatio", g.needleBaseRatio);    // torpedo 底座半径比例
 
+			// ── 中央数值读数（opt-in；detailColor 的 "@token" 由 extractNestedColorTokens 通用枚举自动注册）──
+			nestedBool(gv, "detail", g.detail);
+			nestedNum(gv, "detailFontSize", g.detailFontSize);
+			nestedColor(gv, "detailColor", g.detailColor);
+			nestedNum(gv, "detailOffsetY", g.detailOffsetY);
+			auto dfV = gv.getProperty("detailFormat");
+			if (dfV.isString()) g.detailFormat = dfV.toString();
+			auto duV = gv.getProperty("detailUnit");
+			if (duV.isString()) g.detailUnit = duV.toString();
+
 			nestedInt(gv, "ticks", g.ticks);
 			nestedInt(gv, "labelEvery", g.labelEvery);    // 历史缺陷补解析（props 文档早已声称支持）
 			auto sv = gv.getProperty("segments");

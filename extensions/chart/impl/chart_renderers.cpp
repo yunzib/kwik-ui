@@ -814,6 +814,7 @@ public:
 //      值=min 时不绘制 → 归零无残留）
 //   ④ 刻度（ticks 个主刻度短线 + 值标签，labelEvery 控制标签密度）
 //   ⑤ 指针（pointer:true 时替换③：triangle/torpedo/counterweight/blade + hub）
+//   ⑥ 中央数值读数（gauge.detail，opt-in：盘心当前值，指针模式自动下沉避让 hub）
 // ============================================================================
 class GaugeRenderer final : public ChartRenderer {
 public:
@@ -901,6 +902,26 @@ public:
 
 		// ── ⑤ 指针（pointer=true 时绘制：4 造型 + hub，角度复用③的 valueAngle 动画；归零恒指向 min 角）──
 		if (gp.pointer) drawNeedle(g, ctx, c.cx, c.cy, r, rOut, valueAngle);
+
+		// ── ⑥ 中央数值读数（gauge.detail，opt-in；消费 displayProps_ 插值中间态 → morph 期间数字同步走）──
+		if (gp.detail) {
+			float fs = gp.detailFontSize > 0.0f ? gp.detailFontSize : 0.16f * r;
+			if (fs < 10.0f) fs = 10.0f;
+			if (fs > 40.0f) fs = 40.0f;
+			Color dc = gp.detailColor.isVisible() ? gp.detailColor : cp.labelColor;
+			// 位置：弧式（无针）默认盘心；指针模式默认下沉避让针体/hub（与 caption 下沉同惯例），
+			// detailOffsetY 显式覆盖一切默认（0 负 0 区分：JS 传 0 亦视为显式居中由上层缺省语义保证，
+			// 这里以"指针模式且未显式偏移"作唯一自动避让条件）
+			float dy = c.cy + gp.detailOffsetY;
+			if (gp.pointer && gp.detailOffsetY == 0.0f) {
+				float hr = gp.hubRadius > 0.0f ? gp.hubRadius : 0.07f * r;
+				dy = c.cy + hr + fs * 0.9f;
+			}
+			std::string fmt = !gp.detailFormat.empty() ? gp.detailFormat : ctx.style.valueFormat;
+			std::string txt = chartFormatValue(value, fmt, "%.0f");
+			if (!gp.detailUnit.empty()) txt += " " + gp.detailUnit;
+			chartDrawLabel(g, txt, c.cx, dy, fs, dc);
+		}
 	}
 
 	// ── hitTest：仪表圆域内任意点命中当前值（锚位=指示弧/指针中线位）──

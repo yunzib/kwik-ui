@@ -177,7 +177,7 @@ export default () => Root(View({ width: 960, height: 860, background: [245, 245,
                 Text({ text: "counterweight", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
             ]),
 
-            // ── ⑦ blade 宽刀片梯形 ──
+            // ── ⑦ blade 宽刀片梯形（内置中央读数 detail：盘心当前值随动画同步走）──
             Chart({
                 id: "ptrBlade",
                 type: "gauge", width: 200, height: 240, value: ref(speed, "v"),
@@ -185,11 +185,11 @@ export default () => Root(View({ width: 960, height: 860, background: [245, 245,
                 gauge: {
                     min: 0, max: 100, ticks: 10, labelEvery: 1,
                     pointer: true, needleStyle: "blade",
+                    detail: true, detailUnit: "%", detailFormat: "%.0f",
                     segments: thrSegments,
                 },
             }, [
-                Text({ text: ref(speedLabel, "label"), align: "center", y: 26, fontSize: 14, color: [20, 30, 45, 255] }),
-                Text({ text: "blade", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
+                Text({ text: "blade · detail", align: "center", y: 54, fontSize: 11, color: [120, 120, 120, 255] }),
             ]),
         ]),
     ]));

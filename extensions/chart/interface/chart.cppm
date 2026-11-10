@@ -102,6 +102,14 @@ export struct GaugeProps {
 	float needleTailRatio = 0.30f;         ///< counterweight 尾长占 r 比例（原 0.30 写死）
 	float needleBaseRatio = 0.075f;        ///< torpedo 底座圆半径占 r 比例（原 0.075 写死）
 
+	// ── 中央数值读数（detail；opt-in，默认关闭 = 原行为，children 组合不受影响）──
+	bool detail = false;                   ///< true → 盘心显示当前值读数（ECharts gauge.detail 口径）
+	std::string detailFormat;              ///< 读数 printf 规格（空 = style.valueFormat，再空 = "%.0f"）
+	std::string detailUnit;                ///< 单位后缀（如 "%" / "°C"，追加在数值后）
+	float detailFontSize = 0.0f;           ///< 读数字号（0 = 自动 0.16r，clamp 10..40）
+	Color detailColor{0, 0, 0, 0};         ///< 读数色（transparent = labelColor；支持 "@token"）
+	float detailOffsetY = 0.0f;            ///< 读数中心 y 偏移 px（正=向下；指针模式 0 = 自动下沉避让 hub）
+
 	std::vector<GaugeSegment> segments;   ///< 阈值分段（按值域着色，超出分段范围部分显示背景轨道色）
 };
 

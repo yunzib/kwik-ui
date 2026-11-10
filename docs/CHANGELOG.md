@@ -16,6 +16,10 @@
 - ChartRenderer 契约扩展：`hitTest` / `tooltipText` 虚函数；`chartPlotAreaOf`
   纯函数导出；`chartDrawLegend` 返回命中矩形；`chartDrawTooltip` 共享浮层
 - Chart 查询接口 `displayProps()` / `isMorphing()`（morph 中间态可观测）
+- gauge 中央数值读数 `gauge.detail`（opt-in，默认关闭 = 原 children 组合行为
+  不变）：盘心当前值 + `detailUnit` 单位 / `detailFormat` 规格 / `detailFontSize`
+  / `detailColor`（支持 "@token"）/ `detailOffsetY`；数字随动画与 morph 插值
+  同步走，指针模式默认自动下沉避让 hub（显式 detailOffsetY 覆盖）
 ### 修复
 - `axis:{yMin,yMax}` 文档承诺但从未接线（死导出）——补齐全链路
 - Chart::hitTestAt 坐标系错位：命中点按图表局部坐标换算，而渲染几何按 frame
