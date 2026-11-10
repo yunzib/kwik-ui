@@ -108,16 +108,36 @@ std::string chartFormatValue(float value, const std::string &format, const char 
 }
 
 // ============================================================================
-// chartDrawAxis — 共享坐标轴图层（line/bar 单份实现，消除两renderer复制）
+// niceTickStep — nice-number 刻度步进（Heckbert 算法变体）
+//
+//   raw/10ⁿ 归一到 [1,10) 后从 1/2/5/10 序列就近向下取（roundDown 偏小步进
+//   = 刻度数略多于目标密度，主流量表库口径）。raw 非法（≤0/NaN/Inf）回退
+//   1.0（退化防御，配合调用点 clamp 不会爆炸）。
+// ============================================================================
+static float niceTickStep(float range, int targetDivisions) {
+	float raw = range / static_cast<float>(std::max(1, targetDivisions));
+	if (!(raw > 0.0f) || !std::isfinite(raw)) return 1.0f;
+	float ex = std::floor(std::log10(raw));
+	float f = raw / std::pow(10.0f, ex);    // [1,10)
+	float nf = (f < 1.5f) ? 1.0f : (f < 3.5f) ? 2.0f : (f < 7.5f) ? 5.0f : 10.0f;
+	float step = nf * std::pow(10.0f, ex);
+	return (step > 0.0f && std::isfinite(step)) ? step : 1.0f;
+}
+
+// ============================================================================
+// chartPlotAreaOf — 共享坐标轴计算（纯函数，无绘制副作用）
 //
 //   ① 绘图区预算：顶部图例带(legendBandHeight) + 底部 x 轴带(xAxisBandHeight)
 //      + 四向 plotPadding（原 24/20/8 魔数 → ChartStyle）
-//   ② y 轴范围：baselineZero=true 柱状（底轴固定 0，vmax=可见系列最大值）；
-//      false 折线（全量 min/max 扫描）
-//   ③ 网格 + y 刻度数值（gridDivisions 等分；同一循环公式 vmin=0 时两型一致）
-//   x 轴分类标签定位随类型而异（折线=点中心 / 柱状=槽中心），留在各 renderer。
+//   ② y 轴范围：可见系列扫描 + axis.yMin/yMax 显式覆写（NaN=自动）；
+//      baselineZero=true 柱状（自动下限固定 0，vmax=可见系列最大值）；
+//      值域双侧显式且数据为空时仍画轴（实时曲线空数据起步先立坐标系）
+//   ③ nice-number 刻度：步进从 1/2/5×10ⁿ 序列选取（gridDivisions 为目标
+//      密度）；自动边界扩到步进整数倍（数据不满贴边=主流库口径），显式
+//      边界不扩；刻度值 = 首刻度 + i×step（乘法免 fp 累加漂移）
+//   hitTest 与 draw 共用本函数取值域，几何口径天然一致。
 // ============================================================================
-std::optional<ChartPlotArea> chartDrawAxis(Graphics &g, const ChartContext &ctx, bool baselineZero) {
+std::optional<ChartPlotArea> chartPlotAreaOf(const ChartContext &ctx, bool baselineZero) {
 	const auto &cp = ctx.props;
 	const auto &st = ctx.style;
 
@@ -133,7 +153,10 @@ std::optional<ChartPlotArea> chartDrawAxis(Graphics &g, const ChartContext &ctx,
 	float bottom = ctx.frame.y + ctx.frame.height - ctx.padding.bottom - bottomBudget;
 	if (right - left <= 1 || bottom - top <= 1) return std::nullopt;
 
-	// ── ② y 轴范围（可见系列扫描）──
+	// ── ② y 轴范围（可见系列扫描 + axis 显式覆写）──
+	const auto &ax = cp.axis;
+	bool minFixed = std::isfinite(ax.yMin);    // NaN=自动（nestedNum 已拒非有限注入）
+	bool maxFixed = std::isfinite(ax.yMax);
 	float vmin = 0.0f, vmax = 1.0f;
 	bool has = false;
 	for (auto &s : cp.series) {
@@ -149,34 +172,78 @@ std::optional<ChartPlotArea> chartDrawAxis(Graphics &g, const ChartContext &ctx,
 			}
 		}
 	}
-	if (!has) return std::nullopt;
-	if (baselineZero) vmin = 0.0f;              // 柱从底轴生长（bar 语义）
-	if (vmax <= 0.0f && baselineZero) return std::nullopt;    // 柱状全零无内容
+	if (!has) {
+		// 空数据：值域双侧显式 → 立空坐标系（网格/刻度照画，数据后到后接入）；
+		// 任一侧缺省 → 无可画内容（旧行为）
+		if (!minFixed || !maxFixed) return std::nullopt;
+		vmin = ax.yMin;
+		vmax = ax.yMax;
+	}
+	if (minFixed) vmin = ax.yMin;                 // 显式覆写优先于 baselineZero/自动扫描
+	if (maxFixed) vmax = ax.yMax;
+	if (baselineZero && !minFixed) vmin = 0.0f;    // 柱从底轴生长（bar 语义；显式 yMin 时尊重用户值）
+	if (baselineZero && !maxFixed && vmax <= 0.0f) return std::nullopt;    // 柱状全零无内容
 	if (vmax - vmin < 1e-6f) vmax = vmin + 1.0f;    // 退化值域防御（折线）
 
-	// ── ③ 网格 + y 刻度数值 ──
+	// ── ②' nice-number 步进 + 自动边界取整（轴骨架，showGrid=false 亦生效：
+	//      vmin/vmax 供 renderer 数据映射，取整口径必须与网格一致）──
+	int target = st.gridDivisions > 0 ? st.gridDivisions : 4;
+	float step = niceTickStep(vmax - vmin, target);
+	if (!minFixed) vmin = std::floor(vmin / step + 1e-4f) * step;    // 自动侧扩到步进整数倍
+	if (!maxFixed) vmax = std::ceil(vmax / step - 1e-4f) * step;
+	if (!(vmax - vmin > 0.0f)) vmax = vmin + step;    // fp 防御（取整后重合）
+
+	return ChartPlotArea{{left, top, right - left, bottom - top}, vmin, vmax};
+}
+
+// ============================================================================
+// chartDrawAxis — 共享坐标轴图层（chartPlotAreaOf 取值域后绘制网格/刻度）
+// ============================================================================
+std::optional<ChartPlotArea> chartDrawAxis(Graphics &g, const ChartContext &ctx, bool baselineZero) {
+	auto area = chartPlotAreaOf(ctx, baselineZero);
+	if (!area) return std::nullopt;
+	const auto &[pa, vmin, vmax] = *area;
+	float left = pa.x, right = pa.x + pa.width;
+	float top = pa.y, bottom = pa.y + pa.height;
+
+	// ── 网格 + y 刻度数值 ──
+	const auto &cp = ctx.props;
+	const auto &st = ctx.style;
 	if (cp.showGrid) {
-		int div = st.gridDivisions > 0 ? st.gridDivisions : 4;
-		for (int i = 0; i <= div; ++i) {
-			float gy = top + (bottom - top) * i / static_cast<float>(div);
+		// 步进反推：值域/步进的整数倍数（floor+容差；取整口径与 chartPlotAreaOf 一致）
+		float range = vmax - vmin;
+		int target = st.gridDivisions > 0 ? st.gridDivisions : 4;
+		float step = niceTickStep(range, target);
+		// 首刻度 = ≥vmin 的首个 step 整数倍（显式边界非整数倍时顶端可不落线，
+		// 与 ECharts 口径一致）；刻度数 clamp 防极端密度
+		float start = std::ceil(vmin / step - 1e-4f) * step;
+		int count = static_cast<int>(std::floor((vmax - start) / step + 1e-3f)) + 1;
+		count = std::clamp(count, 1, 25);
+		for (int i = 0; i < count; ++i) {
+			float val = start + step * i;    // 乘法推进，免重复累加 fp 漂移
+			float gy = bottom - (val - vmin) / (vmax - vmin) * (bottom - top);
+			if (gy < top - 0.5f || gy > bottom + 0.5f) continue;    // 越界刻度不画
 			Rect line{left, gy, right - left, 1.0f};
 			g.drawRect(line, cp.gridColor);
 
 			// y 轴刻度：右对齐到绘图区左缘外 6px（valueFormat 覆写，空=旧 %g）
-			float val = vmax - (vmax - vmin) * i / static_cast<float>(div);
 			std::string tick = chartFormatValue(val, st.valueFormat, "%g");
 			float lw = chartLabelWidth(tick, st.axisTickFontSize);
 			chartDrawLabel(g, tick, left - 6 - lw * 0.5f, gy, st.axisTickFontSize, cp.labelColor);
 		}
 	}
 
-	return ChartPlotArea{{left, top, right - left, bottom - top}, vmin, vmax};
+	return area;
 }
 
 // ============================================================================
-// chartDrawLegend — 共享图例层（顶部/底部横向：色块 + 系列名，原 drawLegend 迁移）
+// chartDrawLegend — 共享图例层（顶部/底部横向：色块 + 系列名）
+//   隐藏系列灰显（色块/文字降透明）但占位可点——点击恢复显示（主流库图例开关）；
+//   返回各图例项命中矩形（与 items 一一对应，供外壳 Tap 判定）
 // ============================================================================
-void chartDrawLegend(Graphics &g, const ChartContext &ctx, const std::vector<LegendItem> &items) {
+std::vector<Rect> chartDrawLegend(Graphics &g, const ChartContext &ctx, const std::vector<LegendItem> &items) {
+	std::vector<Rect> rects;
+	rects.reserve(items.size());
 	float x = ctx.frame.x + ctx.padding.left + ctx.style.plotPadding;
 	// legendPosition: "top" 紧贴顶缘（原行为）；"bottom" 贴底缘 —— y 取底部图例带
 	// [frame 底-pad-band, frame 底-pad] 内与顶部对称的 +6 偏移（chartDrawAxis 已为此预留预算）
@@ -185,32 +252,77 @@ void chartDrawLegend(Graphics &g, const ChartContext &ctx, const std::vector<Leg
 	                   : ctx.frame.y + ctx.padding.top + 6;
 	for (size_t si = 0; si < items.size(); ++si) {
 		const auto &item = items[si];
+		// 隐藏系列灰显：色块/文字 40% 透明（占位可点回，视觉与主流库一致）
+		uint8_t a = item.visible ? 255 : static_cast<uint8_t>(255 * 0.4f);
+		Color swCol{item.color.r, item.color.g, item.color.b, static_cast<uint8_t>(item.color.a * (item.visible ? 1.0f : 0.4f))};
+		Color txCol{ctx.props.legendColor.r, ctx.props.legendColor.g, ctx.props.legendColor.b, a};
+
 		Rect sw{x, y + 2, 12, 12};
-		g.drawRoundedRect(sw, 2, item.color);
+		g.drawRoundedRect(sw, 2, swCol);
 		// 回退序号已在 legendItems 提取时按原系列索引生成（含不可见系列），此处直接用
 		const std::string &label = item.label;
 		float lw = chartLabelWidth(label, ctx.style.legendFontSize);
 		// chartDrawLabel 以 (cx,cy) 居中：cx=x+18+lw/2 使文字左缘固定 x+18（色块右缘+6），
 		// cy=y+8 使文字垂直中心对齐色块中心，避免重叠且居中对齐。
-		chartDrawLabel(g, label, x + 18 + lw * 0.5f, y + 8, ctx.style.legendFontSize, ctx.props.legendColor);
+		chartDrawLabel(g, label, x + 18 + lw * 0.5f, y + 8, ctx.style.legendFontSize, txCol);
+		rects.push_back(Rect{x, y, 18 + lw + 16, ctx.style.legendBandHeight});    // 命中矩形（推进宽同款）
 		x += 18 + lw + 16;
 	}
+	return rects;
 }
 
 // ============================================================================
-// ChartRenderer::legendItems — 默认图例项提取（可见系列按序，色取系列色/调色板）
+// chartDrawTooltip — 悬停 tooltip 浮层（深底圆角盒 + 白字）
+//   锚定 hit.anchor 上方（盒底距锚点 10px，水平居中），clamp 于 frame 内
+//   防溢出——扇区/贴边数据点的 tooltip 不出图。
 // ============================================================================
+void chartDrawTooltip(Graphics &g, const ChartContext &ctx, const ChartHit &hit, const std::string &text) {
+	if (text.empty()) return;
+	constexpr float kPadX = 8.0f, kPadY = 5.0f, kGap = 10.0f;
+	float fs = ctx.style.tooltipFontSize;
+	float tw = chartLabelWidth(text, fs);
+	float bw = tw + kPadX * 2, bh = fs + kPadY * 2 + 2;
+
+	float bx = hit.anchor.x - bw * 0.5f;
+	float by = hit.anchor.y - kGap - bh;
+	// clamp：水平/垂直均不出 frame（上方放不下时翻到锚点下方）
+	bx = std::clamp(bx, ctx.frame.x + 2, ctx.frame.x + ctx.frame.width - bw - 2);
+	if (by < ctx.frame.y + 2) by = hit.anchor.y + kGap;
+	by = std::min(by, ctx.frame.y + ctx.frame.height - bh - 2);
+
+	g.drawRoundedRect(Rect{bx, by, bw, bh}, 4, Color{33, 33, 33, 235});
+	chartDrawLabel(g, text, bx + bw * 0.5f, by + bh * 0.5f, fs, Color{255, 255, 255, 255});
+}
+
+// ============================================================================
+// ChartRenderer 默认实现 — hitTest / tooltipText / legendItems
+// ============================================================================
+std::optional<ChartHit> ChartRenderer::hitTest(Point, const ChartContext &) const {
+	return std::nullopt;    // 默认不可命中（子类型覆写；gauge 外区域等回退此实现）
+}
+
+std::string ChartRenderer::tooltipText(const ChartHit &hit, const ChartContext &ctx) const {
+	// 「系列名: 值」+ 分类名前缀（line/bar 有 categories 时）
+	std::string text;
+	if (hit.pointIndex >= 0 && hit.pointIndex < static_cast<int>(ctx.props.categories.size()))
+		text = ctx.props.categories[static_cast<size_t>(hit.pointIndex)] + " · ";
+	if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size())) {
+		const auto &s = ctx.props.series[static_cast<size_t>(hit.seriesIndex)];
+		text += (s.label.empty() ? std::to_string(hit.seriesIndex + 1) : s.label);
+		text += ": ";
+	}
+	text += chartFormatValue(hit.value, ctx.style.valueFormat, "%g");
+	return text;
+}
+
 std::vector<LegendItem> ChartRenderer::legendItems(const ChartContext &ctx) const {
+	// 全部系列（含隐藏：灰显占位可点回）；色取系列色/调色板（按原系列索引）
 	std::vector<LegendItem> items;
-	size_t si = 0;
-	for (auto &s : ctx.props.series) {
-		if (s.visible) {
-			Color c = s.color.isTransparent() ? ctx.paletteColor(si) : s.color;
-			// 回退序号用原系列索引（含不可见系列），与旧内置 drawLegend 口径一致：
-			// series[0] 隐藏 + series[1] 无名 → 显示 "2" 而非 "1"
-			items.push_back({s.label.empty() ? std::to_string(si + 1) : s.label, c});
-		}
-		++si;
+	for (size_t si = 0; si < ctx.props.series.size(); ++si) {
+		const auto &s = ctx.props.series[si];
+		Color c = s.color.isTransparent() ? ctx.paletteColor(si) : s.color;
+		items.push_back({s.label.empty() ? std::to_string(si + 1) : s.label, c,
+		                 static_cast<int>(si), s.visible});
 	}
 	return items;
 }
@@ -218,6 +330,7 @@ std::vector<LegendItem> ChartRenderer::legendItems(const ChartContext &ctx) cons
 // ============================================================================
 // PieRenderer — 饼图/环形图（扇区角度随 animProgress 展开）
 //   pie.innerRatio>0 → donut：环带扇形走 SDF fillRing（与 gauge 轨道同管线）
+//   悬停高亮：命中扇区沿中线外移 4px（ECharts emphasis 同款）
 // ============================================================================
 class PieRenderer final : public ChartRenderer {
 public:
@@ -226,19 +339,21 @@ public:
 		const auto &pp = cp.pie;
 
 		// 取第一个可见 series 的 data 作为扇区值列表
-		const std::vector<float> *values = nullptr;
-		for (auto &s : cp.series) {
-			if (s.visible) {
-				values = &s.data;
+		int si0 = -1;
+		for (size_t i = 0; i < cp.series.size(); ++i) {
+			if (cp.series[i].visible) {
+				si0 = static_cast<int>(i);
 				break;
 			}
 		}
-		if (!values || values->empty()) return;
+		if (si0 < 0) return;
+		const std::vector<float> &values = cp.series[static_cast<size_t>(si0)].data;
+		if (values.empty()) return;
 
 		// 总和只累有限正值：负值/零/NaN 不进分母（旧口径 total 含负值而绘制
 		// 跳过 v<=0 → 正值扇区按被夸大的份额绘制，出现缺口/重叠失真）
 		float total = 0;
-		for (float v : *values)
+		for (float v : values)
 			if (std::isfinite(v) && v > 0) total += v;
 		if (total <= 0) return;
 
@@ -255,27 +370,36 @@ public:
 		// donut 内半径（clamp 防止 innerRatio 过大吃掉全部环带）
 		float rIn = r * std::clamp(pp.innerRatio, 0.0f, 0.95f);
 
-		for (size_t i = 0; i < values->size(); ++i) {
-			float v = (*values)[i];
+		// 悬停命中扇区外移 4px（中线方向；draw 与 hitTest 同口径判定）
+		auto isHover = [&](size_t i) {
+			return ctx.hover && ctx.hover->seriesIndex == si0 && ctx.hover->pointIndex == static_cast<int>(i);
+		};
+
+		for (size_t i = 0; i < values.size(); ++i) {
+			float v = values[i];
 			if (!std::isfinite(v) || v <= 0) continue;    // 非有限/非正值不画（与分母口径一致）
 			float sweep = v / total * 2.0f * PI * ctx.animProgress;
 			if (sweep <= 0.001f) continue;
-			Color col = ctx.paletteColor(i);
+			Color col = ctx.paletteColor(static_cast<size_t>(i));
+			float mid = startAngle + sweep * 0.5f;
+			float ox = isHover(i) ? std::cos(mid) * 4.0f : 0.0f;    // 高亮外移
+			float oy = isHover(i) ? std::sin(mid) * 4.0f : 0.0f;
+			float scx = cx + ox, scy = cy + oy;
 
 			if (rIn > 0.0f) {
 				// donut 环带扇形：SDF fillRing（带宽 r-rIn，径向平头切割）——
 				// 抗锯齿品质同 gauge 轨道，且规避 fillPath 形心扇剖分在大扫角
 				// 环带下（形心落入中孔）的覆盖失真
 				float midR = (r + rIn) * 0.5f;
-				g.fillRing(cx, cy, midR, (r - rIn) * 0.5f, startAngle, startAngle + sweep, col, col, false);
+				g.fillRing(scx, scy, midR, (r - rIn) * 0.5f, startAngle, startAngle + sweep, col, col, false);
 			} else {
 				// 实心扇形：圆心 → 弧起点 → 弧 → 闭合, 构成扇形并填充
 				// moveTo 仅设当前点不 push 顶点; arc 检测无 open contour 会自行 moveTo 弧起点,
 				// 导致圆心被丢弃 → closePath 只围出弓形, 圆心尖角区域空白。故显式 lineTo 弧起点。
 				Path path;
-				path.moveTo(cx, cy);
-				path.lineTo(cx + std::cos(startAngle) * r, cy + std::sin(startAngle) * r);
-				path.arc(cx, cy, r, startAngle, startAngle + sweep, false);
+				path.moveTo(scx, scy);
+				path.lineTo(scx + std::cos(startAngle) * r, scy + std::sin(startAngle) * r);
+				path.arc(scx, scy, r, startAngle, startAngle + sweep, false);
 				path.closePath();
 				g.fillPath(path, col);
 			}
@@ -283,24 +407,96 @@ public:
 			// 扇区分隔细缝：沿扇区边界描一条背景色细线（donut 时自内缘起，不穿中孔）
 			if (cp.emptyColor.isVisible()) {
 				Path sep;
-				sep.moveTo(cx + std::cos(startAngle + sweep) * rIn, cy + std::sin(startAngle + sweep) * rIn);
-				sep.lineTo(cx + std::cos(startAngle + sweep) * r, cy + std::sin(startAngle + sweep) * r);
-				sep.arc(cx, cy, r, startAngle + sweep, startAngle + sweep + 0.004f, false);
+				sep.moveTo(scx + std::cos(startAngle + sweep) * rIn, scy + std::sin(startAngle + sweep) * rIn);
+				sep.lineTo(scx + std::cos(startAngle + sweep) * r, scy + std::sin(startAngle + sweep) * r);
+				sep.arc(scx, scy, r, startAngle + sweep, startAngle + sweep + 0.004f, false);
 				g.strokePath(sep, cp.emptyColor, 1.0f);
 			}
 
 			// 数据标签：扇区中线处显示百分比（donut 时半径映射进环带：rIn+(r-rIn)*ratio）
 			if (cp.showLabels) {
-				float mid = startAngle + sweep * 0.5f;
 				float lr = rIn + (r - rIn) * pp.labelRadiusRatio;
 				char buf[16];
 				std::snprintf(buf, sizeof(buf), "%.0f%%", v / total * 100.0f);
-				chartDrawLabel(g, buf, cx + std::cos(mid) * lr, cy + std::sin(mid) * lr,
+				chartDrawLabel(g, buf, scx + std::cos(mid) * lr, scy + std::sin(mid) * lr,
 				               ctx.style.pieLabelFontSize, cp.labelColor);
 			}
 			startAngle += sweep;
 		}
 	}
+
+	std::optional<ChartHit> hitTest(Point p, const ChartContext &ctx) const override {
+		const auto &cp = ctx.props;
+		const auto &pp = cp.pie;
+
+		int si0 = -1;
+		for (size_t i = 0; i < cp.series.size(); ++i) {
+			if (cp.series[i].visible) {
+				si0 = static_cast<int>(i);
+				break;
+			}
+		}
+		if (si0 < 0) return std::nullopt;
+		const std::vector<float> &values = cp.series[static_cast<size_t>(si0)].data;
+
+		float total = 0;
+		for (float v : values)
+			if (std::isfinite(v) && v > 0) total += v;
+		if (total <= 0) return std::nullopt;
+
+		float PI = std::acos(-1.0f);
+		float cw = ctx.frame.width - ctx.padding.horizontal();
+		float ch = ctx.frame.height - ctx.padding.vertical();
+		float cx = ctx.frame.x + ctx.padding.left + cw * 0.5f;
+		float cy = ctx.frame.y + ctx.padding.top + ch * 0.5f;
+		float r = std::min(cw, ch) * 0.5f - ctx.style.pieRadiusInset;
+		if (r <= 0) return std::nullopt;
+		float rIn = r * std::clamp(pp.innerRatio, 0.0f, 0.95f);
+
+		float dx = p.x - cx, dy = p.y - cy;
+		float dist = std::sqrt(dx * dx + dy * dy);
+		if (dist > r + 4.0f || dist < rIn) return std::nullopt;    // 外缘 +4 容差=高亮外移量
+		float ang = std::atan2(dy, dx);
+
+		float startAngle = pp.startAngle * (PI / 180.0f);
+		for (size_t i = 0; i < values.size(); ++i) {
+			float v = values[i];
+			if (!std::isfinite(v) || v <= 0) continue;
+			float sweep = v / total * 2.0f * PI * ctx.animProgress;
+			if (sweep <= 0.001f) continue;    // 与 draw 跳过口径一致（不进累计角）
+			float rel = std::fmod(ang - startAngle, 2.0f * PI);    // 归一到 [0,2π)
+			if (rel < 0) rel += 2.0f * PI;
+			if (rel <= sweep) {
+				float mid = startAngle + sweep * 0.5f;
+				float lr = (rIn + r) * 0.5f;
+				return ChartHit{si0, static_cast<int>(i), v,
+				                Point{cx + std::cos(mid) * lr, cy + std::sin(mid) * lr}};
+			}
+			startAngle += sweep;
+		}
+		return std::nullopt;
+	}
+
+	std::string tooltipText(const ChartHit &hit, const ChartContext &ctx) const override {
+		// 扇区：系列名 + 值 + 占比百分比
+		float sum = 0;
+		if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size()))
+			for (float v : ctx.props.series[static_cast<size_t>(hit.seriesIndex)].data)
+				if (std::isfinite(v) && v > 0) sum += v;
+		std::string label;
+		if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size())) {
+			const auto &s = ctx.props.series[static_cast<size_t>(hit.seriesIndex)];
+			label = s.label.empty() ? std::to_string(hit.seriesIndex + 1) : s.label;
+			label += " ";
+		}
+	std::string tip = label + chartFormatValue(hit.value, ctx.style.valueFormat, "%g");
+	if (sum > 0) {
+		char buf[16];
+		std::snprintf(buf, sizeof(buf), " (%.0f%%)", hit.value / sum * 100.0f);
+		tip += buf;
+	}
+	return tip;
+}
 };
 
 // ============================================================================
@@ -406,14 +602,32 @@ public:
 				}
 			}
 
-			// 数据点小圆
+			// 数据点小圆（悬停点白环放大——主流库 emphasis 同款）
 			float dotR = ctx.style.dotDiameter * 0.5f;
 			for (size_t i = 0; i < n; ++i) {
 				if (!fin(i)) continue;    // 无数据点不画
+				bool hov = ctx.hover && ctx.hover->seriesIndex == si && ctx.hover->pointIndex == static_cast<int>(i);
+				if (hov) {
+					float er = dotR * 1.7f;
+					Rect halo{xOf(i) - er, yOf(i) - er, er * 2, er * 2};
+					g.drawRoundedRect(halo, er, Color{255, 255, 255, 255});
+				}
 				Rect dot{xOf(i) - dotR, yOf(i) - dotR, dotR * 2, dotR * 2};
 				g.drawRoundedRect(dot, dotR, c);
 			}
 			++si;
+		}
+
+		// ── 悬停十字线（纵向贯通绘图区，标签色降透明）──
+		if (ctx.hover && ctx.hover->seriesIndex >= 0 && ctx.hover->seriesIndex < static_cast<int>(cp.series.size())) {
+			const auto &hs = cp.series[static_cast<size_t>(ctx.hover->seriesIndex)];
+			size_t hi = static_cast<size_t>(std::max(ctx.hover->pointIndex, 0));
+			if (hs.visible && hi < hs.data.size() && std::isfinite(hs.data[hi])) {
+				size_t hn = hs.data.size();
+				float x = (hn == 1) ? (left + right) * 0.5f : left + (right - left) * hi / (hn - 1);
+				g.drawRect(Rect{x - 0.5f, top, 1.0f, bottom - top},
+				           Color{cp.labelColor.r, cp.labelColor.g, cp.labelColor.b, 110});
+			}
 		}
 
 		// ── x 轴分类标签（取最大系列点数，点中心定位）──
@@ -430,6 +644,45 @@ public:
 				}
 			}
 		}
+	}
+
+	// ── hitTest：最近数据点邻域（阈值 14px；与 draw 同口径 xOf/yOf/fin）──
+	std::optional<ChartHit> hitTest(Point p, const ChartContext &ctx) const override {
+		const auto &cp = ctx.props;
+		auto area = chartPlotAreaOf(ctx, /*baselineZero=*/false);
+		if (!area) return std::nullopt;
+		const auto &[pa, vmin, vmax] = *area;
+		float left = pa.x, right = pa.x + pa.width;
+		float bottom = pa.y + pa.height;
+
+		std::optional<ChartHit> out;
+		float bestD = 14.0f;
+		int si = 0;
+		for (auto &s : cp.series) {
+			if (!s.visible || s.data.empty()) {
+				++si;
+				continue;
+			}
+			size_t n = s.data.size();
+			auto xOf = [&](size_t i) {
+				return (n == 1) ? (left + right) * 0.5f : left + (right - left) * i / (n - 1);
+			};
+			auto yOf = [&](size_t i) {
+				float v = vmin + (s.data[i] - vmin) * ctx.animProgress;
+				return bottom - (v - vmin) / (vmax - vmin) * (pa.height);
+			};
+			for (size_t i = 0; i < n; ++i) {
+				if (!std::isfinite(s.data[i])) continue;
+				float dx = p.x - xOf(i), dy = p.y - yOf(i);
+				float d = std::sqrt(dx * dx + dy * dy);
+				if (d < bestD) {
+					bestD = d;
+					out = ChartHit{si, static_cast<int>(i), s.data[i], Point{xOf(i), yOf(i)}};
+				}
+			}
+			++si;
+		}
+		return out;
 	}
 };
 
@@ -450,14 +703,17 @@ public:
 		float left = pa.x, bottom = pa.y + pa.height;
 		float plotW = pa.width, plotH = pa.height;
 
-		// ── 收集可见非空系列 ──
-		std::vector<const ChartSeries *> vis;
-		for (auto &s : cp.series)
-			if (s.visible && !s.data.empty()) vis.push_back(&s);
+		// ── 收集可见非空系列（保留原系列索引：调色板取色与 hitTest 对齐）──
+		std::vector<std::pair<int, const ChartSeries *>> vis;
+		int origSi = 0;
+		for (auto &s : cp.series) {
+			if (s.visible && !s.data.empty()) vis.push_back({origSi, &s});
+			++origSi;
+		}
 		if (vis.empty()) return;
 
 		size_t n = 0;    // 最大系列点数（槽数）
-		for (auto *s : vis) n = std::max(n, s->data.size());
+		for (auto &[si, s] : vis) n = std::max(n, s->data.size());
 		if (n == 0) return;
 
 		size_t group = vis.size();    // 每组柱数
@@ -465,9 +721,9 @@ public:
 		float barW = slotW / static_cast<float>(group) * ctx.style.barWidthRatio;    // 柱宽, 留空隙
 
 		// ── 分组柱绘制 ──
-		for (size_t si = 0; si < group; ++si) {
-			const auto *s = vis[si];
-			Color c = s->color.isTransparent() ? ctx.paletteColor(si) : s->color;
+		for (size_t gj = 0; gj < group; ++gj) {
+			auto [si, s] = vis[gj];
+			Color c = s->color.isTransparent() ? ctx.paletteColor(static_cast<size_t>(gj)) : s->color;
 			for (size_t i = 0; i < s->data.size(); ++i) {
 				float v = s->data[i];
 				if (!std::isfinite(v) || v <= 0) continue;    // 非有限/非正值不画（NaN 不进绘制命令）
@@ -477,10 +733,14 @@ public:
 				if (h < 0.5f) continue;
 
 				// 槽内居中定位: 槽起点 + 居中偏移 + 系列内偏移
-				float x0 = left + slotW * i + (slotW - barW * group) * 0.5f + barW * si;
+				float x0 = left + slotW * i + (slotW - barW * group) * 0.5f + barW * gj;
 				float y = bottom - h;
 				Rect bar{x0, y, barW, h};
 				g.drawRoundedRect(bar, ctx.style.barCornerRadius, c);
+
+				// 悬停高亮：柱面覆盖 28% 白（提亮）
+				if (ctx.hover && ctx.hover->seriesIndex == si && ctx.hover->pointIndex == static_cast<int>(i))
+					g.drawRoundedRect(bar, ctx.style.barCornerRadius, Color{255, 255, 255, 72});
 
 				// ── 数据标签：柱顶上方显示数值（valueFormat 覆写，空=旧 %.0f）──
 				if (cp.showLabels) {
@@ -501,6 +761,47 @@ public:
 					chartDrawLabel(g, label, cx, bottom + 8, ctx.style.categoryFontSize, cp.labelColor);
 			}
 		}
+	}
+
+	// ── hitTest：柱矩形包含（几何与 draw 同口径；命中多根时先到先得）──
+	std::optional<ChartHit> hitTest(Point p, const ChartContext &ctx) const override {
+		const auto &cp = ctx.props;
+		auto area = chartPlotAreaOf(ctx, /*baselineZero=*/true);
+		if (!area) return std::nullopt;
+		const auto &[pa, vmin, vmax] = *area;
+		float left = pa.x, bottom = pa.y + pa.height;
+		float plotW = pa.width, plotH = pa.height;
+
+		std::vector<std::pair<int, const ChartSeries *>> vis;
+		int origSi = 0;
+		for (auto &s : cp.series) {
+			if (s.visible && !s.data.empty()) vis.push_back({origSi, &s});
+			++origSi;
+		}
+		if (vis.empty()) return std::nullopt;
+
+		size_t n = 0;
+		for (auto &[si, s] : vis) n = std::max(n, s->data.size());
+		if (n == 0) return std::nullopt;
+
+		size_t group = vis.size();
+		float slotW = plotW / static_cast<float>(n);
+		float barW = slotW / static_cast<float>(group) * ctx.style.barWidthRatio;
+
+		for (size_t gj = 0; gj < group; ++gj) {
+			auto [si, s] = vis[gj];
+			for (size_t i = 0; i < s->data.size(); ++i) {
+				float v = s->data[i];
+				if (!std::isfinite(v) || v <= 0) continue;
+				float h = (v / vmax) * plotH * ctx.animProgress;
+				if (h < 0.5f) continue;
+				float x0 = left + slotW * i + (slotW - barW * group) * 0.5f + barW * gj;
+				Rect bar{x0, bottom - h, barW, h};
+				if (bar.contains(p))
+					return ChartHit{si, static_cast<int>(i), v, Point{x0 + barW * 0.5f, bottom - h}};
+			}
+		}
+		return std::nullopt;
 	}
 };
 
@@ -600,6 +901,46 @@ public:
 
 		// ── ⑤ 指针（pointer=true 时绘制：4 造型 + hub，角度复用③的 valueAngle 动画；归零恒指向 min 角）──
 		if (gp.pointer) drawNeedle(g, ctx, c.cx, c.cy, r, rOut, valueAngle);
+	}
+
+	// ── hitTest：仪表圆域内任意点命中当前值（锚位=指示弧/指针中线位）──
+	std::optional<ChartHit> hitTest(Point p, const ChartContext &ctx) const override {
+		const auto &cp = ctx.props;
+		const auto &gp = cp.gauge;
+
+		float l = ctx.frame.x + ctx.padding.left;
+		float t = ctx.frame.y + ctx.padding.top;
+		float w = ctx.frame.width - ctx.padding.horizontal();
+		float h = ctx.frame.height - ctx.padding.vertical();
+		if (w < 1.0f || h < 1.0f) return std::nullopt;
+
+		float minV = gp.min, maxV = gp.max;
+		if (maxV <= minV) maxV = minV + 1.0f;
+		float value = cp.value;
+		if (std::isnan(value)) value = minV;
+		if (value < minV) value = minV;
+		if (value > maxV) value = maxV;
+
+		RingCenter c = ringCenterOf(l, t, w, h);
+		float r = c.r - ctx.style.gaugeRadiusInset;
+		if (r < 10.0f) r = 10.0f;
+
+		float dx = p.x - c.cx, dy = p.y - c.cy;
+		if (dx * dx + dy * dy > r * r) return std::nullopt;
+
+		float aStart = ringAngleOf(minV, minV, maxV, gp.start, gp.sweep);
+		float aVal = aStart + (ringAngleOf(value, minV, maxV, gp.start, gp.sweep) - aStart) * ctx.animProgress;
+		RingBand track = ringBandByRatio(r, gp.trackRatio, gp.outerRatio);
+		return ChartHit{-1, -1, value,
+		                Point{c.cx + std::cos(aVal) * track.midR, c.cy + std::sin(aVal) * track.midR}};
+	}
+
+	std::string tooltipText(const ChartHit &hit, const ChartContext &ctx) const override {
+		// gauge：首个系列名（缺省 "value"）+ 当前值
+		std::string label = "value";
+		if (!ctx.props.series.empty() && !ctx.props.series[0].label.empty())
+			label = ctx.props.series[0].label;
+		return label + ": " + chartFormatValue(hit.value, ctx.style.valueFormat, "%.0f");
 	}
 
 private:

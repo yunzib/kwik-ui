@@ -73,6 +73,13 @@ if(KWIK_BUILD_EXAMPLES)
     target_link_libraries(kwik_unit_tests PRIVATE kwik_element kwik_core kwik_event)
     add_test(NAME core_tests COMMAND kwik_unit_tests)
 
+    # chart_hit_probe — Chart 命中几何探针（无窗口/GPU）：renderer hitTest 的
+    # frame 域坐标口径锁（D 批次悬停错位回归）。依赖为 PRIVATE 链接不下发，
+    # 模块 BMI 可达性需显式补齐（同 kwik_js_tests 口径）。
+    add_executable(chart_hit_probe unit/chart_hit_probe.cpp)
+    target_link_libraries(chart_hit_probe PRIVATE kwik_ext_chart kwik_element kwik_core kwik_event kwik_render)
+    add_test(NAME chart_hit_probe COMMAND chart_hit_probe)
+
     # kwik_js_tests — T0-00 headless JS 桥接行为锁：QuickJSContext 脱窗实例化 +
     # 临时模块文件 evalFile，不需要窗口/根 View。bridge/engine 的依赖为
     # PRIVATE 链接不下发，测试目标需显式补齐（模块 BMI 传递可达性）。

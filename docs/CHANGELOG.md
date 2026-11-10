@@ -2,6 +2,31 @@
 
 # 0.0.0 — 2026-11-10
 ### 新增
+- 图表交互：全类型 hitTest 命中（pie 扇区 / bar 柱矩形 / line 数据点 / gauge
+  圆域→当前值）；悬停 tooltip 浮层（`showTooltip`，锚定命中元素）；悬停高亮
+  （扇区外移 / 柱面提亮 / 数据点放大+十字线）；图例点击开关系列（隐藏系列
+  灰显占位可再点开）；JS 点位事件 `onPointHover` / `onPointClick`
+- 轴系统 nice-number 刻度：步进从 1/2/5×10ⁿ 序列选取，值域边界自动扩到步进
+  整数倍——不再出现 0.333333 类等分刻度，数据不满贴边
+- 轴值域覆写 `axis:{ yMin, yMax }`（line/bar）：显式侧不参与 nice 扩边；双侧
+  显式 + 空数据 = 先立空坐标系（实时曲线数据未到先画网格）
+- 数据更新语义 `animateOnData`（默认 true）：系列身份一致时从当前显示值插值到
+  新值（morph），实时仪表刷新不再重放入场动画；false = 立即落位；系列增删/换名
+  → 重放入场
+- ChartRenderer 契约扩展：`hitTest` / `tooltipText` 虚函数；`chartPlotAreaOf`
+  纯函数导出；`chartDrawLegend` 返回命中矩形；`chartDrawTooltip` 共享浮层
+- Chart 查询接口 `displayProps()` / `isMorphing()`（morph 中间态可观测）
+### 修复
+- `axis:{yMin,yMax}` 文档承诺但从未接线（死导出）——补齐全链路
+- Chart::hitTestAt 坐标系错位：命中点按图表局部坐标换算，而渲染几何按 frame
+  布局域计算，导致悬停命中失效/误命中——改 frame 域直用
+- applyHover 空→空仍 markDirty（指针在图表内无命中区移动即重绘）——短路返回
+- reconcile 无条件 applyChartProps：整页重建都让全部图表重放入场动画——数据
+  未变时只更新非数据字段，动画状态延续
+- 图例按可见系列过滤导致隐藏系列无法再点开——改全量生成（隐藏灰显占位）
+
+# 0.0.0 — 2026-11-10
+### 新增
 - Chart 扩展化（extensions/chart/，kwik.ext.chart）：组件自内置迁移为可插拔
   扩展（ChartRenderer 类型注册表 + Axis/Legend 共享图层），`KWIK_ENABLE_CHART=OFF`
   可整体裁剪；类型身份经 registerExtensionType("Chart") 与内置枚举幂等复用，

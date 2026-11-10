@@ -9,8 +9,10 @@ module kwik.ext.chart;
 import kwik.bridge.element_parser;    // ElementParser::registerExtension / applyBindings
 import kwik.bridge.element_spec;      // ElementSpec
 import kwik.bridge.props_parser;      // PropsExtractor / parseViewProps
+import kwik.bridge.event_adapter;     // attachJsHandlers — 通用 JS 事件接线
 import kwik.bridge.bindings;          // makeElementHelper
 import kwik.core.color_parser;        // parseColor（本地颜色转换，jsColor 未导出）
+import kwik.core.log;                 // Log — 点位回调异常上报
 import kwik.engine.js_value;          // JSValueRef
 import kwik.element.typed_prop;       // TypedPropMap
 
@@ -96,6 +98,8 @@ static ChartProps parseChartProps(PropsExtractor &ex) {
 	ex.get("showGrid", result.showGrid);
 	ex.get("showLabels", result.showLabels);
 	ex.get("showLegend", result.showLegend);
+	ex.get("showTooltip", result.showTooltip);    // 悬停 tooltip 浮层开关（默认 true）
+	ex.get("animateOnData", result.animateOnData);    // 数据更新语义 true=morph / false=立即落位
 	ex.get("legendPosition", result.legendPosition);    // 图例位置 top（默认）/bottom
 	ex.get("gridColor", result.gridColor);
 	ex.get("labelColor", result.labelColor);
@@ -189,6 +193,18 @@ static ChartProps parseChartProps(PropsExtractor &ex) {
 			nestedNum(pv2, "innerRatio", p.innerRatio);                // donut 内半径比例（0=实心）
 			nestedNum(pv2, "labelRadiusRatio", p.labelRadiusRatio);    // 百分比标签半径
 			nestedNum(pv2, "startAngle", p.startAngle);                // 起始角（度，-90=12 点）
+		}
+	}
+
+	// ── axis — 轴值域覆写子对象 {yMin, yMax}（line/bar 生效；NaN=自动值域）──
+	// nestedNum 拒非有限值 → 未传/传入 NaN 保持字段默认 NaN = 自动值域哨兵；
+	// 空数据 + 双侧显式 → 立空坐标系（实时曲线数据未到先画网格/刻度）
+	if (ex.has("axis")) {
+		auto av = ex.raw().getProperty("axis");
+		if (av.isObject()) {
+			auto &ax = result.axis;
+			nestedNum(av, "yMin", ax.yMin);    // NaN=自动（值域扫描 + nice-number 扩边）
+			nestedNum(av, "yMax", ax.yMax);
 		}
 	}
 
@@ -290,6 +306,65 @@ static void extractNestedColorTokens(View *view, const JSValueRef &pv) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// 事件接线 — 通用 attachJsHandlers（onClick/onHoverEnter 等照常可用）
+//            + Chart 专属 onPointHover/onPointClick（点位命中负载）
+//
+// attachHandlers 非 null 时核心不再调内置 attachJsHandlers（覆盖式替换），
+// 故先显式补调通用接线，再注扩展专属回调。回调持有与 event_adapter 同款
+// shared_ptr<JSValueRef> RAII 语义；Chart* 与 std::function 同生共死。
+// 负载形状: { seriesIndex, pointIndex, value, label, category }，离开= null。
+// ═══════════════════════════════════════════════════════════
+static std::shared_ptr<JSValueRef> dupFn(const JSValueRef &props, const char *name) {
+	if (!props.hasProperty(name)) return nullptr;
+	auto raw = props.getProperty(name);
+	if (!JS_IsFunction(props.context(), raw.raw())) return nullptr;
+	return std::make_shared<JSValueRef>(props.context(), JS_DupValue(props.context(), raw.raw()));
+}
+
+/** @brief 点位负载 → JS（nullopt → JS null；返回的 JSValueRef 接管引用） */
+static JSValueRef makePointEvent(JSContext *ctx, const std::optional<ChartPointEvent> &e) {
+	if (!e) return JSValueRef(ctx, JS_NULL);
+	JSValue obj = JS_NewObject(ctx);
+	JS_SetPropertyStr(ctx, obj, "seriesIndex", JS_NewInt32(ctx, e->seriesIndex));
+	JS_SetPropertyStr(ctx, obj, "pointIndex", JS_NewInt32(ctx, e->pointIndex));
+	JS_SetPropertyStr(ctx, obj, "value", JS_NewFloat64(ctx, static_cast<double>(e->value)));
+	JS_SetPropertyStr(ctx, obj, "label", JS_NewString(ctx, e->label.c_str()));
+	JS_SetPropertyStr(ctx, obj, "category", JS_NewString(ctx, e->category.c_str()));
+	return JSValueRef(ctx, obj);
+}
+
+static void chartAttachHandlers(View &view, const JSValueRef &props) {
+	// 通用回调照常绑定（onClick/onHoverEnter/onPan 族/生命周期等）
+	attachJsHandlers(view, props);
+
+	auto *chart = dynamic_cast<Chart *>(&view);
+	if (!chart) return;
+	JSContext *ctx = props.context();
+	if (!ctx) return;
+
+	auto bindPoint = [&](const char *name,
+	                     std::function<void(const std::optional<ChartPointEvent> &)> &slot) {
+		if (auto h = dupFn(props, name)) {
+			slot = [ctx, h, name](const std::optional<ChartPointEvent> &e) {
+				JSValueRef arg = makePointEvent(ctx, e);    // 接管负载引用
+				JSValue raw = arg.raw();
+				JSValue ret = JS_Call(ctx, h->raw(), JS_UNDEFINED, 1, &raw);
+				if (JS_IsException(ret)) {
+					JSValue exc = JS_GetException(ctx);
+					const char *s = JS_ToCString(ctx, exc);
+					Log::error("[{}] event callback error: {}", name, s ? s : "unknown");
+					JS_FreeCString(ctx, s);
+					JS_FreeValue(ctx, exc);
+				}
+				JS_FreeValue(ctx, ret);
+			};
+		}
+	};
+	bindPoint("onPointHover", chart->onPointHover);
+	bindPoint("onPointClick", chart->onPointClick);
+}
+
+// ═══════════════════════════════════════════════════════════
 // 创建器 (creator) — 复用 parseViewProps + parseChartProps + applyBindings
 // ═══════════════════════════════════════════════════════════
 static std::unique_ptr<View> createChart(const JSValueRef &pv) {
@@ -328,14 +403,14 @@ static JSValue js_chart(JSContext *ctx, JSValueConst, int argc, JSValueConst *ar
 
 // ═══════════════════════════════════════════════════════════
 // 自注册 — 组装 ElementSpec 交给 ElementParser::registerExtension
-// （事件接线留空 → 回退通用 attachJsHandlers：onClick 等指针事件可用）
+// （attachHandlers：通用回调 + onPointHover/onPointClick 点位事件，见上）
 // ═══════════════════════════════════════════════════════════
 void registerChartElement() {
 	ElementSpec spec;
 	spec.typeName = "Chart";
 	spec.creator = createChart;
 	spec.reconcileProps = reconcileChart;
-	spec.attachHandlers = nullptr;    // 无图表专属事件，回退通用指针事件适配
+	spec.attachHandlers = chartAttachHandlers;
 	spec.jsFactoryName = "Chart";
 	spec.jsFactoryFn = js_chart;
 	spec.jsFactoryArgc = 2;

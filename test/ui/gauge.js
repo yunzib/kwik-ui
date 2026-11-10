@@ -23,26 +23,28 @@ const thrSegments = [
 //   次行：指针模式（gauge.pointer:true，4 种造型并排，独立 speed State + 按钮联动；
 //         中央避让针体/hub：hub 下方实时值 + 造型名）
 //   环带中心透明（triangle.slang gradMode==2）→ 弧式子组件文字不被遮挡；指针表文字下沉避让针体
-export default () => {
-    // 弧式仪表 State（驱动指示弧 + 中央文字），按钮同时更新两者
-    const cpu = new State({ v: 68 });
-    const cpuLabel = new State({ label: "68%" });
-    const setCpu = (v) => { cpu.v = v; cpuLabel.label = Math.round(v) + "%"; };
+// ── State 必须在模块顶层创建（与 checkbox/event/slider demo 同约定）──
+// expandRootView 每次 State 变更都会重调用组件工厂：State 写在函数体内会
+// 每次重建都被全新初始值实例替换（点击按钮 → 值永远弹回初始 68）。
+// 弧式仪表 State（驱动指示弧 + 中央文字），按钮同时更新两者
+const cpu = new State({ v: 68 });
+const cpuLabel = new State({ label: "68%" });
+const setCpu = (v) => { cpu.v = v; cpuLabel.label = Math.round(v) + "%"; };
 
-    const water = new State({ v: 62 });
-    const waterLabel = new State({ label: "62%" });
-    const setWater = (v) => { water.v = v; waterLabel.label = Math.round(v) + "%"; };
+const water = new State({ v: 62 });
+const waterLabel = new State({ label: "62%" });
+const setWater = (v) => { water.v = v; waterLabel.label = Math.round(v) + "%"; };
 
-    const mem = new State({ v: 5.2 });
-    const memLabel = new State({ label: "5GB" });
-    const setMem = (v) => { mem.v = v; memLabel.label = Math.round(v) + "GB"; };
+const mem = new State({ v: 5.2 });
+const memLabel = new State({ label: "5GB" });
+const setMem = (v) => { mem.v = v; memLabel.label = Math.round(v) + "GB"; };
 
-    // 指针模式独立动态控制（与首行弧式仪表解耦，各自 State 独立驱动）
-    const speed = new State({ v: 68 });
-    const speedLabel = new State({ label: "68%" });
-    const setSpeed = (v) => { speed.v = v; speedLabel.label = Math.round(v) + "%"; };
+// 指针模式独立动态控制（与首行弧式仪表解耦，各自 State 独立驱动）
+const speed = new State({ v: 68 });
+const speedLabel = new State({ label: "68%" });
+const setSpeed = (v) => { speed.v = v; speedLabel.label = Math.round(v) + "%"; };
 
-    return Root(View({ width: 960, height: 860, background: [245, 245, 245, 255], padding: 24 }, [
+export default () => Root(View({ width: 960, height: 860, background: [245, 245, 245, 255], padding: 24 }, [
         Text({ text: "仪表盘 (gauge) — 动态测试", fontSize: 18, margin: [0, 0, 4, 0] }),
         Text({ text: "弧式 + 指针式(pointer) · State+ref 绑定 · 阈值分段实时跟随 · labelEvery/刻度几何(outerRatio/tickInnerOffset/tickLength/tickLabelOffset)可调 · style.valueFormat 数值格式",
               fontSize: 12, color: [120, 120, 120, 255], margin: [0, 0, 16, 0] }),
@@ -191,4 +193,3 @@ export default () => {
             ]),
         ]),
     ]));
-};

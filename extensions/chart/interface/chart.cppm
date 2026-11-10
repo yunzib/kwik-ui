@@ -25,6 +25,7 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +39,7 @@ import kwik.core.constraints;
 import kwik.core.ring_geom;    // 圆环共享几何（与内置 ProgressRing 同口径）
 import kwik.core.timer;
 import kwik.render.graphics;
+import kwik.event;             // DispatchEvent / scrollCompensationOf（onEvent 命中路径）
 
 import std;
 
@@ -132,6 +134,7 @@ export struct ChartStyle {
 	float axisTickFontSize = 10.0f;    ///< y 轴刻度数值
 	float categoryFontSize = 11.0f;    ///< x 轴分类名
 	float legendFontSize = 12.0f;      ///< 图例文字
+	float tooltipFontSize = 12.0f;     ///< 悬停 tooltip 文字
 
 	// ── 布局 ──
 	float legendBandHeight = 24.0f;    ///< 顶部图例预留带高
@@ -139,7 +142,7 @@ export struct ChartStyle {
 	float plotPadding = 8.0f;          ///< 绘图区四向内边距
 	float pieRadiusInset = 8.0f;       ///< 饼图半径缩进
 	float gaugeRadiusInset = 18.0f;    ///< 仪表半径缩进（刻度/标签余量）
-	int gridDivisions = 4;             ///< 水平网格等分数
+	int gridDivisions = 4;             ///< y 轴刻度目标密度（nice-number 步进参考，实际刻度数 ±2 内浮动）
 
 	// ── 柱 / 数据点几何 ──
 	float barCornerRadius = 2.0f;      ///< 柱顶圆角
@@ -153,6 +156,21 @@ export struct ChartStyle {
 };
 
 /**
+ * @brief 坐标轴值域覆写 — ChartProps.axis 子结构（type=="line"/"bar" 时生效；
+ *        gauge 用 gauge.min/max 自有值域，pie 无轴）
+ *
+ * yMin/yMax 缺省 NaN = 自动值域（可见系列数据扫描 + nice-number 取整扩边）；
+ * 显式传合法数值即固定值域（该侧不参与取整扩边，刻度步进仍为 1/2/5×10ⁿ）。
+ * 用途：HMI 传感器已知量程（如 {yMin:0, yMax:100}）、实时曲线空数据起步
+ * 先立坐标系（双侧均显式时数据未到网格/刻度照画，单侧缺省维持旧行为）。
+ * JS 用法：Chart({ type:"line", axis:{ yMin:0, yMax:100 }, series:[...] })
+ */
+export struct AxisProps {
+	float yMin = std::numeric_limits<float>::quiet_NaN();   ///< y 轴下限覆写（NaN=自动值域）
+	float yMax = std::numeric_limits<float>::quiet_NaN();   ///< y 轴上限覆写（NaN=自动值域）
+};
+
+/**
  * @brief 图表专有属性
  *
  * 过渡动画: 数据首次渲染或 series 更新时, 按 duration 时长
@@ -162,10 +180,20 @@ export struct ChartProps {
 	std::string type = "pie";          // "pie" | "line" | "bar" | "gauge"（注册表键，未注册回退 pie）
 	std::vector<ChartSeries> series;   // 数据系列
 	float duration = 600.0f;           // 过渡动画时长（毫秒）
+	/**
+	 * 数据更新语义（F 批次）：
+	 *   true（默认）= 更新走 morph——系列身份一致（同数量+同 label 序）时从
+	 *                「当前显示值」插值到新值（实时仪表连续刷新不再从零扫入）；
+	 *                身份不一致（系列增删/换名）→ 重放入场动画。
+	 *   false       = 立即落位（高频实时传感器 10Hz+ 场景，无插值开销）。
+	 * 首次入场动画不受影响（始终从 0 扫入一次）。
+	 */
+	bool animateOnData = true;
 	float strokeWidth = 2.0f;          // 折线线宽 (像素)
 	bool showGrid = true;              // 折线图: 水平网格线
 	bool showLabels = true;            // 数据标签（饼图=百分比, 折线=x 轴分类名）
 	bool showLegend = true;            // 图例（顶部横向排列）
+	bool showTooltip = true;           // 悬停 tooltip 浮层（hitTest 命中时显示）
 	std::vector<std::string> categories;  // 折线图 x 轴分类标签
 	Color gridColor{230, 230, 230, 255};  // 网格线色
 	Color labelColor{120, 120, 120, 255}; // 数据标签色
@@ -175,18 +203,52 @@ export struct ChartProps {
 	float value = 0.0f;             ///< 仪表盘当前值（type=="gauge" 时生效，支持 ref 绑定增量更新；series 此时仅提供图例标签）
 	GaugeProps gauge;               ///< 仪表盘专用（type=="gauge" 时生效；子结构模式，其他类型忽略）
 	PieProps pie;                   ///< 饼图/环形图专用（type=="pie" 时生效；子结构模式）
+	AxisProps axis;                 ///< 轴值域覆写（type=="line"/"bar" 时生效；子结构模式）
 	ChartStyle style;               ///< 集中样式覆写（新增能力；旧顶层颜色字段优先于此处对应项）
+};
+
+// ════════════════════════════════════════════════════════════
+// 交互 — 命中 / 点位事件 / 悬停（D 批次：对标主流库 tooltip 体验）
+// ════════════════════════════════════════════════════════════
+
+/**
+ * @brief 命中结果 — 各 renderer hitTest 的返回负载
+ *
+ * anchor 为命中元素在 ctx.frame 坐标域（布局域）上的锚位（扇区中线 /
+ * 数据点圆心 / 柱顶中线 / 仪表指针位），tooltip 据此定位。
+ */
+export struct ChartHit {
+	int seriesIndex = -1;    ///< 系列索引（gauge=-1）
+	int pointIndex = -1;     ///< 数据点索引（pie=扇区；line/bar=点序；gauge=-1）
+	float value = 0.0f;      ///< 命中数值
+	Point anchor{0, 0};      ///< 锚位（tooltip 定位）
+};
+
+/** @brief 点位事件负载（onPointHover / onPointClick；label/category 由外壳按 props 补齐） */
+export struct ChartPointEvent {
+	int seriesIndex = -1;
+	int pointIndex = -1;
+	float value = 0.0f;
+	std::string label;       ///< 系列名（seriesIndex 越界时为空）
+	std::string category;    ///< x 轴分类名（categories[pointIndex]；pie/gauge 为空）
+};
+
+/**
+ * @brief 图例项（共享图例层消费：色块 + 系列名）
+ *
+ * D 批次起包含全部系列（visible=false 灰显）——否则系列隐藏后图例项
+ * 消失，无法再点击恢复（主流库图例开关语义）。
+ */
+export struct LegendItem {
+	std::string label;    ///< 系列名（空时由 legendItems 提取按原系列索引回退为序号）
+	Color color;          ///< 系列色
+	int seriesIndex = -1; ///< 原系列索引（图例点击开关系列）
+	bool visible = true;  ///< 显示态（false=灰显）
 };
 
 // ════════════════════════════════════════════════════════════
 // 渲染器契约（类型级可插拔）
 // ════════════════════════════════════════════════════════════
-
-/** @brief 图例项（共享图例层消费：色块 + 系列名）。 */
-export struct LegendItem {
-	std::string label;    ///< 系列名（空时由 legendItems 提取按原系列索引回退为序号）
-	Color color;          ///< 系列色
-};
 
 /**
  * @brief 渲染上下文 — renderer 绘制所需的全部输入（外壳装配）
@@ -200,6 +262,7 @@ export struct ChartContext {
 	Rect frame;                 ///< 布局框
 	EdgeInsets padding;         ///< 通用内边距（ViewProps 解析件；绘图区/图例预算扣减用）
 	float animProgress = 0.0f;  ///< 0..1 缓动进度（入场/更新动画）
+	const ChartHit *hover = nullptr;    ///< 当前悬停命中（高亮消费；null=无悬停）
 
 	/** @brief 系列调色板取色（按索引循环） */
 	Color paletteColor(size_t index) const;
@@ -220,7 +283,17 @@ public:
 	/** @brief 绘制本类型图表主体（图例由外壳统一绘制，不在此处） */
 	virtual void draw(Graphics &g, const ChartContext &ctx) = 0;
 
-	/** @brief 图例项提取（外壳 LegendLayer 消费；默认按系列序生成） */
+	/**
+	 * @brief 命中测试 — 渲染器无状态纯函数（从 ctx 重算 draw 同口径几何）
+	 * @param p   ctx.frame 坐标域（布局域）上的点
+	 * @return 未命中/无数据返回 nullopt
+	 */
+	virtual std::optional<ChartHit> hitTest(Point p, const ChartContext &ctx) const;
+
+	/** @brief tooltip 文本（默认「系列名: 值」；pie/gauge 各自覆写） */
+	virtual std::string tooltipText(const ChartHit &hit, const ChartContext &ctx) const;
+
+	/** @brief 图例项提取（外壳 LegendLayer 消费；默认按系列序生成，含隐藏系列灰显） */
 	virtual std::vector<LegendItem> legendItems(const ChartContext &ctx) const;
 };
 
@@ -250,19 +323,35 @@ export float chartLabelWidth(const std::string &text, float fontSize);
  */
 export std::string chartFormatValue(float value, const std::string &format, const char *legacy);
 
-/**
- * @brief 共享坐标轴图层 — 绘图区预算 + 网格/刻度/x 轴分类标签（line/bar 单份实现）
- * @return 绘图区矩形（已扣图例带/x 轴带/内边距）；空间不足返回 nullopt
- */
+/** @brief 绘图区 + 值域（nice-number 取整后口径；renderer 数据映射与 hitTest 共用） */
 export struct ChartPlotArea {
 	Rect plot;      ///< 绘图区
 	float vmin;     ///< y 轴范围下限
 	float vmax;     ///< y 轴范围上限
 };
+
+/**
+ * @brief 共享坐标轴计算（纯函数，无绘制副作用）
+ *
+ * 绘图区预算 + 值域扫描/axis 覆写 + nice-number 步进取整（1/2/5×10ⁿ，
+ * style.gridDivisions 为目标密度）；自动值域边界扩到步进整数倍，
+ * axis.yMin/yMax 显式侧不扩边；值域双侧显式且数据为空时仍返回有效
+ * 绘图区（实时曲线空数据起步先立坐标系）。
+ * @return 空间不足或无可画内容（空数据且值域不全显式）返回 nullopt
+ */
+export std::optional<ChartPlotArea> chartPlotAreaOf(const ChartContext &ctx, bool baselineZero);
+
+/** @brief 共享坐标轴图层 — chartPlotAreaOf 取值域后绘制网格/刻度（hitTest 勿用：有绘制副作用） */
 export std::optional<ChartPlotArea> chartDrawAxis(Graphics &g, const ChartContext &ctx, bool baselineZero);
 
-/** @brief 共享图例层 — 顶部/底部横向图例（props.legendPosition；色块 + 系列名，消费 legendItems）。 */
-export void chartDrawLegend(Graphics &g, const ChartContext &ctx, const std::vector<LegendItem> &items);
+/**
+ * @brief 共享图例层 — 顶部/底部横向图例（props.legendPosition；色块 + 系列名，消费 legendItems）
+ * @return 各图例项命中矩形（与 items 一一对应；隐藏系列灰显但仍可点回）
+ */
+export std::vector<Rect> chartDrawLegend(Graphics &g, const ChartContext &ctx, const std::vector<LegendItem> &items);
+
+/** @brief tooltip 浮层 — 深底圆角盒 + 白字（锚定 hit.anchor 上方，clamp 于 frame 内） */
+export void chartDrawTooltip(Graphics &g, const ChartContext &ctx, const ChartHit &hit, const std::string &text);
 
 // ════════════════════════════════════════════════════════════
 // Chart 元素（View 外壳）
@@ -293,16 +382,36 @@ public:
 	}
 	const ChartProps &chartProps() const { return cp_; }
 
+	/** @brief 渲染快照查询（morph 期间 series data/value 为插值中间态；测试/调试用） */
+	const ChartProps &displayProps() const { return displayProps_; }
+
+	/** @brief 数据更新 morph 是否进行中（测试/调试用） */
+	bool isMorphing() const { return morphing_; }
+
 	/** @brief reconcile 原地覆盖专有属性（增量更新 + 重启动画） */
 	void applyChartProps(const ChartProps &cp);
 
-	/** @brief 便捷数据更新入口（重启动画） */
+	/** @brief 便捷数据更新入口（语义同 animateOnData：身份一致走 morph，否则重放入场） */
 	void setSeries(std::vector<ChartSeries> series);
 
-	/** @brief Chart 专有属性增量更新（value：仪表盘当前值，更新后重启动画；ref 绑定路径） */
+	/** @brief Chart 专有属性增量更新（value：仪表盘当前值，走 animateOnData 语义；ref 绑定路径） */
 	bool setPropertyTyped(const char *name, const TypedProp &value) override;
 
+	/**
+	 * @brief 事件处理 — HoverMove/HoverLeave 更新悬停态，Tap 命中图例开关/数据点
+	 *
+	 * HoverMove 不消费（冒泡无槽位无害）；图例命中消费（阻止 onClick）；
+	 * 数据点命中后透传（onClick 可并存）。悬停命中变化才 markDirty
+	 * （tooltip 锚定命中点不跟鼠标，指针在同一元素内移动零重绘）。
+	 */
+	bool onEvent(const DispatchEvent &event) override;
+
 	void resolveThemeDefaults() override;
+
+	// ─── 点位事件（bindings 层 attachHandlers 注入 JS 回调；空=不回调）───
+	// nullopt = 指针离开图表 / 悬停清除
+	std::function<void(const std::optional<ChartPointEvent> &)> onPointHover;
+	std::function<void(const std::optional<ChartPointEvent> &)> onPointClick;
 
 protected:
 	Size onMeasure(Constraints constraints) override;
@@ -310,6 +419,10 @@ protected:
 
 private:
 	void scheduleNextFrame();        // 安排动画推进（CoreTimer 绘制外驱动）
+	std::optional<ChartHit> hitTestAt(Point p) const;              // frame 域坐标 → renderer 命中
+	void applyHover(std::optional<ChartHit> hit);                  // 更新悬停 + 变化时回调/重绘
+	void firePoint(std::function<void(const std::optional<ChartPointEvent> &)> &cb,
+	               const std::optional<ChartHit> &hit) const;      // 命中 → 补 label/category → 回调
 
 	ChartProps cp_;
 	ChartStyle styleParsed_;         // 解析原件（resolveThemeDefaults 重建基线，不被主题改写）
@@ -317,10 +430,23 @@ private:
 	GaugeProps gaugeParsed_;         // gauge 颜色解析原件（token 重建基线；resolve 后拷回 cp_.gauge）
 
 	// ── 过渡动画状态 ──
-	std::chrono::steady_clock::time_point animStart_;  // 动画起点（首帧记录）
+	std::chrono::steady_clock::time_point animStart_;  // 动画起点（首帧/morph 起点记录）
 	bool animStarted_ = false;                          // 是否已启动（首帧置真）
-	float animProgress_ = 0.0f;                         // 0..1 缓动进度
+	float animProgress_ = 0.0f;                         // 0..1 缓动进度（入场；morph 期间恒 1）
 	uint32_t animTimerId_ = 0;                          // 动画定时器 id（0=未启动）
+
+	// ── 数据更新 morph（animateOnData=true 且系列身份一致时消费）──
+	// displayProps_ = 渲染/命中唯一入口：非 morph 期 = cp_ 同步副本；morph 期
+	// series data / value 为旧值→新值插值中间态（渲染器零改动，命中/tooltip 同源）。
+	ChartProps displayProps_;                            // 渲染快照（构造时 = cp_）
+	bool morphing_ = false;                              // morph 进行中
+	std::vector<std::vector<float>> morphFrom_;          // 各系列 morph 起点（旧数据，按索引对齐）
+	float morphValueFrom_ = 0.0f;                        // gauge value morph 起点
+
+	// ── 交互状态（onDraw 缓存，onEvent 消费）──
+	std::optional<ChartHit> hover_;          // 当前悬停命中（nullopt=无）
+	std::vector<Rect> legendRects_;          // 最近一帧图例项命中矩形（与 legendItems_ 对齐）
+	std::vector<LegendItem> legendItems_;    // 最近一帧图例项（含隐藏系列灰显）
 };
 
 /** @brief 自注册入口 (App 在 register_kwikui_module 前调用；内部注册 4 内置渲染器)。 */

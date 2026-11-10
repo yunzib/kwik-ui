@@ -24,7 +24,6 @@ import kwik.render.graphics;
 import kwik.render.text.pipeline;
 import kwik.render.text.types;
 import kwik.core.timer;
-import kwik.core.log;
 
 import std;
 
@@ -34,6 +33,7 @@ import std;
 Chart::Chart(ViewProps vp, ChartProps cp) : View(std::move(vp)), cp_(std::move(cp)) {
 	styleParsed_ = cp_.style;     // 解析原件（resolveThemeDefaults 每次以此重建，主题切换可跟随）
 	gaugeParsed_ = cp_.gauge;     // gauge 颜色解析原件（token 重建基线，同上口径）
+	displayProps_ = cp_;          // 渲染快照基线（首帧 draw 前 hitTest 也可安全读）
 }
 
 Chart::~Chart() {
@@ -45,24 +45,77 @@ Chart::~Chart() {
 
 // ============================================================================
 // applyChartProps — reconcile 增量更新入口（bindings 层 reconcileProps 钩子调用）
+//
+//   rebuildTree（任意 State 兜底重建 / HMR）会以全等 props 重放本钩子。
+//   数据更新语义（F 批次）：
+//   ① 数据未变（全等重放）→ 只更新非数据字段，动画/morph 状态不动（零闪动）
+//   ② 身份一致（同数量+同 label 序）+ animateOnData → morph：从「当前显示值」
+//      （morph 中 = 插值中间态，连续更新不跳变）插值到新值；animProgress_ 恒 1
+//   ③ 身份一致 + !animateOnData → snap：立即落位，不重放入场（高频实时）
+//   ④ 身份不一致（系列增删/换名）或入场未完成 → 重放入场动画（旧行为）
 // ============================================================================
 void Chart::applyChartProps(const ChartProps &cp) {
+	// 数据未变门：series 逐字段相等（label/data/visible/color）且 value 相等
+	auto seriesEq = [](const std::vector<ChartSeries> &a, const std::vector<ChartSeries> &b) {
+		if (a.size() != b.size()) return false;
+		for (size_t i = 0; i < a.size(); ++i) {
+			if (a[i].label != b[i].label || a[i].data != b[i].data || a[i].visible != b[i].visible
+			    || !(a[i].color == b[i].color))
+				return false;
+		}
+		return true;
+	};
+	// 系列身份：数量 + label 序一致即可 morph（数据点内容/显隐可变，身份稳定）
+	auto identityEq = [](const std::vector<ChartSeries> &a, const std::vector<ChartSeries> &b) {
+		if (a.size() != b.size()) return false;
+		for (size_t i = 0; i < a.size(); ++i)
+			if (a[i].label != b[i].label) return false;
+		return true;
+	};
+
+	bool dataSame = seriesEq(cp.series, cp_.series) && cp.value == cp_.value;
+	if (dataSame) {
+		cp_ = cp;                     // 非数据字段（样式/主题重解析）照常更新
+		styleParsed_ = cp_.style;
+		gaugeParsed_ = cp_.gauge;
+		return;                       // 动画时间轴/morph 状态不动，入场自然延续
+	}
+
+	hover_.reset();                   // 数据变更使命中值/锚点失效（静默清除，不发事件）
+	bool canMorph = cp.animateOnData && identityEq(cp.series, cp_.series)
+	                && animStarted_ && animProgress_ >= 1.0f;
+	if (canMorph) {
+		// morph 锚点 = 当前显示值（morph 中再更新 → 从插值中间态续走，视觉连续）
+		const auto &src = morphing_ ? displayProps_.series : cp_.series;
+		morphFrom_.clear();
+		morphFrom_.reserve(src.size());
+		for (const auto &s : src) morphFrom_.push_back(s.data);
+		morphValueFrom_ = morphing_ ? displayProps_.value : cp_.value;
+		animStart_ = std::chrono::steady_clock::now();    // morph 复用动画定时器时间轴
+		morphing_ = true;
+	} else {
+		morphing_ = false;
+		// snap（身份一致 + 已入场 + !animateOnData）不重放；其余（身份不一致 /
+		// 入场未完成）重放入场——snap 中途入场未完时渲染按剩余进度缩放新数据
+		if (!(identityEq(cp.series, cp_.series) && animStarted_ && !cp.animateOnData)) {
+			animStarted_ = false;
+			animProgress_ = 0.0f;
+		}
+	}
+
 	cp_ = cp;
 	styleParsed_ = cp_.style;     // 基线随重解析更新
 	gaugeParsed_ = cp_.gauge;     // gauge 颜色基线随重解析更新
-	animStarted_ = false;         // 重新播放过渡动画
-	animProgress_ = 0.0f;
 	markDirty();
 }
 
 // ============================================================================
-// setSeries — 便捷数据更新入口（C++ 侧直接调用）
+// setSeries — 便捷数据更新入口（C++ 侧直接调用；语义同 applyChartProps）
 // ============================================================================
 void Chart::setSeries(std::vector<ChartSeries> series) {
-	cp_.series = std::move(series);
-	animStarted_ = false;
-	animProgress_ = 0.0f;
-	markDirty();
+	ChartProps next = cp_;
+	next.series = std::move(series);
+	applyChartProps(next);        // 统一走 morph/snap/重放语义（style/gauge 自拷贝幂等）
 }
 
 // ============================================================================
@@ -82,35 +135,69 @@ Size Chart::onMeasure(Constraints constraints) {
 }
 
 // ============================================================================
-// onDraw — 动画推进 + 注册表分发绘制（save/restore 恢复录制域，见下注）
+// onDraw — 动画推进（入场/morph 二态）+ 注册表分发绘制（save/restore 恢复录制域）
 // ============================================================================
 void Chart::onDraw(Graphics &graphics) {
 	View::onDraw(graphics);
 	if (!props.visible) return;
 
-	// ── 过渡动画时间推进（smoothstep 缓动）──
+	// ── 动画时间推进 ──
 	auto now = std::chrono::steady_clock::now();
-	if (!animStarted_) {
-		animStart_ = now;
-		animStarted_ = true;
-	}
 	float dur = cp_.duration > 0.0f ? cp_.duration : 1.0f;
-	float t = std::chrono::duration<float, std::milli>(now - animStart_).count() / dur;
-	if (t > 1.0f) t = 1.0f;
-	animProgress_ = t * t * (3.0f - 2.0f * t);    // smoothstep
-	if (t < 1.0f) scheduleNextFrame();            // 动画未结束 → 定时器驱动下一帧
+	if (morphing_) {
+		// 数据更新 morph：animProgress_ 恒 1（渲染器入场缩放关闭），插值在
+		// displayProps_ 的 data/value 上（旧值→新值 smoothstep）
+		float t = std::chrono::duration<float, std::milli>(now - animStart_).count() / dur;
+		if (t > 1.0f) t = 1.0f;
+		float e = t * t * (3.0f - 2.0f * t);
+		displayProps_ = cp_;
+		for (size_t i = 0; i < displayProps_.series.size() && i < morphFrom_.size(); ++i) {
+			const auto &from = morphFrom_[i];
+			auto &to = displayProps_.series[i].data;
+			for (size_t j = 0; j < to.size(); ++j) {
+				// 尺寸变化/非有限旧值 → 不插值直接落新值（morph 中途加点的安全口径）
+				if (j < from.size() && std::isfinite(from[j]) && std::isfinite(to[j]))
+					to[j] = from[j] + (to[j] - from[j]) * e;
+			}
+		}
+		if (std::isfinite(morphValueFrom_) && std::isfinite(displayProps_.value))
+			displayProps_.value = morphValueFrom_ + (displayProps_.value - morphValueFrom_) * e;
+		animProgress_ = 1.0f;
+		if (t >= 1.0f) morphing_ = false;    // morph 完成 → 回到常态同步路径
+		else scheduleNextFrame();
+	} else {
+		if (!animStarted_) {
+			animStart_ = now;
+			animStarted_ = true;
+		}
+		float t = std::chrono::duration<float, std::milli>(now - animStart_).count() / dur;
+		if (t > 1.0f) t = 1.0f;
+		animProgress_ = t * t * (3.0f - 2.0f * t);    // smoothstep
+		if (t < 1.0f) scheduleNextFrame();            // 入场未结束 → 定时器驱动下一帧
+		displayProps_ = cp_;                          // 常态：渲染快照与 props 同步
+	}
 
 	// ── 注册表分发绘制（未注册 type 回退 Pie）──
 	// save/restore：增量帧 passThrough 祖先会 pushNoop 置 injectionMode_，
 	// 使 fillPath/drawRect/drawRoundedRect 被抑制；此处 pushGroup 恢复录制，
-	// 否则入场动画帧的图形（饼扇区/柱/折线/图例色块）不显示。
+	// 否则入场动画帧的图形（饼扇区/柱/折线/图例/tooltip）不显示。
 	graphics.save();
-	ChartContext ctx{cp_, styleResolved_, frame, props.padding, animProgress_};
+	ChartContext ctx{displayProps_, styleResolved_, frame, props.padding, animProgress_, hover_ ? &*hover_ : nullptr};
 	auto &renderer = chartRendererOf(cp_.type);
 	renderer.draw(graphics, ctx);
 
-	// 图例外壳统一绘制（所有类型共享，消费 renderer.legendItems）
-	if (cp_.showLegend) chartDrawLegend(graphics, ctx, renderer.legendItems(ctx));
+	// 图例外壳统一绘制（所有类型共享，消费 renderer.legendItems）；
+	// 命中矩形缓存供 Tap 图例开关（onEvent 在 draw 之后到达，缓存即最新）
+	legendItems_.clear();
+	legendRects_.clear();
+	if (cp_.showLegend) {
+		legendItems_ = renderer.legendItems(ctx);
+		legendRects_ = chartDrawLegend(graphics, ctx, legendItems_);
+	}
+
+	// tooltip 浮层（最上层；锚定命中点，命中不变不重绘）
+	if (cp_.showTooltip && hover_)
+		chartDrawTooltip(graphics, ctx, *hover_, renderer.tooltipText(*hover_, ctx));
 	graphics.restore();
 }
 
@@ -143,15 +230,107 @@ void Chart::scheduleNextFrame() {
 bool Chart::setPropertyTyped(const char *name, const TypedProp &value) {
 	if (std::strcmp(name, "value") == 0) {
 		if (auto *d = std::get_if<double>(&value)) {
-			cp_.value = static_cast<float>(*d);
-			animStarted_ = false;    // 重新播放扫入动画
-			animProgress_ = 0.0f;
-			markDirty();
+			ChartProps next = cp_;
+			next.value = static_cast<float>(*d);
+			applyChartProps(next);    // 统一走 morph/snap/重放语义（1Hz ref 刷新不再从零扫入）
 			return true;
 		}
 		return false;
 	}
 	return View::setPropertyTyped(name, value);
+}
+
+// ============================================================================
+// 交互 — onEvent 命中路径 + hitTestAt / applyHover / firePoint 辅助
+//
+//   坐标口径：renderer hitTest/tooltip 的几何全部按 ctx.frame 布局域计算
+//   （cx = frame.x + ...，与 onDraw 同域），故 hitTestAt 收到的点必须是
+//   「窗口逻辑坐标 + scrollCompensation 回退」的 frame 域坐标——**不减 frame**
+//   （减了就成图表局部坐标，与 frame 域几何永远错位：饼图只剩底部窄条误命中、
+//   柱/线全 MISS）。图例命中矩形（chartDrawLegend 产出）同为 frame 域。
+//   HoverMove 不消费（上层无 HoverMove 槽位，冒泡无害）；图例 Tap 消费；
+//   数据点 Tap 透传（JS onClick 可并存）。
+// ============================================================================
+bool Chart::onEvent(const DispatchEvent &event) {
+	using T = DispatchEvent::Type;
+	if (event.type == T::HoverMove || event.type == T::HoverEnter) {
+		Point comp = scrollCompensationOf(*this);
+		applyHover(hitTestAt(Point{event.globalX + comp.x, event.globalY + comp.y}));
+		return false;
+	}
+	if (event.type == T::HoverLeave) {
+		applyHover(std::nullopt);
+		return false;
+	}
+	if (event.type == T::Tap) {
+		Point comp = scrollCompensationOf(*this);
+		Point p{event.globalX + comp.x, event.globalY + comp.y};
+
+		// ① 图例项命中 → 开关系列（消费：不走 onClick）
+		for (size_t i = 0; i < legendRects_.size() && i < legendItems_.size(); ++i) {
+			if (legendRects_[i].contains(p)) {
+				int si = legendItems_[i].seriesIndex;
+				if (si >= 0 && si < static_cast<int>(cp_.series.size())) {
+					auto &s = cp_.series[static_cast<size_t>(si)];
+					s.visible = !s.visible;
+					applyHover(std::nullopt);    // 显隐变化使命中失效（隐藏系列的旧命中点已不存在）
+					markDirty();
+				}
+				return true;
+			}
+		}
+
+		// ② 数据点命中 → onPointClick 回调（透传，onClick 可并存）
+		auto hit = hitTestAt(p);
+		if (hit) firePoint(onPointClick, hit);
+		return View::onEvent(event);
+	}
+	return View::onEvent(event);
+}
+
+// ============================================================================
+// hitTestAt — frame 域坐标 → 当前类型渲染器命中（与 draw 同一 animProgress
+//             口径；p 与 ctx.frame 同域，见 onEvent 处坐标口径注释）
+// ============================================================================
+std::optional<ChartHit> Chart::hitTestAt(Point p) const {
+	ChartContext ctx{displayProps_, styleResolved_, frame, props.padding, animProgress_, hover_ ? &*hover_ : nullptr};
+	return chartRendererOf(cp_.type).hitTest(p, ctx);
+}
+
+// ============================================================================
+// applyHover — 更新悬停态；命中变化才回调/重绘（tooltip 锚定命中点：
+//   指针在同一扇区/柱/数据点内移动 → 零重绘，HMI 高频悬停无压力）
+// ============================================================================
+void Chart::applyHover(std::optional<ChartHit> hit) {
+	bool same = hover_ && hit && hover_->seriesIndex == hit->seriesIndex && hover_->pointIndex == hit->pointIndex;
+	if (same) return;
+	if (!hover_ && !hit) return;    // 空→空：指针在图表内无命中区移动，零重绘
+	hover_ = std::move(hit);
+	firePoint(onPointHover, hover_);
+	markDirty();
+}
+
+// ============================================================================
+// firePoint — 命中 → 补 label/category 负载 → 回调（nullopt=离开/清除）
+// ============================================================================
+void Chart::firePoint(std::function<void(const std::optional<ChartPointEvent> &)> &cb,
+                      const std::optional<ChartHit> &hit) const {
+	if (!cb) return;
+	if (!hit) {
+		cb(std::nullopt);
+		return;
+	}
+	ChartPointEvent e;
+	e.seriesIndex = hit->seriesIndex;
+	e.pointIndex = hit->pointIndex;
+	e.value = hit->value;
+	if (hit->seriesIndex >= 0 && hit->seriesIndex < static_cast<int>(cp_.series.size())) {
+		const auto &s = cp_.series[static_cast<size_t>(hit->seriesIndex)];
+		e.label = s.label.empty() ? std::to_string(hit->seriesIndex + 1) : s.label;
+	}
+	if (hit->pointIndex >= 0 && hit->pointIndex < static_cast<int>(cp_.categories.size()))
+		e.category = cp_.categories[static_cast<size_t>(hit->pointIndex)];
+	cb(e);
 }
 
 // ============================================================================
@@ -204,6 +383,8 @@ void Chart::resolveThemeDefaults() {
 		styleResolved_.pieLabelFontSize = t.text.caption.fontSize;
 	if (styleParsed_.legendFontSize == 12.0f)
 		styleResolved_.legendFontSize = t.text.caption.fontSize;
+	if (styleParsed_.tooltipFontSize == 12.0f)
+		styleResolved_.tooltipFontSize = t.text.caption.fontSize;
 
 	// ── gauge 颜色字段（解析原件重建；token 键 gauge.needleColor/gauge.hubColor；
 	//    几何字段随解析原件原样拷回，运行时无原地改写路径，幂等）──
