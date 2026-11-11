@@ -17,6 +17,8 @@ import kwik.animation.engine;
 import kwik.engine.vm_callbacks;
 import kwik.element.view;       // View
 import kwik.element.textview;   // TextView（findText/highlightAll/clearHighlight 命令面）
+import kwik.element.scroll_view;    // ScrollView（revealText → ensureVisible 滚动定位）
+import kwik.element.element_type;   // ElementType（祖先链滚动容器判定）
 import kwik.event;              // FocusManager（focus/blur 导出统一通路）
 import kwik.element.clipboard_service;    // ClipboardService（setClipboardText 出口）
 import kwik.core.types;         // TypedProp
@@ -509,6 +511,50 @@ static JSValue js_findText(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (int32_t)pos);
 }
 
+// ── findPrev(id, needle[, before])：上一个匹配（严格左于 before 的最后一个）──
+// 与 findText 对称构成 上一个/下一个 导航；before 缺省 = 文本尾（"从末尾回绕"
+// 直接取最后一处）。返回字节偏移，-1 = 前方无命中。
+static JSValue js_findPrev(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) {
+        Log::warn("findPrev: 需要 (id, needle[, before]) 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (!tv) {
+        Log::warn("findPrev: 未找到 TextView 组件——跳过");
+        return JS_UNDEFINED;
+    }
+    const char *needle = JS_ToCString(ctx, argv[1]);
+    if (!needle) return JS_UNDEFINED;
+    int64_t before = -1;
+    if (argc >= 3 && JS_IsNumber(argv[2])) JS_ToInt64(ctx, &before, argv[2]);
+    size_t pos = (before < 0) ? tv->findPrev(std::string(needle))    // 缺省 = 最后一个命中
+                              : tv->findPrev(std::string(needle), (size_t)before);
+    JS_FreeCString(ctx, needle);
+    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (int32_t)pos);
+}
+
+// ── textViewIds(rootId?)：先序枚举子树内带 id 的 TextView（整篇查找入口）──
+// 整篇查找 = 枚举 → 逐组件 highlightAll/findText → 汇总 [(id, offset)] →
+// revealText 导航。缺省根 = 整棵树；rootId 不存在 = 空数组（安全）。
+static JSValue js_textViewIds(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    View *root = qctx ? static_cast<View *>(qctx->getUserPointer()) : nullptr;
+    if (argc >= 1 && JS_IsString(argv[0]) && root) {
+        const char *id = JS_ToCString(ctx, argv[0]);
+        if (!id) return JS_NewArray(ctx);
+        root = root->findById(id);    // 子树作用域（不存在 → 空数组）
+        JS_FreeCString(ctx, id);
+    }
+    std::vector<std::string> ids;
+    if (root) collectTextViewIds(*root, ids);
+    JSValue arr = JS_NewArray(ctx);
+    for (uint32_t i = 0; i < ids.size(); ++i) {
+        JS_SetPropertyUint32(ctx, arr, i, JS_NewString(ctx, ids[i].c_str()));
+    }
+    return arr;
+}
+
 static JSValue js_highlightAll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) {
         Log::warn("highlightAll: 需要 (id, needle) 参数——忽略");
@@ -526,6 +572,22 @@ static JSValue js_highlightAll(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_NewInt32(ctx, count);
 }
 
+// ── setActiveMatch(id, offset, len)：当前命中深色高亮（第 k/N 处导航视觉）──
+// len==0 = 清除；与 highlightAll 的浅色命中集合叠加（当前项盖在其上）。
+static JSValue js_setActiveMatch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 3 || !JS_IsString(argv[0]) || !JS_IsNumber(argv[1]) || !JS_IsNumber(argv[2])) {
+        Log::warn("setActiveMatch: 需要 (id, offset, len) 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (!tv) return JS_UNDEFINED;
+    int64_t off = 0, len = 0;
+    JS_ToInt64(ctx, &off, argv[1]);
+    JS_ToInt64(ctx, &len, argv[2]);
+    tv->setActiveMatch(off < 0 ? 0 : (size_t)off, len <= 0 ? 0 : (size_t)len);
+    return JS_UNDEFINED;
+}
+
 static JSValue js_clearHighlight(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc < 1 || !JS_IsString(argv[0])) {
         Log::warn("clearHighlight: 需要组件 id 参数——忽略");
@@ -534,6 +596,33 @@ static JSValue js_clearHighlight(JSContext *ctx, JSValueConst this_val, int argc
     TextView *tv = textViewById(ctx, argv[0]);
     if (tv) tv->clearHighlight();
     return JS_UNDEFINED;
+}
+
+// ── revealText(id, offset)：滚动最近祖先 ScrollView 使命中行可见 ──
+// 查找联动语义（对齐浏览器 Ctrl+F / Flutter ensureVisible）：高亮在文本层、
+// 滚动在容器层，本命令桥接两层。offset 为 plainText_ 字节偏移（findText 返回
+// 值直接可用）；负数/组件缺失/无滚动祖先 = 安全 no-op（返回 false）。
+static JSValue js_revealText(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsNumber(argv[1])) {
+        Log::warn("revealText: 需要 (id, offset) 参数——忽略");
+        return JS_NewBool(ctx, false);
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (!tv) {
+        Log::warn("revealText: 未找到 TextView 组件——跳过");
+        return JS_NewBool(ctx, false);
+    }
+    int64_t off = 0;
+    JS_ToInt64(ctx, &off, argv[1]);
+    if (off < 0) return JS_NewBool(ctx, false);
+    Rect r = tv->offsetRect((size_t)off);
+    for (View *p = tv->parent(); p; p = p->parent()) {
+        if (p->type() == ElementType::ScrollView) {
+            static_cast<ScrollView *>(p)->ensureVisible(r);
+            return JS_NewBool(ctx, true);
+        }
+    }
+    return JS_NewBool(ctx, false);
 }
 
 static JSValue js_state_constructor(JSContext *ctx, JSValueConst new_target, int argc, JSValueConst *argv) {
@@ -1602,7 +1691,11 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("focus", 1, js_focus),
         JS_CFUNC_DEF("blur", 1, js_blur),
         JS_CFUNC_DEF("findText", 3, js_findText),
+        JS_CFUNC_DEF("findPrev", 3, js_findPrev),
+        JS_CFUNC_DEF("textViewIds", 1, js_textViewIds),
         JS_CFUNC_DEF("highlightAll", 2, js_highlightAll),
+        JS_CFUNC_DEF("setActiveMatch", 3, js_setActiveMatch),
+        JS_CFUNC_DEF("revealText", 2, js_revealText),
         JS_CFUNC_DEF("clearHighlight", 1, js_clearHighlight),
     };
 

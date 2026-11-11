@@ -41,3 +41,26 @@ public:
      *  @return false = 平台不支持/写入失败（调用方回落 setText） */
     virtual bool setRuns(const std::vector<TextRun> &runs, const std::string &plainFallback) { return false; }
 };
+
+// ============================================================================
+// 富文本 run 序列序列化（剪贴板自定义格式 kwik/text-runs-v2 的字节编解码）
+//
+// 布局（小端原生写读，读端逐字段边界校验）：
+//   magic "KWTVR2"(6B) + u32 runCount
+//   + 每 run{ u32 recordLen + record{ u32 textLen + text + f32 fontSize +
+//     u8 weight + u8 italic + 4B color(RGBA) + u8 underline +
+//     u8 strikethrough + u8 hasLink + [u32 linkLen + link（hasLink≠0 时）] } }
+//
+// recordLen = record 本体字节数（不含 recordLen 自身）。读端按 recordLen
+// 消费——record 内未知尾部字段自动跳过（后续版本加字段无需改读端）。
+// ============================================================================
+
+/** @brief run 序列剪贴板格式注册名（平台 RegisterClipboardFormat 用） */
+export inline constexpr const char *kTextRunsClipboardFormat = "kwik/text-runs-v2";
+
+/** @brief 序列化 run 序列（样式 + link 全保留）为剪贴板自定义格式字节串 */
+export std::string serializeTextRuns(const std::vector<TextRun> &runs);
+
+/** @brief 反序列化剪贴板自定义格式字节串为 run 序列
+ *  @return false = magic 不符/截断/字段越界（畸形数据；调用方回落纯文本粘贴） */
+export bool deserializeTextRuns(const std::string &bytes, std::vector<TextRun> &out);

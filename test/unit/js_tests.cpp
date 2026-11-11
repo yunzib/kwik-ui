@@ -8,6 +8,7 @@
 // ============================================================================
 #include "quickjs.h"    // JSContext / JSValueConst（IncrementalCallback 签名）
 #include <print>
+#include <cstdlib>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -28,6 +29,8 @@ import kwik.element.layer_stack;    // LayerStack / layersOf（LayerView 析构�
 import kwik.animation.engine;       // AnimationEngine（动画反注册行为锁直驱）
 import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
 import kwik.element.text;           // Text（reconcile @token 解析行为锁直驱）
+import kwik.element.textview;       // TextView（State.update 全量重建存活探针）
+import kwik.element.scroll_view;    // ScrollView（ensureVisible 最小位移/边界收口锁）
 import kwik.element.theme_provider; // ThemeProvider（运行时换主题行为锁读 themeData）
 import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
 import kwik.bridge.g2d;             // registerG2DElement（G2D 句柄存活校验行为锁）
@@ -36,6 +39,10 @@ import kwik.bridge.expansion;       // registerExpansionElement（spec 自注册
 import kwik.core.props;             // DropdownProps / KeyboardProps
 import kwik.core.theme;             // ThemeData::defaultTheme（@token 期望值同源求取）
 import kwik.core.constraints;       // Constraints（Keyboard 布局驱动）
+import kwik.render.graphics;         // Graphics（复现探针绘制相位：headless 命令录制）
+import kwik.render.command;          // FillRoundedRectCmd（按钮存活判据命令型）
+import kwik.render.command_buffer;   // DisplayList（复合清单遍历）
+import kwik.render.text.pipeline;   // TextRenderPipeline（字形墨迹定位锁：真字体塑形）
 import kwik.element.typed_prop;    // TypedPropMap / PropEntry / PropType
 import kwik.event;                  // DispatchEvent（onWindowResize 直投行为锁）
 import kwik.platform.window;        // PlatformWindow（StubWindow 夹具全虚面）
@@ -202,6 +209,431 @@ static void test_reconcile_text_flush() {
     }
 
     teardown_callbacks();
+}
+
+// ── 行为锁(复现探针): textview demo 按钮点击后按钮全部消失 ──
+// 报告症状：运行 example.exe textview 点击按钮，页面所有按钮消失。
+// 真机日志取证（tv_log.txt）：点击时刻发生完整重建（3× State get_property =
+// 工厂读 + ref 解析），无 JS 异常、渲染照常——按钮消失发生在重建后的
+// 测量/布局/绘制相位，而非 reconcile 丢节点。
+// 本探针全保真复刻 demo 页（3 TextView + 4 按钮 + 分隔线），四相推进：
+//   A 首建 + relayoutTree 镜像（measure(loose)→layout→clearMeasureFlagsSelf）
+//   B 真实 Tap 派发 Clear（form.update → 真实 notify 直写活树 + renCb）
+//   C 工厂重喂 reconcile → v2 + relayout 镜像（真机下一 tick 同序）
+//   D Graphics 绘制 → 复合清单中每枚按钮 frame 中心必须有可见填充命令
+//   E 再点 Reset（值不变路径）→ reconcile → v3 同断言（二阶复合）
+static void countButtonsProbe_(const View *v, int &n) {
+    if (!v) return;
+    if (v->type() == ElementType::Button) ++n;
+    for (auto &ch : v->children) countButtonsProbe_(ch.get(), n);
+}
+
+// 按 id 找绑定 TextView（直写目标定位，递归）
+static TextView *findTextViewProbe_(View *v, const char *id) {
+    if (!v) return nullptr;
+    if (v->type() == ElementType::TextView && v->props.id == id) return static_cast<TextView *>(v);
+    for (auto &ch : v->children)
+        if (auto *t = findTextViewProbe_(ch.get(), id)) return t;
+    return nullptr;
+}
+
+// 树序收集全部 Button（demo 页无 id 按钮，按树序定位：0=Reset 1=Clear 2=Get 3=Set）
+static void collectButtonsProbe_(View *v, std::vector<View *> &out) {
+    if (!v) return;
+    if (v->type() == ElementType::Button) out.push_back(v);
+    for (auto &ch : v->children) collectButtonsProbe_(ch.get(), out);
+}
+
+// 镜像 KwikRuntime::relayoutTree（kwik_runtime.cpp:564-571 同序同相位）
+static void relayoutMirror_(View &root, Size sz) {
+    View::setMeasurePhase(false);
+    root.measure(Constraints::loose(sz));
+    View::setMeasurePhase(true);
+    root.layout(Rect{0, 0, sz.width, sz.height});
+    View::setMeasurePhase(false);
+    root.clearMeasureFlagsSelf();
+}
+
+// 布局后按钮 frame 体检：有限值、正尺寸、落在根 800x600 内
+static void checkButtonFrames_(const std::vector<View *> &btns, const char *tag) {
+    CHECK(btns.size() == 4);
+    for (size_t i = 0; i < btns.size(); ++i) {
+        Rect f = btns[i]->frame;
+        bool sane = std::isfinite(f.x) && std::isfinite(f.y) && std::isfinite(f.width)
+                    && std::isfinite(f.height) && f.width > 0 && f.height > 0 && f.x >= -0.5f && f.y >= -0.5f
+                    && f.x + f.width <= 800.5f && f.y + f.height <= 600.5f;
+        if (!sane)
+            std::println("FAIL {} button[{}] frame=({:.1f},{:.1f},{:.1f},{:.1f})", tag, i, f.x, f.y, f.width,
+                         f.height);
+        CHECK(sane);
+    }
+}
+
+// 复合清单收集全部圆角矩形填充（含子树引用展开，同 core_tests 口径）
+static void collectFillsProbe_(const DisplayList &l, std::vector<const FillRoundedRectCmd *> &out) {
+    for (const auto &cmd : l.commands()) {
+        if (auto *rr = std::get_if<FillRoundedRectCmd>(&cmd)) out.push_back(rr);
+    }
+    for (auto &[pos, child] : l.subtrees()) {
+        if (child) collectFillsProbe_(*child, out);
+    }
+}
+
+// 绘制后逐按钮验存活：必须存在 rect≈按钮 frame 的可见填充命令（背景真的画了）。
+// 不能用"中心被任意填充覆盖"判据——根背景大矩形会覆盖全页所有中心点，假绿
+static void checkButtonsDrawn_(View *root, const std::vector<View *> &btns, const char *tag) {
+    DisplayList dl;
+    Graphics g;
+    g.beginFrame();
+    g.pushSink(&dl);
+    root->draw(g);
+    g.popSink();
+    g.endFrame();
+    std::vector<const FillRoundedRectCmd *> fills;
+    collectFillsProbe_(dl, fills);
+    for (size_t i = 0; i < btns.size(); ++i) {
+        Rect f = btns[i]->frame;
+        bool hit = false;
+        for (auto *cmd : fills) {
+            if (cmd->color.a == 0) continue;
+            // 命令 rect 为未滚动逻辑系 + 矩阵 t：此处树无滚动、无按压变换，只查几何。
+            // 背景矩形 = frame 本体（Button::onDraw drawRect = frame），±2px 容差。
+            // radius > 0.5 同锁：reconcile 主题兜底须同时回填构造期 borderRadius 6
+            //（丢失即圆角变直角——底色修复前被"整个隐形"掩盖）
+            if (std::abs(cmd->rect.x - f.x) < 2.0f && std::abs(cmd->rect.y - f.y) < 2.0f
+                && std::abs(cmd->rect.width - f.width) < 2.0f && std::abs(cmd->rect.height - f.height) < 2.0f) {
+                if (cmd->radius < 0.5f)
+                    std::println("FAIL {} button[{}] 填充命中但 radius={:.1f}（构造期圆角默认丢失=直角）", tag, i,
+                                 cmd->radius);
+                CHECK(cmd->radius > 0.5f);
+                hit = true;
+                break;
+            }
+        }
+        if (!hit)
+            std::println("FAIL {} button[{}] frame=({:.1f},{:.1f},{:.1f},{:.1f}) 无同形填充命令（主题兜底丢失=消失）", tag,
+                         i, f.x, f.y, f.width, f.height);
+        CHECK(hit);
+    }
+}
+
+static void test_textview_state_update_reconcile() {
+    reset_callbacks();    // renCb 计数 + incCb 桩（下一行随即被真实注册表覆盖）
+    JSContext *c = g_ctx->getPtr();
+    // 真实增量链：parse 期 applyBindings 注册 + 点击期 notify → setPropertyTyped
+    // 直写活 View（此前探针用桩回调跳过了这段——真机症状唯一未覆盖链）
+    BindingRegistry reg;
+    setRegisteredRegistry(&reg);
+
+    // textview.js 全结构复刻（4 区块：富文本 / 绑定+按钮 / 只读 / getProp-setProp）
+    CHECK(eval_module("tv_state_recon.mjs",
+                      "import { Root, View, Text, Button, TextView, State, ref, getProp, setProp } from 'kwikui';\n"
+                      "const form = new State({ content: 'Hello World from State' });\n"
+                      "globalThis.__build = () => Root(View({ id: 'root', width: 800, height: 600, background: '#FAFAFA', gap: 8 }, [\n"
+                      "    View({ padding: 16 }, [\n"
+                      "        Text({ text: 'Basic Rich Text (multi-run)', fontSize: 18, fontWeight: 'bold', margin: [0, 0, 8, 0] }),\n"
+                      "        TextView({ content: [\n"
+                      "            {text: 'Hello ', fontSize: 16, fontWeight: 'normal'},\n"
+                      "            {text: 'Bold World', fontSize: 20, fontWeight: 'bold', textColor: '#FF0000'},\n"
+                      "            {text: '\\n'},\n"
+                      "            {text: '这是 ', fontSize: 16},\n"
+                      "            {text: '下划线', fontSize: 16, underline: true},\n"
+                      "            {text: ' 和 ', fontSize: 16},\n"
+                      "            {text: '删除线', fontSize: 16, strikethrough: true},\n"
+                      "        ], width: 400, height: 120, borderRadius: 6, background: '#FFFFFF',\n"
+                      "           borderColor: '#E0E0E0', borderWidth: 1,\n"
+                      "           onChange: (content) => console.log('TextView onChange:', JSON.stringify(content)) }),\n"
+                      "    ]),\n"
+                      "    View({ height: 1, background: '#E0E0E0' }),\n"
+                      "    View({ padding: 16 }, [\n"
+                      "        Text({ text: `State content: ${form.content}`, fontSize: 16, margin: [0, 0, 8, 0] }),\n"
+                      "        TextView({ id: 'boundTextview', value: ref(form, 'content'), placeholder: '输入内容...',\n"
+                      "                   width: 400, height: 80, borderRadius: 6, background: '#FFFFFF',\n"
+                      "                   borderColor: '#E0E0E0', borderWidth: 1 }),\n"
+                      "        View({ flexDirection: 'row', gap: 8, margin: [8, 0, 0, 0] }, [\n"
+                      "            Button({ text: 'Reset', width: 80, height: 32, color: '#ffffff',\n"
+                      "                     onClick: () => form.update({ content: 'Hello World from State' }) }),\n"
+                      "            Button({ text: 'Clear', width: 80, height: 32, color: '#ffffff',\n"
+                      "                     onClick: () => form.update({ content: '' }) }),\n"
+                      "        ]),\n"
+                      "    ]),\n"
+                      "    View({ height: 1, background: '#E0E0E0' }),\n"
+                      "    View({ padding: 16 }, [\n"
+                      "        Text({ text: 'Read-only mode', fontSize: 18, fontWeight: 'bold', margin: [0, 0, 8, 0] }),\n"
+                      "        TextView({ content: [\n"
+                      "            {text: '这是一段只读文本', fontSize: 16, textColor: '#666666'},\n"
+                      "            {text: '不可编辑', fontSize: 16, fontWeight: 'bold', textColor: '#999999'},\n"
+                      "        ], width: 400, height: 50, borderRadius: 6, readOnly: true, background: '#F5F5F5',\n"
+                      "           borderColor: '#E0E0E0', borderWidth: 1 }),\n"
+                      "    ]),\n"
+                      "    View({ height: 1, background: '#E0E0E0' }),\n"
+                      "    View({ padding: 16 }, [\n"
+                      "        Text({ text: 'getProp / setProp', fontSize: 18, fontWeight: 'bold', margin: [0, 0, 8, 0] }),\n"
+                      "        View({ flexDirection: 'row', gap: 8 }, [\n"
+                      "            Button({ text: 'Get value', width: 100, height: 32, color: '#ffffff',\n"
+                      "                     onClick: () => { let val = getProp('boundTextview', 'value'); console.log('Current value:', val); } }),\n"
+                      "            Button({ text: 'Set plain', width: 100, height: 32, color: '#ffffff',\n"
+                      "                     onClick: () => setProp('boundTextview', 'value', '替换为纯文本') }),\n"
+                      "        ]),\n"
+                      "    ]),\n"
+                      "]));\n"
+                      "export default null;\n"));
+
+    // 全局函数调用（探针必需：异常就地打印便于定位）
+    auto callGlobal = [&](const char *name) -> JSValue {
+        JSValue global = JS_GetGlobalObject(c);
+        JSValue fn = JS_GetPropertyStr(c, global, name);
+        JS_FreeValue(c, global);
+        JSValue ret = JS_Call(c, fn, JS_UNDEFINED, 0, nullptr);
+        JS_FreeValue(c, fn);
+        if (JS_IsException(ret)) {
+            JSValue exc = JS_GetException(c);
+            const char *msg = JS_ToCString(c, exc);
+            std::println("EXC {}: {}", name, msg ? msg : "?");
+            if (msg) JS_FreeCString(c, msg);
+            JS_FreeValue(c, exc);
+        }
+        return ret;    // 所有权归调用方（JSValueRef 接管）
+    };
+
+    const Size kLay{1280, 800};    // 真机逻辑布局域（client 1920x1200 / scale 1.5）
+
+    // ── 相 A：首建 + relayout 镜像 ──
+    JSValue d1 = callGlobal("__build");
+    CHECK(!JS_IsException(d1));
+    JSValueRef held1(c, d1);
+    auto v1 = ElementParser::parseNode(held1);
+    CHECK(v1 != nullptr);
+    v1->markAllMeasureDirty();
+    relayoutMirror_(*v1, kLay);
+    std::vector<View *> btns1;
+    collectButtonsProbe_(v1.get(), btns1);
+    checkButtonFrames_(btns1, "phaseA");
+
+    // ── 相 B：真实 Tap 点 Clear → form.update（notify 直写活树 + renCb）──
+    CHECK(btns1.size() == 4);
+    CHECK(g_renders == 0);
+    DispatchEvent tap;
+    tap.type = DispatchEvent::Type::Tap;
+    View &clearBtn = *btns1[1];
+    clearBtn.onEvent(tap);
+    CHECK(g_renders > 0);    // update() 恒触发 renCb（N1 定案）
+    TextView *tv1 = findTextViewProbe_(v1.get(), "boundTextview");
+    CHECK(tv1 != nullptr && tv1->value().empty());    // 真实 notify 直写已生效
+
+    // ── 相 C：工厂重喂 reconcile → v2 + relayout（真机下一 tick 同序）──
+    JSValue d2 = callGlobal("__build");
+    CHECK(!JS_IsException(d2));
+    JSValueRef held2(c, d2);
+    auto v2 = ElementParser::reconcile(c, d2, std::move(v1));
+    CHECK(v2 != nullptr);
+    v2->markAllMeasureDirty();    // rebuildTree:409 同序
+    relayoutMirror_(*v2, kLay);
+    std::vector<View *> btns2;
+    collectButtonsProbe_(v2.get(), btns2);
+    checkButtonFrames_(btns2, "phaseC");
+    for (size_t i = 0; i < btns2.size() && i < btns1.size(); ++i) {
+        // 布局确定性与首建一致（内容未变，按钮不该挪位/变零尺寸）
+        Rect a = btns1[i]->frame, b = btns2[i]->frame;
+        CHECK(std::abs(a.x - b.x) < 0.5f && std::abs(a.y - b.y) < 0.5f && std::abs(a.width - b.width) < 0.5f
+              && std::abs(a.height - b.height) < 0.5f);
+    }
+
+    // ── 相 D：绘制相位——每枚按钮中心必须有可见填充命令（背景真的画了）──
+    checkButtonsDrawn_(v2.get(), btns2, "phaseD");
+
+    // ── 相 E：再点 Reset（值不变路径）→ reconcile → v3 同断言（二阶复合）──
+    DispatchEvent tap2;
+    tap2.type = DispatchEvent::Type::Tap;
+    View &resetBtn = *btns2[0];
+    resetBtn.onEvent(tap2);
+    JSValue d3 = callGlobal("__build");
+    CHECK(!JS_IsException(d3));
+    JSValueRef held3(c, d3);
+    auto v3 = ElementParser::reconcile(c, d3, std::move(v2));
+    CHECK(v3 != nullptr);
+    v3->markAllMeasureDirty();
+    relayoutMirror_(*v3, kLay);
+    std::vector<View *> btns3;
+    collectButtonsProbe_(v3.get(), btns3);
+    checkButtonFrames_(btns3, "phaseE");
+    checkButtonsDrawn_(v3.get(), btns3, "phaseE");
+
+    setRegisteredRegistry(nullptr);    // 清全局钩（栈上 reg 即将析构，防后续测试 UAF）
+    teardown_callbacks();
+}
+
+// ── 行为锁: ScrollView::ensureVisible 最小位移 + 边界收口 ──
+// 查找揭示（revealText）依赖此语义：矩形在可见带外取最小位移、带内零位移
+// （幂等）、越界由 setScroll clamp 收口。可见带 = 视口按当前偏移在
+// 未滚动坐标系上的投影（此处视口 300×200、内容 300×600 → 最大偏移 400）。
+static void test_scrollview_ensure_visible() {
+    ScrollViewProps sp;    // 默认 Vertical + 滚动条常驻（8px 条带）
+    ViewProps vp;
+    vp.width = 300.0f;
+    vp.height = 200.0f;
+    auto sv = std::make_unique<ScrollView>(std::move(vp), std::move(sp));
+    auto content = std::make_unique<View>();
+    content->props.width = 300.0f;
+    content->props.height = 600.0f;
+    sv->addChild(std::move(content));
+
+    auto root = std::make_unique<View>();
+    auto *svp = sv.get();
+    root->addChild(std::move(sv));
+    relayoutMirror_(*root, Size{1280, 800});
+    CHECK(std::abs(svp->frame.width - 300.0f) < 0.5f);
+    CHECK(std::abs(svp->frame.height - 200.0f) < 0.5f);
+
+    auto scrollY = [&]() {
+        std::string s = svp->getProperty("scrollY");
+        return s.empty() ? 0.0f : std::stof(s);
+    };
+    CHECK(std::abs(scrollY()) < 0.5f);    // 初始顶部
+
+    // 揭示内容底部矩形 → 最小位移到 400（400 = 600 内容 − 200 视口）
+    svp->ensureVisible({0, 570, 300, 30});
+    CHECK(std::abs(scrollY() - 400.0f) < 0.5f);
+    // 揭示顶部 → 回 0
+    svp->ensureVisible({0, 0, 300, 30});
+    CHECK(std::abs(scrollY()) < 0.5f);
+    // 已可见矩形 → 零位移（幂等，不扰动当前偏移）
+    svp->ensureVisible({0, 100, 300, 30});
+    CHECK(std::abs(scrollY()) < 0.5f);
+    // 越界矩形 → clamp 到内容底（不越滚）
+    svp->ensureVisible({0, 590, 300, 100});
+    CHECK(std::abs(scrollY() - 400.0f) < 0.5f);
+}
+
+// ── 行为锁: TextView 字形墨迹竖直定位（TextLayout 预烘焙基线合同）──
+// 回归：TextLayout 已把基线预烘焙进 glyph.y（语义 = 相对行顶），onDraw 曾按
+// 烘焙前语义再叠一次行内基线（copy.y = baseY + sg.y）→ 文字整体下坠
+// ascender 高度：首行顶部大空白、次行墨迹下探出帧被裁剪（textview_m0 实测
+// 第二行只剩顶部 5px）。锁：真字体两段文本（\n 硬换行 + center）→ 每个
+// 字形墨迹矩形必须落在自身帧内；第二段必须有字形真正画出（修复前出帧 → 红）。
+static void test_textview_draw_ink_in_box() {
+    // 真字体（本锁置于测试末段：加载后不再有依赖旧度量预期的文本测试）
+    auto &pipe_ = TextRenderPipeline::instance();
+    pipe_.addFontDir("resources/fonts");
+    FontId fid = pipe_.loadFont("NotoSansSC-Regular.otf");
+    CHECK(fid != kInvalidFontId);
+
+    TextViewProps tvp;
+    tvp.content = {
+        {"这段文字应该水平居中显示", {}, ""},
+        {"\n", {}, ""},
+        {"短行也居中", {}, ""},
+    };
+    for (auto &run : tvp.content) run.style.fontSize = 15.0f;
+    tvp.textAlign = 1;    // 居中：烘焙对齐偏移走 x，不影响竖直判据
+
+    ViewProps vp;
+    vp.width = 850.0f;
+    auto tv = std::make_unique<TextView>(std::move(vp), std::move(tvp));
+    tv->props.id = "inkBox";
+    tv->markAllMeasureDirty();
+
+    // 根容器承载（TextView 作子项才走自身测量值；作根会被窗口帧覆盖）
+    auto root = std::make_unique<View>();
+    root->addChild(std::move(tv));
+    auto *tvp2 = static_cast<TextView *>(root->children.front().get());
+
+    const Size kLay{1280, 800};
+    relayoutMirror_(*root, kLay);
+    Rect f = tvp2->frame;
+    CHECK(std::abs(f.width - 850.0f) < 0.5f);
+    CHECK(f.height > 30.0f);    // \n 生效 → 两行（单行 ~23）
+
+    DisplayList dl;
+    Graphics g;
+    g.beginFrame();
+    g.pushSink(&dl);
+    tvp2->draw(g);
+    g.popSink();
+    g.endFrame();
+
+    // 复合清单展开收集字形命令（与按钮绘制锁同口径）
+    std::vector<const DrawGlyphCmd *> glyphs;
+    std::function<void(const DisplayList &)> walk = [&](const DisplayList &l) {
+        for (auto &cmd : l.commands()) {
+            if (auto *gc = std::get_if<DrawGlyphCmd>(&cmd)) glyphs.push_back(gc);
+        }
+        for (auto &[pos, child] : l.subtrees()) {
+            if (child) walk(*child);
+        }
+    };
+    walk(dl);
+
+    CHECK(!glyphs.empty());
+    int outOfBox = 0, line2 = 0;
+    float inkTop = 1e9f;
+    for (auto *gc : glyphs) {
+        if (gc->y < f.y - 0.5f || gc->y + gc->height > f.y + f.height + 0.5f) ++outOfBox;
+        if (gc->y >= f.y + f.height * 0.5f) ++line2;    // 第二行墨迹存在
+        inkTop = std::min(inkTop, gc->y);
+    }
+    std::println("[inklock] glyphs={} outOfBox={} line2={} inkTop-frameY={:.2f} frame=({:.1f},{:.1f},{:.1f},{:.1f})",
+                 glyphs.size(), outOfBox, line2, inkTop - f.y, f.x, f.y, f.width, f.height);
+    CHECK(outOfBox == 0);    // 修复前：第二行整行墨迹出帧 → 红
+    CHECK(line2 > 0);        // 第二段文字必须真画出
+    // 首行顶部空白不得超过一行行盒（修复前 = 整个 ascender，顶部大缝）
+    CHECK(inkTop - f.y < 23.0f);
+
+    // offsetRect：行盒定位（revealText → ensureVisible 的几何来源）
+    // 内容 = 12 个 CJK（36B）+ '\n'（1B）+ 第二段 → 偏移 37 = 第二行首字节
+    Rect r0 = tvp2->offsetRect(0);
+    Rect r1 = tvp2->offsetRect(37);
+    std::println("[inklock] offsetRect(0)=({:.1f},{:.1f},{:.1f},{:.1f}) offsetRect(37)=({:.1f},{:.1f},{:.1f},{:.1f})",
+                 r0.x, r0.y, r0.width, r0.height, r1.x, r1.y, r1.width, r1.height);
+    CHECK(std::abs(r0.y - f.y) < 0.5f);
+    CHECK(std::abs(r0.height - 23.0f) < 0.5f);
+    CHECK(std::abs(r1.y - (f.y + 23.0f)) < 0.5f);
+    CHECK(std::abs(r1.height - 23.0f) < 0.5f);
+
+    // 当前命中区分色：highlightAll 浅琥珀 + setActiveMatch 深琥珀（第 k/N 处导航视觉）
+    // 锁：第二段命中设置 active 后，绘制出现深琥珀填充且落在第二行行带内
+    tvp2->highlightAll("短行");
+    tvp2->setActiveMatch(37, 15);    // 第二段 "短行也居中"（15B）
+    CHECK(tvp2->hasActiveMatch());
+    DisplayList dl2;
+    Graphics g2;
+    g2.beginFrame();
+    g2.pushSink(&dl2);
+    tvp2->draw(g2);
+    g2.popSink();
+    g2.endFrame();
+    std::vector<const FillRectCmd *> active;
+    std::function<void(const DisplayList &)> walk2 = [&](const DisplayList &l) {
+        for (auto &cmd : l.commands()) {
+            if (auto *fr = std::get_if<FillRectCmd>(&cmd)) {
+                if (fr->color.r == 255 && fr->color.g == 152 && fr->color.b == 0) active.push_back(fr);
+            }
+        }
+        for (auto &[pos, child] : l.subtrees()) {
+            if (child) walk2(*child);
+        }
+    };
+    walk2(dl2);
+    CHECK(!active.empty());
+    bool inLine2 = false;
+    for (auto *fr : active) {
+        if (fr->rect.y >= f.y + 22.5f && fr->rect.y + fr->rect.height <= f.y + 46.5f) inLine2 = true;
+    }
+    std::println("[inklock] activeMatRects={} inLine2={}", active.size(), inLine2);
+    CHECK(inLine2);
+    // 清除 active → 深琥珀矩形消失（避免"清除搜索后残留高亮"）
+    tvp2->setActiveMatch(0, 0);
+    CHECK(!tvp2->hasActiveMatch());
+    DisplayList dl3;
+    Graphics g3;
+    g3.beginFrame();
+    g3.pushSink(&dl3);
+    tvp2->draw(g3);
+    g3.popSink();
+    g3.endFrame();
+    active.clear();
+    walk2(dl3);
+    CHECK(active.empty());
 }
 
 // ── 行为锁: Expansion 可展开容器原子（头行显式化：children[0] 即头行）──
@@ -1659,6 +2091,7 @@ int main() {
     test_prop_bus_typed_return();        // 同上
     test_reconcile_token_resolve();      // 同上（reconcile 新建 @token 解析；纯解析无 storm 面）
     test_reconcile_text_flush();         // 同上（reconcile 原地换文排版缓存作废；纯解析无 storm 面）
+    test_textview_state_update_reconcile();    // 复现探针：textview demo 点击按钮后按钮消失
     test_expansion_uncontrolled_state();    // 同上（Expansion ①：defaultOpen 不回灌 + 保活隐藏；纯解析无 storm 面）
     test_expansion_controlled_and_mutex();  // 同上（Expansion ②③：受控 onToggle 通报专用无固写 + 互斥规约）
     test_image_fit_parse();              // 同上（ImageFit "cover" 解析映射；纯解析无 storm 面）
@@ -1679,8 +2112,10 @@ int main() {
     test_layer_view_dtor_unregisters();
     test_view_dtor_stops_animations();
     test_component_state_machine_guards();
+    test_scrollview_ensure_visible();     // ScrollView ensureVisible 最小位移/边界收口（纯几何，无 VM）
     test_incremental_ref_raw_wire();
     test_window_viewport_surface();
+    test_textview_draw_ink_in_box();       // 置末段：真字体（加载后不再有文本度量类测试）
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

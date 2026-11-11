@@ -82,6 +82,7 @@ target_sources(kwik_element
         src/element/spinner.cpp
         src/element/table.cpp
         src/element/textview.cpp
+        src/element/clipboard_service.cpp
         src/element/tabs.cpp
         src/element/g2d.cpp
         src/element/expansion.cpp

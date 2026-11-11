@@ -64,37 +64,12 @@ extern "C" void kwik_register_app_js(const BytecodeModule *modules, int count) {
 // 每树一份（构造时以本窗初始化）；窗口侧未提供剪贴板能力（接口默认
 // 实现）时安全失败返回 false，组件层跳过
 //
-// 富文本 runs 走自定义注册格式（"kwik/text-runs-v1"），序列化布局：
-//   magic "KWTVR1"(6B) + u32 runCount + 每 run{ u32 textLen + text +
-//   f32 fontSize + u8 weight + u8 italic + 4B color + u8 underline +
-//   u8 strikethrough }（均为小端原生布局，读端逐字段边界校验）
+// 富文本 runs 走自定义注册格式（kwik/text-runs-v2，见 clipboard_service
+// 模块接口的布局注释：magic + runCount + 每 run recordLen 定界记录），
+// 字节编解码在 serializeTextRuns/deserializeTextRuns（纯逻辑，core_tests
+// 直测读写一致性）；本类只负责纯文本先行 + 自定义格式追加的写入顺序
 // ============================================================================
 namespace {
-constexpr const char *kRichRunsFmt = "kwik/text-runs-v1";
-
-void appendU32(std::string &b, uint32_t v) {
-    char tmp[4];
-    std::memcpy(tmp, &v, 4);
-    b.append(tmp, 4);
-}
-void appendF32(std::string &b, float v) {
-    char tmp[4];
-    std::memcpy(tmp, &v, 4);
-    b.append(tmp, 4);
-}
-bool readU32(const std::string &b, size_t &off, uint32_t &v) {
-    if (off + 4 > b.size()) return false;
-    std::memcpy(&v, b.data() + off, 4);
-    off += 4;
-    return true;
-}
-bool readF32(const std::string &b, size_t &off, float &v) {
-    if (off + 4 > b.size()) return false;
-    std::memcpy(&v, b.data() + off, 4);
-    off += 4;
-    return true;
-}
-
 class RuntimeClipboardService : public ClipboardService {
 public:
     explicit RuntimeClipboardService(PlatformWindow &w) : window_(&w) {}
@@ -112,58 +87,13 @@ public:
         // 顺序约定：先纯文本（内部 EmptyClipboard），再追加自定义格式——
         // 两次写入共存，外部应用读到纯文本，本框架读到完整样式
         if (!setText(plainFallback)) return false;
-        std::string b = "KWTVR1";
-        appendU32(b, static_cast<uint32_t>(runs.size()));
-        for (auto &r : runs) {
-            appendU32(b, static_cast<uint32_t>(r.text.size()));
-            b.append(r.text);
-            appendF32(b, r.style.fontSize);
-            b.push_back(static_cast<char>(static_cast<uint8_t>(r.style.fontWeight)));
-            b.push_back(static_cast<char>(static_cast<uint8_t>(r.style.fontStyle)));
-            b.push_back(static_cast<char>(r.style.textColor.r));
-            b.push_back(static_cast<char>(r.style.textColor.g));
-            b.push_back(static_cast<char>(r.style.textColor.b));
-            b.push_back(static_cast<char>(r.style.textColor.a));
-            b.push_back(r.style.underline ? '\1' : '\0');
-            b.push_back(r.style.strikethrough ? '\1' : '\0');
-        }
-        return window_->SetClipboardCustom(kRichRunsFmt, b);
+        return window_->SetClipboardCustom(kTextRunsClipboardFormat, serializeTextRuns(runs));
     }
     bool getRuns(std::vector<TextRun> &out) override {
         std::string b;
-        if (!window_->GetClipboardCustom(kRichRunsFmt, b)) return false;
-        if (b.size() < 10 || b.compare(0, 6, "KWTVR1") != 0) return false;
-        size_t off = 6;
-        uint32_t count = 0;
-        if (!readU32(b, off, count) || count > 100000) return false;
-        out.clear();
-        for (uint32_t i = 0; i < count; ++i) {
-            uint32_t n = 0;
-            if (!readU32(b, off, n) || off + n > b.size()) return false;
-            TextRun r;
-            r.text = b.substr(off, n);
-            off += n;
-            if (!readF32(b, off, r.style.fontSize)) return false;
-            uint8_t weight = 0, italic = 0, cr = 0, cg = 0, cb = 0, ca = 255, ul = 0, st = 0;
-            if (off + 10 > b.size()) return false;
-            std::memcpy(&weight, b.data() + off, 1);
-            std::memcpy(&italic, b.data() + off + 1, 1);
-            std::memcpy(&cr, b.data() + off + 2, 1);
-            std::memcpy(&cg, b.data() + off + 3, 1);
-            std::memcpy(&cb, b.data() + off + 4, 1);
-            std::memcpy(&ca, b.data() + off + 5, 1);
-            std::memcpy(&ul, b.data() + off + 6, 1);
-            std::memcpy(&st, b.data() + off + 7, 1);
-            // 预留：若后续格式加字段，在末尾追加（读端按已知长度校验后忽略）
-            off += 8;
-            r.style.fontWeight = static_cast<FontWeight>(weight);
-            r.style.fontStyle = static_cast<FontStyle>(italic);
-            r.style.textColor = Color{cr, cg, cb, ca};
-            r.style.underline = ul != 0;
-            r.style.strikethrough = st != 0;
-            out.push_back(std::move(r));
-        }
-        return !out.empty();
+        if (!window_->GetClipboardCustom(kTextRunsClipboardFormat, b)) return false;
+        // 畸形数据（magic 不符/截断/字段越界）返回 false → 组件层回落纯文本粘贴
+        return deserializeTextRuns(b, out);
     }
 
 private:

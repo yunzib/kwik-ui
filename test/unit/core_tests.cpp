@@ -1765,6 +1765,208 @@ static void test_textview_find_highlight() {
     CHECK(tv.highlights().empty());
 }
 
+// ── 行为锁: TextView 富文本剪贴板 wire 往返 ──
+// serializeTextRuns/deserializeTextRuns 读写端布局一致（回归防线：此前读端
+// 按 10B 校验 8B 记录，自写载荷末 run 校验恒败，样式保留粘贴回落纯文本）；
+// link 全程保留；畸形输入（坏 magic/头部截断/record 截断）恒 false；
+// recordLen 定界——record 内未知尾部字段安全跳过（版本演进预留）。
+// ── 行为锁: TextView 查找导航原语（find 正向 / findPrev 反向）──
+// 上一个/下一个 = find(from) + findPrev(before) 对称原语：findPrev 命中起点
+// 严格左于 before；缺省 before = 文本尾（回绕取最后一个）。demo 用两者 +
+// revealText 组合出 上一处/下一处 导航（第 k/N 处）。
+static void test_textview_find_prev() {
+    TextViewProps tvp;
+    tvp.value = "aXaXa";    // "aX" 命中起点 = 0、2
+    TextView tv(ViewProps{}, tvp);
+    CHECK(tv.find("aX", 0) == 0);
+    CHECK(tv.find("aX", 1) == 2);
+    CHECK(tv.find("aX", 3) == std::string::npos);
+    CHECK(tv.findPrev("aX") == 2);                          // 缺省 = 最后一个
+    CHECK(tv.findPrev("aX", 2) == 0);                       // 严格左于 2
+    CHECK(tv.findPrev("aX", 1) == 0);                       // 起点 0 < 1 合法
+    CHECK(tv.findPrev("aX", 0) == std::string::npos);
+    CHECK(tv.findPrev("", 2) == std::string::npos);         // 空关键词
+    CHECK(tv.findPrev("zz", 2) == std::string::npos);       // 无匹配
+    // 导航回绕闭环（demo 同款推进）：0 →next→ 2 →next→ 空 →回绕 0
+    size_t cur = tv.find("aX", 0);
+    CHECK(cur == 0);
+    size_t nxt = tv.find("aX", cur + 1);
+    CHECK(nxt == 2);
+    CHECK(tv.find("aX", nxt + 1) == std::string::npos);
+    // 2 →prev→ 0 →prev→ 空 →回绕 2
+    CHECK(tv.findPrev("aX", nxt) == cur);
+    CHECK(tv.findPrev("aX", cur) == std::string::npos);
+}
+
+// ── 行为锁: 整篇查找枚举（collectTextViewIds 先序 + 仅带 id + 隐藏跳过）──
+// textViewIds 是"整篇可查"的前提：枚举顺序 = 文档序（先序），只收入带 id 的
+// TextView（查找命令以 id 定位），隐藏子树不得被查找命中。
+// ── 行为锁: reconcile 重置后构造期非 token 默认回填 ──
+// reconcile 复用节点会清零 ViewProps（背景/边框/圆角），resolveThemeDefaults
+// 必须与构造函数同语义回填非 token 默认——否则任意一次 State 重建后边框/
+// 圆角消失（textview_scroll 查找重建实测：TextView bw 1→0、radius 4→0）。
+static void test_component_reconcile_ctor_defaults() {
+    // TextView：1px 边框 + 4px 圆角（构造期契约）
+    TextView tv;
+    tv.props.borderWidth = 0;
+    tv.props.borderRadius = 0;
+    tv.props.background = Color::transparent();
+    tv.props.borderColor = Color::transparent();
+    tv.resolveThemeDefaults();
+    CHECK(tv.props.borderWidth == 1.0f);
+    CHECK(tv.props.borderRadius == 4.0f);
+    CHECK(!tv.props.borderColor.isTransparent());    // 主题 outline 回填
+
+    // Input：1px + 4px（非聚焦态边框不消失）
+    Input in;
+    in.props.borderWidth = 0;
+    in.props.borderRadius = 0;
+    in.resolveThemeDefaults();
+    CHECK(in.props.borderWidth == 1.0f);
+    CHECK(in.props.borderRadius == 4.0f);
+
+    // SpinBox：白底 + 灰边 + 1px + 4px + 内边距
+    SpinBox sb;
+    sb.props.background = Color::transparent();
+    sb.props.borderColor = Color::transparent();
+    sb.props.borderWidth = 0;
+    sb.props.borderRadius = 0;
+    sb.props.padding = EdgeInsets{};
+    sb.resolveThemeDefaults();
+    CHECK(sb.props.background.a == 255);
+    CHECK(!sb.props.borderColor.isTransparent());
+    CHECK(sb.props.borderWidth == 1.0f);
+    CHECK(sb.props.borderRadius == 4.0f);
+    CHECK(sb.props.padding.left == 8.0f && sb.props.padding.top == 12.0f);
+}
+
+// ── 行为锁: 当前命中区间（setActiveMatch 夹取 / 清除 / 内容变更自清）──
+static void test_textview_active_match() {
+    TextViewProps tvp;
+    tvp.value = "aXaXa";
+    TextView tv(ViewProps{}, tvp);
+    CHECK(!tv.hasActiveMatch());
+    tv.setActiveMatch(0, 2);
+    CHECK(tv.hasActiveMatch());
+    tv.setActiveMatch(0, 0);        // len=0 清除
+    CHECK(!tv.hasActiveMatch());
+    tv.setActiveMatch(4, 999);      // 终点夹到文档尾
+    CHECK(tv.hasActiveMatch());
+    tv.setActiveMatch(99, 2);       // 起点越界 → 清除
+    CHECK(!tv.hasActiveMatch());
+    tv.setActiveMatch(0, 2);
+    CHECK(tv.hasActiveMatch());
+    // 内容变更（rebuild_）→ 旧偏移失效，active 自动清除
+    TextViewProps tvp2;
+    tvp2.value = "zz";
+    tv.applyTextViewProps(tvp2);
+    CHECK(!tv.hasActiveMatch());
+}
+
+static void test_collect_textview_ids() {
+    View root;
+    auto a = std::make_unique<TextView>();
+    a->props.id = "a";
+    auto hidden = std::make_unique<TextView>();
+    hidden->props.id = "hid";
+    hidden->props.visible = false;
+    auto noId = std::make_unique<TextView>();
+    auto group = std::make_unique<View>();
+    auto b = std::make_unique<TextView>();
+    b->props.id = "b";
+    group->addChild(std::move(b));
+    group->addChild(std::move(noId));
+    root.addChild(std::move(a));
+    root.addChild(std::move(hidden));
+    root.addChild(std::move(group));
+
+    std::vector<std::string> ids;
+    collectTextViewIds(root, ids);
+    CHECK(ids.size() == 2);
+    CHECK(ids[0] == "a" && ids[1] == "b");    // 先序（文档序）；隐藏/no-id 不入列
+}
+
+static void test_textview_runs_wire() {
+    std::vector<TextRun> runs = {
+        {"plain", {}},
+        {"bi", TextStyle{18.0f, FontWeight::Bold, FontStyle::Italic, {255, 64, 129, 255}, true, true},
+         "https://kwik.example"},
+        {"", {30.0f, FontWeight::Normal, FontStyle::Normal, {0, 0, 0, 255}, false, false}},    // 空 run 原样保序
+        {"linked", {}, "https://k2"},
+    };
+    auto bytes = serializeTextRuns(runs);
+    std::vector<TextRun> back;
+    CHECK((deserializeTextRuns(bytes, back)));
+    CHECK(back.size() == runs.size());
+    CHECK(back[0].text == "plain" && back[0].link.empty() && back[0].style.fontSize == 16.0f);
+    CHECK((back[1].style.fontSize == 18.0f && back[1].style.fontWeight == FontWeight::Bold
+           && back[1].style.fontStyle == FontStyle::Italic && back[1].style.textColor == Color{255, 64, 129, 255}
+           && back[1].style.underline && back[1].style.strikethrough && back[1].link == "https://kwik.example"));
+    CHECK(back[2].text.empty() && back[2].style.fontSize == 30.0f);
+    CHECK(back[3].text == "linked" && back[3].link == "https://k2");
+
+    // 畸形防线：坏 magic / 头部截断 / 尾部 record 截断 → false（调用方回落纯文本）
+    std::vector<TextRun> sink;
+    std::string bad = bytes;
+    bad[0] = 'X';
+    CHECK((!deserializeTextRuns(bad, sink)));
+    CHECK((!deserializeTextRuns(bytes.substr(0, 8), sink)));    // < header 10B
+    std::string trunc = bytes;
+    trunc.resize(trunc.size() - 3);                             // 末 run 尾部被剪
+    CHECK((!deserializeTextRuns(trunc, sink)));
+
+    // recordLen 定界：末 run record 尾部追加 2B 未知字段（同步 recordLen）→
+    // 解析不受影响——后续版本在 record 末尾加字段无需改本版读端
+    std::vector<TextRun> one = {{"ab", {}, "u"}};
+    std::string b1 = serializeTextRuns(one);
+    uint32_t rl = 0;
+    std::memcpy(&rl, b1.data() + 10, 4);    // 唯一 run 的 recordLen（header 6+4 之后首 4B）
+    rl += 2;
+    std::memcpy(b1.data() + 10, &rl, 4);
+    b1.append("\xCD\xAB");
+    std::vector<TextRun> back2;
+    CHECK((deserializeTextRuns(b1, back2)));
+    CHECK(back2.size() == 1 && back2[0].text == "ab" && back2[0].link == "u");
+}
+
+// ── 行为锁: TextView applyTextViewProps 段落/样式/link 变更生效 ──
+// 此前 apply 只换 tvp_：运行时改 lineHeight/textAlign 不重排不重绘；content
+// 纯样式/link 变更（text 不变）被静默忽略。观测面：onMeasure 高度（TVProbe
+// 暴露 protected onMeasure）+ readOnly Tap 链接命中（无字体环境 lines_ 恒空
+// → hitByteForPoint_ 恒 0，链接判定走 locateByte_ 直查 content_——恰好可测）。
+static void test_textview_apply_props_relayout() {
+    struct TVProbe : TextView {
+        using TextView::TextView;
+        using TextView::onMeasure;
+    };
+    TextViewProps p0;
+    p0.content.push_back({"A", {}});
+    TVProbe tv(ViewProps{}, p0);
+    auto h1 = tv.onMeasure(Constraints{0, 1000, 0, 1000}).height;    // 顺带建立 lastAvailWidth_
+
+    // ① 段落属性-only（lineHeight 1.0 → 2.0）：必须反映到重测量
+    TextViewProps p1;
+    p1.content.push_back({"A", {}});
+    p1.lineHeight = 2.0f;
+    tv.applyTextViewProps(p1);
+    auto h2 = tv.onMeasure(Constraints{0, 1000, 0, 1000}).height;
+    CHECK(h2 - h1 == 22.0f);    // ceil(16×1.4×2)−ceil(16×1.4×1) = 45−23
+
+    // ② content link-only 变更（text/样式不变）：readOnly Tap 命中即触发
+    TextViewProps p2;
+    p2.readOnly = true;
+    p2.content.push_back({"A", {}});
+    p2.content[0].link = "https://after";
+    tv.applyTextViewProps(p2);
+    std::string clicked;
+    tv.handlers.onLinkClick = [&](LinkArgs a) { clicked = a.url; };
+    DispatchEvent tap;
+    tap.type = DispatchEvent::Type::Tap;
+    View &vt = tv;
+    vt.onEvent(tap);
+    CHECK(clicked == "https://after");
+}
+
 // ── 行为锁: 右键分发 + button 透传 ──
 // RawEvent.button 直通 DispatchEvent；右/中键不产点击类手势（Tap/LongPress），
 // WM_CONTEXTMENU 语义合成为 ContextMenu 事件可达元素；左键路径维持原行为。
@@ -4024,8 +4226,14 @@ int main() {
     test_tap_consume_and_group_sync();
     test_clipboard_wire();
     test_textview_undo_redo();
+    test_textview_find_prev();
+    test_component_reconcile_ctor_defaults();
+    test_textview_active_match();
+    test_collect_textview_ids();
     test_textview_find_highlight();
     test_textview_lineheight_measure();
+    test_textview_runs_wire();
+    test_textview_apply_props_relayout();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();
     test_l1_isfinite_rejection();

@@ -2,6 +2,24 @@
 
 # 0.0.0 — 2026-11-10
 ### 新增
+- **滚动定位能力**（对齐浏览器 Ctrl+F / Flutter ensureVisible 的"两层"语义：
+  高亮在文本层、滚动在容器层）：`TextView::offsetRect(offset)` 返回字节偏移
+  所在行盒（行高推进与 onDraw 同式，几何共源）；`ScrollView::ensureVisible(rect)`
+  按最小位移把矩形滚进视口（带内幂等、越界 clamp 收口、打断 fling/回弹物理）；
+  JS 命令面新增 `revealText(id, offset)`（`findText` 返回值直接可用，沿父链
+  找最近 ScrollView，无滚动祖先安全 no-op）；查找导航补齐 上一个：
+  `TextView::findPrev(needle, before)`（rfind 反向，命中起点严格左于 before，
+  缺省=文本尾）与 `findText` 正向对称，JS `findPrev(id, needle[, before])`
+  可达——上一处/下一处/回绕闭环齐全。新验证页 `example.exe
+  textview_scroll`：固定查找栏 + 可滚文档区，输入关键词 → 高亮命中 + 自动
+  滚到首个命中，上一处/下一处逐条跳转并显示 第 k/N 处（原 `textview_m0`
+  保持不变）。整篇查找：`textViewIds(rootId?)` 先序枚举子树内带 id 的
+  TextView（隐藏子树跳过），demo 跨 10 段聚合匹配列表 → 第 k/N 处跨组件
+  计数 + 逐条翻滚（此前查找按单组件 id 作用域、只有末段可查）。行为锁
+  test_scrollview_ensure_visible（最小位移/幂等/clamp——
+  去掉向下分支双红）+ offsetRect 两行行盒断言并入字形墨迹锁 +
+  test_textview_find_prev（双向/边界/回绕闭环，rfind 改正向即红）+
+  test_collect_textview_ids（先序/仅带 id/隐藏跳过，去可见过滤即红）
 - 图表交互：全类型 hitTest 命中（pie 扇区 / bar 柱矩形 / line 数据点 / gauge
   圆域→当前值）；悬停 tooltip 浮层（`showTooltip`，锚定命中元素）；悬停高亮
   （扇区外移 / 柱面提亮 / 数据点放大+十字线）；图例点击开关系列（隐藏系列
@@ -46,6 +64,58 @@
   行为锁 test_textview_find_highlight / test_textview_lineheight_measure 入
   core_tests；验证页 textview_m0 扩为 M0/M1 综合页
 ### 修复
+- **任意一次 State 重建后 TextView 边框/圆角消失**（textview_scroll 查找重建
+  复现；Input/SpinBox 同族）：reconcile 复用节点重置 ViewProps，把构造期
+  非 token 默认（TextView/Input 的 1px 边框 + 4px 圆角、SpinBox 白底灰边 +
+  圆角 + 内边距）冲成 0，而 resolveThemeDefaults 只回填主题色不补这些槽位
+  ——真页探针实测重建后 bw 1→0、radius 4→0（初始路径因构造函数赋值正常、
+  重建即丢）。修法：三个组件 resolveThemeDefaults 按构造函数同语义回填
+  （仅槽位仍为原始默认时生效，与 Button radius 6 同一纪律）。行为锁
+  test_component_reconcile_ctor_defaults（去回填即红）
+- **查找导航当前命中无视觉区分**：highlightAll 全体命中同色浅琥珀，上一处/
+  下一处看不出当前项——TextView 增 `setActiveMatch(start, len)`（当前命中
+  区间：绘制在浅琥珀之上、文字之下的深琥珀 255,152,0,140；内容编辑
+  rebuild_ 自动清除），JS 命令面 `setActiveMatch(id, offset, len)`；
+  textview_scroll 导航逐条设置当前项（跨组件先清前一项）。行为锁
+  test_textview_active_match（夹取/清除/内容变更自清）+ 绘制断言（深琥珀
+  矩形落当前行带、清除后消失；去绘制块即红）
+- **TextView 全篇文字竖直下坠 ascender 高度**（textview_m0 复现：居中示例
+  第二行只剩顶部一条被裁、首行顶部 18px 大空白，页面底部看起来像被遮挡）：
+  TextLayout 已把基线预烘焙进 `glyph.y`（语义 = 相对行顶），onDraw 仍按烘焙前
+  语义再叠一次行内基线（`copy.y = baseY + sg.y`）——两次基线叠加，真机
+  dpi1.5/NotoSansSC 实测 `baseY − drawY = ascender@15 = 18px`。修复 =
+  ShapedGlyph 增 `bearingY`（墨迹顶到基线的逻辑距离，shaper 保存原值），
+  TextView 逐行按"行内最大字号"带状居中定共享基线 B，字形按
+  `copy.y = B − bearingY` 重锚（混合字号行 CSS 共基线，此前各组各算基线
+  大小字错位）。行为锁 test_textview_draw_ink_in_box（真字体两段 `\n` 文本
+  → 逐字形墨迹全在帧内 + 第二段真有字形绘制；回退旧写法 outOfBox=5 /
+  inkTop−frameY=18 双红）
+- **任何一次 State 重建后页面按钮全部消失**（textview demo 复现）：reconcile
+  复用节点仅在带 themeTokens 时补调 resolveThemeDefaults——props 重置把
+  组件主题兜底（Button primary 背景、Input surface 底等 12 组件同款纪律）
+  打回透明后无人回填，无 token 组件首帧有色、重建后底色消失（白字按钮
+  连字一起隐形，其余内容正常）。改为复用节点无条件补调（各实现只填仍处
+  原始默认的槽位 + hasBackground 让位，显式值/运行期 setProp 值不被踩），
+  与构造路径同语义；运行期写 background 经 Button::setPropertyTyped 置
+  hasBackground 与 parse 路径一致。同族暴露的第二处：构造函数的
+  borderRadius 6 默认同样被 reconcile 重置冲成 0（直角）——
+  resolveThemeDefaults 补非 token 兜底（与构造函数同语义，显式 0 同被
+  抬到 6 的既有 float 口径）。行为锁：js_tests 复现探针四相推进
+  （全结构复刻 + 真实 Tap + relayoutTree 镜像 + 复合清单逐按钮同形填充
+  断言，radius>0.5 同锁），无修复时 phaseD/E 双红
+- Button onMeasure 字形缺席（无字体/塑形失败）时 constrain({0,0}) 把显式
+  width/height 一并吞掉——按钮量成零尺寸即从页面消失；改显式尺寸兑现 +
+  文本估算回退
+- TextView 富文本剪贴板 wire 读端校验错位：写端每 run 记 8B 样式、读端按
+  10B 校验——自写载荷末 run 校验恒败，样式保留粘贴全靠堆取整 padding 侥幸
+  工作——序列化收编 clipboard_service 自由函数（serializeTextRuns/
+  deserializeTextRuns）读写端同源，runs 往返行为锁入 core_tests
+- 剪贴板 run 序列格式未含 link 字段：粘贴丢链接身份（与文档承诺不符）——
+  格式升 kwik/text-runs-v2，每 run recordLen 定界，未知尾部字段安全跳过
+- TextView reconcile 段落属性（lineHeight/textAlign/linkColor/highlightColor）
+  变更只换属性不重排、content 纯样式/link 变更（text 不变）被静默忽略——
+  applyTextViewProps 三路 diff：段落属性重建行 + requestLayout，content
+  逐 run diff 扩至样式与 link
 - TextView 富文本 M0 三项：**CJK 逐字断行 + 禁则**（纯中文段此前只在空格处
   折行、无空格溢出——现按字符断行，行首，。、！？等与行尾（「『等自动回退）；
   **样式保留剪贴板**（复制/剪切/粘贴带 run 序列自定义格式，框架内样式保留、

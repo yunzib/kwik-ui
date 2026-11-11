@@ -312,6 +312,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "datepicker") return "../../test/ui/datepicker.js";
         if (arg == "chart") return "../../test/ui/chart.js";
         if (arg == "textview_m0") return "../../test/ui/textview_m0.js";
+        if (arg == "textview_scroll") return "../../test/ui/textview_scroll.js";    // M2 预览：页面滚动 + revealText 查找翻滚
         if (arg == "scope_bench") return "../../test/ui/scope_bench.js";    // 示波器/频谱仪 60Hz 基准
         if (arg == "rotate") return "../../test/ui/rotate.js";
         if (arg == "gradient") return "../../test/ui/gradient.js";
