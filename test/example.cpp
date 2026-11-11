@@ -311,6 +311,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "keyboard") return "../../test/ui/keyboard.js";
         if (arg == "datepicker") return "../../test/ui/datepicker.js";
         if (arg == "chart") return "../../test/ui/chart.js";
+        if (arg == "textview_m0") return "../../test/ui/textview_m0.js";
         if (arg == "scope_bench") return "../../test/ui/scope_bench.js";    // 示波器/频谱仪 60Hz 基准
         if (arg == "rotate") return "../../test/ui/rotate.js";
         if (arg == "gradient") return "../../test/ui/gradient.js";

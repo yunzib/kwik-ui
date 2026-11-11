@@ -166,6 +166,16 @@ public:
         rebuild_();
     }
 
+    // ── 查找高亮（M1-⑦）──
+    /** @brief 从 from 起查找 needle 首个匹配的 UTF-8 字节偏移（无匹配返回 npos） */
+    size_t find(const std::string &needle, size_t from = 0) const;
+    /** @brief 高亮 needle 全部出现（返回命中数；编辑后随 rebuild_ 自动重算偏移） */
+    size_t highlightAll(const std::string &needle);
+    /** @brief 清除全部查找高亮 */
+    void clearHighlight();
+    /** @brief 当前高亮区间列表（plainText_ 字节偏移对 [s, e)） */
+    const std::vector<std::pair<size_t, size_t>> &highlights() const { return highlights_; }
+
     void resolveThemeDefaults() override;
 
 protected:
@@ -197,22 +207,50 @@ private:
     float lastTapX_ = 0;
     float lastTapY_ = 0;
 
+    // ── 查找高亮（M1-⑦）：字节区间 + 关键词缓存（编辑后 rebuild_ 重算）──
+    std::string highlightNeedle_;                          ///< 当前高亮关键词（空 = 无高亮）
+    std::vector<std::pair<size_t, size_t>> highlights_;    ///< 命中区间 [s, e)（plainText_ 字节偏移）
+
+    // ── 撤销/重做（快照栈：TextRun[] 拷贝 + 光标恢复）──
+    static constexpr size_t kMaxUndoSteps_ = 100;
+    std::vector<std::vector<TextRun>> undoStack_;
+    std::vector<std::vector<TextRun>> redoStack_;
+    std::vector<size_t> undoCursor_;     ///< 与 undoStack_ 一一对应的恢复光标
+    std::vector<size_t> redoCursor_;     ///< 与 redoStack_ 一一对应的恢复光标
+    uint64_t lastTypeMs_ = 0;            ///< 连续输入合并窗口锚点（0=上一操作非输入）
+
     // ── 内部方法 ──
-    static float lh_(float fs) { return std::ceil(fs * 1.4f); }    ///< 计算行高
+    static float lh_(float fs) { return std::ceil(fs * 1.4f); }    ///< 计算行高（默认 1.4 倍）
+    /** @brief 行高（含 tvp_.lineHeight 倍率；1.0 = 默认 1.4 倍自动行高） */
+    float lhMul_(float fs) const {
+        float m = tvp_.lineHeight > 0 ? tvp_.lineHeight : 1.0f;
+        return std::ceil(fs * 1.4f * m);
+    }
 
     void locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const;
 
     void rebuild_();                         ///< content_ → plainText_ → runShapes_
     void rebuildLines_(float availWidth);    ///< runShapes_ → lines_
+    void refreshHighlights_();               ///< highlightNeedle_ 在 plainText_ 上重扫 highlights_（编辑后偏移自愈）
 
     // 编辑操作（直接修改 content_）
     void insertAtCursor_(const std::string &utf8);
+    void insertRunsAtCursor_(const std::vector<TextRun> &runs);    ///< 富文本粘贴：带各自样式插入
     void deleteBeforeCursor_();
     void deleteAfterCursor_();
     void deleteSelection_();
 
     /** @brief 选区平文本（s..e 字节区间 substr；无选区返回全文 plainText_） */
     std::string selectionString_() const;
+
+    /** @brief 选区 run 序列（样式保留复制；无选区返回空） */
+    std::vector<TextRun> selectionRuns_() const;
+
+    // 撤销/重做
+    /** @brief 编辑前压入快照。coalesceTyping=true 时 500ms 内连续输入合并为一个 undo 单元 */
+    void pushUndo_(bool coalesceTyping = false);
+    void undo_();
+    void redo_();
 
     void moveCursorLeft_();
     void moveCursorRight_();

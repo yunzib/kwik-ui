@@ -35,7 +35,24 @@
   （60Hz 预算仅用 ~15%）；对照 Chart series 桥接链路同负载帧均 6.19ms 同样
   达标——示波器/频谱仪级仪器刷新性能验证通过。要点：G2D 高频重绘须模块级
   实例 + 定时器内 reset() 重录（reconcile 复用实例时渲染函数内重录不上屏）
+- TextView 富文本 M1 四项（对齐主流框架富文本能力）：**斜体渲染**（FreeType
+  12° 剪切矩阵，塑形/栅格化双侧同变换，GlyphKey 加 italic 位独立缓存）；
+  **段落属性** `lineHeight` 倍率 × `textAlign`（left/center/right，对齐偏移
+  烘进行内坐标，绘制/命中/选区/光标全链路一致）；**行内链接**（TextRun `link`
+  字段，readOnly 单击 / 编辑态 Ctrl+单击触发 `onLinkClick({url})`，链接色
+  强制下划线，复制粘贴保留链接身份，`linkColor` 可配）；**查找高亮**
+  （`findText` / `highlightAll` / `clearHighlight` 全局命令函数按 id 定位，
+  第三态琥珀高亮垫底于选区，编辑后偏移自动重扫自愈，`highlightColor` 可配）。
+  行为锁 test_textview_find_highlight / test_textview_lineheight_measure 入
+  core_tests；验证页 textview_m0 扩为 M0/M1 综合页
 ### 修复
+- TextView 富文本 M0 三项：**CJK 逐字断行 + 禁则**（纯中文段此前只在空格处
+  折行、无空格溢出——现按字符断行，行首，。、！？等与行尾（「『等自动回退）；
+  **样式保留剪贴板**（复制/剪切/粘贴带 run 序列自定义格式，框架内样式保留、
+  外部应用回落纯文本）；**撤销/重做**（Ctrl+Z/Y 快照栈，连续输入 500ms 合并、
+  100 步上限、光标随快照恢复）。顺带修复折行路径上一行残留 tail 字形的双绘
+  隐患；行为锁 test_textview_undo_redo 入 core_tests；验证页 example.exe
+  textview_m0
 - `axis:{yMin,yMax}` 文档承诺但从未接线（死导出）——补齐全链路
 - Chart::hitTestAt 坐标系错位：命中点按图表局部坐标换算，而渲染几何按 frame
   布局域计算，导致悬停命中失效/误命中——改 frame 域直用

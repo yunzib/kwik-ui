@@ -127,6 +127,7 @@ void TextView::rebuild_() {
         rs.style = run.style;
         float fs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
         if (fontId_ != kInvalidFontId && !run.text.empty()) {
+            cfg.fontStyle = (rs.style.fontStyle == FontStyle::Normal) ? 0 : 1;    // 伪斜体进塑形+栅格化
             rs.layoutResult = pipe.layoutText(run.text, fontId_, fs, cfg);
             if (rs.layoutResult) {
                 for (auto &g : rs.layoutResult->glyphs) rs.advance += g.advanceX;
@@ -139,10 +140,41 @@ void TextView::rebuild_() {
     cursorPos_ = std::min(cursorPos_, plainText_.size());
     selectionStart_ = std::min(selectionStart_, plainText_.size());
 
-    // 4. 若已有布局宽度则重建行
+    // 4. 查找高亮偏移自愈：文本变更后按关键词重扫（无关键词 no-op）
+    refreshHighlights_();
+
+    // 5. 若已有布局宽度则重建行
     if (lastAvailWidth_ > 0) rebuildLines_(lastAvailWidth_);
 
     markDirty();
+}
+
+// ============================================================================
+// CJK 禁则（kinsoku shori）
+// ============================================================================
+/// 行首禁则：这些字符不应出现在行首（断点前移使之前置到上一行行尾）
+static constexpr const char *kKinsokuLead_ = "、。，．！？；：）〕〗】〉》」』”’…～‰％%)],.;:!?";
+/// 行尾禁则：这些字符不应出现在行尾（断点前移使其下移到下一行行首）
+static constexpr const char *kKinsokuTrail_ = "（〔［｛【《〈「『“‘￥＄([{";
+
+/**
+ * @brief 判断 text[byte] 处的 UTF-8 字符是否属于禁则集合
+ *
+ * 直接以字节序列在集合串中查找——UTF-8 自同步特性保证多字节序列不会与
+ * ASCII 或其他多字节序列误匹配（延续字节 ≥0x80 恒非 ASCII）。
+ */
+static bool charInSet_(const std::string &text, size_t byte, const char *set) {
+    if (byte >= text.size()) return false;
+    unsigned char c = static_cast<unsigned char>(text[byte]);
+    size_t len = 1;
+    if ((c & 0xE0) == 0xC0)
+        len = 2;
+    else if ((c & 0xF0) == 0xE0)
+        len = 3;
+    else if ((c & 0xF8) == 0xF0)
+        len = 4;
+    if (byte + len > text.size()) len = 1;
+    return std::strstr(set, text.substr(byte, len).c_str()) != nullptr;
 }
 
 /**
@@ -152,7 +184,9 @@ void TextView::rebuild_() {
  * 换行策略：
  *   - \n 字符 → 强制换行（\n 本身不加入 glyphs）
  *   - 行宽超过 availWidth → 从最近的空格处折行（word-wrap）
- *   - 无空格 → 不折行（允许溢出）
+ *   - 无空格 → 按字符断行（CJK 逐字可断），并做禁则回退：
+ *     行首禁则字符（、。，！？等）与行尾禁则字符（（「『等）不落边界，
+ *     断点回退至合法 glyph（至少保留 1 个字形在行内）
  */
 void TextView::rebuildLines_(float availWidth) {
     lastAvailWidth_ = availWidth;
@@ -161,7 +195,7 @@ void TextView::rebuildLines_(float availWidth) {
 
     LineInfo line;
     float lineX = 0;
-    float lineH = lh_(16.0f);
+    float lineH = lhMul_(16.0f);
     size_t byteAcc = 0;    // 已累计的字节数
 
     for (size_t ri = 0; ri < runShapes_.size(); ++ri) {
@@ -173,7 +207,7 @@ void TextView::rebuildLines_(float availWidth) {
         auto &glyphs = rs.layoutResult->glyphs;
 
         float fs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
-        float lh = lh_(fs);
+        float lh = lhMul_(fs);
         lineH = std::max(lineH, lh);
 
         size_t runByteStart = byteAcc;
@@ -216,7 +250,7 @@ void TextView::rebuildLines_(float availWidth) {
                 }
                 line = LineInfo{};
                 lineX = 0;
-                lineH = lh_(16.0f);
+                lineH = lhMul_(16.0f);
                 line.startByte = gBytePos + 1;
 
                 if (line.startByte >= plainText_.size()) {
@@ -232,12 +266,14 @@ void TextView::rebuildLines_(float availWidth) {
                 for (int j = (int)line.glyphs.size() - 1; j >= 0; --j) {
                     auto &plg = line.glyphs[j];
                     if (plg.byteOffset < plainText_.size() && plainText_[plg.byteOffset] == ' ') {
+                        size_t nextStart = plg.byteOffset + plg.byteLen;
                         line.width = plg.x + plg.advance;
                         line.height = lineH;
-                        line.endByte = plg.byteOffset + plg.byteLen;
-                        lines_.push_back(line);
-
+                        line.endByte = nextStart;
                         std::vector<LineGlyph> tail(line.glyphs.begin() + j + 1, line.glyphs.end());
+                        // 截断随行残留字形（否则上一行仍持有 tail 旧坐标字形，双绘重叠）
+                        line.glyphs.erase(line.glyphs.begin() + j + 1, line.glyphs.end());
+                        lines_.push_back(line);
                         float tailX = 0;
                         for (auto &t : tail) {
                             t.x = tailX;
@@ -246,7 +282,7 @@ void TextView::rebuildLines_(float availWidth) {
                         line = LineInfo{};
                         lineX = tailX;
                         lineH = lh;
-                        line.startByte = plg.byteOffset + plg.byteLen;
+                        line.startByte = nextStart;
                         line.glyphs = std::move(tail);
                         wrapped = true;
                         break;
@@ -266,14 +302,37 @@ void TextView::rebuildLines_(float availWidth) {
                 }
                 // 无空格可回退（纯 CJK 等）→ 按 glyph 断：溢出字形移入新行，
                 // 行宽不再无限溢出 availWidth（中日文此前永不折行）
-                line.width = lineX;
+                // ── 禁则回退：行首/行尾禁则字符不落边界，断点前移 ──
+                size_t brk = line.glyphs.size();
+                auto headForbidden = [&](size_t idx) {
+                    // idx==glyphs.size() 表示即将新开的行首 = 溢出字形
+                    size_t hb = (idx < line.glyphs.size()) ? line.glyphs[idx].byteOffset : gBytePos;
+                    return charInSet_(plainText_, hb, kKinsokuLead_);
+                };
+                auto tailForbidden = [&](size_t idx) {
+                    // 留在本行行尾的 glyph
+                    return charInSet_(plainText_, line.glyphs[idx].byteOffset, kKinsokuTrail_);
+                };
+                while (brk > 1 && (headForbidden(brk) || tailForbidden(brk - 1))) --brk;
+
+                std::vector<LineGlyph> tail(line.glyphs.begin() + brk, line.glyphs.end());
+                size_t nextStart = (brk < line.glyphs.size()) ? line.glyphs[brk].byteOffset : gBytePos;
+                line.endByte = nextStart;
+                line.width = brk > 0 ? line.glyphs[brk - 1].x + line.glyphs[brk - 1].advance : 0.0f;
                 line.height = lineH;
-                line.endByte = gBytePos;    // 新行起点 = 溢出字形字节位（码点安全）
+                // 截断随行残留字形（否则上一行仍持有 tail 旧坐标字形，双绘重叠）
+                line.glyphs.erase(line.glyphs.begin() + brk, line.glyphs.end());
                 lines_.push_back(line);
                 line = LineInfo{};
-                lineX = 0;
+                line.startByte = nextStart;
+                float tailX = 0;
+                for (auto &t : tail) {
+                    t.x = tailX;
+                    tailX += t.advance;
+                }
+                lineX = tailX;
                 lineH = lh;
-                line.startByte = gBytePos;
+                line.glyphs = std::move(tail);
             }
 
             // ── 正常追加 ──
@@ -298,6 +357,18 @@ void TextView::rebuildLines_(float availWidth) {
         lines_.push_back(line);
     } else if (!lines_.empty()) {
         lines_.back().endByte = plainText_.size();
+    }
+
+    // 段落对齐（tvp_.textAlign：0=左 1=居中 2=右）：偏移直接烘焙进 lg.x 与
+    // line.width——draw/hitByteForPoint_/xForByte_/selectionRects 全部消费
+    // 这两个字段，烘焙一处全链路（绘制/命中/选区/光标）几何一致
+    if (tvp_.textAlign != 0) {
+        for (auto &ln : lines_) {
+            if (ln.glyphs.empty() || ln.width <= 0 || ln.width >= availWidth) continue;
+            float off = (tvp_.textAlign == 1) ? (availWidth - ln.width) * 0.5f : (availWidth - ln.width);
+            for (auto &lg : ln.glyphs) lg.x += off;
+            ln.width += off;
+        }
     }
 }
 
@@ -328,10 +399,10 @@ Size TextView::onMeasure(Constraints constraints) {
 
     float totalH = 0, maxW = 0;
     for (auto &ln : lines_) {
-        totalH += ln.height > 0 ? ln.height : lh_(16.0f);
+        totalH += ln.height > 0 ? ln.height : lhMul_(16.0f);
         maxW = std::max(maxW, ln.width);
     }
-    if (lines_.empty()) totalH = lh_(16.0f);
+    if (lines_.empty()) totalH = lhMul_(16.0f);
 
     float w = maxW + props.padding.horizontal();
     float h = totalH + props.padding.vertical();
@@ -378,7 +449,7 @@ void TextView::onDraw(Graphics &graphics) {
     float drawY = inner.y;
 
     for (auto &line : lines_) {
-        float lh = line.height > 0 ? line.height : lh_(16.0f);
+        float lh = line.height > 0 ? line.height : lhMul_(16.0f);
 
         // 跳过可见区外的行
         if (drawY + lh < inner.y) {
@@ -389,6 +460,19 @@ void TextView::onDraw(Graphics &graphics) {
         if (line.glyphs.empty()) {
             drawY += lh;
             continue;
+        }
+
+        // ── 查找高亮（第三态，垫底于选区与文字；跨折行命中按行内字节交集分段）──
+        if (!highlights_.empty()) {
+            for (auto &hl : highlights_) {
+                size_t s = std::max(hl.first, line.startByte);
+                size_t e = std::min(hl.second, line.endByte);
+                if (s < e) {
+                    float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
+                    float xe = (e >= line.endByte) ? line.width : xForByte_(e);
+                    if (xe > xs) graphics.drawRect({inner.x + xs, drawY, xe - xs, lh}, tvp_.highlightColor);
+                }
+            }
         }
 
         // ── 按连续 run 分组绘制 ──
@@ -407,7 +491,10 @@ void TextView::onDraw(Graphics &graphics) {
             auto metrics = pipe.getFontMetrics(fontId_, fs);
             float textH = metrics.ascender - metrics.descender;
             float baseY = drawY + (lh - textH) * 0.5f + metrics.ascender;
-            Color color = style.textColor;
+            // 链接 run：强制链接色 + 下划线（链接身份与用户 underline 设置解耦）
+            bool isLinkRun = lg.runIndex < content_.size() && !content_[lg.runIndex].link.empty();
+            Color color = isLinkRun ? tvp_.linkColor : style.textColor;
+            bool drawUnderline = style.underline || isLinkRun;
 
             // ── 文字：先 ensureGlyphs 确保 UV/尺寸已回填，再拷贝 batch ──
             if (rs.layoutResult) pipe.ensureGlyphs(*rs.layoutResult);
@@ -461,7 +548,7 @@ void TextView::onDraw(Graphics &graphics) {
             graphics.restore();
 
             // ── 下划线 ──
-            if (style.underline) {
+            if (drawUnderline) {
                 float ulY = baseY + metrics.underlinePosition;
                 float ulT = metrics.underlineThickness > 0 ? metrics.underlineThickness : 1.0f;
                 graphics.drawRect({runStartX, ulY, runEndX - runStartX, ulT}, color);
@@ -483,7 +570,7 @@ void TextView::onDraw(Graphics &graphics) {
         size_t cl = lineForByte_(cursorPos_);
         float cy = inner.y;
         for (size_t i = 0; i < cl && i < lines_.size(); ++i) cy += lines_[i].height;
-        float ch = cl < lines_.size() ? lines_[cl].height : lh_(16.0f);
+        float ch = cl < lines_.size() ? lines_[cl].height : lhMul_(16.0f);
         graphics.drawRect({cx, cy, 1.5f, ch}, tvp_.cursorColor);
     }
 
@@ -564,6 +651,19 @@ bool TextView::onEvent(const DispatchEvent &event) {
         // 双击选词（连续 Tap 间隔 <400ms 且位移 <6px；事件层 DoubleTap 为
         // 预留类型无生成点，组件内自检同 Text）；单击已由 PointerDown 定位
         size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        // ── 链接命中：readOnly 点击 / 编辑态 Ctrl+点击 → onLinkClick ──
+        // 编辑态普通点击仍走光标定位（编辑优先）；命中即消费不冒泡，
+        // 双击计时锚清零防链接上双击残留误判词选
+        bool ctrlTap = (event.modifiers & 0x01) != 0;
+        if ((tvp_.readOnly || ctrlTap) && off < plainText_.size()) {
+            size_t ri = 0, rb = 0;
+            locateByte_(off, ri, rb);
+            if (ri < content_.size() && !content_[ri].link.empty()) {
+                if (handlers.onLinkClick) handlers.onLinkClick(LinkArgs{content_[ri].link});
+                lastTapMs_ = 0;
+                return true;
+            }
+        }
         bool dbl = lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
                    && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
         lastTapMs_ = event.timestamp;
@@ -593,41 +693,79 @@ bool TextView::onEvent(const DispatchEvent &event) {
         if (ctrl) {
             switch (vk) {
             case 0x42:
-                toggleStyle_(toggleBold_);
-                rebuild_();
-                fireChange_();
+                if (!tvp_.readOnly) {
+                    pushUndo_();
+                    toggleStyle_(toggleBold_);
+                    rebuild_();
+                    fireChange_();
+                }
                 break;
             case 0x49:
-                toggleStyle_(toggleItalic_);
-                rebuild_();
-                fireChange_();
+                if (!tvp_.readOnly) {
+                    pushUndo_();
+                    toggleStyle_(toggleItalic_);
+                    rebuild_();
+                    fireChange_();
+                }
                 break;
             case 0x55:
-                toggleStyle_(toggleUnderline_);
-                rebuild_();
-                fireChange_();
+                if (!tvp_.readOnly) {
+                    pushUndo_();
+                    toggleStyle_(toggleUnderline_);
+                    rebuild_();
+                    fireChange_();
+                }
                 break;
             case 0x41: selectAll_(); break;
-            case 0x43:    // Ctrl+C：复制选区（无选区 = 全文平文本；readOnly 不设限）
-                if (auto *clip = clipOf(*this); clip) clip->setText(selectionString_());
+            case 0x43: {    // Ctrl+C：复制选区（无选区 = 全文平文本；readOnly 不设限）
+                if (auto *clip = clipOf(*this); clip) {
+                    // 样式保留：先写纯文本（供外部应用），再追加 runs 自定义格式（本框架粘贴读回）
+                    std::vector<TextRun> runs = selectionRuns_();
+                    if (!runs.empty() && clip->setRuns(runs, selectionString_())) break;
+                    clip->setText(selectionString_());
+                }
                 break;
-            case 0x58:    // Ctrl+X：剪选区（严格语义：无选区不操作；readOnly 不动）
+            }
+            case 0x58: {    // Ctrl+X：剪选区（严格语义：无选区不操作；readOnly 不动）
                 if (tvp_.readOnly || selectionStart_ == cursorPos_) break;
-                if (auto *clip = clipOf(*this); clip) clip->setText(selectionString_());
-                deleteSelection_();
-                rebuild_();
-                fireChange_();
+                if (auto *clip = clipOf(*this); clip) {
+                    pushUndo_();
+                    std::vector<TextRun> runs = selectionRuns_();
+                    if (!runs.empty() && clip->setRuns(runs, selectionString_())) {
+                        deleteSelection_();
+                    } else {
+                        clip->setText(selectionString_());
+                        deleteSelection_();
+                    }
+                    rebuild_();
+                    fireChange_();
+                }
                 break;
-            case 0x56:    // Ctrl+V：粘贴（insertAtCursor_ 自带选区优先删除 = 替换语义）
+            }
+            case 0x56: {    // Ctrl+V：粘贴（选区优先删除 = 替换语义；runs 富文本优先，回落纯文本）
                 if (tvp_.readOnly) break;
                 if (auto *clip = clipOf(*this); clip) {
+                    std::vector<TextRun> runs;
                     std::string clipText;
-                    if (clip->getText(clipText) && !clipText.empty()) {
-                        insertAtCursor_(clipText);
+                    bool haveRuns = clip->getRuns(runs) && !runs.empty();
+                    bool haveText = !haveRuns && clip->getText(clipText) && !clipText.empty();
+                    if (haveRuns || haveText) {
+                        pushUndo_();
+                        if (haveRuns)
+                            insertRunsAtCursor_(runs);
+                        else
+                            insertAtCursor_(clipText);
                         rebuild_();
                         fireChange_();
                     }
                 }
+                break;
+            }
+            case 0x5A:    // Ctrl+Z：撤销
+                if (!tvp_.readOnly) undo_();
+                break;
+            case 0x59:    // Ctrl+Y：重做
+                if (!tvp_.readOnly) redo_();
                 break;
             default: return false;
             }
@@ -635,6 +773,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
             switch (vk) {
             case 0x08:
                 if (!tvp_.readOnly) {
+                    pushUndo_();
                     deleteBeforeCursor_();
                     rebuild_();
                     fireChange_();
@@ -642,6 +781,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
                 break;
             case 0x2E:
                 if (!tvp_.readOnly) {
+                    pushUndo_();
                     deleteAfterCursor_();
                     rebuild_();
                     fireChange_();
@@ -716,6 +856,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
             utf8 += (char)(0x80 | (cp & 0x3F));
         }
 
+        pushUndo_(cp != '\n');    // 连续输入合并；换行为独立 undo 单元
         insertAtCursor_(utf8);
         rebuild_();
         fireChange_();
@@ -753,9 +894,13 @@ void TextView::insertAtCursor_(const std::string &utf8) {
     size_t ri, off;
     locateByte_(cursorPos_, ri, off);
 
-    // 继承光标所在 run 的 style
+    // 继承光标所在 run 的 style；链接身份不继承（新输入文本不是链接）
     TextStyle style;
-    if (ri < content_.size()) style = content_[ri].style;
+    std::string curLink;
+    if (ri < content_.size()) {
+        style = content_[ri].style;
+        curLink = content_[ri].link;
+    }
 
     if (ri >= content_.size()) {
         content_.push_back({utf8, style});
@@ -770,13 +915,53 @@ void TextView::insertAtCursor_(const std::string &utf8) {
 
     content_.erase(content_.begin() + ri);
 
-    if (!before.empty()) content_.insert(content_.begin() + ri++, {before, style});
+    // 前后段保留链接身份（链接内部打字不撕断链接）；新输入段不带 link
+    if (!before.empty()) content_.insert(content_.begin() + ri++, {before, style, curLink});
 
     content_.insert(content_.begin() + ri++, {utf8, style});
 
-    if (!after.empty()) content_.insert(content_.begin() + ri, {after, style});
+    if (!after.empty()) content_.insert(content_.begin() + ri, {after, style, curLink});
 
     cursorPos_ += utf8.size();
+    selectionStart_ = cursorPos_;
+}
+
+/**
+ * @brief 富文本粘贴：在光标处插入带各自样式的 run 序列
+ *
+ * 与 insertAtCursor_ 同骨架：选区优先删除 → 光标处按当前 run 分割 →
+ * 逐个插入（跳过空文本 run）。插入后调用方必须 rebuild_()。
+ */
+void TextView::insertRunsAtCursor_(const std::vector<TextRun> &runs) {
+    std::vector<TextRun> items;
+    for (auto &r : runs)
+        if (!r.text.empty()) items.push_back(r);
+    if (items.empty()) return;
+
+    if (selectionStart_ != cursorPos_) deleteSelection_();
+
+    size_t ri, off;
+    locateByte_(cursorPos_, ri, off);
+
+    if (ri >= content_.size()) {
+        for (auto &r : items) content_.push_back(r);
+    } else {
+        auto &run = content_[ri];
+        std::string before = run.text.substr(0, off);
+        std::string after = run.text.substr(off);
+        TextStyle cur = run.style;
+        std::string curLink = run.link;    // 插入点切分：前后段不继承链接身份
+                                           //（切分处 run 边界变化，链接语义只随原 run 整体）
+        content_.erase(content_.begin() + ri);
+        size_t at = ri;
+        if (!before.empty()) content_.insert(content_.begin() + at++, {before, cur, curLink});
+        for (auto &r : items) content_.insert(content_.begin() + at++, r);
+        if (!after.empty()) content_.insert(content_.begin() + at, {after, cur, curLink});
+    }
+
+    size_t added = 0;
+    for (auto &r : items) added += r.text.size();
+    cursorPos_ += added;
     selectionStart_ = cursorPos_;
 }
 
@@ -941,6 +1126,92 @@ std::string TextView::selectionString_() const {
     size_t s = std::min(selectionStart_, cursorPos_);
     size_t e = std::max(selectionStart_, cursorPos_);
     return plainText_.substr(s, e - s);    // 区间与选区字节模型同源
+}
+
+std::vector<TextRun> TextView::selectionRuns_() const {
+    std::vector<TextRun> out;
+    if (content_.empty()) return out;    // 空文档（无参构造即此态）——不得索引 content_
+    // 与 selectionString_ 同语义：无选区 = 全文（样式保留复制全文）
+    size_t s = 0, e = plainText_.size();
+    if (selectionStart_ != cursorPos_) {
+        s = std::min(selectionStart_, cursorPos_);
+        e = std::max(selectionStart_, cursorPos_);
+    }
+    if (s >= e) return out;
+    size_t riS, offS, riE, offE;
+    locateByte_(s, riS, offS);
+    locateByte_(e, riE, offE);
+    if (riS == riE) {
+        std::string t = content_[riS].text.substr(offS, offE - offS);
+        if (!t.empty()) out.push_back({std::move(t), content_[riS].style, content_[riS].link});
+        return out;
+    }
+    std::string head = content_[riS].text.substr(offS);
+    if (!head.empty()) out.push_back({std::move(head), content_[riS].style, content_[riS].link});
+    for (size_t i = riS + 1; i < riE; ++i)
+        if (!content_[i].text.empty()) out.push_back(content_[i]);
+    std::string tail = content_[riE].text.substr(0, offE);
+    if (!tail.empty()) out.push_back({std::move(tail), content_[riE].style, content_[riE].link});
+    return out;
+}
+
+// ============================================================================
+// 撤销 / 重做
+// ============================================================================
+/**
+ * @brief 编辑操作前压入内容快照
+ * @param coalesceTyping true = 连续字符输入合并（500ms 窗口内不重复压栈）
+ *
+ * 结构性操作（粘贴/删除/样式切换/换行）恒为新单元：lastTypeMs_ 归零，
+ * 其后的字符输入不再并入上一个快照。
+ */
+void TextView::pushUndo_(bool coalesceTyping) {
+    auto nowMs = duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    if (coalesceTyping && lastTypeMs_ != 0 && nowMs - lastTypeMs_ < 500 && !undoStack_.empty()) {
+        lastTypeMs_ = nowMs;
+        return;    // 并入上一个输入单元
+    }
+    undoStack_.push_back(content_);
+    undoCursor_.push_back(cursorPos_);
+    if (undoStack_.size() > kMaxUndoSteps_) {
+        undoStack_.erase(undoStack_.begin());
+        undoCursor_.erase(undoCursor_.begin());
+    }
+    redoStack_.clear();
+    redoCursor_.clear();
+    lastTypeMs_ = coalesceTyping ? nowMs : 0;
+}
+
+void TextView::undo_() {
+    if (undoStack_.empty()) return;
+    lastTypeMs_ = 0;    // 结构操作打断输入合并：其后的输入自成新单元
+    redoStack_.push_back(std::move(content_));
+    redoCursor_.push_back(cursorPos_);
+    content_ = std::move(undoStack_.back());
+    size_t docBytes = 0;
+    for (auto &r : content_) docBytes += r.text.size();
+    cursorPos_ = std::min(undoCursor_.back(), docBytes);
+    undoStack_.pop_back();
+    undoCursor_.pop_back();
+    rebuild_();
+    selectionStart_ = cursorPos_;
+    fireChange_();
+}
+
+void TextView::redo_() {
+    if (redoStack_.empty()) return;
+    lastTypeMs_ = 0;    // 结构操作打断输入合并：其后的输入自成新单元
+    undoStack_.push_back(std::move(content_));
+    undoCursor_.push_back(cursorPos_);
+    content_ = std::move(redoStack_.back());
+    size_t docBytes = 0;
+    for (auto &r : content_) docBytes += r.text.size();
+    cursorPos_ = std::min(redoCursor_.back(), docBytes);
+    redoStack_.pop_back();
+    redoCursor_.pop_back();
+    rebuild_();
+    selectionStart_ = cursorPos_;
+    fireChange_();
 }
 
 // ============================================================================
@@ -1109,6 +1380,51 @@ bool TextView::updateCursorBlink_() {
         return true;
     }
     return false;
+}
+
+// ============================================================================
+// 查找高亮 (M1-⑦)
+// ============================================================================
+/**
+ * @brief 从 from 起查找 needle 首个匹配的字节偏移
+ *
+ * UTF-8 字节精确匹配（plainText_.find）；空关键词/无匹配返回 npos。
+ * JS 侧经 findText(id, needle, from) 全局函数可达。
+ */
+size_t TextView::find(const std::string &needle, size_t from) const {
+    if (needle.empty() || from >= plainText_.size()) return std::string::npos;
+    return plainText_.find(needle, from);
+}
+
+/**
+ * @brief 高亮 needle 全部出现（非重叠扫描：命中后跳过整个关键词）
+ *
+ * 记录关键词到 highlightNeedle_：后续编辑触发 rebuild_ 时按新文本重扫，
+ * 高亮跨编辑存活且偏移自动自愈。返回命中数。
+ */
+size_t TextView::highlightAll(const std::string &needle) {
+    highlightNeedle_ = needle;
+    refreshHighlights_();
+    markDirty();
+    return highlights_.size();
+}
+
+void TextView::clearHighlight() {
+    highlightNeedle_.clear();
+    if (!highlights_.empty()) {
+        highlights_.clear();
+        markDirty();
+    }
+}
+
+void TextView::refreshHighlights_() {
+    highlights_.clear();
+    if (highlightNeedle_.empty()) return;
+    size_t pos = 0;
+    while ((pos = plainText_.find(highlightNeedle_, pos)) != std::string::npos) {
+        highlights_.push_back({pos, pos + highlightNeedle_.size()});
+        pos += highlightNeedle_.size();
+    }
 }
 
 // ============================================================================

@@ -107,6 +107,16 @@ export struct EnterArgs {
 };
 
 /**
+ * @brief 行内链接点击事件参数 (TextView onLinkClick)
+ *
+ * 命中规则：readOnly 点击 / 编辑态 Ctrl+点击 落在 link 非空的 run 上；
+ * 编辑态普通点击仍走光标定位（编辑优先）。
+ */
+export struct LinkArgs {
+    std::string url;    ///< run 的 link 字段原样回传
+};
+
+/**
  * @brief View 控件的事件处理器封装 (引擎中立)
  *
  * 职责:
@@ -138,6 +148,7 @@ export struct ViewEventHandlers {
     std::function<void(const FocusArgs &)> onFocus;          ///< 获得焦点（FocusManager 注入，presetTarget 直投；e={mode 输入模式}）
     std::function<void(const FocusArgs &)> onBlur;           ///< 失去焦点（同上；Enter 提交经统一失焦路由同源触发）
     std::function<void(const EnterArgs &)> onEnter;          ///< Enter 提交（e={value 引擎处理后值}；仅 '\n' 触发，onChange 之后 onBlur 之前）
+    std::function<void(const LinkArgs &)> onLinkClick;       ///< TextView 行内链接（e={url}；readOnly 点击 / 编辑态 Ctrl+点击）
     std::function<void()> onMount;                            ///< 挂载后回调（树构建完成，仅本轮新建节点触发）
     std::function<void()> onUnmount;                          ///< 卸载前回调（reconcile 拆除、析构前；HMR 整树重建不触发）
     std::function<void(std::string)> onError;                 ///< 资源失败上报（Image：解码/装载/上传失败；参数为错误描述，与 error() 一致）

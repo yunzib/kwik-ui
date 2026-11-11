@@ -1645,6 +1645,126 @@ static void test_key_passthrough_unhandled() {
     }
 }
 
+// ── 行为锁: TextView 撤销/重做 ──
+// 快照栈语义：连续字符输入合并为一个单元（同 500ms 窗口）；Ctrl+Z 回退
+// （内容 + 光标恢复、redo 栈承接）；Ctrl+Y 重做；空文档撤销为 no-op；
+// 重做后新编辑清空 redo 栈。
+static void test_textview_undo_redo() {
+    TextView tv;    // 无参：空文档（content_ 为空向量——undo 路径不得索引越界）
+    View &vb = tv;
+    DispatchEvent focus;
+    focus.type = DispatchEvent::Type::FocusGained;
+    vb.onEvent(focus);
+
+    auto type = [&](uint32_t cp) {
+        DispatchEvent ch;
+        ch.type = DispatchEvent::Type::CharInput;
+        ch.charCode = cp;
+        vb.onEvent(ch);
+    };
+    auto key = [&](uint16_t vk) {
+        DispatchEvent k;
+        k.type = DispatchEvent::Type::KeyAction;
+        k.keyCode = vk;
+        k.modifiers = 0x01;    // Ctrl
+        vb.onEvent(k);
+    };
+
+    // ① 空文档 Ctrl+Z：no-op 不崩（回归：selectionRuns_/undo 空向量防护）
+    key(0x5A);
+    CHECK(tv.value().empty());
+
+    // ② 输入 abc（合并一个单元）→ Ctrl+Z 清空 → Ctrl+Y 恢复
+    type('a');
+    type('b');
+    type('c');
+    CHECK(tv.value() == "abc");
+    key(0x5A);
+    CHECK(tv.value().empty());
+    key(0x59);
+    CHECK(tv.value() == "abc");
+
+    // ③ 多步回放：输入 d → undo×2 → redo×2 回到最新态 "abcd"
+    type('d');
+    CHECK(tv.value() == "abcd");
+    key(0x5A);
+    CHECK(tv.value() == "abc");
+    key(0x5A);
+    CHECK(tv.value().empty());
+    key(0x59);
+    CHECK(tv.value() == "abc");
+    key(0x59);
+    CHECK(tv.value() == "abcd");
+
+    // ④ 重做后的新编辑清空 redo 栈：undo 只回到 "abcd"（重放链已断）
+    type('x');
+    CHECK(tv.value() == "abcdx");
+    key(0x5A);
+    CHECK(tv.value() == "abcd");
+}
+
+// ── 行为锁: TextView 段落属性 lineHeight 倍率（M1-⑤）──
+// onMeasure 高度随倍率线性放大：同文档（无字体环境 lines_ 走 lhMul_ 兜底）
+// m=1.0 → ceil(16×1.4×1.0)=23，m=2.0 → ceil(16×1.4×2.0)=45，倍率变化必须
+// 触发重测量（applyTextViewProps 不因 value/content 未变而丢弃段落属性）。
+static void test_textview_lineheight_measure() {
+    struct TVProbe : TextView {
+        using TextView::TextView;
+        using TextView::onMeasure;
+    };
+    TextViewProps p1;
+    p1.content.push_back({"A", {}});
+    TextView t1(ViewProps{}, p1);
+    auto h1 = static_cast<TVProbe &>(t1).onMeasure(Constraints{0, 1000, 0, 1000}).height;
+
+    TextViewProps p2 = p1;
+    p2.lineHeight = 2.0f;
+    TextView t2(ViewProps{}, p2);
+    auto h2 = static_cast<TVProbe &>(t2).onMeasure(Constraints{0, 1000, 0, 1000}).height;
+
+    CHECK(h2 > h1);                                  // 倍率生效（23 → 45 + padding 同值）
+    CHECK(h2 - h1 == 22.0f);                         // ceil(16×1.4×2)−ceil(16×1.4×1) = 45−23
+}
+
+// ── 行为锁: TextView 查找高亮（M1-⑦）──
+// find 字节偏移语义（含 from 起点/无匹配 npos）；highlightAll 非重叠计数与
+// 区间正确性；编辑后 rebuild_ 偏移自愈（高亮跟随文本变化重扫）；
+// clearHighlight 彻底清空（含关键词缓存——后续编辑不再复发）。
+static void test_textview_find_highlight() {
+    TextViewProps p;
+    p.value = "the quick brown fox jumps the road";
+    TextView tv(ViewProps{}, p);
+
+    // ① find：字节偏移 + from 续查 + 无匹配
+    CHECK(tv.find("the") == 0);
+    CHECK(tv.find("the", 1) == 26);                    // 第二个 "the"（road 前）
+    CHECK(tv.find("zebra") == std::string::npos);
+    CHECK(tv.find("") == std::string::npos);           // 空关键词恒 npos
+
+    // ② highlightAll：非重叠计数 + 首区间
+    size_t n = tv.highlightAll("the");
+    CHECK(n == 2);
+    CHECK(tv.highlights().size() == 2);
+    CHECK(tv.highlights()[0].first == 0 && tv.highlights()[0].second == 3);
+
+    // ③ 偏移自愈：头部插入一个字符后全部命中右移 1
+    View &vb = tv;
+    tv.focus();
+    DispatchEvent ch;
+    ch.type = DispatchEvent::Type::CharInput;
+    ch.charCode = 'x';
+    vb.onEvent(ch);
+    CHECK(tv.value() == "xthe quick brown fox jumps the road");
+    CHECK(tv.highlights().size() == 2);
+    CHECK(tv.highlights()[0].first == 1 && tv.highlights()[1].first == 27);
+
+    // ④ clearHighlight：区间与关键词都清空（再编辑不复发）
+    tv.clearHighlight();
+    CHECK(tv.highlights().empty());
+    vb.onEvent(ch);    // 再输入 x
+    CHECK(tv.highlights().empty());
+}
+
 // ── 行为锁: 右键分发 + button 透传 ──
 // RawEvent.button 直通 DispatchEvent；右/中键不产点击类手势（Tap/LongPress），
 // WM_CONTEXTMENU 语义合成为 ContextMenu 事件可达元素；左键路径维持原行为。
@@ -3903,6 +4023,9 @@ int main() {
     test_line_relayout_and_ring_string_prop();
     test_tap_consume_and_group_sync();
     test_clipboard_wire();
+    test_textview_undo_redo();
+    test_textview_find_highlight();
+    test_textview_lineheight_measure();
     test_key_passthrough_unhandled();
     test_right_button_dispatch();
     test_l1_isfinite_rejection();

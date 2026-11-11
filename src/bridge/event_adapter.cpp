@@ -327,6 +327,17 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         };
     }
 
+    // ── onLinkClick (TextView 行内链接, e={url}) ──
+    // readOnly 点击 / 编辑态 Ctrl+点击 落在 link run 上触发（编辑态普通
+    // 点击仍走光标定位——编辑优先）。url 为 run.link 原样回传
+    if (auto h = dupHandler(ctx, props, "onLinkClick")) {
+        view.handlers.onLinkClick = [ctx, h](const LinkArgs &a) {
+            JSValue evt = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, evt, "url", JS_NewString(ctx, a.url.c_str()));
+            return callJs1(ctx, h, evt, "onLinkClick");
+        };
+    }
+
     // ── onError (资源失败上报, 参数 = 错误描述字符串; Image 装载/上传失败) ──
     if (auto h = dupHandler(ctx, props, "onError")) {
         view.handlers.onError = [ctx, h](std::string msg) {

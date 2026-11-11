@@ -74,21 +74,23 @@ private:
     // 字形缓存
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /** @brief 缓存键: 字体 + 字形 + 字号 + 子像素偏移 */
+    /** @brief 缓存键: 字体 + 字形 + 字号 + 子像素偏移 + 斜体（剪切栅格化独立条目） */
     struct GlyphKey {
         FontId fontId;
         uint32_t glyph;
         float fontSize;
         uint32_t subpixelOffset = 0;
+        bool italic = false;
         bool operator==(const GlyphKey &o) const {
             return fontId == o.fontId && glyph == o.glyph && fontSize == o.fontSize
-                   && subpixelOffset == o.subpixelOffset;
+                   && subpixelOffset == o.subpixelOffset && italic == o.italic;
         }
     };
     struct GlyphKeyHash {
         size_t operator()(const GlyphKey &k) const {
             return std::hash<uint32_t>{}(k.fontId) ^ (std::hash<uint32_t>{}(k.glyph) << 1)
-                   ^ (std::hash<float>{}(k.fontSize) << 2) ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3);
+                   ^ (std::hash<float>{}(k.fontSize) << 2) ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3)
+                   ^ (std::hash<uint32_t>{}(k.italic ? 1u : 0u) << 4);
         }
     };
 
@@ -107,9 +109,9 @@ private:
     };
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
-    /** @brief 栅格化字形（FreeType LCD 子像素） */
+    /** @brief 栅格化字形（FreeType LCD 子像素；italic = 伪斜体剪切变换） */
     void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
-                        uint32_t subpixelOffset = 0);
+                        uint32_t subpixelOffset = 0, bool italic = false);
 
     /** @brief Skyline 打包 + 加入上传队列 */
     void packGlyph(CachedGlyph &entry);

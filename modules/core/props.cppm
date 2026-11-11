@@ -436,6 +436,8 @@ export struct TextStyle {
 export struct TextRun {
     std::string text;    ///< 纯文本（UTF-8，可含 \n）
     TextStyle style;     ///< 本段统一样式
+    std::string link;    ///< 行内链接 URL（非空 = 链接 run：渲染强制下划线+链接色，
+                         ///< readOnly 点击 / 编辑态 Ctrl+点击 触发 onLinkClick）
 };
 
 /**
@@ -452,6 +454,10 @@ export struct TextViewProps {
     Color focusedBorderColor{66, 133, 244, 255};    ///< 聚焦边框色
     int maxLength = 0;                              ///< 最大字符数（0 = 不限）
     bool readOnly = false;                          ///< 只读
+    float lineHeight = 1.0f;                        ///< 行高倍率（×行内最大字号；1.0 = 默认 1.4 倍自动行高）
+    int textAlign = 0;                              ///< 段落对齐：0=左 1=居中 2=右
+    Color linkColor{25, 118, 210, 255};             ///< 链接 run 文字色（强制下划线；Material Blue）
+    Color highlightColor{255, 193, 7, 90};          ///< 查找高亮（第三态：琥珀半透明，垫底于选区与文字）
 };
 
 // ════════════════════════════════════════════════════════

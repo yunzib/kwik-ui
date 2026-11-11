@@ -16,6 +16,7 @@ import kwik.engine.js_value;    // JSValueRef（定时器/rAF 回调托管）
 import kwik.animation.engine;
 import kwik.engine.vm_callbacks;
 import kwik.element.view;       // View
+import kwik.element.textview;   // TextView（findText/highlightAll/clearHighlight 命令面）
 import kwik.event;              // FocusManager（focus/blur 导出统一通路）
 import kwik.element.clipboard_service;    // ClipboardService（setClipboardText 出口）
 import kwik.core.types;         // TypedProp
@@ -469,6 +470,69 @@ static JSValue js_blur(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
         }
     }
     JS_FreeCString(ctx, id);
+    return JS_UNDEFINED;
+}
+
+// ── findText(id, needle, from?) / highlightAll(id, needle) / clearHighlight(id)
+//    — TextView 查找高亮命令面（findById 定位，同 focus/blur 模式）──
+//    findText 返回首个匹配字节偏移（-1 = 无匹配）；highlightAll 返回命中数
+//    并全量高亮（编辑后偏移自动重算）；clearHighlight 清空高亮。
+static TextView *textViewById(JSContext *ctx, JSValueConst idArg) {
+    if (!JS_IsString(idArg)) return nullptr;
+    const char *id = JS_ToCString(ctx, idArg);
+    if (!id) return nullptr;
+    QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    View *root = qctx ? static_cast<View *>(qctx->getUserPointer()) : nullptr;
+    View *target = root ? root->findById(id) : nullptr;
+    JS_FreeCString(ctx, id);
+    if (target && target->type() == ElementType::TextView) return static_cast<TextView *>(target);
+    return nullptr;
+}
+
+static JSValue js_findText(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) {
+        Log::warn("findText: 需要 (id, needle[, from]) 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (!tv) {
+        Log::warn("findText: 未找到 TextView 组件——跳过");
+        return JS_UNDEFINED;
+    }
+    const char *needle = JS_ToCString(ctx, argv[1]);
+    if (!needle) return JS_UNDEFINED;
+    int64_t from = 0;
+    if (argc >= 3 && JS_IsNumber(argv[2])) JS_ToInt64(ctx, &from, argv[2]);
+    if (from < 0) from = 0;
+    size_t pos = tv->find(std::string(needle), (size_t)from);
+    JS_FreeCString(ctx, needle);
+    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (int32_t)pos);
+}
+
+static JSValue js_highlightAll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) {
+        Log::warn("highlightAll: 需要 (id, needle) 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (!tv) {
+        Log::warn("highlightAll: 未找到 TextView 组件——跳过");
+        return JS_UNDEFINED;
+    }
+    const char *needle = JS_ToCString(ctx, argv[1]);
+    if (!needle) return JS_UNDEFINED;
+    int count = (int)tv->highlightAll(std::string(needle));
+    JS_FreeCString(ctx, needle);
+    return JS_NewInt32(ctx, count);
+}
+
+static JSValue js_clearHighlight(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    if (argc < 1 || !JS_IsString(argv[0])) {
+        Log::warn("clearHighlight: 需要组件 id 参数——忽略");
+        return JS_UNDEFINED;
+    }
+    TextView *tv = textViewById(ctx, argv[0]);
+    if (tv) tv->clearHighlight();
     return JS_UNDEFINED;
 }
 
@@ -1537,6 +1601,9 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("setClipboardText", 1, js_setClipboardText),
         JS_CFUNC_DEF("focus", 1, js_focus),
         JS_CFUNC_DEF("blur", 1, js_blur),
+        JS_CFUNC_DEF("findText", 3, js_findText),
+        JS_CFUNC_DEF("highlightAll", 2, js_highlightAll),
+        JS_CFUNC_DEF("clearHighlight", 1, js_clearHighlight),
     };
 
     JSModuleDef *m = JS_NewCModule(ctx, "kwikui", [](JSContext *ctx, JSModuleDef *m) -> int {

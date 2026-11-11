@@ -205,4 +205,17 @@ public:
      * @brief 写入剪贴板文本（UTF-8）
      */
     virtual void SetClipboardText(const std::string &text) {}
+
+    /**
+     * @brief 读取剪贴板自定义格式数据（应用注册格式，字节序列）
+     * @param fmtName 格式注册名（如 "kwik/text-runs-v1"）
+     * @return false = 平台不支持/格式不存在/打开失败
+     */
+    virtual bool GetClipboardCustom(const char *fmtName, std::string &out) { return false; }
+
+    /**
+     * @brief 向剪贴板追加自定义格式数据（不清空已有格式——需先 SetClipboardText）
+     * @return false = 平台不支持/打开失败/分配失败
+     */
+    virtual bool SetClipboardCustom(const char *fmtName, const std::string &bytes) { return false; }
 };

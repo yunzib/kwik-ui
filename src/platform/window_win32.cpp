@@ -8,6 +8,7 @@ module;    // 全局模块片段开始
 #include <windows.h>
 #include <map>
 #include <cstdint>
+#include <cstring>
 
 module kwik.platform.win32_window;
 
@@ -825,6 +826,42 @@ void PlatformWindowWin32::SetClipboardText(const std::string &text) {
         }
     }
     CloseClipboard();
+}
+
+bool PlatformWindowWin32::GetClipboardCustom(const char *fmtName, std::string &out) {
+    UINT f = RegisterClipboardFormatA(fmtName);
+    if (!f || !OpenClipboard(hwnd_)) return false;
+    HANDLE h = GetClipboardData(f);
+    if (!h) {
+        CloseClipboard();
+        return false;
+    }
+    if (const void *p = GlobalLock(h)) {
+        out.assign(static_cast<const char *>(p), GlobalSize(h));
+        GlobalUnlock(h);
+        CloseClipboard();
+        return true;
+    }
+    CloseClipboard();
+    return false;
+}
+
+bool PlatformWindowWin32::SetClipboardCustom(const char *fmtName, const std::string &bytes) {
+    UINT f = RegisterClipboardFormatA(fmtName);
+    if (!f || bytes.empty() || !OpenClipboard(hwnd_)) return false;
+    // 不 EmptyClipboard：向当前剪贴板追加格式（调用方先写 CF_UNICODETEXT 再追加本格式）
+    if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, bytes.size())) {
+        if (void *p = GlobalLock(h)) {
+            std::memcpy(p, bytes.data(), bytes.size());
+            GlobalUnlock(h);
+            if (!SetClipboardData(f, h)) GlobalFree(h);    // 贴入失败：系统不接管，自行释放
+            CloseClipboard();
+            return true;
+        }
+        GlobalFree(h);
+    }
+    CloseClipboard();
+    return false;
 }
 
 void PlatformWindowWin32::SetRawEventCallback(PlatformWindow::RawEventCallback callback) {

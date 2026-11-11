@@ -2,6 +2,8 @@ module;
 
 #include <hb.h>
 #include <hb-ft.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 module kwik.render.text.shaper;
 
@@ -71,7 +73,7 @@ static bool isKinsokuNoLineEnd(uint32_t cp) {
 // shapeText — 完整排版字形序列
 // ═══════════════════════════════════════════════════════════════════════════
 
-auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, float dpiScale)
+auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, float dpiScale, bool italic)
     -> std::vector<ShapedGlyph> {
     std::vector<ShapedGlyph> result;
 
@@ -207,16 +209,30 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         if (activeFont != fontId) {
             advPhysical = static_cast<float>(ftFace->glyph->metrics.horiAdvance) / 64.0f;
         }
+        // 伪斜体解析校正：栅格化用剪切变换（TextCache），但 FreeType 的
+        // metrics 在 transform 后不更新（源码 ftobjs.c：只变换 outline/bitmap/
+        // advance 矢量）——这里按同一剪切解析推出 ink 左缘与宽度：
+        //   x' = x + s·y → xMin' = xMin + s·yMin（yMin<0 左移）、宽' = 宽 + s·高
+        // quad 定位/尺寸与图集剪切位图才一致；advance 不校正（x 分量不变）
+        float inkBearingX = static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f;
+        float inkW = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
+        float inkH = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
+        if (italic) {
+            constexpr float kShear = 0.2126f;    // tan 12°，与 TextCache::rasterizeGlyph 同值
+            float yMin = static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f - inkH;
+            inkBearingX += kShear * yMin;
+            inkW += kShear * inkH;
+        }
         ShapedGlyph sg;
         sg.fontId = activeFont;
         sg.glyphIndex = activeGid;
         sg.fontSize = fontSize;
-        sg.x = (cursorX + xOff + static_cast<float>(ftFace->glyph->metrics.horiBearingX) / 64.0f) * scaleToLogical;
+        sg.x = (cursorX + xOff + inkBearingX) * scaleToLogical;
         sg.y = (cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust)
                * scaleToLogical;
         sg.advanceX = advPhysical * scaleToLogical;
-        sg.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f * scaleToLogical;
-        sg.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f * scaleToLogical;
+        sg.width = inkW * scaleToLogical;
+        sg.height = inkH * scaleToLogical;
         sg.cluster = glyphInfo[i].cluster;
         // 码点字节长 + 禁则标记（断行回溯/修剪的判定数据，见 text_layout）
         {

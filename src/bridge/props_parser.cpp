@@ -608,6 +608,19 @@ TextViewProps parseTextViewProps(PropsExtractor &ex) {
     ex.get("placeholder", r.placeholder);
     ex.get("placeholderColor", r.placeholderColor);
     ex.get("placeholderFontSize", r.placeholderFontSize);
+    ex.get("linkColor", r.linkColor);
+    ex.get("highlightColor", r.highlightColor);
+    ex.get("lineHeight", r.lineHeight);
+    if (ex.has("textAlign")) {
+        std::string ta;
+        ex.get("textAlign", ta);
+        if (ta == "center" || ta == "middle")
+            r.textAlign = 1;
+        else if (ta == "right" || ta == "end")
+            r.textAlign = 2;
+        else
+            r.textAlign = 0;
+    }
 
     // ── 解析 content 数组 ──
     if (ex.has("content")) {
@@ -631,6 +644,7 @@ TextViewProps parseTextViewProps(PropsExtractor &ex) {
                 iex.get("textColor", run.style.textColor);
                 iex.get("underline", run.style.underline);
                 iex.get("strikethrough", run.style.strikethrough);
+                iex.get("link", run.link);
 
                 r.content.push_back(std::move(run));
             }

@@ -49,6 +49,8 @@ public:
     // 剪贴板
     bool GetClipboardText(std::string &out) override;
     void SetClipboardText(const std::string &text) override;
+    bool GetClipboardCustom(const char *fmtName, std::string &out) override;
+    bool SetClipboardCustom(const char *fmtName, const std::string &bytes) override;
 
 private:
     // 窗口消息处理

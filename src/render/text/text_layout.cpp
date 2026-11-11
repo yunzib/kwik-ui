@@ -25,6 +25,10 @@ TextLayoutResult TextLayout::layout(const std::vector<ShapedGlyph> &glyphs, cons
     default: layoutNoWrap(glyphs, cfg, result); break;
     case WrapMode::WordWrap: layoutWordWrap(glyphs, cfg, result); break;
     }
+    // 伪斜体标记回填：字形缓存键区分正/斜体（同一码点两份图集条目）
+    if (cfg.fontStyle != 0) {
+        for (auto &sg : result.glyphs) sg.italic = true;
+    }
     return result;
 }
 

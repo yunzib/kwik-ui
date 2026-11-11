@@ -79,6 +79,8 @@ export {
         bool isSpace = false;      ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
         bool noLineStart = false;  ///< 行首禁则（闭标点类，不可居行首），shaper 按码点表标记
         bool noLineEnd = false;    ///< 行尾禁则（开括号类，不可居行尾），shaper 按码点表标记
+        bool italic = false;       ///< 伪斜体（TextLayout 按 cfg.fontStyle 回填）：栅格化剪切，
+                                   ///< 图集缓存键区分正/斜体字形
     };
 
     /**

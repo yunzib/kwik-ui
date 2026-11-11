@@ -21,11 +21,11 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
     for (auto &g : result.glyphs) {
         if (g.isNewline) continue;
 
-        GlyphKey key{g.fontId, g.glyphIndex, std::round(g.fontSize), 0};
+        GlyphKey key{g.fontId, g.glyphIndex, std::round(g.fontSize), 0, g.italic};
         auto it = glyphCache_.find(key);
         if (it == glyphCache_.end()) {
             CachedGlyph entry;
-            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
+            rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, 0, g.italic);
             packGlyph(entry);
             it = glyphCache_.insert({key, std::move(entry)}).first;
         } else {
@@ -40,7 +40,7 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
             // 陈旧判定按所属页版本：仅该页被淘汰（版本递增）时重打包——
             // 其他页的条目不受牵连（原全局代际一页淘汰即全缓存重打包抖动）
             if (!entry.packed || entry.pageGeneration != pages_[entry.pageIndex].generation) {
-                if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry);
+                if (entry.info.pixelData.empty()) rasterizeGlyph(g.fontId, g.glyphIndex, g.fontSize, entry, 0, g.italic);
                 packGlyph(entry);
             } else {
                 // hit 路径同样更新 LRU 时钟：仅打包路径更新时，持续使用的
@@ -74,7 +74,7 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
 // 栅格化 — FreeType LCD 子像素位图 → RGBA
 // ═══════════════════════════════════════════════════════════════════════════
 void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
-                               uint32_t /*subpixelOffset*/) {
+                               uint32_t /*subpixelOffset*/, bool italic) {
     auto *face = fontManager_.getFace(font);
     if (!face) return;
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
@@ -93,10 +93,24 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
         blankEntry();
         return;
     }
+    // 伪斜体：tan(12°)≈0.2126 剪切矩阵（x 随基线下方距离负偏，字形右倾）。
+    // 变换仅作用于本次 Load，用完必须复位——否则后续正体字形继承剪切
+    if (italic) {
+        FT_Matrix shear;
+        shear.xx = 0x10000;                                   // 16.16 定点 1.0
+        shear.xy = static_cast<FT_Fixed>(0.2126 * 65536.0);
+        shear.yx = 0;
+        shear.yy = 0x10000;
+        FT_Set_Transform(ftFace, &shear, nullptr);
+    } else {
+        FT_Set_Transform(ftFace, nullptr, nullptr);
+    }
     if (FT_Load_Glyph(ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT) != 0) {
+        FT_Set_Transform(ftFace, nullptr, nullptr);
         blankEntry();
         return;
     }
+    FT_Set_Transform(ftFace, nullptr, nullptr);    // 剪切只管本次 outline→bitmap
     if (FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL) != 0) {
         blankEntry();
         return;

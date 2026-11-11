@@ -44,7 +44,8 @@ public:
      *   4. hb_shape → glyph infos + positions
      *   5. 对每个 glyph 调用 loadGlyph + 读取 metrics
      */
-    auto shapeText(FontId fontId, const char* text, float fontSize, float dpiScale) -> std::vector<ShapedGlyph>;
+    auto shapeText(FontId fontId, const char* text, float fontSize, float dpiScale,
+                   bool italic = false) -> std::vector<ShapedGlyph>;
 
 private:
     FontManager& fontManager_;  // 字体管理器引用
