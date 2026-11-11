@@ -122,3 +122,10 @@ endif()
 
 # ── Slang 着色器编译（提取到独立模块） ────────────────────────
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/Shaders.cmake)
+# 8. 导出安装（与其余模块同口径）：SDK 消费者（examples/external 式独立工程）
+# 需要 render 模块接口源码才能编译其模块依赖闭包
+install(TARGETS kwik_render
+    EXPORT KwiKUITargets
+    FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/render
+    ARCHIVE DESTINATION lib
+)

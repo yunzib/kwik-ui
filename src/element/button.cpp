@@ -11,6 +11,7 @@ import kwik.render.text.types;
 import kwik.render.text.pipeline;
 import kwik.event;
 import kwik.core.log;
+import kwik.core.color_parser;    // 运行期 setProp 字符串色 → Color
 
 import std;
 
@@ -189,12 +190,46 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
+    // 运行期写色：JS setProp 统一走字符串路径（View::setProperty → TypedProp{string}），
+    // 只认 Color 变体会全部落到"未消费属性"。字符串按 parse 同源解析。
+    auto asColor = [](const TypedProp &v) -> std::optional<Color> {
+        if (auto *c = std::get_if<Color>(&v)) return *c;
+        if (auto *s2 = std::get_if<std::string>(&v)) return parseColor(*s2);
+        return std::nullopt;
+    };
+
+    // 文字色：parse 路径写 TextContent.textColor；运行期 setProp("color") 同源
+    // （此前落到 ViewProps 无此字段 → 静默无效，连接/断开等状态色改不动）
+    if (std::strcmp(name, "color") == 0 || std::strcmp(name, "textColor") == 0) {
+        if (auto c = asColor(value)) {
+            text_.textColor = *c;
+            markDirty();
+            return true;
+        }
+        return false;
+    }
     // 运行期写 background 即用户自主选择（含透明幽灵款）：置让位标记，与
     // parse 路径（props_parser:242）同语义——reconcile 主题兜底无条件补调后，
     // 运行期显式透明不被 primary 回填冲掉
     if (std::strcmp(name, "background") == 0 || std::strcmp(name, "bg") == 0
         || std::strcmp(name, "backgroundColor") == 0) {
-        if (std::get_if<Color>(&value)) button_.hasBackground = true;
+        if (auto c = asColor(value)) {
+            button_.hasBackground = true;
+            // 运行期换底色：hover/pressed 派生色同步重推。否则悬停仍显示按
+            // 旧底色推导的颜色（连接/断开切换后悬停色错乱、深底深字看似消失）
+            auto darken = [](Color col, float f) {
+                return Color{static_cast<uint8_t>(col.r * f), static_cast<uint8_t>(col.g * f),
+                             static_cast<uint8_t>(col.b * f), col.a};
+            };
+            if (!c->isTransparent()) {
+                button_.hoverBackground = darken(*c, 0.80f);
+                button_.pressedBackground = darken(*c, 0.62f);
+            } else {
+                button_.hoverBackground = Color{0, 0, 0, 0};
+                button_.pressedBackground = Color{0, 0, 0, 0};
+            }
+            markDirty();
+        }
     }
     return View::setPropertyTyped(name, value);
 }

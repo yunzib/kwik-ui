@@ -42,16 +42,19 @@ unset(KWIK_INC)
 
 file(GLOB _kwik_libs "${PACKAGE_PREFIX_DIR}/lib/libkwik_*.a")
 list(SORT _kwik_libs)
-list(APPEND _kwik_libs
-    "${PACKAGE_PREFIX_DIR}/lib/libqjs.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libqjs-libc.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libfreetype.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libharfbuzz.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libnanosvg.a"
-    "${PACKAGE_PREFIX_DIR}/lib/libnanosvgrast.a"
-)
+# 三方依赖按库族 glob：Debug 构建会带 d 后缀（如 libfreetyped.a），
+# 硬编码单一文件名在 Debug/Release 间必有一侧链接失败
+file(GLOB _qjs_libs "${PACKAGE_PREFIX_DIR}/lib/libqjs*.a")
+file(GLOB _ft_libs "${PACKAGE_PREFIX_DIR}/lib/libfreetype*.a")
+file(GLOB _hb_libs "${PACKAGE_PREFIX_DIR}/lib/libharfbuzz*.a")
+file(GLOB _svg_libs "${PACKAGE_PREFIX_DIR}/lib/libnanosvg*.a")
+list(APPEND _kwik_libs ${_qjs_libs} ${_ft_libs} ${_hb_libs} ${_svg_libs})
 target_link_libraries(kwik-ui::kwik INTERFACE ${_kwik_libs})
 unset(_kwik_libs)
+unset(_qjs_libs)
+unset(_ft_libs)
+unset(_hb_libs)
+unset(_svg_libs)
 
 target_compile_features(kwik-ui::kwik INTERFACE cxx_std_26)
 

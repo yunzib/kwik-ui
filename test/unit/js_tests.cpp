@@ -30,6 +30,7 @@ import kwik.animation.engine;       // AnimationEngine（动画反注册行为�
 import kwik.element.dropdown;       // Dropdown（选中索引夹紧行为锁）
 import kwik.element.text;           // Text（reconcile @token 解析行为锁直驱）
 import kwik.element.textview;       // TextView（State.update 全量重建存活探针）
+import kwik.element.button;         // Button（运行期底色→hover 派生锁）
 import kwik.element.scroll_view;    // ScrollView（ensureVisible 最小位移/边界收口锁）
 import kwik.element.theme_provider; // ThemeProvider（运行时换主题行为锁读 themeData）
 import kwik.element.keyboard;       // Keyboard（延迟激活行为锁）
@@ -467,6 +468,114 @@ static void test_textview_state_update_reconcile() {
 // 查找揭示（revealText）依赖此语义：矩形在可见带外取最小位移、带内零位移
 // （幂等）、越界由 setScroll clamp 收口。可见带 = 视口按当前偏移在
 // 未滚动坐标系上的投影（此处视口 300×200、内容 300×600 → 最大偏移 400）。
+
+
+// ── 行为锁: JS revealText → ScrollView 端到端（滚动定位绑定链）──
+// findById → offsetRect(末行) → ensureVisible → scrollY>0；真实字体多行内容，锁住"查找/自动滚动"依赖的完整链路
+static void test_reveal_text_scroll_lock() {
+    auto &pipe_ = TextRenderPipeline::instance();
+    pipe_.addFontDir("resources/fonts");
+    FontId fid = pipe_.loadFont("NotoSansSC-Regular.otf");
+    CHECK(fid != kInvalidFontId);
+
+    // 视口 300x100；内容 20 行（明显超高）
+    ScrollViewProps sp;
+    ViewProps svp;
+    svp.width = 300.0f;
+    svp.height = 100.0f;
+    auto sv = std::make_unique<ScrollView>(std::move(svp), std::move(sp));
+
+    std::string text;
+    for (int i = 0; i < 20; ++i) text += "line" + std::to_string(i) + "\n";
+    TextViewProps tvp;
+    tvp.value = text;
+    ViewProps tvp2;
+    tvp2.width = 292.0f;
+    auto tv = std::make_unique<TextView>(std::move(tvp2), std::move(tvp));
+    tv->props.id = "log";
+    sv->addChild(std::move(tv));
+
+    auto root = std::make_unique<View>();
+    root->addChild(std::move(sv));
+    auto *svp2 = static_cast<ScrollView *>(root->children.front().get());
+    relayoutMirror_(*root, Size{1280, 800});
+    g_ctx->setUserPointer(root.get());
+
+    CHECK(eval_module("reveal_temp.mjs",
+                      "import { revealText } from 'kwikui';\n"
+                      "globalThis.__reveal = revealText('log', 2147483647);\n"
+                      "export default null;\n"));
+    std::string sy = svp2->getProperty("scrollY");
+    std::println("[reveallock] scrollY={} (content should overflow)", sy);
+    CHECK(std::stof(sy) > 0.5f);
+}
+
+// ── 行为锁: Button 运行期 setProp（JS 字符串路径同源）──
+// JS setProp 走 View::setProperty(name, "<string>") → TypedProp{string}：Button 的
+// color/background 处理必须解析字符串（只认 Color 变体会全部"未消费属性"）。
+// 锁：运行期切白底红字后悬停，hover 填充 = 白×0.8（旧底色残留会露深蓝）、
+// 字形颜色 = 新文字色且字形存活（连接/断开状态色与悬停表现完整）。
+static void test_button_runtime_setprop_strings() {
+    ButtonStateProps bsp;
+    ViewProps vp;
+    vp.width = 180.0f;
+    vp.height = 38.0f;
+    vp.borderWidth = 1.0f;
+    vp.borderRadius = 8.0f;
+    vp.background = Color{37, 99, 235, 255};
+    vp.borderColor = Color{37, 99, 235, 255};
+    TextContent tc;
+    tc.text = "Connect";
+    tc.fontSize = 13.0f;
+    tc.textColor = Color{255, 255, 255, 255};
+    auto b = std::make_unique<Button>(vp, tc, bsp);
+    auto *bp = b.get();
+    auto root = std::make_unique<View>();
+    root->addChild(std::move(b));
+    relayoutMirror_(*root, Size{1280, 800});
+    bp->resolveThemeDefaults();    // parse 路径同款（推导初始 hover）
+
+    // 运行期切换：JS setProp 同款字符串路径（白底红字 + 文案）
+    View &vb = *bp;
+    CHECK(vb.setProperty("background", "#FFFFFF"));
+    CHECK(vb.setProperty("color", "#DC2626"));
+    CHECK(vb.setProperty("text", "Disconnect"));
+    bp->markAllMeasureDirty();
+    relayoutMirror_(*root, Size{1280, 800});
+
+    DispatchEvent hover;
+    hover.type = DispatchEvent::Type::HoverEnter;
+    vb.onEvent(hover);
+
+    DisplayList dl;
+    Graphics g;
+    g.beginFrame();
+    g.pushSink(&dl);
+    root->draw(g);
+    g.popSink();
+    g.endFrame();
+    int glyphs = 0;
+    Color fill{0, 0, 0, 0}, glyphColor{0, 0, 0, 0};
+    std::function<void(const DisplayList &)> walk = [&](const DisplayList &l) {
+        for (auto &cmd : l.commands()) {
+            if (auto *fr = std::get_if<FillRoundedRectCmd>(&cmd)) fill = fr->color;
+            if (auto *gc = std::get_if<DrawGlyphCmd>(&cmd)) {
+                if (glyphs == 0) glyphColor = gc->color;
+                ++glyphs;
+            }
+        }
+        for (auto &[pos, child] : l.subtrees()) {
+            if (child) walk(*child);
+        }
+    };
+    walk(dl);
+    std::println("[btnlock] hoverFill=({},{},{}) glyphColor=({},{},{}) glyphs={}", fill.r, fill.g, fill.b,
+                 glyphColor.r, glyphColor.g, glyphColor.b, glyphs);
+    CHECK(fill.r > 180 && fill.g > 180 && fill.b > 180);    // 白×0.8，旧深蓝残留会红
+    CHECK(glyphColor.r == 220 && glyphColor.g == 38 && glyphColor.b == 38);
+    CHECK(glyphs > 0);
+}
+
 static void test_scrollview_ensure_visible() {
     ScrollViewProps sp;    // 默认 Vertical + 滚动条常驻（8px 条带）
     ViewProps vp;
@@ -2116,6 +2225,8 @@ int main() {
     test_incremental_ref_raw_wire();
     test_window_viewport_surface();
     test_textview_draw_ink_in_box();       // 置末段：真字体（加载后不再有文本度量类测试）
+    test_reveal_text_scroll_lock();        // 置末段：真字体 + JS revealText 端到端
+    test_button_runtime_setprop_strings(); // Button 运行期 setProp 字符串路径（底色/hover/文字色）
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 
     std::println("[js_tests] total={} failed={}", g_total, g_failed);

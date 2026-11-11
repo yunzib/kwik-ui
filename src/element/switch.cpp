@@ -31,7 +31,9 @@ import std;
 // ============================================================================
 float Switch::thumbCenterX() const {
     float thumbR = sp_.thumbSize * 0.5f;
-    float thumbPad = 0.0f;
+    // 滑块内缩 = 轨道与滑块半径差：滑块圆与胶囊端部同心，端部圆弧可见；
+    // 此前 0 内缩让滑块边缘与轨道边缘重合，白滑块盖住端部 + AA 呈"右侧被裁"
+    float thumbPad = std::max(0.0f, (sp_.trackHeight - sp_.thumbSize) * 0.5f);
     float leftBound  = props.padding.left + thumbR + thumbPad;
     float rightBound = frame.width - props.padding.right - thumbR - thumbPad;
     if (rightBound <= leftBound) return (leftBound + rightBound) * 0.5f;
@@ -83,9 +85,6 @@ void Switch::applySwitchProps(SwitchProps sp) {
 // ③ 滑块阴影
 // ============================================================================
 void Switch::onDraw(Graphics &graphics) {
-    Log::info("[SwOnDraw] id={} checked={} frame=({:.0f},{:.0f},{:.0f},{:.0f}) trackH={} thumb={}",
-          props.id, sp_.checked, frame.x, frame.y, frame.width, frame.height,
-          sp_.trackHeight, sp_.thumbSize);
     View::onDraw(graphics);
 
     float contentH = frame.height - props.padding.vertical();
