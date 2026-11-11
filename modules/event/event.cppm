@@ -72,6 +72,7 @@ export struct RawEvent {
         WindowPaint,
         WindowFocusIn,
         WindowFocusOut,
+        WindowStateChanged,    // 最大化/还原/最小化翻转（windowState 载荷）
     };
 
     Device device = Device::Mouse;
@@ -94,6 +95,7 @@ export struct RawEvent {
     // ── 窗口字段 ──
     int width = 0;     // 窗口新宽度 (WindowResize)
     int height = 0;    // 窗口新高度 (WindowResize)
+    uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化 (WindowStateChanged)
 
     // ── 元数据 ──
     uint64_t timestamp = 0;    // 毫秒时间戳 (EventRouter 自动填充)
@@ -150,6 +152,7 @@ export struct DispatchEvent {
         WindowClose,
         WindowResize,
         WindowPaint,
+        WindowStateChanged,    // 最大化/还原/最小化（载荷 windowState）
     };
 
     Type type = Type::Tap;
@@ -185,6 +188,7 @@ export struct DispatchEvent {
     // 窗口
     int resizeWidth = 0;
     int resizeHeight = 0;
+    uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化（WindowStateChanged 载荷）
 
     // ── 传播控制 (JS 侧可修改) ──
     mutable bool propagationStopped = false;

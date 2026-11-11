@@ -313,6 +313,7 @@ static std::string resolveDemo(int argc, char *argv[]) {
         if (arg == "chart") return "../../test/ui/chart.js";
         if (arg == "textview_m0") return "../../test/ui/textview_m0.js";
         if (arg == "textview_scroll") return "../../test/ui/textview_scroll.js";    // M2 预览：页面滚动 + revealText 查找翻滚
+        if (arg == "frameless") return "../../test/ui/frameless.js";    // 无边框窗口：自绘标题栏/拖拽区/窗口控制/任务栏图标
         if (arg == "scope_bench") return "../../test/ui/scope_bench.js";    // 示波器/频谱仪 60Hz 基准
         if (arg == "rotate") return "../../test/ui/rotate.js";
         if (arg == "gradient") return "../../test/ui/gradient.js";
@@ -339,7 +340,11 @@ int main(int argc, char *argv[]) {
     SetConsoleCP(CP_UTF8);
 #endif
     auto window = std::make_unique<PlatformWindowWin32>();
-    if (!window || !window->Create("KwiK UI Demo", 1280, 800)) return -1;
+    // 窗口创建选项：全部示例默认带任务栏/Alt-Tab 图标；frameless = 无边框
+    WindowOptions winOpts;
+    winOpts.iconPath = "../../resources/icons/kwik.ico";
+    if (argc >= 2 && std::string(argv[1]) == "frameless") winOpts.decoration = WindowDecoration::Borderless;
+    if (!window || !window->Create("KwiK UI Demo", 1280, 800, winOpts)) return -1;
     window->Show();
 
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册

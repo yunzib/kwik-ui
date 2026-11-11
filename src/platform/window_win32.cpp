@@ -12,6 +12,8 @@ module;    // 全局模块片段开始
 
 module kwik.platform.win32_window;
 
+import kwik.platform.window;    // WindowOptions / WindowDecoration / kBaselineScreen*
+import kwik.core.types;         // DragRegion / WindowHitZone / ComputeFramelessHitTest
 import kwik.utils.string_utils;
 import kwik.core.log;
 import kwik.event;
@@ -34,6 +36,10 @@ PlatformWindowWin32::~PlatformWindowWin32() {
 // 窗口生命周期
 // ============================================================================
 bool PlatformWindowWin32::Create(const std::string &title, int width, int height) {
+    return Create(title, width, height, WindowOptions{});
+}
+
+bool PlatformWindowWin32::Create(const std::string &title, int width, int height, const WindowOptions &options) {
     // DPI 感知
     {
         typedef BOOL(WINAPI * PfnSetProcessDpiAwarenessContext)(HANDLE);
@@ -47,6 +53,7 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     // 保存原始设计尺寸，供后续 DPI/屏幕切换时重新计算窗口大小
     designWidth_ = width;
     designHeight_ = height;
+    decoration_ = options.decoration;
 
     // ── 设计分辨率模式：初始窗口 = 设计稿 × S₀
     //    S₀ = 主屏物理工作区 ÷ 基准屏(1920×1080)，与系统 DPI 设置完全无关；
@@ -81,7 +88,8 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
         }
     }
 
-    // 注册窗口类
+    // 注册窗口类（图标在窗口创建后按 options.iconPath 应用——类可能已被
+    // 前一个窗口注册，SetClassLongPtrW 是可靠路径；此处只建类）
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
     wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -93,24 +101,74 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     wc.hbrBackground = nullptr;
     wc.lpszClassName = L"KwikUIWindowClass";
     RegisterClassExW(&wc);
-    // 窗口尺寸含装饰
-    RECT rect = {0, 0, scaledW, scaledH};
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-    int windowWidth = rect.right - rect.left;
-    int windowHeight = rect.bottom - rect.top;
+
+    // ── 装饰/样式 ──
+    // Normal ：WS_OVERLAPPEDWINDOW（系统标题栏，窗口尺寸含装饰）
+    // Borderless：WS_POPUP|WS_THICKFRAME（去标题栏但保留原生缩放边缘 +
+    //   Aero Snap；非客户区由 WM_NCCALCSIZE 归零 → 客户区铺满整窗），
+    //   窗口尺寸即客户区尺寸（不再 AdjustWindowRect）
+    // Transparent：分层窗口（异形），维持旧口径
+    DWORD style = WS_OVERLAPPEDWINDOW;
+    DWORD exStyle = 0;
+    bool frameInset = true;    // 窗口矩形是否含系统装饰（决定 AdjustWindowRect）
+    switch (options.decoration) {
+    case WindowDecoration::Borderless:
+        style = WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+        frameInset = false;
+        if (options.showInTaskbar) exStyle |= WS_EX_APPWINDOW;
+        break;
+    case WindowDecoration::Transparent:
+        style = WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+        exStyle |= WS_EX_LAYERED;
+        frameInset = false;
+        if (options.showInTaskbar) exStyle |= WS_EX_APPWINDOW;
+        break;
+    case WindowDecoration::Normal:
+    default:
+        break;
+    }
+    if (!options.resizable && options.decoration == WindowDecoration::Normal) {
+        style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    }
+
+    int windowWidth = scaledW, windowHeight = scaledH;
+    if (frameInset) {
+        RECT rect = {0, 0, scaledW, scaledH};
+        AdjustWindowRect(&rect, style, FALSE);
+        windowWidth = rect.right - rect.left;
+        windowHeight = rect.bottom - rect.top;
+    }
     // 居中
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     int posX = (screenWidth - windowWidth) / 2;
     int posY = (screenHeight - windowHeight) / 2;
     std::wstring wtitle = Utf8ToWide(title);
-    hwnd_ = CreateWindowExW(0, L"KwikUIWindowClass", wtitle.c_str(), WS_OVERLAPPEDWINDOW, posX, posY, windowWidth,
+    hwnd_ = CreateWindowExW(exStyle, L"KwikUIWindowClass", wtitle.c_str(), style, posX, posY, windowWidth,
                             windowHeight, nullptr, nullptr, GetModuleHandle(nullptr), this);
     if (!hwnd_) return false;
     g_windowMap[hwnd_] = this;
     hdc_ = GetDC(hwnd_);
     width_ = scaledW;
     height_ = scaledH;
+    windowState_ = 0;
+
+    // ── 图标（窗口/任务栏/Alt-Tab）+ 无边框 Win11 圆角 ──
+    if (!options.iconPath.empty()) ApplyIconPath(options.iconPath);
+    if (options.decoration == WindowDecoration::Borderless) {
+        // Win11 圆角（动态加载 dwmapi，Win10 无此属性自动降级为直角）；
+        // 阴影由 WS_THICKFRAME 的 DWM 系统阴影提供
+        using PfnDwmSetWindowAttribute = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        if (HMODULE dwm = LoadLibraryW(L"dwmapi.dll")) {
+            auto setAttr = (PfnDwmSetWindowAttribute)GetProcAddress(dwm, "DwmSetWindowAttribute");
+            if (setAttr) {
+                constexpr DWORD kCornerPreference = 33;    // DWMWA_WINDOW_CORNER_PREFERENCE
+                constexpr int kRound = 2;                  // DWMWCP_ROUND
+                setAttr(hwnd_, kCornerPreference, &kRound, sizeof(kRound));
+            }
+            FreeLibrary(dwm);
+        }
+    }
     return true;
 }
 
@@ -134,6 +192,16 @@ void PlatformWindowWin32::Destroy() {
         g_windowMap.erase(hwnd_);
         hwnd_ = nullptr;
     }
+    // 图标句柄随窗口销毁后释放（SetClassLongPtr 的类图标指向本窗口句柄，
+    // 下一个窗口创建时会重新设置；类注册图标不能早于窗口销毁释放）
+    auto freeIcon = [](HICON &h) {
+        if (h) {
+            DestroyIcon(h);
+            h = nullptr;
+        }
+    };
+    freeIcon(hIconLarge_);
+    freeIcon(hIconSmall_);
 }
 
 void PlatformWindowWin32::Show() {
@@ -237,29 +305,134 @@ void PlatformWindowWin32::SetDecoration(WindowDecoration decoration) {
 
     decoration_ = decoration;
     LONG_PTR style = GetWindowLongPtrW(hwnd_, GWL_STYLE);
+    LONG_PTR exStyle = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
 
     switch (decoration) {
     case WindowDecoration::Borderless:
-        // 移除标题栏和边框
-        style &= ~(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
-        style |= WS_POPUP;
+        // 无边框：去标题栏但保留 WS_THICKFRAME（原生缩放边缘/Aero Snap），
+        // 非客户区经 WM_NCCALCSIZE 归零；WS_EX_APPWINDOW 保证任务栏可见
+        style &= ~(WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+        style |= WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+        exStyle |= WS_EX_APPWINDOW;
         break;
     case WindowDecoration::Transparent:
         // 透明窗口
         style &= ~(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME);
         style |= WS_POPUP;
-        // 设置分层窗口
-        SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, GetWindowLongPtrW(hwnd_, GWL_EXSTYLE) | WS_EX_LAYERED);
+        exStyle |= WS_EX_LAYERED;
         break;
     case WindowDecoration::Normal:
     default:
         // 恢复默认样式
         style |= WS_OVERLAPPEDWINDOW;
+        exStyle &= ~WS_EX_APPWINDOW;
         break;
     }
 
     SetWindowLongPtrW(hwnd_, GWL_STYLE, style);
+    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, exStyle);
     SetWindowPos(hwnd_, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+}
+
+// ── 无边框拖拽区（逻辑像素 → 命中测试时按当前屏 S₀ 换算物理）──
+void PlatformWindowWin32::SetDragRegions(const std::vector<DragRegion> &regions) { dragRegions_ = regions; }
+
+void PlatformWindowWin32::MinimizeWindow() {
+    if (hwnd_) ShowWindow(hwnd_, SW_MINIMIZE);
+}
+
+void PlatformWindowWin32::MaximizeWindow() {
+    if (hwnd_) {
+        if (IsZoomed(hwnd_)) return;
+        ShowWindow(hwnd_, SW_MAXIMIZE);
+    }
+}
+
+void PlatformWindowWin32::RestoreWindow() {
+    if (hwnd_) ShowWindow(hwnd_, SW_RESTORE);
+}
+
+bool PlatformWindowWin32::IsWindowMaximized() const { return hwnd_ && IsZoomed(hwnd_) != 0; }
+
+void PlatformWindowWin32::CloseWindow() {
+    // 走 WM_CLOSE 生命周期（同点关闭按钮）：Application 收 WindowClose →
+    // requestClose → 运行时按契约顺序 teardown，不在命令内同步销毁
+    if (hwnd_) PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+}
+
+bool PlatformWindowWin32::SetWindowIcon(const std::string &path) { return ApplyIconPath(path); }
+
+// 加载 .ico 并应用到窗口 + 窗口类（任务栏/Alt-Tab 走类图标，标题栏走窗口图标）
+bool PlatformWindowWin32::ApplyIconPath(const std::string &path) {
+    if (!hwnd_ || path.empty()) return false;
+    std::wstring wpath = Utf8ToWide(path);
+    HICON big = (HICON)LoadImageW(nullptr, wpath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXICON),
+                                  GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE);
+    HICON small = (HICON)LoadImageW(nullptr, wpath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+                                    GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+    if (!big && !small) {
+        Log::warn("[win32] 图标加载失败: {}", path);
+        return false;
+    }
+    // 应用新图标后再释放旧句柄（窗口/类不能指向已销毁图标）
+    HICON oldBig = hIconLarge_, oldSmall = hIconSmall_;
+    hIconLarge_ = big;
+    hIconSmall_ = small;
+    if (big) {
+        SendMessageW(hwnd_, WM_SETICON, ICON_BIG, (LPARAM)big);
+        SetClassLongPtrW(hwnd_, GCLP_HICON, (LONG_PTR)big);
+    }
+    if (small) {
+        SendMessageW(hwnd_, WM_SETICON, ICON_SMALL, (LPARAM)small);
+        SetClassLongPtrW(hwnd_, GCLP_HICONSM, (LONG_PTR)small);
+    }
+    if (oldBig && oldBig != big) DestroyIcon(oldBig);
+    if (oldSmall && oldSmall != small) DestroyIcon(oldSmall);
+    return true;
+}
+
+// 当前显示器 S₀（工作区 ÷ 基准屏；与 GetSize 的逻辑/物理换算同源）
+float PlatformWindowWin32::CurrentS0() const {
+    HMONITOR hMon = hwnd_ ? MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST) : nullptr;
+    MONITORINFO mi{sizeof(mi)};
+    if (hMon && GetMonitorInfoW(hMon, &mi)) {
+        float sw = float(mi.rcWork.right - mi.rcWork.left) / kBaselineScreenW;
+        float sh = float(mi.rcWork.bottom - mi.rcWork.top) / kBaselineScreenH;
+        return sw < sh ? sw : sh;
+    }
+    return 1.0f;
+}
+
+// WM_NCHITTEST：边缘缩放带优先（原生语义），其次拖拽区 → HTCAPTION。
+// 纯判定在 ComputeFramelessHitTest（core_tests 行为锁）；此处只做坐标换算。
+LRESULT PlatformWindowWin32::HandleFramelessHitTest(LPARAM lParam) {
+    POINT pt{(int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam)};
+    ScreenToClient(hwnd_, &pt);
+    RECT rc{};
+    GetClientRect(hwnd_, &rc);
+    const int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    if (w <= 0 || h <= 0) return HTCLIENT;
+    // 拖拽区是逻辑坐标：按当前屏 S₀ 换算到物理客户区；最大化时拖拽区
+    // 仍按 Caption 处理（系统负责"拖动还原"语义），边缘缩放带禁用
+    const float s = CurrentS0();
+    std::vector<DragRegion> phys;
+    phys.reserve(dragRegions_.size());
+    for (const auto &r : dragRegions_) {
+        phys.push_back(DragRegion{r.x * s, r.y * s, r.width * s, r.height * s});
+    }
+    const int border = IsZoomed(hwnd_) ? 0 : 6;
+    switch (ComputeFramelessHitTest(pt.x, pt.y, w, h, border, phys)) {
+    case WindowHitZone::Caption: return HTCAPTION;
+    case WindowHitZone::Left: return HTLEFT;
+    case WindowHitZone::Right: return HTRIGHT;
+    case WindowHitZone::Top: return HTTOP;
+    case WindowHitZone::Bottom: return HTBOTTOM;
+    case WindowHitZone::TopLeft: return HTTOPLEFT;
+    case WindowHitZone::TopRight: return HTTOPRIGHT;
+    case WindowHitZone::BottomLeft: return HTBOTTOMLEFT;
+    case WindowHitZone::BottomRight: return HTBOTTOMRIGHT;
+    case WindowHitZone::Client: default: return HTCLIENT;
+    }
 }
 
 void PlatformWindowWin32::SetShape(const std::vector<std::pair<int, int>> &polygon) {
@@ -338,6 +511,29 @@ LRESULT CALLBACK PlatformWindowWin32::WndProc(HWND hwnd, UINT msg, WPARAM wParam
 }
 
 LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+    // ── 无边框几何消息：必须在事件回调守卫之前处理 ──
+    // （Create/Show 早于 SetRawEventCallback 接线，回调为空时同样要生效）
+    if (msg == WM_NCCALCSIZE) {
+        if (decoration_ != WindowDecoration::Normal && wParam) {
+            auto *p = reinterpret_cast<NCCALCSIZE_PARAMS *>(lParam);
+            if (p && IsZoomed(hwnd_)) {
+                // 最大化：客户区 = 工作区。NCCALCSIZE 归零后窗口矩形含不可见
+                // 厚边框（越屏 6-8px），不夹到工作区会出现内容出屏
+                HMONITOR mon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+                MONITORINFO mi{sizeof(mi)};
+                if (GetMonitorInfoW(mon, &mi)) p->rgrc[0] = mi.rcWork;
+            }
+            // 非最大化：客户区 = 整窗（返回 0 不改 rgrc；WS_THICKFRAME 的
+            // 原生缩放边缘 / Aero Snap 由系统按不可见边框继续处理）
+            return 0;
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+    if (msg == WM_NCHITTEST) {
+        if (decoration_ != WindowDecoration::Normal) return HandleFramelessHitTest(lParam);
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+
     if (!rawCallback_) { return DefWindowProcW(hwnd_, msg, wParam, lParam); }
     Event e;
 
@@ -448,6 +644,23 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     case WM_SIZE:
         width_ = static_cast<int>(LOWORD(lParam));
         height_ = static_cast<int>(HIWORD(lParam));
+
+        // 状态翻转（最大化/还原/最小化）→ 独立 JS 事件（onWindowStateChange）；
+        // 与尺寸事件解耦：布局重排归 WindowResize，UI 控件图标归状态事件
+        {
+            uint8_t st = IsIconic(hwnd_) ? 2 : (IsZoomed(hwnd_) ? 1 : 0);
+            if (st != windowState_) {
+                windowState_ = st;
+                if (rawCallback_) {
+                    RawEvent stateEvt;
+                    stateEvt.device = RawEvent::Device::Window;
+                    stateEvt.action = RawEvent::Action::WindowStateChanged;
+                    stateEvt.windowState = st;
+                    stateEvt.timestamp = GetTickCount64();
+                    rawCallback_(stateEvt);
+                }
+            }
+        }
 
         // 重新创建位图缓冲区
         if (bitmap_) {

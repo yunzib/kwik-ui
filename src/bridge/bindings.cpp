@@ -1571,6 +1571,98 @@ static JSValue js_cancelAnimationFrame(JSContext *ctx, JSValueConst this_val, in
 // ── 窗口/视口查询面 ──
 // 运行期静态窗钩由 KwikRuntime::init 挂上（teardown 清）；未挂窗
 // （headless/极早期）返回 undefined 而非报错，调用方自行回退默认布局。
+// ── 窗口控制命令面（无边框应用 / 任务栏图标 / 状态事件）──
+// 走 getRegisteredWindow 单例（与 getWindowSize 同源）；平台无能力时安全 no-op。
+static PlatformWindow *jsWindow_() { return static_cast<PlatformWindow *>(getRegisteredWindow()); }
+
+static JSValue js_setWindowDecoration(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv) {
+    auto *w = jsWindow_();
+    if (!w || argc < 1 || !JS_IsString(argv[0])) return JS_UNDEFINED;
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (!s) return JS_UNDEFINED;
+    std::string mode(s);
+    JS_FreeCString(ctx, s);
+    if (mode == "borderless") w->SetDecoration(WindowDecoration::Borderless);
+    else if (mode == "transparent") w->SetDecoration(WindowDecoration::Transparent);
+    else w->SetDecoration(WindowDecoration::Normal);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_setDragRegions(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv) {
+    auto *w = jsWindow_();
+    if (!w) return JS_UNDEFINED;
+    std::vector<DragRegion> regions;
+    if (argc >= 1 && JS_IsArray(argv[0])) {
+        JSValue lenV = JS_GetPropertyStr(ctx, argv[0], "length");
+        int32_t n = 0;
+        JS_ToInt32(ctx, &n, lenV);
+        JS_FreeValue(ctx, lenV);
+        for (int32_t i = 0; i < n; ++i) {
+            JSValue item = JS_GetPropertyUint32(ctx, argv[0], (uint32_t)i);
+            if (JS_IsObject(item)) {
+                DragRegion r;
+                auto num = [&](const char *key, float &out) {
+                    JSValue v = JS_GetPropertyStr(ctx, item, key);
+                    double d = 0;
+                    if (JS_ToFloat64(ctx, &d, v) == 0) out = (float)d;
+                    JS_FreeValue(ctx, v);
+                };
+                num("x", r.x);
+                num("y", r.y);
+                num("width", r.width);
+                num("height", r.height);
+                if (r.width > 0 && r.height > 0) regions.push_back(r);
+            }
+            JS_FreeValue(ctx, item);
+        }
+    }
+    w->SetDragRegions(regions);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_minimizeWindow(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    if (auto *w = jsWindow_()) w->MinimizeWindow();
+    return JS_UNDEFINED;
+}
+static JSValue js_maximizeWindow(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    if (auto *w = jsWindow_()) w->MaximizeWindow();
+    return JS_UNDEFINED;
+}
+static JSValue js_restoreWindow(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    if (auto *w = jsWindow_()) w->RestoreWindow();
+    return JS_UNDEFINED;
+}
+static JSValue js_toggleMaximizeWindow(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    if (auto *w = jsWindow_()) {
+        if (w->IsWindowMaximized()) w->RestoreWindow();
+        else w->MaximizeWindow();
+    }
+    return JS_UNDEFINED;
+}
+static JSValue js_closeWindow(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    if (auto *w = jsWindow_()) w->CloseWindow();
+    return JS_UNDEFINED;
+}
+static JSValue js_isWindowMaximized(JSContext *ctx, JSValueConst, int, JSValueConst *) {
+    auto *w = jsWindow_();
+    return JS_NewBool(ctx, w && w->IsWindowMaximized());
+}
+static JSValue js_setWindowResizable(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv) {
+    auto *w = jsWindow_();
+    if (!w || argc < 1) return JS_UNDEFINED;
+    w->SetResizable(JS_ToBool(ctx, argv[0]) != 0);
+    return JS_UNDEFINED;
+}
+static JSValue js_setWindowIcon(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv) {
+    auto *w = jsWindow_();
+    if (!w || argc < 1 || !JS_IsString(argv[0])) return JS_NewBool(ctx, false);
+    const char *s = JS_ToCString(ctx, argv[0]);
+    if (!s) return JS_NewBool(ctx, false);
+    bool ok = w->SetWindowIcon(std::string(s));
+    JS_FreeCString(ctx, s);
+    return JS_NewBool(ctx, ok);
+}
+
 static JSValue js_getWindowSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto *w = static_cast<PlatformWindow *>(getRegisteredWindow());
     if (!w) return JS_UNDEFINED;
@@ -1685,6 +1777,16 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("requestAnimationFrame", 1, js_requestAnimationFrame),
         JS_CFUNC_DEF("cancelAnimationFrame", 1, js_cancelAnimationFrame),
         JS_CFUNC_DEF("getWindowSize", 0, js_getWindowSize),
+        JS_CFUNC_DEF("setWindowDecoration", 1, js_setWindowDecoration),
+        JS_CFUNC_DEF("setWindowResizable", 1, js_setWindowResizable),
+        JS_CFUNC_DEF("setDragRegions", 1, js_setDragRegions),
+        JS_CFUNC_DEF("minimizeWindow", 0, js_minimizeWindow),
+        JS_CFUNC_DEF("maximizeWindow", 0, js_maximizeWindow),
+        JS_CFUNC_DEF("restoreWindow", 0, js_restoreWindow),
+        JS_CFUNC_DEF("toggleMaximizeWindow", 0, js_toggleMaximizeWindow),
+        JS_CFUNC_DEF("closeWindow", 0, js_closeWindow),
+        JS_CFUNC_DEF("isWindowMaximized", 0, js_isWindowMaximized),
+        JS_CFUNC_DEF("setWindowIcon", 1, js_setWindowIcon),
         JS_CFUNC_DEF("getViewport", 0, js_getViewport),
         JS_CFUNC_DEF("frameStats", 0, js_frameStats),
         JS_CFUNC_DEF("setClipboardText", 1, js_setClipboardText),

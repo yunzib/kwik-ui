@@ -444,3 +444,57 @@ export struct AnimationDesc {
 
     bool isKeyframe() const { return keyframes.size() > 2; }
 };
+// ============================================================================
+// 无边框窗口命中测试（平台无关纯几何；Win32 WM_NCHITTEST 的跨平台表达）
+// ============================================================================
+
+/** @brief 客户区拖拽矩形（窗口坐标；HitTest 输入的坐标域由调用方统一） */
+export struct DragRegion {
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
+/**
+ * @brief 无边框窗口命中分区
+ *
+ * 边缘优先于拖拽区（缩放语义不被拖拽区抢占）；Caption = 可拖动/双击最大化。
+ */
+export enum class WindowHitZone : uint8_t {
+    Client,
+    Caption,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+};
+
+/**
+ * @brief 无边框命中测试（纯函数，行为锁直测）
+ * @param x/y        光标在客户区内坐标（与 width/height 同一坐标域）
+ * @param border     边缘缩放带厚度（同一坐标域；0 = 禁用缩放带）
+ * @param regions    拖拽矩形（同一坐标域，可为空）
+ */
+export inline WindowHitZone ComputeFramelessHitTest(int x, int y, int width, int height, int border,
+                                             const std::vector<DragRegion> &regions) {
+    if (width <= 0 || height <= 0) return WindowHitZone::Client;
+    const bool left = x < border, right = x >= width - border;
+    const bool top = y < border, bottom = y >= height - border;
+    if (top && left) return WindowHitZone::TopLeft;
+    if (top && right) return WindowHitZone::TopRight;
+    if (bottom && left) return WindowHitZone::BottomLeft;
+    if (bottom && right) return WindowHitZone::BottomRight;
+    if (left) return WindowHitZone::Left;
+    if (right) return WindowHitZone::Right;
+    if (top) return WindowHitZone::Top;
+    if (bottom) return WindowHitZone::Bottom;
+    for (const auto &r : regions) {
+        if (x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height) return WindowHitZone::Caption;
+    }
+    return WindowHitZone::Client;
+}

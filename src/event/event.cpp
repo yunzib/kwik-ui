@@ -47,6 +47,7 @@ int dispatchEventTypeToCode(DispatchEvent::Type t) {
     case DispatchEvent::Type::WindowResize: return 26;
     case DispatchEvent::Type::WindowPaint: return 27;
     case DispatchEvent::Type::ContextMenu: return 28;    // 右键上下文菜单（与 ViewEventHandlers 槽位同源）
+    case DispatchEvent::Type::WindowStateChanged: return 29;    // 窗口状态翻转（最大化/还原/最小化）
     // Pinch/Rotate 暂未分配给 JS 回调
     default: return -1;
     }
@@ -724,6 +725,12 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
             break;
         case RawEvent::Action::WindowPaint:
             winEvt.type = DispatchEvent::Type::WindowPaint;
+            emitWin = true;
+            break;
+        case RawEvent::Action::WindowStateChanged:
+            winEvt.type = DispatchEvent::Type::WindowStateChanged;
+            winEvt.windowState = scaled.windowState;
+            winEvt.presetTarget = rootTarget_;    // 根直投（同 feedWindowResize 口径）
             emitWin = true;
             break;
         case RawEvent::Action::WindowFocusOut: {

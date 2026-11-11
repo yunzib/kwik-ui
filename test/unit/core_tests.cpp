@@ -67,6 +67,42 @@ static int g_total = 0;
         }                                                                                                              \
     } while (0)
 
+// ── 行为锁: 无边框窗口命中测试（边缘优先 / 四角 / 拖拽区 / 边界）──
+// Win32 WM_NCHITTEST 的跨平台纯几何：边缘缩放带优先于拖拽区（拖拽区不吞
+// 缩放），四角优先级高于四边，拖拽区半开区间 [x, x+w)，非法尺寸回客户区。
+static void test_frameless_hit_test() {
+    const std::vector<DragRegion> regions = {
+        {0, 0, 700, 40},      // 标题栏拖拽条
+        {100, 100, 120, 60},  // 内容区拖拽块
+    };
+    const int W = 800, H = 600, B = 6;
+    // 四角
+    CHECK(ComputeFramelessHitTest(0, 0, W, H, B, regions) == WindowHitZone::TopLeft);
+    CHECK(ComputeFramelessHitTest(W - 1, 0, W, H, B, regions) == WindowHitZone::TopRight);
+    CHECK(ComputeFramelessHitTest(0, H - 1, W, H, B, regions) == WindowHitZone::BottomLeft);
+    CHECK(ComputeFramelessHitTest(W - 1, H - 1, W, H, B, regions) == WindowHitZone::BottomRight);
+    // 四边（边缘优先于标题栏拖拽区：顶部 6px 内是缩放不是拖拽）
+    CHECK(ComputeFramelessHitTest(400, 2, W, H, B, regions) == WindowHitZone::Top);
+    CHECK(ComputeFramelessHitTest(400, H - 2, W, H, B, regions) == WindowHitZone::Bottom);
+    CHECK(ComputeFramelessHitTest(2, 300, W, H, B, regions) == WindowHitZone::Left);
+    CHECK(ComputeFramelessHitTest(W - 2, 300, W, H, B, regions) == WindowHitZone::Right);
+    // 拖拽区（标题栏内、缩放带外）
+    CHECK(ComputeFramelessHitTest(300, 20, W, H, B, regions) == WindowHitZone::Caption);
+    CHECK(ComputeFramelessHitTest(0 + B, 20, W, H, B, regions) == WindowHitZone::Caption);
+    // 拖拽区半开区间：右/下边界外不算
+    CHECK(ComputeFramelessHitTest(700, 20, W, H, B, regions) == WindowHitZone::Client);
+    CHECK(ComputeFramelessHitTest(300, 40, W, H, B, regions) == WindowHitZone::Client);
+    CHECK(ComputeFramelessHitTest(100, 100, W, H, B, regions) == WindowHitZone::Caption);
+    CHECK(ComputeFramelessHitTest(219, 159, W, H, B, regions) == WindowHitZone::Caption);
+    CHECK(ComputeFramelessHitTest(220, 159, W, H, B, regions) == WindowHitZone::Client);
+    // 普通客户区 / 禁用缩放带（最大化 border=0）
+    CHECK(ComputeFramelessHitTest(400, 300, W, H, B, regions) == WindowHitZone::Client);
+    CHECK(ComputeFramelessHitTest(2, 2, W, H, 0, regions) == WindowHitZone::Caption);    // 标题栏覆盖左上
+    CHECK(ComputeFramelessHitTest(2, 300, W, H, 0, regions) == WindowHitZone::Client);    // 边缘不再缩放
+    // 非法尺寸
+    CHECK(ComputeFramelessHitTest(0, 0, 0, 0, B, regions) == WindowHitZone::Client);
+}
+
 static void test_rect() {
     Rect a{0, 0, 100, 100};
     Rect b{50, 50, 100, 100};
@@ -4204,6 +4240,7 @@ int main() {
     test_flex_line_capacity_and_grow();
     test_flex_space_justify_every_gap();
     test_rect();
+    test_frameless_hit_test();
     test_prop_meta_consistency();
     test_display_list();
     test_surrogate_recombine();

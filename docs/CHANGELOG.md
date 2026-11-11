@@ -2,6 +2,22 @@
 
 # 0.0.0 — 2026-11-10
 ### 新增
+- **无边框窗口 + 任务栏图标（Win32）**：`WindowOptions{decoration, resizable,
+  iconPath, showInTaskbar}` + `Create(title, w, h, opts)`（其余平台走默认
+  重载零改动）；无边框 = `WS_POPUP|WS_THICKFRAME` + `WM_NCCALCSIZE→0`
+  （客户区铺满整窗，保留原生缩放边缘/Aero Snap/系统阴影），`WM_NCHITTEST`
+  按「边缘缩放带 > JS 拖拽区(HTCAPTION) > 客户区」判定（拖拽区逻辑坐标按
+  当前屏 S₀ 换算，最大化时夹到工作区），双击拖拽区走系统最大化/还原；Win11
+  DWM 圆角（dwmapi 动态加载，Win10 降级直角）。JS 命令面
+  `setWindowDecoration / setWindowResizable / setDragRegions /
+  minimizeWindow / maximizeWindow / restoreWindow / toggleMaximizeWindow /
+  closeWindow / isWindowMaximized / setWindowIcon`，根事件
+  `onWindowStateChange`（{state,maximized,minimized}）；窗口查询面提前到
+  JS 求值前接线（模块顶层即可 `getWindowSize()`）。窗口/任务栏/Alt-Tab 图标
+  经 `WM_SETICON` + 窗口类图标（新增 `resources/icons/kwik.ico`，全部示例
+  默认携带）。新验证页 `example.exe frameless`（自绘标题栏 + 拖拽条 +
+  控制按钮 + 状态事件联动）。行为锁 test_frameless_hit_test（边缘优先/
+  四角/拖拽区半开区间/禁用缩放带——拖拽区提到边缘前即红）
 - **滚动定位能力**（对齐浏览器 Ctrl+F / Flutter ensureVisible 的"两层"语义：
   高亮在文本层、滚动在容器层）：`TextView::offsetRect(offset)` 返回字节偏移
   所在行盒（行高推进与 onDraw 同式，几何共源）；`ScrollView::ensureVisible(rect)`

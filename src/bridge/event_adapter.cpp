@@ -282,6 +282,19 @@ void attachJsHandlers(View &view, const JSValueRef &props) {
         };
     }
 
+    // ── onWindowStateChange: 窗口状态翻转（{state, maximized, minimized}）──
+    // 载荷走位置参数 x=state（0 普通 / 1 最大化 / 2 最小化）；根直投
+    if (auto h = dupHandler(ctx, props, "onWindowStateChange")) {
+        view.handlers.onWindowStateChange = [ctx, h](const PointerArgs &a) {
+            int state = (int)a.x;
+            JSValue evt = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, evt, "state", JS_NewInt32(ctx, state));
+            JS_SetPropertyStr(ctx, evt, "maximized", JS_NewBool(ctx, state == 1));
+            JS_SetPropertyStr(ctx, evt, "minimized", JS_NewBool(ctx, state == 2));
+            return callJs1(ctx, h, evt, "onWindowStateChange");
+        };
+    }
+
     // ── onChange: 捕获 View*, 调用时按组件类型现场构造事件对象 ──
     // (View* 与 std::function 同属于该 View, 同生共死, 无悬垂)
     if (auto h = dupHandler(ctx, props, "onChange")) {

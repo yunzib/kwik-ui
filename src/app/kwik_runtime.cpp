@@ -239,6 +239,11 @@ bool KwikRuntime::init() {
         needsRedraw_ = true;
         return true;
     };
+    // ⑤a 窗口查询面提前接线：JS 模块顶层（evalFile/字节码初始化）即可使用
+    // getWindowSize/getViewport 与窗口命令面——窗口对象在 createRuntime 前
+    // 已创建，无依赖；其余注册（绑定表/帧统计/剪贴板）保持在求值后
+    setRegisteredWindow(&window_);
+
     if (config_.enableHotReload) {
         if (!jsCtx_.evalFile(config_.jsPath.c_str())) {
             Log::error("JS 加载失败: {}", config_.jsPath);

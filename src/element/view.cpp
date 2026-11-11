@@ -35,6 +35,7 @@ bool ViewEventHandlers::dispatch(int code, float localX, float localY, float glo
     case 7: slot = &onPanEnd; break;        // PanEnd（拖动结束）
     case 28: slot = &onContextMenu; break;  // ContextMenu（与 dispatchEventTypeToCode 码 28 同源）
     case 26: slot = &onWindowResize; break; // WindowResize（载荷=尺寸，X/Y 传递统一位置参数约定）
+    case 29: slot = &onWindowStateChange; break; // WindowStateChanged（x=0/1/2 普通/最大化/最小化）
     default: return false;
     }
     if (!*slot) return false;    // 未绑定 → 不消费, 继续冒泡
@@ -871,6 +872,10 @@ bool View::onEvent(const DispatchEvent &event) {
         // keyCode 充当 localX 的先例同源
         return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.resizeWidth),
                                  static_cast<float>(event.resizeHeight));
+    }
+    if (event.type == DispatchEvent::Type::WindowStateChanged) {
+        // 载荷窗口状态（0/1/2）——同 resize 走位置参数通道（x=state）
+        return handlers.dispatch(dispatchEventTypeToCode(event.type), static_cast<float>(event.windowState), 0.0f);
     }
     // 焦点事件: FocusManager 注入、presetTarget 直投（无坐标载荷，消费不
     // 冒泡——焦点归属唯一，无链式传播语义）。载荷 {mode 输入模式}: 取自

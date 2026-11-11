@@ -139,6 +139,7 @@ export struct ViewEventHandlers {
     std::function<bool(const PointerArgs &)> onPanMove;       ///< 拖动中（dx/dy=相对按下点累计位移；绑定即消费阻止上溯）
     std::function<bool(const PointerArgs &)> onPanEnd;        ///< 拖动结束（抬起/捕获被夺均收尾；自带拖拽的组件如 Slider 自身消费不透出）
     std::function<bool(const PointerArgs &)> onWindowResize;  ///< 窗口尺寸变化（位置参数 x=width/y=height；dispatch 以根为唯一预设目标，仅根声明生效）
+    std::function<bool(const PointerArgs &)> onWindowStateChange;  ///< 窗口状态翻转（x=0普通/1最大化/2最小化；根直投）
     std::function<void(const ChangeArgs &)> onChange;         ///< 值变更 (Input/Checkbox/Slider/...)
     std::function<void()> onClose;                            ///< Dialog 关闭
     std::function<void(const RowArgs &)> onRowClick;          ///< Table 行点击

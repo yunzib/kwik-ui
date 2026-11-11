@@ -20,6 +20,7 @@ public:
     ~PlatformWindowWin32() override;
     // 窗口生命周期
     bool Create(const std::string &title, int width, int height) override;
+    bool Create(const std::string &title, int width, int height, const WindowOptions &options) override;
     void Destroy() override;
     void Show() override;
     void Hide() override;
@@ -38,6 +39,13 @@ public:
     void WaitEvents() override;
     // 窗口定制
     void SetDecoration(WindowDecoration decoration) override;
+    void SetDragRegions(const std::vector<DragRegion> &regions) override;
+    void MinimizeWindow() override;
+    void MaximizeWindow() override;
+    void RestoreWindow() override;
+    bool IsWindowMaximized() const override;
+    void CloseWindow() override;
+    bool SetWindowIcon(const std::string &path) override;
     void SetShape(const std::vector<std::pair<int, int>> &polygon) override;
     void SetShapeMask(const uint8_t *maskData, int width, int height) override;
     void SetResizable(bool resizable) override;
@@ -56,6 +64,12 @@ private:
     // 窗口消息处理
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+    /// 无边框命中测试（WM_NCHITTEST；拖拽区逻辑坐标按当前屏 S₀ 换算物理）
+    LRESULT HandleFramelessHitTest(LPARAM lParam);
+    /// 加载 .ico 并应用为窗口/类图标（失败返回 false，保留旧图标）
+    bool ApplyIconPath(const std::string &path);
+    /// 当前显示器 S₀（工作区 ÷ 基准屏，与 GetSize 同源）
+    float CurrentS0() const;
     HWND hwnd_ = nullptr;           // 窗口句柄
     HDC hdc_ = nullptr;             // 设备上下文
     HBITMAP bitmap_ = nullptr;      // 位图缓冲区
@@ -66,6 +80,10 @@ private:
     int designWidth_ = 800;         // Create() 传入的原始逻辑宽度（缩放前）
     int designHeight_ = 600;        // Create() 传入的原始逻辑高度（缩放前）
     WindowDecoration decoration_ = WindowDecoration::Normal;
+    std::vector<DragRegion> dragRegions_;    // 无边框拖拽区（逻辑像素、窗口坐标）
+    HICON hIconLarge_ = nullptr;             // 窗口/任务栏大图标（WM_SETICON + 类图标）
+    HICON hIconSmall_ = nullptr;             // 标题栏/Alt-Tab 小图标
+    uint8_t windowState_ = 0;                // 0=普通 1=最大化 2=最小化（变化时发 WindowStateChanged）
     RawEventCallback rawCallback_ = nullptr;
     float grabRelX_ = 0.5f;   // 抓取点在窗口内的归一化位置（0~1）：ENTERSIZEMOVE 时记录，
     float grabRelY_ = 0.5f;   // 拖动全程钉住——跨屏尺寸变化后 WM_MOVE 持续纠偏的基准

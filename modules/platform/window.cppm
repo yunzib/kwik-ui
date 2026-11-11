@@ -7,6 +7,7 @@ module;
 
 export module kwik.platform.window;
 import kwik.event;
+import kwik.core.types;    // DragRegion / WindowHitZone（无边框命中测试纯几何）
 
 /**
  * @brief 事件类型枚举
@@ -48,7 +49,7 @@ export struct Event {
  */
 export enum class WindowDecoration {
     Normal,        // 默认带标题栏和边框
-    Borderless,    // 无边框
+    Borderless,    // 无边框（保留原生缩放边缘 / Aero Snap / 阴影；拖拽区由 SetDragRegions 声明）
     Transparent    // 透明背景（用于异形窗口）
 };
 
@@ -56,6 +57,19 @@ export enum class WindowDecoration {
  *  S₀ = 所在屏工作区 ÷ 基准屏；1920×1080 为约定基准，非设备假设 */
 export inline constexpr int kBaselineScreenW = 1920;
 export inline constexpr int kBaselineScreenH = 1080;
+
+/**
+ * @brief 窗口创建选项
+ *
+ * 默认值 = 旧 Create(title, w, h) 行为（Normal / 可缩放 / 无图标 / 进任务栏）。
+ * 各平台按能力接线，未接线平台走默认 Create 重载保持行为不变。
+ */
+export struct WindowOptions {
+    WindowDecoration decoration = WindowDecoration::Normal;    ///< 装饰风格
+    bool resizable = true;                                     ///< 是否允许缩放（无边框下仍保留原生边缘）
+    std::string iconPath;                                      ///< 窗口/任务栏图标路径（.ico；空 = 系统默认）
+    bool showInTaskbar = true;                                 ///< 是否出现在任务栏
+};
 
 /**
  * @brief 平台窗口抽象接口
@@ -76,6 +90,17 @@ public:
      * @return 创建成功返回true
      */
     virtual bool Create(const std::string &title, int width, int height) = 0;
+
+    /**
+     * @brief 创建窗口（带选项；默认实现忽略选项，等价旧 Create）
+     *
+     * 装饰/图标/任务栏可见性等初始化选项——需在窗口创建前生效的配置走这里；
+     * 运行时变更走 SetDecoration / SetWindowIcon 等。
+     */
+    virtual bool Create(const std::string &title, int width, int height, const WindowOptions &options) {
+        (void)options;
+        return Create(title, width, height);
+    }
 
     /**
      * @brief 销毁窗口
@@ -175,6 +200,27 @@ public:
      * @brief 设置窗口装饰风格
      */
     virtual void SetDecoration(WindowDecoration decoration) = 0;
+
+    /**
+     * @brief 设置无边框拖拽区（逻辑像素、窗口坐标；命中区域按 HTCAPTION 处理）
+     *
+     * 需先切到 Borderless；空列表 = 清除。命中拖拽区 = 系统"点住标题栏"语义：
+     * 按住拖动移动窗口、双击最大化/还原。HTCAPTION 会抢走点击——拖拽区不得
+     * 覆盖需要 onClick 的控制按钮；窗口最外侧缩放带优先于拖拽区（边缘可缩放）。
+     * 窗口 resize 后调用方需重新声明（坐标随窗口尺寸变化）。
+     */
+    virtual void SetDragRegions(const std::vector<DragRegion> &regions) { (void)regions; }
+
+    // ── 窗口控制（平台无能力时 no-op；JS 命令面同源）──
+    virtual void MinimizeWindow() {}
+    virtual void MaximizeWindow() {}
+    virtual void RestoreWindow() {}
+    virtual bool IsWindowMaximized() const { return false; }
+    /** @brief 请求关闭（等价点关闭按钮：走 WM_CLOSE 生命周期，不直接销毁） */
+    virtual void CloseWindow() {}
+
+    /** @brief 设置窗口/任务栏图标（.ico；返回是否成功） */
+    virtual bool SetWindowIcon(const std::string &path) { (void)path; return false; }
 
     /**
      * @brief 设置窗口形状（通过多边形区域）
