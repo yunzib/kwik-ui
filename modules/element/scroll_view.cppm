@@ -71,6 +71,14 @@ public:
     /// @brief 滚轮/触摸滚动入口（返回是否完整消费——到边界由祖先链继续）
     bool applyScroll(float dx, float dy) override;
 
+    /** @brief 滚动到矩形可见（ensureVisible）——横向/纵向按需最小位移
+     *
+     *  rect 为子节点未滚动坐标系（frame 系）；查找揭示/表单聚焦定位用。
+     *  位移后由 setScroll 统一 clamp 到内容边界；物理动画（fling/回弹）
+     *  被打断，定位结果确定。
+     */
+    void ensureVisible(Rect rect);
+
     /// @brief 子孙坐标域补偿：本容器滚动时，叶子组件把 global 换算到未滚动 frame 域用
     Point scrollCompensation() const override { return scrollOffset_; }
 

@@ -416,6 +416,34 @@ void ScrollView::setScroll(float x, float y) {
     markAllDirty();    // ③态底图擦除 frame 后，干净子孙需一并重录，否则内容白屏（对齐 view.cpp:69-72）
 }
 
+/**
+ * @brief 滚动到矩形可见（ensureVisible）
+ *
+ * 可见带 = 视口在未滚动坐标系的投影 [vp.y + scrollOffset.y, +vh]；
+ * 矩形在带外时取最小位移（上方露出/下方露出），保证定位不越滚。
+ * 已可见则零位移（幂等，不打断现行滚动位置）。
+ */
+void ScrollView::ensureVisible(Rect rect) {
+    float tx = scrollOffset_.x, ty = scrollOffset_.y;
+    Rect vp = viewport();
+    if (canScrollY()) {
+        float top = vp.y + ty;
+        float bottom = top + vp.height;
+        if (rect.y < top) ty -= top - rect.y;
+        else if (rect.y + rect.height > bottom) ty += rect.y + rect.height - bottom;
+    }
+    if (canScrollX()) {
+        float left = vp.x + tx;
+        float right = left + vp.width;
+        if (rect.x < left) tx -= left - rect.x;
+        else if (rect.x + rect.width > right) tx += rect.x + rect.width - right;
+    }
+    // 定位语义须确定：打断 fling/回弹物理（其逐帧写回会覆盖定位结果）
+    physX_.stop();
+    physY_.stop();
+    setScroll(tx, ty);    // 内部 clamp 到内容边界
+}
+
 /// @brief 设置偏移（不夹紧）+ markDirty——拖拽橡皮筋/物理回弹写回通路
 /// （物理自身维护边界语义：fling 越界转 spring 收敛，界外值只在此两途出现）
 void ScrollView::setScrollRaw(float x, float y) {
