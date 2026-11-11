@@ -103,29 +103,50 @@ public:
      *  新-9：value/content 变化时回填 content_ 文档模型（构造路径同款：
      *  value 非空单 run 覆盖；content 空补空 run），外部 value 更新不再
      *  静默丢失。门控=value 与 content 文本均未变时不回填，编辑中的
-     *  content_ 不被 reconcile 回滚 */
+     *  content_ 不被 reconcile 回滚。
+     *  M1 扩展：content 逐 run diff 含样式与 link（JS 只改样式/链接不改
+     *  文本同样回填）；段落属性（lineHeight/textAlign/linkColor/
+     *  highlightColor）变更 → 重建行（重烘焙对齐偏移/行高）+ requestLayout
+     *  （重测量 + 重绘），此前只换 tvp_ 导致运行时改这些属性不生效 */
     void applyTextViewProps(TextViewProps tvp) {
+        // 与旧 tvp_ diff 必须在覆盖前判定（三路：文档文本 / run 样式与 link / 段落属性）
         bool changed = (tvp.value != tvp_.value);
         if (!changed) {
             if (tvp.content.size() != tvp_.content.size()) {
                 changed = true;
             } else {
-                for (size_t i = 0; i < tvp.content.size() && !changed; ++i)
-                    changed = (tvp.content[i].text != tvp_.content[i].text);
+                for (size_t i = 0; i < tvp.content.size() && !changed; ++i) {
+                    auto &a = tvp.content[i], &b = tvp_.content[i];
+                    changed = a.text != b.text || a.link != b.link
+                              || a.style.fontSize != b.style.fontSize
+                              || a.style.fontWeight != b.style.fontWeight
+                              || a.style.fontStyle != b.style.fontStyle
+                              || !(a.style.textColor == b.style.textColor)
+                              || a.style.underline != b.style.underline
+                              || a.style.strikethrough != b.style.strikethrough;
+                }
             }
         }
-        if (changed) {
-            if (!tvp.value.empty()) {
-                tvp.content.clear();
-                tvp.content.push_back({tvp.value, {}});
-            } else if (tvp.content.empty()) {
-                tvp.content.push_back({{}, {}});
-            }
-            content_ = tvp.content;
-            rebuild_();
-            markDirty();
-        }
+        bool paraChanged = tvp.lineHeight != tvp_.lineHeight || tvp.textAlign != tvp_.textAlign
+                           || !(tvp.linkColor == tvp_.linkColor)
+                           || !(tvp.highlightColor == tvp_.highlightColor);
+
         tvp_ = std::move(tvp);
+        if (changed) {
+            if (!tvp_.value.empty()) {
+                tvp_.content.clear();
+                tvp_.content.push_back({tvp_.value, {}});
+            } else if (tvp_.content.empty()) {
+                tvp_.content.push_back({{}, {}});
+            }
+            content_ = tvp_.content;
+            rebuild_();    // 内部含 refreshHighlights_ + rebuildLines_(lastAvailWidth_)，段落属性一并生效
+            markDirty();
+        } else if (paraChanged && lastAvailWidth_ > 0) {
+            // 文本未变：只需按新段落属性重排行（tvp_ 已覆盖，烘焙值即新值）
+            rebuildLines_(lastAvailWidth_);
+        }
+        if (paraChanged) requestLayout();    // 行高倍率影响测量 → 重测量（契约自带 markDirty）
     }
 
     ElementType type() const override { return ElementType::TextView; }
@@ -169,12 +190,36 @@ public:
     // ── 查找高亮（M1-⑦）──
     /** @brief 从 from 起查找 needle 首个匹配的 UTF-8 字节偏移（无匹配返回 npos） */
     size_t find(const std::string &needle, size_t from = 0) const;
+    /** @brief 查找 needle 严格左于 before 的最后一个匹配（上一个；缺省 = 文本尾）
+     *
+     *  与 find 对称构成 上一个/下一个导航：命中起点恒 < before，返回 npos =
+     *  前方无命中（调用方据此回绕到最后一个匹配）。
+     */
+    size_t findPrev(const std::string &needle, size_t before = std::string::npos) const;
     /** @brief 高亮 needle 全部出现（返回命中数；编辑后随 rebuild_ 自动重算偏移） */
     size_t highlightAll(const std::string &needle);
+    /** @brief 设置"当前命中"区间（查找导航 第 k/N 处的视觉区分；len==0 清除）
+     *
+     *  绘制在 highlightAll 琥珀高亮之上、文字之下（更深的琥珀色）；内容编辑
+     *  （rebuild_）自动清除——旧偏移已失效。跨组件导航时调用方负责清除前一项。
+     */
+    void setActiveMatch(size_t start, size_t len);
+    /** @brief 是否存在当前命中区间（断言/测试可观察） */
+    bool hasActiveMatch() const { return activeStart_ < activeEnd_; }
+    /// 当前命中底色（深琥珀：与 highlightColor 浅琥珀区分，导航时当前项更醒目）
+    static constexpr Color kActiveMatchColor{255, 152, 0, 140};
     /** @brief 清除全部查找高亮 */
     void clearHighlight();
     /** @brief 当前高亮区间列表（plainText_ 字节偏移对 [s, e)） */
     const std::vector<std::pair<size_t, size_t>> &highlights() const { return highlights_; }
+
+    /** @brief 字节偏移所在行盒矩形（全局坐标，未滚动坐标系）
+     *
+     *  供滚动容器定位消费（查找高亮 reveal / 光标跟随）：y/height = 行盒，
+     *  x/width = 内容区整宽（横向由容器按需用 x 轴）。空文档返回内容区。
+     *  依赖 lines_ 已建行（measure/onLayout 后）；越界偏移收敛到末行。
+     */
+    Rect offsetRect(size_t byteOffset) const;
 
     void resolveThemeDefaults() override;
 
@@ -210,6 +255,8 @@ private:
     // ── 查找高亮（M1-⑦）：字节区间 + 关键词缓存（编辑后 rebuild_ 重算）──
     std::string highlightNeedle_;                          ///< 当前高亮关键词（空 = 无高亮）
     std::vector<std::pair<size_t, size_t>> highlights_;    ///< 命中区间 [s, e)（plainText_ 字节偏移）
+    size_t activeStart_ = 0;                               ///< 当前命中区间起点（start>=end = 无）
+    size_t activeEnd_ = 0;                                 ///< 当前命中区间终点（字节偏移，开区间）
 
     // ── 撤销/重做（快照栈：TextRun[] 拷贝 + 光标恢复）──
     static constexpr size_t kMaxUndoSteps_ = 100;
@@ -272,3 +319,11 @@ private:
     void fireChange_();
     bool updateCursorBlink_();
 };
+// ── 整篇查找支持：子树内可查文本组件枚举 ──
+/** @brief 先序收集子树内带 id 的 TextView 的 id（文档序；隐藏子树跳过）
+ *
+ *  JS `textViewIds(rootId?)` 的实现：整篇查找 = 枚举 → 逐组件
+ *  highlightAll/findText → 汇总匹配列表 → revealText 导航（第 k/N 处）。
+ *  仅有 id 的组件可入列——查找命令族以 id 定位（findById 契约）。
+ */
+export void collectTextViewIds(View &root, std::vector<std::string> &out);

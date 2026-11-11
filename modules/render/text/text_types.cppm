@@ -68,6 +68,10 @@ export {
         uint32_t glyphIndex = 0;             ///< 字形索引（FreeType glyph ID）
         float fontSize = 0;                  ///< 字号
         float x = 0, y = 0;                  ///< 绘制坐标（baseline 已烘焙）
+        float bearingY = 0;                  ///< 墨迹顶到基线的逻辑距离（墨迹在基线上方为正）。
+                                             ///< 烘焙后 y 语义是"相对行顶"，跨行/跨 run 重锚基线
+                                             ///< （TextView 行内共享基线）须用 y − 行基线 − bearing 反推，
+                                             ///< 该字段保存塑形原值避免调用方重算（CJK ink 顶 ≈ 0.85em）
         float advanceX = 0;                  ///< 水平步进
         float width = 0, height = 0;         ///< 字形 ink 包围盒
         float uvLeft = 0, uvRight = 0;       ///< 图集 UV（x 方向）

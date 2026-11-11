@@ -142,6 +142,8 @@ void TextView::rebuild_() {
 
     // 4. 查找高亮偏移自愈：文本变更后按关键词重扫（无关键词 no-op）
     refreshHighlights_();
+    // 4b. 当前命中区间随内容失效（旧偏移不可信；导航方下一步会重设）
+    activeStart_ = activeEnd_ = 0;
 
     // 5. 若已有布局宽度则重建行
     if (lastAvailWidth_ > 0) rebuildLines_(lastAvailWidth_);
@@ -462,6 +464,24 @@ void TextView::onDraw(Graphics &graphics) {
             continue;
         }
 
+        // ── 行内共享基线（从行顶）：带状居中，带高/ascender 按"行内最大字号"
+        // 取（CSS 语义：混合字号共基线，行盒装下最大字形）。glyph.y 已被
+        // TextLayout 预烘焙成"相对行顶"（单 run 单行塑形，跨行拆分不失效），
+        // 简单行直用；混合字号行按 B − bearingY 重锚（bearingY = 墨迹顶到
+        // 基线距离，shaper 保存）。此前按烘焙前语义 baseY + sg.y 叠加两次
+        // 基线 → 文字整体下坠 ascender 高度：首行顶部大空白 + 次行被裁到
+        // 只露顶部（textview_m0 实测 baseY−drawY = 18px @fs15）──
+        float fsLine = 16.0f;
+        for (auto &lgm : line.glyphs) {
+            auto &rsm = runShapes_[lgm.runIndex];
+            float fsm = rsm.style.fontSize > 0 ? rsm.style.fontSize : 16.0f;
+            if (fsm > fsLine) fsLine = fsm;
+        }
+        auto metricsLine = pipe.getFontMetrics(fontId_, fsLine);
+        float bandH = metricsLine.ascender - metricsLine.descender;
+        float baselineFromTop = (lh - bandH) * 0.5f + metricsLine.ascender;
+        float baseY = drawY + baselineFromTop;
+
         // ── 查找高亮（第三态，垫底于选区与文字；跨折行命中按行内字节交集分段）──
         if (!highlights_.empty()) {
             for (auto &hl : highlights_) {
@@ -472,6 +492,16 @@ void TextView::onDraw(Graphics &graphics) {
                     float xe = (e >= line.endByte) ? line.width : xForByte_(e);
                     if (xe > xs) graphics.drawRect({inner.x + xs, drawY, xe - xs, lh}, tvp_.highlightColor);
                 }
+            }
+        }
+        // ── 当前命中（查找导航 第 k/N 处）：盖在琥珀命中之上、文字之下，深琥珀区分 ──
+        if (activeStart_ < activeEnd_) {
+            size_t s = std::max(activeStart_, line.startByte);
+            size_t e = std::min(activeEnd_, line.endByte);
+            if (s < e) {
+                float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
+                float xe = (e >= line.endByte) ? line.width : xForByte_(e);
+                if (xe > xs) graphics.drawRect({inner.x + xs, drawY, xe - xs, lh}, kActiveMatchColor);
             }
         }
 
@@ -487,10 +517,8 @@ void TextView::onDraw(Graphics &graphics) {
             auto &style = rs.style;
             float fs = style.fontSize > 0 ? style.fontSize : 16.0f;
 
-            // 从 pipeline 获取字体度量（基线、下划线位置等）
+            // 组内字体度量仅用于下划线/删除线锚点（文字位置由共享基线定）
             auto metrics = pipe.getFontMetrics(fontId_, fs);
-            float textH = metrics.ascender - metrics.descender;
-            float baseY = drawY + (lh - textH) * 0.5f + metrics.ascender;
             // 链接 run：强制链接色 + 下划线（链接身份与用户 underline 设置解耦）
             bool isLinkRun = lg.runIndex < content_.size() && !content_[lg.runIndex].link.empty();
             Color color = isLinkRun ? tvp_.linkColor : style.textColor;
@@ -508,7 +536,7 @@ void TextView::onDraw(Graphics &graphics) {
                 auto &sg = glyphs[lg2.glyphIndex];
                 ShapedGlyph copy = sg;
                 copy.x = inner.x + lg2.x;
-                copy.y = baseY + sg.y;
+                copy.y = baseY - sg.bearingY;    // 墨迹顶 = 共享基线 − bearing（跨 run 重锚）
                 batch.push_back(copy);
                 gi++;
             }
@@ -950,8 +978,8 @@ void TextView::insertRunsAtCursor_(const std::vector<TextRun> &runs) {
         std::string before = run.text.substr(0, off);
         std::string after = run.text.substr(off);
         TextStyle cur = run.style;
-        std::string curLink = run.link;    // 插入点切分：前后段不继承链接身份
-                                           //（切分处 run 边界变化，链接语义只随原 run 整体）
+        std::string curLink = run.link;    // 切分段继承链接身份：与 insertAtCursor_ 同语义——
+                                           // 在链接段内粘贴不撕断前后段链接
         content_.erase(content_.begin() + ri);
         size_t at = ri;
         if (!before.empty()) content_.insert(content_.begin() + at++, {before, cur, curLink});
@@ -1268,6 +1296,24 @@ size_t TextView::lineForByte_(size_t pos) const {
 }
 
 /**
+ * @brief 字节偏移所在行盒矩形（全局坐标，未滚动坐标系）
+ *
+ * 行盒逐行累加与 onDraw 的 drawY 推进同式（lh 兜底 lhMul_(16)），保证
+ * 揭示矩形与绘制几何共源——查找定位/光标跟随不因两套行高口径漂移。
+ */
+Rect TextView::offsetRect(size_t byteOffset) const {
+    Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top,
+                  frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
+    if (lines_.empty()) return inner;
+    size_t li = lineForByte_(byteOffset);
+    if (li >= lines_.size()) li = lines_.size() - 1;
+    float y = inner.y;
+    for (size_t i = 0; i < li; ++i) y += lines_[i].height > 0 ? lines_[i].height : lhMul_(16.0f);
+    float h = lines_[li].height > 0 ? lines_[li].height : lhMul_(16.0f);
+    return {inner.x, y, inner.width, h};
+}
+
+/**
  * @brief 计算字节偏移在行内的 X 坐标
  * @param pos plainText_ 中的字节偏移
  * @return 相对于行首的 X 像素位置
@@ -1397,6 +1443,20 @@ size_t TextView::find(const std::string &needle, size_t from) const {
 }
 
 /**
+ * @brief 查找 needle 严格左于 before 的最后一个匹配（上一个）
+ *
+ * 反向 rfind 语义：返回命中起点 < before 的最后一个出现。before 缺省 =
+ * 文本尾（即整篇最后一个命中，供"从末尾回绕"直接调用）。与 find 对称，
+ * 两者即 上一个/下一个 导航的完整原语；空关键词/无匹配返回 npos。
+ */
+size_t TextView::findPrev(const std::string &needle, size_t before) const {
+    if (needle.empty() || plainText_.empty() || before == 0) return std::string::npos;
+    // rfind 的 pos 为"命中起点允许的最大值"：before−1 保证严格左于 before
+    size_t from = (before == std::string::npos) ? std::string::npos : before - 1;
+    return plainText_.rfind(needle, from);
+}
+
+/**
  * @brief 高亮 needle 全部出现（非重叠扫描：命中后跳过整个关键词）
  *
  * 记录关键词到 highlightNeedle_：后续编辑触发 rebuild_ 时按新文本重扫，
@@ -1415,6 +1475,26 @@ void TextView::clearHighlight() {
         highlights_.clear();
         markDirty();
     }
+}
+
+/**
+ * @brief 设置"当前命中"区间（查找导航 第 k/N 处的视觉区分）
+ *
+ * 独立于 highlightAll 的命中集合：调用方逐处导航时把当前项设为 active，
+ * 绘制在琥珀高亮之上（深琥珀），跨组件导航时新旧组件各自清除/设置。
+ * len==0 或起点越界 = 清除；终点夹到文档尾。
+ */
+void TextView::setActiveMatch(size_t start, size_t len) {
+    if (len == 0 || start >= plainText_.size()) {
+        if (activeStart_ < activeEnd_) {
+            activeStart_ = activeEnd_ = 0;
+            markDirty();
+        }
+        return;
+    }
+    activeStart_ = start;
+    activeEnd_ = std::min(start + len, plainText_.size());
+    markDirty();
 }
 
 void TextView::refreshHighlights_() {
@@ -1492,4 +1572,25 @@ void TextView::resolveThemeDefaults() {
         if (tvp_.selectionColor.isTransparent()) tvp_.selectionColor = Color{173, 216, 230, 120};
     if (!c("placeholderColor", tvp_.placeholderColor))
         if (tvp_.placeholderColor.isTransparent()) tvp_.placeholderColor = t.colors.onSurfaceVariant;
+    // ── 构造期非 token 默认（reconcile props 重置会冲掉，与构造函数同语义回填）──
+    // 1px outline 边框 + 4px 圆角是 TextView 构造期外观契约（textview.cpp 构造函数）：
+    // 不随主题走，reconcile 重置后必须同值恢复，否则任意一次 State 重建后边框/
+    // 圆角消失（textview_scroll 查找重建复现：bw 1→0、radius 4→0）
+    if (props.borderWidth == 0) props.borderWidth = 1.0f;
+    if (props.borderRadius == 0) props.borderRadius = 4.0f;
+}
+// ============================================================================
+// 整篇查找支持：子树内可查文本组件枚举
+// ============================================================================
+/**
+ * @brief 先序收集子树内带 id 的 TextView 的 id（文档序；隐藏子树跳过）
+ *
+ * 与绘制/事件同口径跳过不可见子树（隐藏文本不应被查找命中）。
+ * 重复 id 原样收集：定位命令 findById 取首个，属作者错误，不在此静默去重。
+ */
+void collectTextViewIds(View &root, std::vector<std::string> &out) {
+    if (root.type() == ElementType::TextView && !root.props.id.empty()) out.push_back(root.props.id);
+    for (auto &ch : root.children) {
+        if (ch && ch->props.visible) collectTextViewIds(*ch, out);
+    }
 }

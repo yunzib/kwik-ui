@@ -230,6 +230,10 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         sg.x = (cursorX + xOff + inkBearingX) * scaleToLogical;
         sg.y = (cursorY + yOff - static_cast<float>(ftFace->glyph->metrics.horiBearingY) / 64.0f + baselineAdjust)
                * scaleToLogical;
+        // 墨迹顶到基线的逻辑距离（烘焙前 y 的相反数）：TextLayout 预烘焙后 y 变
+        // "相对行顶"，跨行/跨 run 重锚基线的消费方（TextView 行内共享基线）
+        // 用 bearingY 直接反推，不再依赖烘焙前语义
+        sg.bearingY = -sg.y;
         sg.advanceX = advPhysical * scaleToLogical;
         sg.width = inkW * scaleToLogical;
         sg.height = inkH * scaleToLogical;
