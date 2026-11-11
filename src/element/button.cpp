@@ -28,7 +28,21 @@ Size Button::onMeasure(Constraints constraints) {
     if (!textResult_ || !textResult_->matchesKey(text_.text, fid, text_.fontSize, cfg)) {
         textResult_ = pipe.layoutText(text_.text, fid, text_.fontSize, cfg);
     }
-    if (!textResult_ || textResult_->glyphs.empty()) return constraints.constrain({0, 0});
+    // 字形缺席（无字体/塑形失败/字体未就绪）：显式 width/height 仍须兑现，
+    // 文本贡献回退估算——此前直接 constrain({0,0}) 把显式尺寸一并吞掉，
+    // 按钮量成零尺寸即从页面消失（布局/命中/绘制全线失效）
+    Size out;
+    if (!textResult_ || textResult_->glyphs.empty()) {
+        float w = props.width.has_value()
+                      ? *props.width + props.padding.horizontal()
+                      : (static_cast<float>(text_.text.size()) * text_.fontSize * 0.6f
+                         + props.padding.horizontal());
+        float h = props.height.has_value()
+                      ? *props.height + props.padding.vertical()
+                      : (std::max(text_.fontSize * 1.4f, 16.0f) + props.padding.vertical());
+        out = constraints.constrain({w, h});
+        return out;
+    }
 
     float w = textResult_->totalWidth + props.padding.horizontal();
     float h = std::max(textResult_->totalHeight, 16.0f) + props.padding.vertical();
@@ -175,6 +189,13 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
+    // 运行期写 background 即用户自主选择（含透明幽灵款）：置让位标记，与
+    // parse 路径（props_parser:242）同语义——reconcile 主题兜底无条件补调后，
+    // 运行期显式透明不被 primary 回填冲掉
+    if (std::strcmp(name, "background") == 0 || std::strcmp(name, "bg") == 0
+        || std::strcmp(name, "backgroundColor") == 0) {
+        if (std::get_if<Color>(&value)) button_.hasBackground = true;
+    }
     return View::setPropertyTyped(name, value);
 }
 
@@ -222,6 +243,11 @@ void Button::resolveThemeDefaults() {
             text_.textColor = t.colors.onPrimary;
     // ── borderRadius（float：仅 token，构造函数已设默认 6）──
     resolveFloat_("borderRadius", props.borderRadius);
+    // 非 token 兜底：构造函数的默认 6 只在创建时生效，reconcile 重置 props
+    // 把未显式给值的 borderRadius 打回 0（直角）——此前按钮整体隐形无人
+    // 察觉。与构造函数同语义（float 无法区分"未设置"与"显式 0"，显式 0
+    // 同样被抬到 6——既有已接受口径）
+    if (props.borderRadius <= 0) props.borderRadius = 6.0f;
     // ── hoverBackground / pressedBackground 从 background 推导 ──
     // 让位条件是「背景透明」而非 hasBackground：透明底（幽灵/描边款）下
     // darken 推导出的是透明垃圾色须跳过；显式实心背景仍应自动派生 hover

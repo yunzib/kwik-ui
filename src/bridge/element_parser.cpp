@@ -1178,10 +1178,15 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // 仅重放它自己 props.themeTokens 里的字段（token 优先于 JS 字面值，reconcile
     // 重置后两者不再冲突）；不上探子树（子孙各自走 reconcileChildren 的
     // 新建解析 / themeChanged 定向重解析）。
-    if (!oldView->props.themeTokens.empty()) {
-        resolveViewPropTokens(oldView.get());
-        oldView->resolveThemeDefaults();
-    }
+    if (!oldView->props.themeTokens.empty()) resolveViewPropTokens(oldView.get());
+    // 主题兜底无条件补：props 重置把各组件 resolveThemeDefaults 填过的默认
+    // （Button primary 背景、Input surface 底等）打回透明/哨兵值，原先仅在
+    // 带 themeTokens 时补调 → 无 token 组件（如 textview demo 全部按钮）
+    // 首帧有底色、任何一次 State 重建后按钮连同其文字一起"消失"。各组件
+    // 实现纪律 = 只填仍处原始默认的槽位（isTransparent/哨兵判断 + 
+    // hasBackground 让位），显式值与运行期 setProp 值均不被踩——无条件补调
+    // 与构造路径同语义，两路径不再分叉
+    oldView->resolveThemeDefaults();
 
     // ── 扩展组件专有属性重解析 (如 Video 的 src/autoplay/loop/muted) ──
     if (const ElementSpec *spec = ElementRegistry::instance().find(to_string(oldView->type()))) {

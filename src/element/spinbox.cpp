@@ -390,5 +390,13 @@ void SpinBox::resolveThemeDefaults() {
     c("background", props.background);
     c("borderColor", props.borderColor);
     c("focusedBorderColor", sp_.focusedBorderColor);
+    // ── 构造期非 token 默认（reconcile props 重置会冲掉，与构造函数同语义回填）──
+    // 白底 + 灰边 + 4px 圆角 + 内边距是 SpinBox 构造期外观契约（spinbox.cpp 构造函数）
+    if (props.background.isTransparent()) props.background = Color{255, 255, 255, 255};
+    if (props.borderColor.isTransparent()) props.borderColor = Color{200, 200, 200, 255};
+    if (props.borderWidth == 0) props.borderWidth = 1.0f;
+    if (props.borderRadius == 0) props.borderRadius = 4.0f;
+    if (props.padding.left == 0 && props.padding.top == 0 && props.padding.right == 0 && props.padding.bottom == 0)
+        props.padding = EdgeInsets{8, 12, 8, 12};
     if (field_) field_->resolveThemeDefaults();
 }

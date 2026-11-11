@@ -769,6 +769,11 @@ void Input::resolveThemeDefaults() {
         if (input_.placeholderColor.isTransparent()) input_.placeholderColor = t.colors.onSurfaceVariant;
     if (!c("cursorColor", input_.cursorColor))
         if (input_.cursorColor.isTransparent()) input_.cursorColor = t.colors.primary;
+    // ── 构造期非 token 默认（reconcile props 重置会冲掉，与构造函数同语义回填）──
+    // 1px 边框 + 4px 圆角是 Input 构造期外观契约（input.cpp 构造函数）：
+    // 不随主题走，重建后必须同值恢复，否则非聚焦态输入框变成无边框平文本
+    if (props.borderWidth == 0) props.borderWidth = 1.0f;
+    if (props.borderRadius == 0) props.borderRadius = 4.0f;
 }
 // ═══════════════════════════════════════════════════════════════════════════
 // Selectable 接口 — 选区状态自持（selectionStart_/cursorPos_），服务只做
