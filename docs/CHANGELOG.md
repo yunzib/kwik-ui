@@ -1,5 +1,33 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-12
+### 新增
+- **三方依赖全量快照内嵌（零 submodule、零构建网络）**：9 库
+  （quickjs / freetype / harfbuzz / stb / nanosvg / msdfgen / FFmpeg /
+  fastgltf + simdjson）源码以普通文件随主仓 git 分发，删除 `.gitmodules`
+  与全部 gitlink——协作者 `clone` + `cmake -B build` 即编译，无需联网
+  （FFmpeg 后端除外：需本机 git bash + mingw32-make 工具链，非网络下载）
+- **依赖引入入口统一**：新建 `cmake/modules/Dependencies.cmake`
+  （快照守卫 + 逐库 target + `kwik_stb` 接口头 + simdjson 前置于 fastgltf），
+  FFmpeg 的 configure+make 构建驱动迁入独立 `cmake/modules/FFmpeg.cmake`；
+  `Extension.cmake` 收敛为纯扩展插件定义，video/chart/g3d 扩展按
+  `KWIK_ENABLE_*` 条件链接，根 `CMakeLists.txt` 只消费不定义
+- **fastgltf 零联网改造**：本地 `third_party/simdjson`（v4.6.2）以
+  `simdjson::simdjson` target 前置注册，fastgltf configure 期检测到 target
+  即跳过 simdjson 下载（`patches/fastgltf/fastfltf.patch` 旧 curl workaround
+  一并移除；`fastgltf/deps/` 保留为离线备份，构建不消费）
+- **三方升级/补丁工具链**：`scripts/vendor_update.ps1`（逐库 tarball 下载→
+  快照替换→补丁重放，全量保留模式规则表；下载失败可切 jsdelivr 镜像）+
+  `scripts/apply_patches.ps1`（补丁批量重放）；我方构建补丁固化为
+  `patches/quickjs/0001-llvm-mingw-msvc-compat.patch`（CRT 告警宏 +
+  Clang/MSVC-ABI 8MB 栈旗标）与
+  `patches/harfbuzz/0001-cmake-link-visibility.patch`
+  （THIRD_PARTY_LIBS→PRIVATE、freetype→PUBLIC 修链接可见性），快照内
+  已烤入同等修改，升级时重放
+- **版本登记**：`third_party/README.md`（逐库 Upstream/Version/License/
+  Patches/模式说明）、`docs/依赖管理.md`（结构/协作者构建/升级 SOP/
+  补丁纪律/新增依赖流程）
+
 # 0.0.0 — 2026-11-10
 ### 新增
 - **无边框窗口 + 任务栏图标（Win32）**：`WindowOptions{decoration, resizable,
