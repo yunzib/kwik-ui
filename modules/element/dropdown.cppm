@@ -95,6 +95,9 @@ private:
     std::string lastParsedValue_;
     int lastParsedIndex_ = -1;
     bool open_ = false;
+    /** 菜单自然宽度缓存（最宽项文本 + 左右内边距）；items/fontSize 变更时清零重算
+     *  （menuRect 为 const 且被 hitTest 高频调用，缓存避免逐帧塑形全部菜单项） */
+    mutable float menuWidthCache_ = 0.0f;
 
     /** @brief value 非空且未显式声明索引（selectedIndex<0）时按 items 匹配
      * 选中（实现在 dropdown.cpp） */

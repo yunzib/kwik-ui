@@ -273,6 +273,7 @@ void Dropdown::applyDropdownProps(DropdownProps dp) {
         // value 声明了新值但未声明索引 → 按 value 匹配（value 绑定正向生效）
         deriveSelectionFromValue();
     }
+    menuWidthCache_ = 0.0f;    // items/fontSize 可能变化：菜单自然宽度重算
     markDirty();
 }
 
@@ -302,15 +303,40 @@ Rect Dropdown::menuRect() const {
     float contentY = frame.y + frame.height - comp.y;    // 触发区下缘（窗口域）
     float contentW = frame.width - props.padding.horizontal();
     float mh = menuHeight();
+    // ── 菜单宽度：取「触发区宽」与「最宽项文本 + 左右内边距」的较大者 ──
+    // 旧实现恒用触发区宽：触发区较窄时（如端口下拉 144px），长项文本被菜单
+    // clip 裁掉显示不全。自然宽度按当前字号塑形所有项后缓存（items/fontSize
+    // 变更在 applyDropdownProps 清零）。
+    if (menuWidthCache_ <= 0.0f) {
+        auto &pipe = TextRenderPipeline::instance();
+        FontId fid = pipe.activeFont();
+        TextLayoutConfig cfg;
+        cfg.maxWidth = 1e10f;
+        float widest = 0.0f;
+        for (const auto &it : dp_.items) {
+            if (it.empty()) continue;
+            auto r = pipe.layoutText(it, fid, dp_.fontSize, cfg);
+            if (r) widest = std::max(widest, r->totalWidth);
+        }
+        menuWidthCache_ = widest + 24.0f;    // 左右各 12 内边距
+    }
+    float menuW = std::max(contentW, menuWidthCache_);
+    const Rect &vp = rootFrame();
+    if (vp.width > 0) {
+        menuW = std::min(menuW, vp.width - 8.0f);
+        // 右侧越界：整条菜单左移贴住视口（而不是裁掉右侧文本）
+        if (contentX + menuW > vp.x + vp.width - 4.0f) {
+            contentX = std::max(vp.x + 4.0f, vp.x + vp.width - 4.0f - menuW);
+        }
+    }
     // 视口底边 clamp：菜单超出根 frame（=视口）时翻转到触发控件上方；
     // 上下都放不下时贴底（顶部控件 + 超高菜单，可见最大化）。
     // aboveY 同取窗口域触发区上缘（contentY − frame.height）
-    const Rect &vp = rootFrame();
     if (vp.height > 0 && contentY + mh > vp.y + vp.height) {
         float aboveY = contentY - frame.height - mh;
         contentY = (aboveY >= vp.y) ? aboveY : std::max(vp.y, vp.y + vp.height - mh);
     }
-    return {contentX, contentY, contentW, mh};
+    return {contentX, contentY, menuW, mh};
 }
 
 // ════════════════════════════════════════════════════════
@@ -391,11 +417,16 @@ void Dropdown::onDraw(Graphics &graphics) {
     // ── 展开时蓝色聚焦边框 ──
     if (open_) { graphics.drawRoundedRectStroke(frame, props.borderRadius, {66, 133, 244, 255}, 2.0f); }
 
-    // ── ① 触发区内容 (限定在 inner 内) ──
+    // ── ① 触发区内容 (限定在 inner 内；文本右侧为箭头让位) ──
     graphics.clipRoundedRect(inner, props.borderRadius);
 
     TextLayoutConfig cfg;
-    cfg.maxWidth = inner.width - 16;    // 左右留 8px padding
+    cfg.maxWidth = inner.width - 26;    // 左 8px padding + 右侧箭头区 18px
+
+    // 文本裁剪区：右侧预留箭头区 18px（▼ 居中于其中，距右缘约 4px）
+    Rect textClip{inner.x + 8, inner.y, std::max(0.0f, inner.width - 26.0f), inner.height};
+    graphics.save();
+    graphics.clipRoundedRect(textClip, props.borderRadius);
 
     if (dp_.selectedIndex < 0) {
         // 占位符
@@ -420,12 +451,14 @@ void Dropdown::onDraw(Graphics &graphics) {
         graphics.restore();
     }
 
+    graphics.restore();    // 退出文本裁剪区：箭头按 inner 裁剪完整绘制
+
     // 箭头 ▼
     TextLayoutConfig arrowCfg;
     arrowCfg.maxWidth = 30;
     auto arrowResult = pipe.layoutText("\xE2\x96\xBC", fid, fontSize * 0.85f, arrowCfg);
     pipe.ensureGlyphs(*arrowResult);
-    float arrowX = inner.x + inner.width - 20;
+    float arrowX = inner.x + inner.width - 12.0f;    // 箭头贴近右缘：距 inner 右缘约 2px（含 padding 后距边框约 10px）
     float arrowY = inner.y + (inner.height - arrowResult->totalHeight) * 0.5f;
     graphics.save();
     graphics.translate(arrowX, arrowY);

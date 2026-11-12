@@ -515,6 +515,26 @@ static void test_reveal_text_scroll_lock() {
 // color/background 处理必须解析字符串（只认 Color 变体会全部"未消费属性"）。
 // 锁：运行期切白底红字后悬停，hover 填充 = 白×0.8（旧底色残留会露深蓝）、
 // 字形颜色 = 新文字色且字形存活（连接/断开状态色与悬停表现完整）。
+// ── 行为锁: Dropdown 菜单宽度按最宽项自适应（防长项被触发区宽裁剪）──
+// 旧实现菜单宽恒 = 触发区内容宽：窄触发区（如端口下拉 144px）下长项文本
+// 被菜单 clip 裁掉。现取 max(触发区宽, 最宽项文本 + 24)，并按视口右缘内收。
+static void test_dropdown_menu_width_autofit() {
+    DropdownProps dp;
+    dp.items = {"短", "COM3 — USB-SERIAL CH340 很长的端口描述"};
+    ViewProps vp;
+    vp.width = 120.0f;
+    vp.height = 30.0f;
+    auto dd = std::make_unique<Dropdown>(vp, dp);
+    auto *dp2 = dd.get();
+    auto root = std::make_unique<View>();
+    root->addChild(std::move(dd));
+    relayoutMirror_(*root, Size{1280, 800});
+    Rect r = dp2->menuRect();
+    std::println("[ddlock] menuW={:.1f} menuX={:.1f} triggerW={:.1f}", r.width, r.x, dp2->frame.width);
+    CHECK(r.width > dp2->frame.width + 20.0f);    // 长项把菜单撑宽
+    CHECK(r.x >= 0.0f && r.x + r.width <= 1280.0f);    // 不越出视口
+}
+
 static void test_button_runtime_setprop_strings() {
     ButtonStateProps bsp;
     ViewProps vp;
@@ -2226,6 +2246,7 @@ int main() {
     test_window_viewport_surface();
     test_textview_draw_ink_in_box();       // 置末段：真字体（加载后不再有文本度量类测试）
     test_reveal_text_scroll_lock();        // 置末段：真字体 + JS revealText 端到端
+    test_dropdown_menu_width_autofit();    // 置末段：真字体 + Dropdown 菜单宽度自适应
     test_button_runtime_setprop_strings(); // Button 运行期 setProp 字符串路径（底色/hover/文字色）
     test_reload_static_default_no_double_free();    // 置末：reload 销毁共享 ctx
 

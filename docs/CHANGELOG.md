@@ -29,6 +29,13 @@
   补丁纪律/新增依赖流程）
 
 ### 修复
+- **Dropdown 菜单宽度恒取触发区宽，长项文本被裁**（端口下拉显示不全）：
+  菜单宽改为 max(触发区内容宽, 最宽项文本 + 左右 24px 内边距)，按当前字号
+  塑形所有项并缓存（items/fontSize 变更在 applyDropdownProps 清零）；右侧
+  越界时整条菜单左移贴视口（不裁文本），宽度上限 = 视口宽 − 8。行为锁
+  test_dropdown_menu_width_autofit（触发宽 120 的长项菜单实测 305）。
+  同批修复：触发区选中文本按整个 inner 裁剪，长串口名从右侧箭头底部穿过
+  ——文本单独裁剪到箭头左侧（右缘留 26px，箭头完整绘制）
 - **FFmpeg 后端 bash 解析**（`cmake/modules/FFmpeg.cmake:17-69`）：Git bash
   查找改为经 git.exe 逐级上溯反推安装根（覆盖 `Program Files` /
   `C:/software/Git` / `mingw64/bin` 布局），`NO_DEFAULT_PATH` 杜绝 PATH
