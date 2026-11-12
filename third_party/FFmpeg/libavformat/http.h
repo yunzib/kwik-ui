@@ -1,0 +1,138 @@
+/*
+ * HTTP definitions
+ * Copyright (c) 2010 Josh Allmann
+ *
+ * This file is part of FFmpeg.
+ *
+ * FFmpeg is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * FFmpeg is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with FFmpeg; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+#ifndef AVFORMAT_HTTP_H
+#define AVFORMAT_HTTP_H
+
+#include <string.h>
+
+#include "libavutil/dict.h"
+#include "libavutil/error.h"
+#include "libavutil/log.h"
+#include "url.h"
+
+#define HTTP_HEADERS_SIZE 4096
+
+/**
+ * Parsed form of a response status line.
+ */
+typedef struct HTTPStatusLine {
+    char        version[4]; /**< protocol version, e.g. "1.1" */
+    int         code;       /**< response status code */
+    const char *reason;     /**< reason phrase, points into the parsed line */
+    int         willclose;  /**< the version implies the connection will close */
+} HTTPStatusLine;
+
+/**
+ * Parse the status line of an HTTP response.
+ *
+ * @param logctx context used for logging, may be NULL
+ * @param line NUL terminated status line, without its trailing CRLF
+ * @param st filled in with the parsed status line
+ * @return 0 on success, a negative AVERROR code on failure
+ */
+int ff_http_parse_status_line(void *logctx, const char *line,
+                              HTTPStatusLine *st);
+
+/**
+ * Split an in-band ICY metadata packet into its "Key='Value';" pairs.
+ *
+ * @param logctx context used for logging, may be NULL
+ * @param metadata dictionary the pairs are stored in
+ * @param data NUL terminated packet, split in place
+ */
+static inline void ff_http_parse_icy_packet(void *logctx,
+                                            AVDictionary **metadata, char *data)
+{
+    char *next = data;
+
+    while (*next) {
+        char *key = next, *val, *end;
+
+        if (!(val = strstr(key, "='")) || !(end = strstr(val, "';")))
+            break;
+
+        *val = '\0';
+        *end = '\0';
+        val += 2;
+
+        av_dict_set(metadata, key, val, 0);
+        av_log(logctx, AV_LOG_VERBOSE, "Metadata update for %s: %s\n", key, val);
+
+        next = end + 2;
+    }
+}
+
+/**
+ * Initialize the authentication state based on another HTTP URLContext.
+ * This can be used to pre-initialize the authentication parameters if
+ * they are known beforehand, to avoid having to do an initial failing
+ * request just to get the parameters.
+ *
+ * @param dest URL context whose authentication state gets updated
+ * @param src URL context whose authentication state gets copied
+ */
+void ff_http_init_auth_state(URLContext *dest, const URLContext *src);
+
+/**
+ * Send a new HTTP request, reusing the old connection.
+ *
+ * @param h pointer to the resource
+ * @param uri uri used to perform the request
+ * @return a negative value if an error condition occurred, 0
+ * otherwise
+ */
+int ff_http_do_new_request(URLContext *h, const char *uri);
+
+/**
+ * Send a new HTTP request, reusing the old connection.
+ *
+ * @param h pointer to the resource
+ * @param uri uri used to perform the request
+ * @param options  A dictionary filled with HTTP options. On return
+ * this parameter will be destroyed and replaced with a dict containing options
+ * that were not found. May be NULL.
+ * @return a negative value if an error condition occurred, 0
+ * otherwise
+ */
+int ff_http_do_new_request2(URLContext *h, const char *uri, AVDictionary **options);
+
+const char* ff_http_get_new_location(URLContext *h);
+
+static inline int ff_http_averror(int status_code, int default_averror)
+{
+    switch (status_code) {
+        case 400: return AVERROR_HTTP_BAD_REQUEST;
+        case 401: return AVERROR_HTTP_UNAUTHORIZED;
+        case 403: return AVERROR_HTTP_FORBIDDEN;
+        case 404: return AVERROR_HTTP_NOT_FOUND;
+        case 429: return AVERROR_HTTP_TOO_MANY_REQUESTS;
+        default: break;
+    }
+    if (status_code >= 400 && status_code <= 499)
+        return AVERROR_HTTP_OTHER_4XX;
+    else if (status_code >= 500)
+        return AVERROR_HTTP_SERVER_ERROR;
+    else
+        return default_averror;
+}
+
+#endif /* AVFORMAT_HTTP_H */

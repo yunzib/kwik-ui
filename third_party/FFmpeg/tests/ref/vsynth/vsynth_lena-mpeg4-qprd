@@ -1,0 +1,4 @@
+e1b755f411c157ee13bbd183b278a011 *tests/data/fate/vsynth_lena-mpeg4-qprd.avi
+232246 tests/data/fate/vsynth_lena-mpeg4-qprd.avi
+10546197e8d17aa209f9747324786f3c *tests/data/fate/vsynth_lena-mpeg4-qprd.out.rawvideo
+stddev:    3.71 PSNR: 36.74 MAXDIFF:   73 bytes:  7603200/  7603200

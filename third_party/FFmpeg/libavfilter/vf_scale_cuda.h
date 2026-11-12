@@ -1,0 +1,66 @@
+/*
+ * This file is part of FFmpeg.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef AVFILTER_SCALE_CUDA_H
+#define AVFILTER_SCALE_CUDA_H
+
+#if defined(__CUDACC__) || defined(__CUDA__)
+typedef cudaTextureObject_t CUtexObject;
+typedef unsigned char* CUdeviceptr;
+#else
+#include <ffnvcodec/dynlink_cuda.h>
+#endif
+
+#define SCALE_CUDA_PARAM_DEFAULT 999999.0f
+
+typedef struct {
+    float m[3][3];
+} CUDAScaleColorMatrix;
+
+typedef struct {
+    CUtexObject src_tex[4];
+    CUdeviceptr dst[4];
+    int dst_width;
+    int dst_height;
+    int dst_pitch;
+    int src_left;
+    int src_top;
+    int src_width;
+    int src_height;
+    float param;
+    int mpeg_range;
+    int src_depth;
+    int src_storage_max;
+
+    /* Weights for the generic filter kernel */
+    CUdeviceptr weights;
+    CUdeviceptr offsets;
+    int filter_size;
+
+    int log2_chroma_w;
+    int log2_chroma_h;
+    CUDAScaleColorMatrix color_matrix;
+    int dst_depth;
+    int dst_shift;
+} CUDAScaleKernelParams;
+
+#endif

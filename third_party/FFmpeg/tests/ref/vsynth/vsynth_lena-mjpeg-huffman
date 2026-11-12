@@ -1,0 +1,4 @@
+cf3f2b3a0347227fbc98e1700b992253 *tests/data/fate/vsynth_lena-mjpeg-huffman.avi
+635122 tests/data/fate/vsynth_lena-mjpeg-huffman.avi
+9d4bd90e9abfa18192383b4adc23c8d4 *tests/data/fate/vsynth_lena-mjpeg-huffman.out.rawvideo
+stddev:    4.32 PSNR: 35.40 MAXDIFF:   49 bytes:  7603200/  7603200

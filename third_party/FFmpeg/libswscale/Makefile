@@ -1,0 +1,59 @@
+NAME = swscale
+DESC = FFmpeg image rescaling library
+
+HEADERS = swscale.h                                                     \
+          version.h                                                     \
+          version_major.h                                               \
+
+OBJS = alphablend.o                                     \
+       cms.o                                            \
+       csputils.o                                       \
+       hscale.o                                         \
+       hscale_fast_bilinear.o                           \
+       filters.o                                        \
+       format.o                                         \
+       gamma.o                                          \
+       graph.o                                          \
+       input.o                                          \
+       jit.o                                            \
+       lut3d.o                                          \
+       options.o                                        \
+       output.o                                         \
+       rgb2rgb.o                                        \
+       slice.o                                          \
+       swscale.o                                        \
+       swscale_unscaled.o                               \
+       utils.o                                          \
+       version.o                                        \
+       yuv2rgb.o                                        \
+       vscale.o                                         \
+
+OBJS +=                                                 \
+       ops.o                                            \
+       ops_chain.o                                      \
+       ops_dispatch.o                                   \
+       ops_memcpy.o                                     \
+       ops_optimizer.o                                  \
+       rational64.o                                     \
+       uops.o                                           \
+       uops_backend.o                                   \
+
+include $(SRC_PATH)/libswscale/vulkan/Makefile
+
+# Objects duplicated from other libraries for shared builds
+SHLIBOBJS                    += framepool.o log2_tab.o half2float.o
+
+# Windows resource file
+SHLIBOBJS-$(HAVE_GNU_WINDRES) += swscaleres.o
+
+TESTPROGS = colorspace                                                  \
+            floatimg_cmp                                                \
+            pixdesc_query                                               \
+            range_convert                                               \
+            rational64                                                  \
+            swscale                                                     \
+            sws_ops                                                     \
+            sws_ops_aarch64                                             \
+            unscaled_threaded                                           \
+
+DEVPROGS = uops_macros_gen                                              \

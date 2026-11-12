@@ -1,0 +1,272 @@
+Testing yuv420p...         ok
+Testing yuyv422...         no: unsupported
+Testing rgb24...           ok
+Testing bgr24...           ok
+Testing yuv422p...         ok
+Testing yuv444p...         ok
+Testing yuv410p...         ok
+Testing yuv411p...         ok
+Testing gray...            ok
+Testing monow...           no: unsupported
+Testing monob...           no: unsupported
+Testing pal8...            no: unsupported
+Testing yuvj420p...        ok
+Testing yuvj422p...        ok
+Testing yuvj444p...        ok
+Testing uyvy422...         no: unsupported
+Testing uyyvyy411...       no: unsupported
+Testing bgr8...            no: unsupported
+Testing bgr4...            no: unsupported
+Testing bgr4_byte...       no: unsupported
+Testing rgb8...            no: unsupported
+Testing rgb4...            no: unsupported
+Testing rgb4_byte...       no: unsupported
+Testing nv12...            ok
+Testing nv21...            ok
+Testing argb...            ok
+Testing rgba...            ok
+Testing abgr...            ok
+Testing bgra...            ok
+Testing gray16be...        no: unsupported
+Testing gray16le...        ok
+Testing yuv440p...         ok
+Testing yuvj440p...        ok
+Testing yuva420p...        ok
+Testing rgb48be...         no: unsupported
+Testing rgb48le...         ok
+Testing rgb565be...        no: unsupported
+Testing rgb565le...        no: unsupported
+Testing rgb555be...        no: unsupported
+Testing rgb555le...        no: unsupported
+Testing bgr565be...        no: unsupported
+Testing bgr565le...        no: unsupported
+Testing bgr555be...        no: unsupported
+Testing bgr555le...        no: unsupported
+Testing vaapi...           no: unsupported
+Testing yuv420p16le...     ok
+Testing yuv420p16be...     no: unsupported
+Testing yuv422p16le...     ok
+Testing yuv422p16be...     no: unsupported
+Testing yuv444p16le...     ok
+Testing yuv444p16be...     no: unsupported
+Testing dxva2_vld...       no: unsupported
+Testing rgb444le...        no: unsupported
+Testing rgb444be...        no: unsupported
+Testing bgr444le...        no: unsupported
+Testing bgr444be...        no: unsupported
+Testing ya8...             ok
+Testing bgr48be...         no: unsupported
+Testing bgr48le...         ok
+Testing yuv420p9be...      no: unsupported
+Testing yuv420p9le...      ok
+Testing yuv420p10be...     no: unsupported
+Testing yuv420p10le...     ok
+Testing yuv422p10be...     no: unsupported
+Testing yuv422p10le...     ok
+Testing yuv444p9be...      no: unsupported
+Testing yuv444p9le...      ok
+Testing yuv444p10be...     no: unsupported
+Testing yuv444p10le...     ok
+Testing yuv422p9be...      no: unsupported
+Testing yuv422p9le...      ok
+Testing gbrp...            ok
+Testing gbrp9be...         no: unsupported
+Testing gbrp9le...         ok
+Testing gbrp10be...        no: unsupported
+Testing gbrp10le...        ok
+Testing gbrp16be...        no: unsupported
+Testing gbrp16le...        ok
+Testing yuva422p...        ok
+Testing yuva444p...        ok
+Testing yuva420p9be...     no: unsupported
+Testing yuva420p9le...     ok
+Testing yuva422p9be...     no: unsupported
+Testing yuva422p9le...     ok
+Testing yuva444p9be...     no: unsupported
+Testing yuva444p9le...     ok
+Testing yuva420p10be...    no: unsupported
+Testing yuva420p10le...    ok
+Testing yuva422p10be...    no: unsupported
+Testing yuva422p10le...    ok
+Testing yuva444p10be...    no: unsupported
+Testing yuva444p10le...    ok
+Testing yuva420p16be...    no: unsupported
+Testing yuva420p16le...    ok
+Testing yuva422p16be...    no: unsupported
+Testing yuva422p16le...    ok
+Testing yuva444p16be...    no: unsupported
+Testing yuva444p16le...    ok
+Testing vdpau...           no: unsupported
+Testing xyz12le...         no: unsupported
+Testing xyz12be...         no: unsupported
+Testing nv16...            ok
+Testing nv20le...          ok
+Testing nv20be...          no: unsupported
+Testing rgba64be...        no: unsupported
+Testing rgba64le...        no: unsupported
+Testing bgra64be...        no: unsupported
+Testing bgra64le...        no: unsupported
+Testing yvyu422...         no: unsupported
+Testing ya16be...          no: unsupported
+Testing ya16le...          ok
+Testing gbrap...           ok
+Testing gbrap16be...       no: unsupported
+Testing gbrap16le...       ok
+Testing qsv...             no: unsupported
+Testing mmal...            no: unsupported
+Testing d3d11va_vld...     no: unsupported
+Testing cuda...            no: unsupported
+Testing 0rgb...            ok
+Testing rgb0...            ok
+Testing 0bgr...            ok
+Testing bgr0...            ok
+Testing yuv420p12be...     no: unsupported
+Testing yuv420p12le...     ok
+Testing yuv420p14be...     no: unsupported
+Testing yuv420p14le...     ok
+Testing yuv422p12be...     no: unsupported
+Testing yuv422p12le...     ok
+Testing yuv422p14be...     no: unsupported
+Testing yuv422p14le...     ok
+Testing yuv444p12be...     no: unsupported
+Testing yuv444p12le...     ok
+Testing yuv444p14be...     no: unsupported
+Testing yuv444p14le...     ok
+Testing gbrp12be...        no: unsupported
+Testing gbrp12le...        ok
+Testing gbrp14be...        no: unsupported
+Testing gbrp14le...        ok
+Testing yuvj411p...        ok
+Testing bayer_bggr8...     no: unsupported
+Testing bayer_rggb8...     no: unsupported
+Testing bayer_gbrg8...     no: unsupported
+Testing bayer_grbg8...     no: unsupported
+Testing bayer_bggr16le...  no: unsupported
+Testing bayer_bggr16be...  no: unsupported
+Testing bayer_rggb16le...  no: unsupported
+Testing bayer_rggb16be...  no: unsupported
+Testing bayer_gbrg16le...  no: unsupported
+Testing bayer_gbrg16be...  no: unsupported
+Testing bayer_grbg16le...  no: unsupported
+Testing bayer_grbg16be...  no: unsupported
+Testing yuv440p10le...     ok
+Testing yuv440p10be...     no: unsupported
+Testing yuv440p12le...     ok
+Testing yuv440p12be...     no: unsupported
+Testing ayuv64le...        no: unsupported
+Testing ayuv64be...        no: unsupported
+Testing videotoolbox_vld...no: unsupported
+Testing p010le...          ok
+Testing p010be...          no: unsupported
+Testing gbrap12be...       no: unsupported
+Testing gbrap12le...       ok
+Testing gbrap10be...       no: unsupported
+Testing gbrap10le...       ok
+Testing mediacodec...      no: unsupported
+Testing gray12be...        no: unsupported
+Testing gray12le...        ok
+Testing gray10be...        no: unsupported
+Testing gray10le...        ok
+Testing p016le...          ok
+Testing p016be...          no: unsupported
+Testing d3d11...           no: unsupported
+Testing gray9be...         no: unsupported
+Testing gray9le...         ok
+Testing gbrpf32be...       no: unsupported
+Testing gbrpf32le...       no: unsupported
+Testing gbrapf32be...      no: unsupported
+Testing gbrapf32le...      no: unsupported
+Testing drm_prime...       no: unsupported
+Testing opencl...          no: unsupported
+Testing gray14be...        no: unsupported
+Testing gray14le...        ok
+Testing grayf32be...       no: unsupported
+Testing grayf32le...       no: unsupported
+Testing yuva422p12be...    no: unsupported
+Testing yuva422p12le...    ok
+Testing yuva444p12be...    no: unsupported
+Testing yuva444p12le...    ok
+Testing nv24...            ok
+Testing nv42...            ok
+Testing vulkan...          no: unsupported
+Testing y210be...          no: unsupported
+Testing y210le...          no: unsupported
+Testing x2rgb10le...       no: unsupported
+Testing x2rgb10be...       no: unsupported
+Testing x2bgr10le...       no: unsupported
+Testing x2bgr10be...       no: unsupported
+Testing p210be...          no: unsupported
+Testing p210le...          ok
+Testing p410be...          no: unsupported
+Testing p410le...          ok
+Testing p216be...          no: unsupported
+Testing p216le...          ok
+Testing p416be...          no: unsupported
+Testing p416le...          ok
+Testing vuya...            ok
+Testing rgbaf16be...       no: unsupported
+Testing rgbaf16le...       no: unsupported
+Testing vuyx...            ok
+Testing p012le...          ok
+Testing p012be...          no: unsupported
+Testing y212be...          no: unsupported
+Testing y212le...          no: unsupported
+Testing xv30be...          no: unsupported
+Testing xv30le...          no: unsupported
+Testing xv36be...          no: unsupported
+Testing xv36le...          no: unsupported
+Testing rgbf32be...        no: unsupported
+Testing rgbf32le...        no: unsupported
+Testing rgbaf32be...       no: unsupported
+Testing rgbaf32le...       no: unsupported
+Testing p212be...          no: unsupported
+Testing p212le...          ok
+Testing p412be...          no: unsupported
+Testing p412le...          ok
+Testing gbrap14be...       no: unsupported
+Testing gbrap14le...       ok
+Testing d3d12...           no: unsupported
+Testing ayuv...            ok
+Testing uyva...            ok
+Testing vyu444...          ok
+Testing v30xbe...          no: unsupported
+Testing v30xle...          no: unsupported
+Testing rgbf16be...        no: unsupported
+Testing rgbf16le...        no: unsupported
+Testing rgba128be...       no: unsupported
+Testing rgba128le...       no: unsupported
+Testing rgb96be...         no: unsupported
+Testing rgb96le...         no: unsupported
+Testing y216be...          no: unsupported
+Testing y216le...          no: unsupported
+Testing xv48be...          no: unsupported
+Testing xv48le...          no: unsupported
+Testing gbrpf16be...       no: unsupported
+Testing gbrpf16le...       no: unsupported
+Testing gbrapf16be...      no: unsupported
+Testing gbrapf16le...      no: unsupported
+Testing grayf16be...       no: unsupported
+Testing grayf16le...       no: unsupported
+Testing amf...             no: unsupported
+Testing gray32be...        no: unsupported
+Testing gray32le...        no: unsupported
+Testing yaf32be...         no: unsupported
+Testing yaf32le...         no: unsupported
+Testing yaf16be...         no: unsupported
+Testing yaf16le...         no: unsupported
+Testing gbrap32be...       no: unsupported
+Testing gbrap32le...       no: unsupported
+Testing yuv444p10msbbe...  no: unsupported
+Testing yuv444p10msble...  ok
+Testing yuv444p12msbbe...  no: unsupported
+Testing yuv444p12msble...  ok
+Testing gbrp10msbbe...     no: unsupported
+Testing gbrp10msble...     ok
+Testing gbrp12msbbe...     no: unsupported
+Testing gbrp12msble...     ok
+Testing ohcodec...         no: unsupported
+Testing cuarray...         no: unsupported
+Testing xyzp12le...        no: unsupported
+Testing xyzp12be...        no: unsupported
+half transparent red over transparent rgba by mask: 128 0 0 128
+half transparent red over transparent rgba by rectangle: 128 0 0 128
