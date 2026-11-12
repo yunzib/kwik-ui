@@ -66,6 +66,14 @@ if(KWIK_BUILD_EXAMPLES)
     if(TARGET kwik_ext_chart)
         target_compile_definitions(example PRIVATE KWIK_HAVE_CHART)
     endif()
+    # 视频/3D 扩展同口径：目标不存在时 import 与注册调用一并裁掉
+    # （KWIK_ENABLE_VIDEO/G3D=OFF 裁剪变体首次可完整构建，与 chart 模式统一）
+    if(TARGET kwik_ext_video)
+        target_compile_definitions(example PRIVATE KWIK_HAVE_VIDEO)
+    endif()
+    if(TARGET kwik_ext_g3d)
+        target_compile_definitions(example PRIVATE KWIK_HAVE_G3D)
+    endif()
 
     # kwik_unit_tests — 纯逻辑单测（不依赖窗口/GPU）：Rect / PropMeta 一致性 / DisplayList / 事件代理对重组
     # enable_testing() 在顶层 CMakeLists（ctest 只发现顶层注册的用例）

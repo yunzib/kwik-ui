@@ -17,8 +17,12 @@ import kwik.platform.win32_window;
 import kwik.app;
 import kwik.engine.channel;
 import kwik.core.log;
+#ifdef KWIK_HAVE_VIDEO
 import kwik.ext.video; // 视频扩展插件
-import kwik.ext.g3d;
+#endif
+#ifdef KWIK_HAVE_G3D
+import kwik.ext.g3d;    // 3D 扩展插件
+#endif
 #ifdef KWIK_HAVE_CHART
 import kwik.ext.chart;    // 图表扩展插件（Chart pie/line/bar/gauge + 渲染器注册表）
 #endif
@@ -347,8 +351,12 @@ int main(int argc, char *argv[]) {
     if (!window || !window->Create("KwiK UI Demo", 1280, 800, winOpts)) return -1;
     window->Show();
 
+#ifdef KWIK_HAVE_VIDEO
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册
+#endif
+#ifdef KWIK_HAVE_G3D
     registerG3DElement();
+#endif
 #ifdef KWIK_HAVE_CHART
     registerChartElement();    // Chart 扩展（JS 工厂 Chart({...}) 由此注入，示例 JS 零改动）
 #endif
