@@ -28,6 +28,23 @@
   Patches/模式说明）、`docs/依赖管理.md`（结构/协作者构建/升级 SOP/
   补丁纪律/新增依赖流程）
 
+### 修复
+- **FFmpeg 后端 bash 解析**（`cmake/modules/FFmpeg.cmake:17-69`）：Git bash
+  查找改为经 git.exe 逐级上溯反推安装根（覆盖 `Program Files` /
+  `C:/software/Git` / `mingw64/bin` 布局），`NO_DEFAULT_PATH` 杜绝 PATH
+  兜底撞上 `C:/Windows/System32/bash.exe`（WSL bash，不识别 `/c/` 路径，
+  configure 直接 No such file or directory）；`uname -s` 终检（MINGW|MSYS
+  才认，WSL=Linux 按设计降级 Null 播放器）；内部变量更名
+  `KWIK_FFMPEG_BASH` 绕开旧 CMakeCache 的污染条目（find_program 见已有
+  缓存即复用，换名免手工清缓存）。本机此前 ffmpeg 后端从未跑通
+  configure，现已完整编译 5 个静态库并编入 video 扩展
+- **裁剪变体首次可完整构建**（`test/example.cpp:19-30,354-361` +
+  `test/CMakeLists.txt:69-79`）：example 的 `kwik.ext.video`/`kwik.ext.g3d`
+  import 与注册调用加 `#ifdef` 守卫，test 目标按 `TARGET` 存在性注入
+  `KWIK_HAVE_VIDEO`/`KWIK_HAVE_G3D`（与 chart 既有模式统一）。此前
+  `KWIK_ENABLE_VIDEO/G3D=OFF` 时 example 必然编不过（历史遗留——
+  旧根 CMakeLists 无条件链 video/g3d，本就不是回归）
+
 # 0.0.0 — 2026-11-10
 ### 新增
 - **无边框窗口 + 任务栏图标（Win32）**：`WindowOptions{decoration, resizable,
