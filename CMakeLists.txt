@@ -71,61 +71,9 @@ endif()
 # ── 构建工具（始终构建）──
 add_subdirectory(tools)
 
-####################### 三方库配置 ##########################################
-# L72 前关闭 quickjs install：
-set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-
-message(STATUS "===== 开始引入三方库 =====")
-#quickjs
-add_subdirectory(third_party/quickjs)
-message(STATUS "===== 完成引入 quickjs =====")
-
-#vulkan
-# find_package(Vulkan REQUIRED)
-#   target_link_libraries(project_target PRIVATE Vulkan::Vulkan)
-
-# FreeType — 先关闭 HarfBuzz 动态加载，关闭不必要的外部依赖
-set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "")
-set(FT_DISABLE_ZLIB ON CACHE BOOL "")
-set(FT_DISABLE_BZIP2 ON CACHE BOOL "")
-set(FT_DISABLE_PNG ON CACHE BOOL "")
-set(FT_DISABLE_BROTLI ON CACHE BOOL "")
-add_subdirectory(third_party/freetype)
-message(STATUS "===== 完成引入 freetype =====")
-# HarfBuzz — 此时 freetype target 已存在，会自动开启 HB_HAVE_FREETYPE
-set(HB_BUILD_UTILS OFF CACHE BOOL "")
-set(HB_BUILD_SUBSET OFF CACHE BOOL "")
-add_subdirectory(third_party/harfbuzz)
-
-
-# # msdfgen — 多通道有符号距离场
-# set(MSDFGEN_CORE_ONLY OFF CACHE BOOL "")
-# set(MSDFGEN_BUILD_STANDALONE OFF CACHE BOOL "")
-# set(MSDFGEN_USE_VCPKG OFF CACHE BOOL "")
-# set(MSDFGEN_USE_OPENMP OFF CACHE BOOL "")
-# set(MSDFGEN_USE_SKIA OFF CACHE BOOL "")
-# set(MSDFGEN_DISABLE_SVG ON CACHE BOOL "")
-# set(MSDFGEN_DISABLE_PNG ON CACHE BOOL "")
-# # msdfgen-ext 需要 Freetype::Freetype target 别名
-# add_library(Freetype::Freetype ALIAS freetype)
-# add_subdirectory(third_party/msdfgen)
-# message(STATUS "===== 完成引入 msdfgen =====")
-
-
-message(STATUS "===== 完成引入 harfbuzz =====")
-target_link_libraries(freetype PRIVATE harfbuzz)
-target_compile_definitions(freetype PRIVATE
-    FT_CONFIG_OPTION_USE_HARFBUZZ
-    FT_CONFIG_OPTION_SUBPIXEL_RENDERING
-)
-
-# stb_image
-include_directories(third_party/stb)
-message(STATUS "===== 完成引入 stb_image =====")
-
-# nanosvg
-add_subdirectory(third_party/nanosvg)
-
+# ==================== 三方依赖（统一入口）====================
+# 快照内嵌：全部三方源码随主仓分发，克隆即编译（提取规则见 third_party/README.md）
+include(cmake/modules/Dependencies.cmake)
 
 
 ################################## 项目配置 ######################################
@@ -172,13 +120,13 @@ target_link_libraries(kwik INTERFACE
     kwik_bridge
     kwik_event
     kwik_app
-    kwik_ext_video
-    kwik_ext_g3d
 )
-# 图表扩展可裁剪：KWIK_ENABLE_CHART=OFF 时不链接（目标不存在则跳过）
-if(TARGET kwik_ext_chart)
-    target_link_libraries(kwik INTERFACE kwik_ext_chart)
-endif()
+# 扩展库条件链接：KWIK_ENABLE_* 关闭或守卫未过时目标不存在则跳过（防 configure 报错）
+foreach(_ext kwik_ext_video kwik_ext_chart kwik_ext_g3d)
+    if(TARGET ${_ext})
+        target_link_libraries(kwik INTERFACE ${_ext})
+    endif()
+endforeach()
 
 # 示例程序
 if(KWIK_BUILD_EXAMPLES)

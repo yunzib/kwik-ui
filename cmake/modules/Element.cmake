@@ -118,6 +118,7 @@ target_link_libraries(kwik_element
         kwik_core
         kwik_render
         TernMath
+        kwik_stb        # stb_image.h 快照（third_party/stb，INTERFACE include）
         nanosvg
         nanosvgrast
 )
