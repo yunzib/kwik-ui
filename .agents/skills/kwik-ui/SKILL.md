@@ -6,6 +6,9 @@ compatibility: opencode
 ---
 
 ## 必须遵守
+- **未经用户明确允许，禁止执行任何 git 操作**（含 add/commit/push/pull/merge/rebase/
+  checkout/reset/stash/tag 及任何改写 git 状态或历史的命令）；只读命令
+  （status/log/diff/show 查看类）不受限。用户要求 git 操作时先确认，用户明示后一次允许一次
 - 给出更改方案前必须先读取当前文件，以最新状态来分析，不允许基于过时文件给出方案
 - 方案必须依赖最新文件装填，标记详细行和文件名信息
 - 给出更新或实施方案必须局部完整
