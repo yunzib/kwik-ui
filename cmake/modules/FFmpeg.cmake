@@ -15,13 +15,56 @@ set(FFMPEG_BUILD ${CMAKE_BINARY_DIR}/ffmpeg-build)
 set(KWIK_HAVE_FFMPEG OFF)
 
 if(KWIK_ENABLE_VIDEO AND KWIK_VIDEO_FFMPEG AND EXISTS ${FFMPEG_SRC}/configure)
-    find_program(GIT_BASH bash.exe
-        PATHS "C:/Program Files/Git/usr/bin" "C:/Program Files (x86)/Git/usr/bin")
+    # Git bash 解析：Git for Windows 安装目录不固定（本机在 C:/software/Git），
+    # 先经 git.exe 反推安装根（本仓构建必有 git）。注意不能让 find_program 落回
+    # 系统 PATH——会撞上 C:/Windows/System32/bash.exe（WSL bash，不识别 /c/ 路径，
+    # configure 直接 No such file or directory），故一律 NO_DEFAULT_PATH + 显式候选；
+    # 找不到即按设计降级 Null 播放器
+    # 变量名用 KWIK_FFMPEG_BASH（非常用名）：旧 configure 曾把 WSL bash 缓存进
+    # CMakeCache.txt 的 GIT_BASH 条目，find_program 对已存在的缓存条目直接复用——
+    # 换名即永久绕开污染缓存，无需用户手工清缓存
+    set(KWIK_FFMPEG_BASH "")
+    find_program(KWIK_GIT_EXE git)
+    if(KWIK_GIT_EXE)
+        # git.exe 布局不定：<root>/{cmd,bin,mingw64/bin,usr/bin}——逐级上溯找
+        # usr/bin/bash.exe（本机实测 C:/software/Git/mingw64/bin/git.exe，
+        # 上溯两级命中 C:/software/Git/usr/bin）
+        cmake_path(GET KWIK_GIT_EXE PARENT_PATH _d0)   # git.exe 所在目录
+        cmake_path(GET _d0 PARENT_PATH _d1)
+        cmake_path(GET _d1 PARENT_PATH _d2)
+        foreach(_cand ${_d0}/usr/bin/bash.exe   # git.exe 在 <root>/cmd|bin|usr/bin
+                      ${_d1}/usr/bin/bash.exe   # git.exe 在 <root>/mingw64/bin 等
+                      ${_d2}/usr/bin/bash.exe)
+            if(EXISTS ${_cand})
+                set(KWIK_FFMPEG_BASH ${_cand})
+                break()
+            endif()
+        endforeach()
+        unset(_cand)
+        unset(_d0)
+        unset(_d1)
+        unset(_d2)
+    endif()
+    if(NOT KWIK_FFMPEG_BASH)
+        # 兜底：常见安装位（NO_DEFAULT_PATH 防 PATH 兜底撞上 System32 的 WSL bash）
+        find_program(KWIK_FFMPEG_BASH bash.exe NO_DEFAULT_PATH
+            PATHS "C:/Program Files/Git/usr/bin" "C:/Program Files (x86)/Git/usr/bin"
+                  "C:/software/Git/usr/bin" "C:/msys64/usr/bin")
+    endif()
+    # 终检：Git/MSYS bash 的 uname -s 以 MINGW|MSYS 开头；WSL=Linux（或执行失败）→ 视为未找到
+    if(KWIK_FFMPEG_BASH)
+        execute_process(COMMAND ${KWIK_FFMPEG_BASH} -c "uname -s"
+            OUTPUT_VARIABLE _bash_uname OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(NOT _bash_uname MATCHES "^(MINGW|MSYS)")
+            set(KWIK_FFMPEG_BASH "")
+        endif()
+        unset(_bash_uname)
+    endif()
     get_filename_component(CC_BIN ${CMAKE_C_COMPILER} DIRECTORY)   # llvm-mingw/bin
     find_program(FFMPEG_MAKE mingw32-make HINTS ${CC_BIN})
-    if(GIT_BASH AND FFMPEG_MAKE)
+    if(KWIK_FFMPEG_BASH AND FFMPEG_MAKE)
         set(KWIK_HAVE_FFMPEG ON)
-        get_filename_component(GIT_USR_BIN ${GIT_BASH} DIRECTORY)
+        get_filename_component(GIT_USR_BIN ${KWIK_FFMPEG_BASH} DIRECTORY)
         file(MAKE_DIRECTORY ${FFMPEG_BUILD})  # 构建目录=导入目标头文件根，配置期即须存在
         # 干净 PATH：防 anaconda 等 DLL 干扰 msys fork（实测 0xC000026B）
         set(FFMPEG_ENV ${CMAKE_COMMAND} -E env
@@ -61,7 +104,7 @@ endforeach()
         # ① configure + 路径修正（config.mak 存在即跳过）
         add_custom_command(
             OUTPUT ${FFMPEG_BUILD}/ffbuild/config.mak
-            COMMAND ${FFMPEG_ENV} ${GIT_BASH} ${FFMPEG_SRC_MSYS}/configure ${FFMPEG_FLAGS}
+            COMMAND ${FFMPEG_ENV} ${KWIK_FFMPEG_BASH} ${FFMPEG_SRC_MSYS}/configure ${FFMPEG_FLAGS}
             COMMAND ${CMAKE_COMMAND} -DDIR=${FFMPEG_BUILD} -P ${CMAKE_BINARY_DIR}/ffmpeg_fixpaths.cmake
             WORKING_DIRECTORY ${FFMPEG_BUILD}
             COMMENT "Configuring FFmpeg (minimal LGPL set, llvm-mingw)"
