@@ -1,6 +1,6 @@
 # 更新日志
 
-# 0.0.0 — 2026-11-13
+# 0.1.0 — 2026-11-13
 ### 新增
 - **G3D 材质贴图最小支持**：glTF 加载器提取 TEXCOORD_0、材质
   baseColorFactor/baseColorTexture（内嵌 bufferView 与外部 uri 图片字节均
