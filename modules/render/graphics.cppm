@@ -116,8 +116,10 @@ public:
     void fillRing(float cx, float cy, float midR, float halfW, float a0, float a1, const Color &color0,
                   const Color &color1, bool roundCap = true);
 
+    /** @brief 3D 网格绘制（G3D）：textureId 非 0 走材质贴图路径（顶点 UV 采样），
+     *         0 走纯色路径（现状行为） */
     void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
-                  const float lightDir[3], const Rect &viewport);
+                  const float lightDir[3], const Rect &viewport, uint32_t textureId = 0);
 
     /** @brief 追加液态玻璃 backdrop 命令
      *  frame 为元素逻辑框（未外扩）：内部按 ceil(3σ) 烘焙外扩 captureBox，

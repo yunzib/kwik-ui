@@ -90,6 +90,7 @@ if(KWIK_ENABLE_G3D)
                 kwik_bridge
                 kwik_engine
                 qjs
+                kwik_stb      # stb_image.h 声明（材质贴图解码；实现符号来自 kwik_element）
                 TernMath
                 fastgltf
         )

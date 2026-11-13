@@ -1,5 +1,35 @@
 # 更新日志
 
+# 0.0.0 — 2026-11-13
+### 新增
+- **G3D 材质贴图最小支持**：glTF 加载器提取 TEXCOORD_0、材质
+  baseColorFactor/baseColorTexture（内嵌 bufferView 与外部 uri 图片字节均
+  装载，`extensions/g3d/impl/g3d_gltf.cpp`），组件侧 stb 解码后经
+  TextureManager 异步上传（Image 组件同款入队/回执/重试模式，
+  `extensions/g3d/impl/g3d.cpp`）；渲染层 Vertex3D 增 UV（24→32B，
+  `modules/render/command.cppm`）+ 贴图管线变体（`shaders/mesh.slang`
+  fragmentMainTextured 采样入口，管线经工厂 externalSetLayout 复用
+  ImageRenderer 的纹理注册表 descSet/setLayout——纹理生命周期全归
+  ImageRenderer，`src/render/vulkan/vulkan_3d_renderer.cpp`）。有材质节点
+  逐节点着色/采样，无材质节点维持 setColor 纯色路径不变
+- **G3D 相机 API + 自动取景**：距离/FOV/深度裁剪面原全部写死
+  （4.0/45°/0.1/100，任意尺寸模型被远平面裁掉或缩成点）——新增
+  `camDistance(d)` / `fov(deg)` / `clip(zn, zf)` / `frameModel()`（按
+  loadModel 时计算的场景包围球取景，远平面自适应放宽）；顺手去重
+  bindG3DMethods 中 autoRotate 的重复登记项
+  （`extensions/g3d/impl/bindings.cpp`）
+- **G3D 冒烟纳管 + 材质测试资产**：`test/tools/smoke.py` 默认集纳入
+  g3d（43→44 项）；新增 `test/gen_cube_tex_glb.py` 生成带 UV + 内嵌 PNG
+  四象限棋盘贴图的 `test/cube_tex.glb`（纯标准库手写 GLB/PNG），
+  `test/ui/g3d.js` 扩为三块布局（贴图模型 + frameModel / 纯色模型 / 基本体）
+
+### 修复
+- **mesh 顶点槽超容静默丢弃网格**（`src/render/vulkan/vulkan_3d_renderer.cpp`）：
+  单帧槽满即裸 return，大模型部分/整体不渲染且无任何提示——丢弃前
+  Log::warn 告警（按帧节流）+ 帧首按需倍增扩容 staging（192KB 起，
+  32MB 封顶，扩容前全设备等闲保证在飞帧安全）。非 3D 应用永不触发
+  溢出 → 永不扩容，内存占用维持原 192KB 基线零增量
+
 # 0.0.0 — 2026-11-12
 ### 新增
 - **三方依赖全量快照内嵌（零 submodule、零构建网络）**：9 库

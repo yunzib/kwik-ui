@@ -2,16 +2,18 @@
  * @file vulkan_3d_renderer.cppm
  * @brief Vulkan 3D 网格渲染器 (G3D 组件)
  *
- * 接收 DrawMeshCmd 的 Vertex3D 顶点数据 (位置 + 法线),
+ * 接收 DrawMeshCmd 的 Vertex3D 顶点数据 (位置 + 法线 + UV),
  * 上传到 GPU 并以深度测试管线绘制。
  *
- * Pipeline 配置:
- *   - 顶点输入: float3 pos + float3 normal (stride 24)
+ * Pipeline 配置（纯色/贴图两条，顶点输入与 push 布局相同）:
+ *   - 顶点输入: float3 pos + float3 normal + float2 uv (stride 32)
  *   - 图元: TRIANGLE_LIST
  *   - Push constants 96B: { mvp[16], color(vec4), lightDir(vec3)+pad }
  *   - 深度: test + write, LESS_OR_EQUAL (depth 每帧 CLEAR 为 1.0)
  *   - 剔除: 关闭 (v1 简化; 封闭网格由深度测试自行遮挡背面)
  *   - 混合: SRC_ALPHA / ONE_MINUS_SRC_ALPHA
+ *   - 贴图变体: set0 = 单采样器（复用 ImageRenderer 纹理注册表的
+ *     descSet 与 setLayout，纹理生命周期全归 ImageRenderer）
  */
 
 module;
@@ -43,15 +45,18 @@ public:
 
     /**
      * @brief 创建 pipeline、pipeline layout 和 host-visible 顶点缓存
-     * @param device       Vulkan 设备
-     * @param physDevice   Vulkan 物理设备
-     * @param renderPass   渲染通道 (必须含 D24S8 depth attachment)
-     * @param vertexBuffer 预分配的顶点缓冲区 (未使用, 保持接口统一)
-     * @param indexBuffer  预分配的索引缓冲区 (未使用)
+     * @param device            Vulkan 设备
+     * @param physDevice        Vulkan 物理设备
+     * @param renderPass        渲染通道 (必须含 D24S8 depth attachment)
+     * @param vertexBuffer      预分配的顶点缓冲区 (未使用, 保持接口统一)
+     * @param indexBuffer       预分配的索引缓冲区 (未使用)
+     * @param textureSetLayout  贴图管线 set0 布局（ImageRenderer 主管线
+     *                         setLayout，外部复用保证 descSet 同源兼容；
+     *                         空句柄 = 跳过贴图管线创建，仅纯色路径）
      * @return 成功返回 true
      */
-    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass, VkBuffer vertexBuffer,
-                VkBuffer indexBuffer);
+    bool create(VkDevice device, VkPipelineCache cache, VkPhysicalDevice physDevice, VkRenderPass renderPass,
+                VkBuffer vertexBuffer, VkBuffer indexBuffer, VkDescriptorSetLayout textureSetLayout);
 
     /** @brief 销毁 pipeline、layout 和 host-visible 顶点缓存 */
     void destroy();
@@ -60,10 +65,15 @@ public:
      *  staging 按 in-flight 帧分槽，写入区间 = [slotBase, slotBase+slotCapacity)，
      *  帧首 fence 等待已保证上一次使用本槽的帧（3 帧前）GPU 执行完毕，CPU
      *  重写不与在飞帧 GPU 读竞争（原每帧从 0 覆写，复用距 1 帧 < fence 距
-     *  3 帧，高负载下顶点数据花屏） */
+     *  3 帧，高负载下顶点数据花屏）
+     *
+     *  上帧溢出（drawMesh 槽不足丢弃）→ 帧边界按需倍增重建（见 growStaging）。
+     *  非 3D 应用永不溢出 → 永不扩容，内存占用维持初始 192KB 不变 */
     void resetOffset(uint32_t frameSlot) {
+        if (overflowed_ && bufferCapacity_ < kMaxCapacity) growStaging();
         curSlotBase_ = (frameSlot % kFrameSlots) * slotCapacity();
         writeOffset_ = curSlotBase_;
+        overflowed_ = false;    // 溢出告警按帧节流（同帧只报首个超限网格）
     }
 
     /**
@@ -78,6 +88,8 @@ public:
      * @param mvp          模型-视图-投影矩阵 (列主序, 16 floats)
      * @param color        基础颜色
      * @param lightDir     方向光方向 (对象空间, 3 floats)
+     * @param textureSet   材质贴图 descSet（ImageRenderer 纹理注册表按
+     *                     textureId 查得；空句柄 = 纯色管线）
      *
      * 顶点数据通过 memcpy 写入内部 host-visible 顶点缓冲,
      * 避免在 render pass 内使用 vkCmdUpdateBuffer。
@@ -85,12 +97,15 @@ public:
      * (见 G3D 组件构造投影时的 scale(1,-1,1))。
      */
     void drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D scissor, const Vertex3D *vertices,
-                  uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3]);
+                  uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3],
+                  VkDescriptorSet textureSet);
 
 private:
     VkDevice device_ = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
     VkPipeline pipeline_ = VK_NULL_HANDLE;
+    VkPipelineLayout texPipelineLayout_ = VK_NULL_HANDLE;    ///< 贴图变体（set0 单采样器）
+    VkPipeline texPipeline_ = VK_NULL_HANDLE;
     VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
     VkBuffer indexBuffer_ = VK_NULL_HANDLE;
     VkPhysicalDevice physDevice_ = VK_NULL_HANDLE;
@@ -106,6 +121,18 @@ private:
      *  须满足顶点格式对齐，整除三等分不保证 4B 对齐） */
     size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~size_t(0xF); }
 
-    /// 默认 3×64KB：分槽后单帧仍保 64KB（G3D 网格顶点 24B/个，≈2700 顶点/帧）
+    /// 默认 3×64KB：分槽后单帧仍保 64KB（G3D 网格顶点 32B/个，≈2048 顶点/帧）。
+    /// 超限不静默——drawMesh 告警 + 帧首按需倍增（非 3D 应用永不触发，零增量）
     static constexpr size_t kDefaultCapacity = 196608;
+    /// 扩容上限（全槽合计）：约 32 万顶点/帧封顶，防异常模型无界吃内存
+    static constexpr size_t kMaxCapacity = size_t{32} << 20;
+    bool overflowed_ = false;    ///< 上帧槽不足标志（resetOffset 消费并触发扩容）
+
+    /** @brief 帧边界按需倍增 staging（resetOffset 调用，渲染线程）
+     *  重建释放旧缓冲——在飞帧可能仍读旧内存，须先全设备等闲（罕见事件：
+     *  每档容量整个生命周期最多触发一次） */
+    void growStaging();
+
+    /** @brief 释放 staging 缓冲（destroy / growStaging 共用，不动管线对象） */
+    void freeStaging();
 };

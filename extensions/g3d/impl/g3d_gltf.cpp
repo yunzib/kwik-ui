@@ -2,7 +2,8 @@
 // g3d_gltf.cpp — glTF 模型加载实现 (fastgltf v0.9)
 //
 // 传统头文件/源文件分离 (非 C++ module TU), 仅依赖标准库 + fastgltf。
-// 顶点/法线属性按对象空间原样提取, 索引展开为三角形列表。
+// 顶点/法线/UV 属性按对象空间原样提取, 索引展开为三角形列表;
+// 材质最小支持: 每 mesh 取首个 primitive 的 baseColorFactor + baseColorTexture。
 // ============================================================================
 #include <fastgltf/core.hpp>
 
@@ -10,8 +11,10 @@
 #include <cstdint>
 #include <array>
 #include <filesystem>
+#include <fstream>
 #include <cstdio>
 
+#include "stb_image.h"    // 光栅图像解码 (PNG/JPG/...); 实现符号来自 kwik_element 的 stb_image_impl.cpp
 #include "kwik/g3d_gltf.h"
 
 namespace {
@@ -41,6 +44,36 @@ bool readVec3Attr(const fastgltf::Asset &asset, const fastgltf::Primitive &prim,
         for (size_t i = 0; i < accessor.count; i++) {
             const float *v = reinterpret_cast<const float *>(base + i * stride);
             out[i] = {v[0], v[1], v[2]};
+        }
+        return true;
+    }
+    return false;
+}
+
+// ── 读取一个 Vec2 float 属性 (TEXCOORD_0, 材质贴图 UV) ────────
+// 与 readVec3Attr 同构; 缺失/非 Float Vec2 返回 false (调用方填 0)
+bool readVec2Attr(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, const char *name,
+                  std::vector<std::array<float, 2>> &out) {
+    for (const auto &attr : prim.attributes) {
+        if (attr.name != name) continue;
+        const auto &accessor = asset.accessors[attr.accessorIndex];
+        if (accessor.componentType != fastgltf::ComponentType::Float) return false;
+        if (accessor.type != fastgltf::AccessorType::Vec2) return false;
+        if (!accessor.bufferViewIndex) return false;
+
+        const auto &bv = asset.bufferViews[*accessor.bufferViewIndex];
+        const auto &buf = asset.buffers[bv.bufferIndex];
+        const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
+        if (!arr) return false;
+
+        const uint8_t *base =
+            reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
+        size_t stride = bv.byteStride ? *bv.byteStride : 2 * sizeof(float);
+
+        out.resize(accessor.count);
+        for (size_t i = 0; i < accessor.count; i++) {
+            const float *v = reinterpret_cast<const float *>(base + i * stride);
+            out[i] = {v[0], v[1]};
         }
         return true;
     }
@@ -96,13 +129,68 @@ void recomputeFlatNormals(std::vector<G3DVertex> &v, size_t start) {
     }
 }
 
+// ── 提取 primitive 材质 (baseColorFactor + baseColorTexture→imageIndex) ──
+// 最小支持: 无材质/无贴图时保持默认 (白 + 无贴图)
+void extractMaterial(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, G3DMaterial &out) {
+    if (!prim.materialIndex) return;
+    out.hasMaterial = true;
+    const auto &mat = asset.materials[*prim.materialIndex];
+    for (int i = 0; i < 4; i++) out.baseColorFactor[i] = mat.pbrData.baseColorFactor[i];
+    if (mat.pbrData.baseColorTexture) {
+        const auto &tex = asset.textures[mat.pbrData.baseColorTexture->textureIndex];
+        if (tex.imageIndex) out.imageIndex = static_cast<int>(*tex.imageIndex);
+    }
+}
+
+// ── 读取一个 glTF image 的原始编码字节 (PNG/JPG, 由扩展层 stb 解码) ──
+// DataSource 变体: Array(已装载) / BufferView(GLB 内嵌) / URI(外部文件回退)
+bool loadImageBytes(const fastgltf::Asset &asset, const fastgltf::Image &img, const std::filesystem::path &baseDir,
+                    std::vector<uint8_t> &out) {
+    if (const auto *arr = std::get_if<fastgltf::sources::Array>(&img.data)) {
+        const auto *b = reinterpret_cast<const uint8_t *>(arr->bytes.data());
+        out.assign(b, b + arr->bytes.size());
+        return true;
+    }
+    if (const auto *bvSrc = std::get_if<fastgltf::sources::BufferView>(&img.data)) {
+        const auto &bv = asset.bufferViews[bvSrc->bufferViewIndex];
+        const auto &buf = asset.buffers[bv.bufferIndex];
+        const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
+        if (!arr) return false;
+        const auto *base = reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset;
+        out.assign(base, base + bv.byteLength);
+        return true;
+    }
+    if (const auto *uri = std::get_if<fastgltf::sources::URI>(&img.data)) {
+        // LoadExternalBuffers 未覆盖的相对 uri (如 data: 之外的罕见路径) 手动读文件
+        std::error_code ec;
+        auto fp = std::filesystem::canonical(baseDir / uri->uri.fspath(), ec);
+        if (ec) return false;
+        std::ifstream f(fp, std::ios::binary);
+        if (!f) return false;
+        out.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+        return !out.empty();
+    }
+    return false;    // CustomBuffer/ByteView/Vector 等未启用装载路径
+}
+
 // ── 构建一个网格 (多个 primitive 拼接为一个三角形列表) ─────
 void buildMeshVertices(const fastgltf::Asset &asset, const fastgltf::Mesh &mesh, G3DMeshData &out) {
+    bool materialTaken = false;    // 首个 primitive 的材质代表整 mesh (最小支持不按 primitive 细分)
     for (const auto &prim : mesh.primitives) {
         std::vector<std::array<float, 3>> pos, nor;
         if (!readVec3Attr(asset, prim, "POSITION", pos)) continue;
         bool hasNormal = readVec3Attr(asset, prim, "NORMAL", nor);
         if (!hasNormal) nor.assign(pos.size(), std::array<float, 3>{0, 1, 0});
+
+        // UV: 有 TEXCOORD_0 才采样; 缺失填 0 (贴图路径退化为纯色×常量纹素)
+        std::vector<std::array<float, 2>> uv;
+        bool hasUv = readVec2Attr(asset, prim, "TEXCOORD_0", uv);
+        if (!hasUv) uv.assign(pos.size(), std::array<float, 2>{0, 0});
+
+        if (!materialTaken) {
+            extractMaterial(asset, prim, out.material);
+            materialTaken = true;
+        }
 
         std::vector<uint32_t> idx;
         bool hasIdx = readIndices(asset, prim, idx);
@@ -116,6 +204,8 @@ void buildMeshVertices(const fastgltf::Asset &asset, const fastgltf::Mesh &mesh,
             v.nx = nor[i][0];
             v.ny = nor[i][1];
             v.nz = nor[i][2];
+            v.u = uv[i][0];
+            v.v = uv[i][1];
             out.vertices.push_back(v);
         };
         if (hasIdx) {
@@ -174,8 +264,18 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
         return false;
     }
 
-    std::fprintf(stderr, "[GLTF] meshes=%zu nodes=%zu accessors=%zu buffers=%zu\n", asset.get().meshes.size(),
-                 asset.get().nodes.size(), asset.get().accessors.size(), asset.get().buffers.size());
+    std::fprintf(stderr, "[GLTF] meshes=%zu nodes=%zu accessors=%zu buffers=%zu images=%zu\n", asset.get().meshes.size(),
+                 asset.get().nodes.size(), asset.get().accessors.size(), asset.get().buffers.size(),
+                 asset.get().images.size());
+
+    // ── 图片池: 原始编码字节 (解码归扩展层 stb) ──
+    out.images.clear();
+    for (const auto &img : asset.get().images) {
+        G3DImage gi;
+        if (loadImageBytes(asset.get(), img, p.parent_path(), gi.encoded))
+            std::fprintf(stderr, "[GLTF] image[%zu] bytes=%zu\n", out.images.size(), gi.encoded.size());
+        out.images.push_back(std::move(gi));
+    }
 
     // ── 网格池 ──
     out.meshes.clear();
@@ -196,5 +296,17 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
             buildNode(asset.get(), asset.get().nodes[i], out.root.children.back());
         }
     }
+    return true;
+}
+
+// ============================================================================
+// g3dDecodeImage — stb 解码 (RGBA) — 传统 TU 内实现, 供 module TU 调用
+// ============================================================================
+bool g3dDecodeImage(const uint8_t *encoded, size_t size, std::vector<uint8_t> &rgba, int &w, int &h) {
+    int channels = 0;
+    unsigned char *data = stbi_load_from_memory(encoded, static_cast<int>(size), &w, &h, &channels, 4);    // 强制 RGBA
+    if (!data) return false;
+    rgba.assign(data, data + static_cast<size_t>(w) * h * 4);
+    stbi_image_free(data);
     return true;
 }

@@ -148,6 +148,24 @@ add_custom_command(
 )
 target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/mesh_shaders.h)
 
+# ── Mesh 贴图变体（材质最小支持：uv 采样 frag，vert 与纯色版共用） ──
+add_custom_command(
+    OUTPUT ${SHADER_GEN_DIR}/mesh_tex_shaders.h
+    COMMAND ${SLANGC} ${SHADER_SRC_DIR}/mesh.slang
+            -entry fragmentMainTextured -stage fragment
+            -target spirv -profile glsl_450
+            -o ${SHADER_GEN_DIR}/mesh_tex.frag.spv
+    COMMAND ${CMAKE_COMMAND}
+        -DVERT_SPV=${SHADER_GEN_DIR}/mesh.vert.spv
+        -DFRAG_SPV=${SHADER_GEN_DIR}/mesh_tex.frag.spv
+        -DOUTPUT=${SHADER_GEN_DIR}/mesh_tex_shaders.h
+        -DNAME=kMeshTex
+        -P ${SHADER_SRC_DIR}/spv_to_header.cmake
+    DEPENDS ${SHADER_SRC_DIR}/mesh.slang ${SHADER_SRC_DIR}/spv_to_header.cmake
+    COMMENT "Compiling mesh textured shader to embedded SPIR-V header"
+)
+target_sources(kwik_render PRIVATE ${SHADER_GEN_DIR}/mesh_tex_shaders.h)
+
 # ── Backdrop 捕捉/模糊（分离高斯）──────────────────────────────
 add_custom_command(
     OUTPUT ${SHADER_GEN_DIR}/backdrop_shaders.h

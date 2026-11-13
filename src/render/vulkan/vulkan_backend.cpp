@@ -64,7 +64,7 @@ bool VulkanBackend::initialize(void *native) {
         return false;
     }
     if (!mesh_.create(ctx_.device(), ctx_.pipelineCache(), ctx_.physicalDevice(), ctx_.renderPass(), ctx_.vertexBuffer(),
-                      ctx_.indexBuffer())) {
+                      ctx_.indexBuffer(), image_.descSetLayout())) {
         Log::error("MeshRenderer init failed");
         glyph_.destroy();
         rect_.destroy();
@@ -312,8 +312,11 @@ void VulkanBackend::drawMesh(const DrawMeshCmd &cmd, const Vertex3D *vertices) {
     // mesh 视口定位几何；scissor 收口 = viewport ∩ 当前可画域（裁剪栈/伤害带）
     // ——元素滚出滚动视口即空剪不画（原恒全屏，docsite 滚动后 3D 盖到顶栏）
     VkRect2D sc = clip_.toScissor(clip_.intersectCurrent(cmd.viewport));
+    // 材质贴图：textureId → 纹理注册表 descSet（未落地/流纹理查不到 → 纯色回退）
+    VkDescriptorSet texSet =
+        (cmd.textureId != 0) ? image_.textureDescSet(cmd.textureId) : VK_NULL_HANDLE;
     mesh_.drawMesh(currentToken_->commandBuffer, cmd.viewport, sc, vertices, cmd.vertexCount,
-                   cmd.mvp, cmd.color, cmd.lightDir);
+                   cmd.mvp, cmd.color, cmd.lightDir, texSet);
     // mesh 改了 viewport/scissor 动态态——按回放流当前裁剪态恢复（原硬编码
     // 回全屏，紧随其后的 SrcCopy 清屏/2D 绘制会逃逸裁剪栈）
     clip_.reapplyState(currentToken_->commandBuffer);

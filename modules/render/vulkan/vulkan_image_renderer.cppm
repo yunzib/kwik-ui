@@ -47,6 +47,13 @@ public:
                    const Transform2D &t);
     void drawImageClipped(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,
                           const Transform2D &t);
+
+    /** @brief 查普通纹理的 descSet（Mesh 贴图管线按 textureId 取采样绑定；
+     *  流纹理别名/未落地 id 返回空句柄 → 调用方回退纯色路径。仅渲染线程） */
+    VkDescriptorSet textureDescSet(uint32_t id) const;
+    /** @brief 主管线单采样器 setLayout（Mesh 贴图管线经工厂 externalSetLayout
+     *  复用同一布局——descSet 与管线布局严格同源，免兼容性推演） */
+    VkDescriptorSetLayout descSetLayout() const { return imageDescSetLayout_; }
 private:
     VkDevice device_ = VK_NULL_HANDLE;
     VkBuffer vertexBuffer_ = VK_NULL_HANDLE;

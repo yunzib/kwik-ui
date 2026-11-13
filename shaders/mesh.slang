@@ -2,11 +2,15 @@
  * @file mesh.slang
  * @brief 3D 网格着色器 (G3D 组件)
  *
- * 输入: float3 位置 + float3 法线 (均对象空间)
+ * 输入: float3 位置 + float3 法线 + float2 UV (均对象空间/模型 UV)
  * Push constants 96 bytes (必须与 vulkan_3d_renderer.cpp 的 PushConstants 对齐):
  *   uMvp      (offset 0)  float4x4  模型-视图-投影 (列主序)
  *   uColor    (offset 64) float4    基础颜色
  *   uLightDir (offset 80) float4    方向光 (对象空间, 归一化; w 未用)
+ *
+ * 两个片段入口（纯色/贴图各一，管线在 MeshRenderer 按有无贴图二选一）：
+ *   fragmentMain        纯色（现状行为，不读 uv）
+ *   fragmentMainTextured 贴图采样（set0 单采样器，布局复用 ImageRenderer）
  *
  * 光照策略: 兰伯特漫反射 + 环境光, 在对象空间计算。
  * 法线与光源同处对象空间 → 顶点无需法线变换, 节省一个矩阵。
@@ -22,25 +26,30 @@ struct MeshPushConstants {
 };
 [[vk::push_constant]] ConstantBuffer<MeshPushConstants> pc;
 
+// ── 材质贴图 (仅贴图变体绑定; 纯色管线无 set0) ────────────────
+[[vk::binding(0, 0)]] Sampler2D uAlbedo;
+
 // ── Vertex → Fragment 传参 ─────────────────────────────────
 struct VertOutput {
     float4 position : SV_Position;
     [[vk::location(0)]] float3 vNormal : NORMAL0;
     [[vk::location(1)]] float4 vColor : COLOR0;
+    [[vk::location(2)]] float2 vUv : TEXCOORD0;
 };
 
 // ── 顶点着色器 ──────────────────────────────────────────────
 [shader("vertex")]
-VertOutput vertexMain(float3 aPos : ATTR0, float3 aNormal : ATTR1) {
+VertOutput vertexMain(float3 aPos : ATTR0, float3 aNormal : ATTR1, float2 aUv : ATTR2) {
     VertOutput o;
     // HLSL 语义: 行向量 × 列主序矩阵 = 正确模型变换
     o.position = mul(pc.uMvp, float4(aPos, 1.0));   // 矩阵在前，列向量在后 → mvp·p
     o.vNormal = aNormal;
     o.vColor = pc.uColor;
+    o.vUv = aUv;
     return o;
 }
 
-// ── 片段着色器 ──────────────────────────────────────────────
+// ── 片段着色器（纯色，现状行为） ─────────────────────────────
 [shader("fragment")]
 float4 fragmentMain(VertOutput input) : SV_Target0 {
     float3 n = normalize(input.vNormal);
@@ -49,4 +58,16 @@ float4 fragmentMain(VertOutput input) : SV_Target0 {
     const float ambient = 0.25;                // 环境光补偿 (避免全黑)
     float3 c = input.vColor.rgb * (ambient + (1.0 - ambient) * diff);
     return float4(c, input.vColor.a);
+}
+
+// ── 片段着色器（材质贴图：albedo 采样 × 基础颜色 × 同款光照） ──
+[shader("fragment")]
+float4 fragmentMainTextured(VertOutput input) : SV_Target0 {
+    float3 n = normalize(input.vNormal);
+    float3 l = normalize(pc.uLightDir.xyz);
+    float diff = max(dot(n, l), 0.0);          // 兰伯特漫反射
+    const float ambient = 0.25;                // 环境光补偿 (避免全黑)
+    float4 tex = uAlbedo.Sample(input.vUv);
+    float3 c = tex.rgb * input.vColor.rgb * (ambient + (1.0 - ambient) * diff);
+    return float4(c, input.vColor.a * tex.a);
 }

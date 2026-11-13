@@ -435,7 +435,7 @@ void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, f
 }
 
 void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
-                        const float lightDir[3], const Rect &viewport) {
+                        const float lightDir[3], const Rect &viewport, uint32_t textureId) {
     if (!recording_) return;
     if (vertices.empty()) return;
     size_t off = appendMeshVerts(vertices.data(), vertices.size());
@@ -446,6 +446,7 @@ void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[1
     cmd.lightDir[1] = lightDir[1];
     cmd.lightDir[2] = lightDir[2];
     cmd.viewport = transformRect(viewport);    // mesh 走对象空间 MVP + 视口，阶段 2 不做 2D rotate
+    cmd.textureId = textureId;                 // 材质贴图（0 = 纯色路径）
     appendCmd(cmd);
 }
 

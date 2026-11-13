@@ -131,17 +131,53 @@ static JSValue js_g3d_addPlane(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-// ── bindG3DMethods (原样搬迁, 含原重复 autoRotate 项) ──
+// ── 相机 API 方法回调 ──
+static JSValue js_g3d_camDistance(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double d = 4.0;
+    JS_ToFloat64(ctx, &d, argv[0]);
+    g3d->setCameraDistance(float(d));
+    return JS_UNDEFINED;
+}
+static JSValue js_g3d_fov(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double deg = 45.0;
+    JS_ToFloat64(ctx, &deg, argv[0]);
+    g3d->setFov(float(deg));
+    return JS_UNDEFINED;
+}
+static JSValue js_g3d_clip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    double zn = 0.1, zf = 100.0;
+    JS_ToFloat64(ctx, &zn, argv[0]);
+    JS_ToFloat64(ctx, &zf, argv[1]);
+    g3d->setClip(float(zn), float(zf));
+    return JS_UNDEFINED;
+}
+static JSValue js_g3d_frameModel(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    auto *g3d = G3D_FROM_THIS(ctx, this_val);
+    if (!g3d) return JS_UNDEFINED;
+    g3d->frameModel();    // 按场景包围球自动取景 (任意尺寸模型完整入镜)
+    return JS_UNDEFINED;
+}
+
+// ── bindG3DMethods (方法表; 原 autoRotate 重复登记项已去重) ──
 static void bindG3DMethods(JSContext *ctx, JSValue obj) {
     struct {
         const char *name;
         JSCFunction *fn;
         int argc;
     } methods[] = {
-        {"loadModel", js_g3d_loadModel, 1},   {"clear", js_g3d_clear, 0},       {"setColor", js_g3d_setColor, 1},
-        {"autoRotate", js_g3d_autoRotate, 1}, {"rotateTo", js_g3d_rotateTo, 2}, {"addBox", js_g3d_addBox, 4},
-        {"autoRotate", js_g3d_autoRotate, 1}, {"showAxes", js_g3d_showAxes, 1}, {"addSphere", js_g3d_addSphere, 6},
-        {"addPlane", js_g3d_addPlane, 5},
+        {"loadModel", js_g3d_loadModel, 1},     {"clear", js_g3d_clear, 0},
+        {"setColor", js_g3d_setColor, 1},       {"autoRotate", js_g3d_autoRotate, 1},
+        {"rotateTo", js_g3d_rotateTo, 2},       {"addBox", js_g3d_addBox, 4},
+        {"showAxes", js_g3d_showAxes, 1},       {"addSphere", js_g3d_addSphere, 6},
+        {"addPlane", js_g3d_addPlane, 5},       {"camDistance", js_g3d_camDistance, 1},
+        {"fov", js_g3d_fov, 1},                 {"clip", js_g3d_clip, 2},
+        {"frameModel", js_g3d_frameModel, 0},
     };
     for (auto &m : methods) { JS_SetPropertyStr(ctx, obj, m.name, JS_NewCFunction(ctx, m.fn, m.name, m.argc)); }
 }

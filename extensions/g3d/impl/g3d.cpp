@@ -20,6 +20,8 @@ import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
 import kwik.render.command;
+import kwik.render.backend;          // RenderBackend / TextureUploadStatus (材质贴图上传)
+import kwik.render.texture_manager;  // TextureManager (异步纹理创建, Image 组件同款)
 import kwik.event;
 import kwik.core.log;
 import TernMath;
@@ -64,7 +66,7 @@ void pushQuad(std::vector<Vertex3D> &v, const Vec3 &n, const Vec3 &c, const Vec3
     emit(d);
 }
 
-// ── glTF 加载结果 → 内部节点树 (G3DVertex → Vertex3D 类型转换) ──
+// ── glTF 加载结果 → 内部节点树 (G3DVertex → Vertex3D 类型转换 + 材质) ──
 void convertModel(const G3DModel &model, const G3DModel::G3DNode &src, G3DNode &dst) {
     dst.t[0] = src.translation[0];
     dst.t[1] = src.translation[1];
@@ -80,7 +82,15 @@ void convertModel(const G3DModel &model, const G3DModel::G3DNode &src, G3DNode &
         const auto &md = model.meshes[src.meshIndex];
         dst.vertices.reserve(md.vertices.size());
         for (const auto &srcV : md.vertices)
-            dst.vertices.push_back({srcV.x, srcV.y, srcV.z, srcV.nx, srcV.ny, srcV.nz});
+            dst.vertices.push_back({srcV.x, srcV.y, srcV.z, srcV.nx, srcV.ny, srcV.nz, srcV.u, srcV.v});
+        // 材质最小支持: baseColorFactor → 节点色; baseColorTexture → imageIndex (贴图经 pending_ 上传)
+        if (md.material.hasMaterial) {
+            dst.hasMaterialColor = true;
+            auto toU8 = [](float f) { return static_cast<uint8_t>(std::clamp(f, 0.0f, 1.0f) * 255.0f + 0.5f); };
+            dst.materialColor = Color{toU8(md.material.baseColorFactor[0]), toU8(md.material.baseColorFactor[1]),
+                                      toU8(md.material.baseColorFactor[2]), toU8(md.material.baseColorFactor[3])};
+            if (md.material.imageIndex >= 0) dst.imageIndex = md.material.imageIndex;
+        }
     }
     for (const auto &child : src.children) {
         dst.children.emplace_back();
@@ -129,11 +139,12 @@ Size G3D::onMeasure(Constraints constraints) {
 }
 
 // ============================================================================
-// onDraw — 相机 → 递归绘制场景 → autoRotate
+// onDraw — 贴图回执处理 → 相机 → 递归绘制场景 → autoRotate
 // ============================================================================
 void G3D::onDraw(Graphics &graphics) {
     View::onDraw(graphics);
     if (root_.vertices.empty() && root_.children.empty()) return;    // 无模型不绘制
+    if (!pending_.empty()) uploadPendingTextures();                  // 材质贴图上传/回执 (onDraw 驱动)
 
     graphics.save();
 
@@ -142,12 +153,12 @@ void G3D::onDraw(Graphics &graphics) {
     Vec3 eye{camDist_ * cp * std::cos(yaw_), camDist_ * std::sin(pitch_), camDist_ * cp * std::sin(yaw_)};
     Mat4 view = lookAt(eye, {0, 0, 0}, {0, 1, 0});
 
-    // ── 投影: 45° FOV, NDC z∈[0,1] (Vulkan)
+    // ── 投影: FOV/裁剪面可配 (相机 API), NDC z∈[0,1] (Vulkan)
     //    乘 scale(1,-1,1) 完成 y 翻转 — 渲染器用正高度 viewport
     //    (见 vulkan_3d_renderer.cpp 注释)
     float aspect = (frame.height > 1e-3f) ? frame.width / frame.height : 1.0f;
-    float fov = 45.0f * 3.14159265f / 180.0f;
-    Mat4 proj = mul(scale(1, -1, 1), perspective(fov, aspect, 0.1f, 100.0f));
+    float fov = fovDeg_ * 3.14159265f / 180.0f;
+    Mat4 proj = mul(scale(1, -1, 1), perspective(fov, aspect, zNear_, zFar_));
     Mat4 viewProj = mul(proj, view);
 
     // ── 坐标轴: 先画, 物体后画遮挡原点交汇段, 轴尾露在物体外 ──
@@ -166,7 +177,7 @@ void G3D::onDraw(Graphics &graphics) {
 }
 
 // ============================================================================
-// drawNode — 递归累积世界矩阵并绘制节点网格
+// drawNode — 递归累积世界矩阵并绘制节点网格 (材质色/贴图优先, 默认色回退)
 // ============================================================================
 void G3D::drawNode(Graphics &g, const G3DNode &node, const Mat4 &parentWorld, const Mat4 &viewProj) {
     // 本地变换 = T * R * S
@@ -189,9 +200,15 @@ void G3D::drawNode(Graphics &g, const G3DNode &node, const Mat4 &parentWorld, co
         // ── mvp 直接上传（列主序）: mesh shader (RowMajor + OpVectorTimesMatrix)
         //    已推演该组合下上传列主序 M 即得正确 M·v, 无需转置
         //    viewport=frame: mesh 视口与元素矩形一致, cube 居中于元素内
+        // ── 材质: baseColorFactor → 节点色; 贴图已落地 → textureId (未落地查表 miss 走纯色) ──
         float mvpArr[16];
         mvp.toArray(mvpArr);
-        g.drawMesh(node.vertices, mvpArr, color_, lo, frame);
+        Color nodeColor = node.hasMaterialColor ? node.materialColor : color_;
+        uint32_t textureId = 0;
+        if (node.imageIndex >= 0) {
+            if (auto it = imageTextureIds_.find(node.imageIndex); it != imageTextureIds_.end()) textureId = it->second;
+        }
+        g.drawMesh(node.vertices, mvpArr, nodeColor, lo, frame, textureId);
     }
 
     for (const auto &child : node.children) drawNode(g, child, world, viewProj);
@@ -246,7 +263,7 @@ bool G3D::onEvent(const DispatchEvent &event) {
 }
 
 // ============================================================================
-// loadModel / clearModel
+// loadModel / clearModel — 含材质贴图生命周期 (旧贴图销毁 → 新贴图解码入队)
 // ============================================================================
 void G3D::loadModel(const std::string &path) {
     G3DModel model;
@@ -255,12 +272,28 @@ void G3D::loadModel(const std::string &path) {
         Log::error("[G3D] loadModel '{}' failed: {}", path, err);
         return;
     }
+    destroyTextures();      // 旧模型贴图先销毁 (延迟释放, 在飞帧安全)
+    pending_.clear();       // 旧在途贴图一并作废 (源像素随 vector 释放)
     root_.children.clear();
     root_.vertices.clear();
+
+    // ── 材质贴图: 解码 glTF images → pending_ (onDraw 驱动上传; 下标 = imageIndex) ──
+    for (size_t i = 0; i < model.images.size(); ++i) {
+        PendingTexture pt;
+        if (!model.images[i].encoded.empty() &&
+            g3dDecodeImage(model.images[i].encoded.data(), model.images[i].encoded.size(), pt.rgba, pt.w, pt.h)) {
+            Log::info("[G3D] image[{}] decoded {}x{}", i, pt.w, pt.h);
+        } else {
+            Log::warn("[G3D] image[{}] 解码失败/为空, 相关节点回退纯色", i);
+        }
+        pending_.push_back(std::move(pt));
+    }
+
     for (const auto &srcChild : model.root.children) {
         root_.children.emplace_back();
         convertModel(model, srcChild, root_.children.back());
     }
+    computeBoundingRadius();    // frameModel 取景依据
     markDirty();
     Log::info("[G3D] loadModel '{}' ok, root nodes={}", path, root_.children.size());
 
@@ -273,8 +306,11 @@ void G3D::loadModel(const std::string &path) {
 }
 
 void G3D::clearModel() {
+    destroyTextures();
+    pending_.clear();
     root_.children.clear();
     root_.vertices.clear();
+    boundingRadius_ = 0.0f;
     markDirty();
 }
 
@@ -285,6 +321,117 @@ void G3D::rotateTo(float yawRad, float pitchRad) {
     yaw_ = yawRad;
     pitch_ = std::clamp(pitchRad, -1.5f, 1.5f);
     markDirty();
+}
+
+// ============================================================================
+// 相机 API — 距离/FOV/裁剪面参数化 + 自动取景 (原全部写死: 4.0/45°/0.1/100)
+// ============================================================================
+void G3D::setCameraDistance(float d) {
+    camDist_ = std::max(d, 0.05f);
+    markDirty();
+}
+
+void G3D::setFov(float deg) {
+    fovDeg_ = std::clamp(deg, 5.0f, 120.0f);
+    markDirty();
+}
+
+void G3D::setClip(float zn, float zf) {
+    if (zn <= 0.0f || zf <= zn) {
+        Log::warn("[G3D] setClip 非法参数 (zn={}, zf={}), 要求 0 < zn < zf——忽略", zn, zf);
+        return;
+    }
+    zNear_ = zn;
+    zFar_ = zf;
+    markDirty();
+}
+
+void G3D::frameModel() {
+    // 包围球外接: 距离 = r/sin(fov/2) × 1.25 (25% 边距), 远平面自适应放宽
+    // (过大模型原先被 zFar=100 裁掉/过小模型缩成点——任意尺寸资产可取景)
+    float r = std::max(boundingRadius_, 0.1f);
+    float half = fovDeg_ * 3.14159265f / 360.0f;    // fov/2 (rad)
+    camDist_ = r / std::sin(half) * 1.25f;
+    zFar_ = std::max(zFar_, camDist_ + r * 2.0f);
+    markDirty();
+}
+
+// ============================================================================
+// 材质贴图管理 — TextureManager 异步上传 (Image 组件同款: 入队→回执→重试)
+// ============================================================================
+void G3D::uploadPendingTextures() {
+    auto *backend = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
+    if (!backend) return;    // 服务槽未接线 (早于 runtime 接线的首帧)——留待后续帧
+    auto &tm = TextureManager::instance();
+    for (size_t i = 0; i < pending_.size(); ++i) {
+        auto &pt = pending_[i];
+        if (pt.rgba.empty()) continue;              // 解码失败项 (节点已回退纯色)
+        if (pt.id == 0) {                           // 未入队 → 创建 (返回 id 立即可引用)
+            pt.id = tm.createTexture(backend, pt.rgba.data(), pt.w, pt.h);
+            if (pt.id == 0) {                       // 同步拒收 (非法尺寸/域)——重试无意义
+                Log::warn("[G3D] image[{}] 纹理创建被拒, 弃传", i);
+                pt.rgba.clear();
+            }
+            continue;
+        }
+        // 已入队 → 拉取回执 (查询即摘除)
+        switch (tm.pollTextureResult(backend, pt.id)) {
+        case RenderBackend::TextureUploadStatus::Landed:
+            imageTextureIds_[static_cast<int>(i)] = pt.id;
+            pt.rgba.clear();                        // 上传成功, 源像素使命完成
+            pt.id = 0;
+            markDirty();                            // 下帧起该节点走贴图路径
+            break;
+        case RenderBackend::TextureUploadStatus::Failed:
+            if (++pt.retries <= 3) {
+                pt.id = 0;                          // 复位后下一帧重新入队
+            } else {
+                Log::warn("[G3D] image[{}] 上传失败超限, 弃传 (节点回退纯色)", i);
+                pt.rgba.clear();
+                pt.id = 0;
+            }
+            break;
+        default: break;                             // Pending: 在途继续等
+        }
+    }
+}
+
+void G3D::destroyTextures() {
+    auto *backend = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
+    if (!backend) {
+        imageTextureIds_.clear();    // 未接线即无已建纹理 (创建同样需要 backend)
+        return;
+    }
+    auto &tm = TextureManager::instance();
+    for (auto &kv : imageTextureIds_) tm.destroyTexture(backend, kv.second);    // 延迟释放, 在飞帧安全
+    imageTextureIds_.clear();
+}
+
+// ============================================================================
+// computeBoundingRadius — 递归世界变换顶点, 取到原点最大距离 (frameModel 依据)
+// ============================================================================
+void G3D::computeBoundingRadius() {
+    // 递归: 累积世界矩阵, 顶点世界坐标到原点的最大模长即包围球半径 (注视点恒原点)
+    std::function<void(const G3DNode &, const Mat4 &)> walk = [&](const G3DNode &node, const Mat4 &parentWorld) {
+        Mat4 local = mul(mul(translate(node.t[0], node.t[1], node.t[2]), quatToMat(node.r)),
+                         scale(node.s[0], node.s[1], node.s[2]));
+        Mat4 world = mul(parentWorld, local);
+        for (const auto &v : node.vertices) {
+            // 列主序 M·p (w=1)
+            float x = world.m[0] * v.x + world.m[4] * v.y + world.m[8] * v.z + world.m[12];
+            float y = world.m[1] * v.x + world.m[5] * v.y + world.m[9] * v.z + world.m[13];
+            float z = world.m[2] * v.x + world.m[6] * v.y + world.m[10] * v.z + world.m[14];
+            boundingRadius_ = std::max(boundingRadius_, std::sqrt(x * x + y * y + z * z));
+        }
+        for (const auto &child : node.children) walk(child, world);
+    };
+    boundingRadius_ = 0.0f;
+    Mat4 identity = Mat4::identity();
+    walk(root_, identity);
+}
+
+G3D::~G3D() {
+    destroyTextures();    // 已建贴图经延迟释放通道销毁 (pending_ 源像素随成员析构释放)
 }
 
 // ============================================================================

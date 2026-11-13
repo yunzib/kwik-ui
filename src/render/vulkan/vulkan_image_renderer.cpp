@@ -436,6 +436,15 @@ int ImageRenderer::queryUploadResult(uint32_t id) {
     return 0;    // 在途：渲染线程尚未 drain 或无回执
 }
 
+// ================================================================
+// textureDescSet — 查普通纹理 descSet（Mesh 贴图管线共用纹理注册表；
+// 与 drawImage 同线程域（渲染线程回放路径），免加锁直接查表）
+// ================================================================
+VkDescriptorSet ImageRenderer::textureDescSet(uint32_t id) const {
+    auto it = textures_.find(id);
+    return it != textures_.end() ? it->second.descSet : VK_NULL_HANDLE;
+}
+
 void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     // ① 交接挂起作业（锁内只做 swap，执行段无锁）
     std::vector<PendingCreate> creates;
