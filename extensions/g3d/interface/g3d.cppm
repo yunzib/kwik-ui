@@ -20,12 +20,6 @@
  * @endcode
  */
 
-module;
-
-#include <string>
-#include <vector>
-#include <cmath>
-
 export module kwik.ext.g3d;
 
 import kwik.element.view;
@@ -185,13 +179,13 @@ private:
 
     // ── 材质贴图 (复用 TextureManager 异步上传, Image 组件同款模式) ──
     struct PendingTexture {
-        std::vector<uint8_t> rgba;    // 解码像素 (落地回执前保留——失败重试需源数据)
+        std::vector<std::uint8_t> rgba;    // 解码像素 (落地回执前保留——失败重试需源数据)
         int w = 0, h = 0;             // 解码尺寸 (int: stb 接口形状)
-        uint32_t id = 0;              // 已入队纹理 id (0 = 未入队)
+        std::uint32_t id = 0;              // 已入队纹理 id (0 = 未入队)
         int retries = 0;              // 失败重试计数 (超限弃传)
     };
     std::vector<PendingTexture> pending_;                // 在途贴图 (下标 = glTF imageIndex)
-    std::unordered_map<int, uint32_t> imageTextureIds_;  // imageIndex → 已落地纹理 id
+    std::unordered_map<int, std::uint32_t> imageTextureIds_;  // imageIndex → 已落地纹理 id
 
     /** @brief onDraw 驱动: 未入队贴图入队创建 + 拉取回执 (落地→登记 id 释源 / 失败→重试) */
     void uploadPendingTextures();

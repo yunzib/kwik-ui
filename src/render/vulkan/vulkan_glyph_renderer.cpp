@@ -1,9 +1,23 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstring>
-#include <cstddef>
-#include <print>
 #include "glyph_shaders.h"
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.render.vulkan.glyph_renderer;
 import kwik.render.vulkan.context;
 import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
@@ -103,7 +117,7 @@ bool GlyphRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
 
 
     // ── Glyph atlas 1024x1024 R8G8B8A8_UNORM (FreeType LCD 子像素 RGBA 位图) ───────────
-    uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
+    std::uint32_t atlasW = TextCache::kAtlasSize, atlasH = TextCache::kAtlasSize;
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
     imgInfo.format = VK_FORMAT_R8_UNORM;
@@ -269,7 +283,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                      staging, stagingMem)) {
         // 像素已被取走且缓存已标 packed——重入队下一帧重试（否则永久缺字）
-        Log::error("uploadPendingGlyphs: staging 分配失败 ({} bytes)，批次重入队", static_cast<uint64_t>(totalSize));
+        Log::error("uploadPendingGlyphs: staging 分配失败 ({} bytes)，批次重入队", static_cast<std::uint64_t>(totalSize));
         TextRenderPipeline::instance().requeueUploads(jobs);
         return;
     }
@@ -278,7 +292,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     if (vkMapMemory(dc.device, stagingMem, 0, totalSize, 0, &map) != VK_SUCCESS) {
         // map 失败时 map 指针无效，继续 memcpy 即野指针写——释放 staging、
         // 批次重入队重试（不重入队则该批字形永久缺失）
-        Log::error("uploadPendingGlyphs: vkMapMemory failed ({} bytes)，批次重入队", static_cast<uint64_t>(totalSize));
+        Log::error("uploadPendingGlyphs: vkMapMemory failed ({} bytes)，批次重入队", static_cast<std::uint64_t>(totalSize));
         vkDestroyBuffer(dc.device, staging, nullptr);
         vkFreeMemory(dc.device, stagingMem, nullptr);
         TextRenderPipeline::instance().requeueUploads(jobs);
@@ -287,13 +301,13 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
 
     std::vector<VkBufferImageCopy> regions;
     regions.reserve(jobs.size());
-    size_t offset = 0;
+    std::size_t offset = 0;
 
     for (auto &job : jobs) {
         auto &px = job.pixels;
         if (px.empty()) continue;
 
-        std::memcpy(static_cast<uint8_t *>(map) + offset, px.data(), px.size());
+        memcpy(static_cast<std::uint8_t *>(map) + offset, px.data(), px.size());
 
         VkBufferImageCopy region{};
         region.bufferOffset = offset;
@@ -301,7 +315,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = job.pageIndex;
         region.imageSubresource.layerCount = 1;
-        region.imageOffset = {(int32_t)job.dstX, (int32_t)job.dstY, 0};
+        region.imageOffset = {(std::int32_t)job.dstX, (std::int32_t)job.dstY, 0};
         region.imageExtent = {job.w, job.h, 1};
         regions.push_back(region);
 
@@ -327,7 +341,7 @@ void GlyphRenderer::uploadPendingGlyphs(const DeviceContext &dc) {
     const bool uploaded = VulkanContext::runOneOff(dc.device, dc.commandPool, dc.queue, [&](VkCommandBuffer cmd) {
         vkCmdPipelineBarrier(cmd, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
         vkCmdCopyBufferToImage(cmd, staging, glyphAtlasImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               (uint32_t)regions.size(), regions.data());
+                               (std::uint32_t)regions.size(), regions.data());
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;

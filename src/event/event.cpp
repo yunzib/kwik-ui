@@ -5,8 +5,6 @@
 // ============================================================================
 module;
 
-#include <cmath>
-#include <algorithm>
 
 module kwik.event;
 
@@ -15,7 +13,7 @@ import kwik.core.types;
 import std;
 
 namespace {
-uint64_t nowMs() {
+std::uint64_t nowMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
@@ -65,7 +63,7 @@ float localY(const EventTarget *target, float globalY) {
 // PointerTracker
 // ============================================================================
 void PointerTracker::update(const RawEvent &raw) {
-    int32_t id = raw.pointerId;
+    std::int32_t id = raw.pointerId;
 
     switch (raw.action) {
     case RawEvent::Action::Down: {
@@ -107,7 +105,7 @@ void PointerTracker::update(const RawEvent &raw) {
     }
 }
 
-const PointerTracker::PointerState *PointerTracker::get(int32_t pointerId) const {
+const PointerTracker::PointerState *PointerTracker::get(std::int32_t pointerId) const {
     auto it = pointers_.find(pointerId);
     return it != pointers_.end() ? &it->second : nullptr;
 }
@@ -121,8 +119,8 @@ void PointerTracker::reset() {
 // ============================================================================
 void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, const RawEvent &raw,
                                 std::vector<DispatchEvent> &out) {
-    uint64_t ts = raw.timestamp;
-    int32_t pid = raw.pointerId;
+    std::uint64_t ts = raw.timestamp;
+    std::int32_t pid = raw.pointerId;
 
     if (root == nullptr) return;
 
@@ -229,7 +227,7 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
             float dx = raw.x - ps->downX;
             float dy = raw.y - ps->downY;
             float dist = std::sqrt(dx * dx + dy * dy);
-            uint64_t elapsed = ts - ps->downTime;
+            std::uint64_t elapsed = ts - ps->downTime;
 
             // Tap 判定: 移动小 + 时间短（点击类手势仅无/左键——右/中键不产
             // Tap，其按键语义已在 button 字段可分辨）
@@ -339,7 +337,7 @@ void GestureRecognizer::process(EventTarget *root, PointerTracker &tracker, cons
 }
 
 void GestureRecognizer::poll(EventTarget *root, PointerTracker &tracker, std::vector<DispatchEvent> &out) {
-    uint64_t ts = nowMs();
+    std::uint64_t ts = nowMs();
 
     for (auto &[pid, ps] : tracker.pointers()) {
         if (!ps.active) continue;
@@ -369,7 +367,7 @@ void GestureRecognizer::poll(EventTarget *root, PointerTracker &tracker, std::ve
 // KeyboardHandler
 // ============================================================================
 void KeyboardHandler::process(const RawEvent &raw, std::vector<DispatchEvent> &out) {
-    uint64_t ts = raw.timestamp;
+    std::uint64_t ts = raw.timestamp;
 
     switch (raw.action) {
     case RawEvent::Action::KeyDown: {
@@ -384,9 +382,9 @@ void KeyboardHandler::process(const RawEvent &raw, std::vector<DispatchEvent> &o
     case RawEvent::Action::TextInput: {
         // 代理对重组: 增补平面字符由平台拆成高/低代理两条事件送入，相邻
         // (高,低) 合并为完整码点一次下发，避免组件层把半代理编码成非法 UTF-8
-        uint32_t cp = raw.charCode;
+        std::uint32_t cp = raw.charCode;
         if (pendingHighSurrogate_ != 0) {
-            uint32_t high = pendingHighSurrogate_;
+            std::uint32_t high = pendingHighSurrogate_;
             pendingHighSurrogate_ = 0;
             if (cp >= 0xDC00 && cp <= 0xDFFF) {
                 DispatchEvent charEvt;
@@ -540,8 +538,8 @@ void FocusManager::cycleFocus(EventTarget *root, bool backward) {
         applyFocus(backward ? order.back() : order.front());
         return;
     }
-    const size_t idx = static_cast<size_t>(it - order.begin());
-    const size_t next = backward ? (idx == 0 ? order.size() - 1 : idx - 1)
+    const std::size_t idx = static_cast<std::size_t>(it - order.begin());
+    const std::size_t next = backward ? (idx == 0 ? order.size() - 1 : idx - 1)
                                  : (idx + 1) % order.size();
     applyFocus(order[next]);
 }
@@ -632,7 +630,7 @@ void EventRouter::feedRawEvent(const RawEvent &raw) {
     if (!rootTarget_) return;
 
     // ① 时间戳
-    uint64_t ts = nowMs();
+    std::uint64_t ts = nowMs();
 
     // ② DPI 缩放 (仅 Pointer 事件)
     RawEvent scaled = raw;
@@ -828,7 +826,7 @@ void EventRouter::resetForTreeRebuild(EventTarget *root) {
 // ============================================================================
 // consumeInputStampNs — 取走最近键入时间戳（查询即清）
 // ============================================================================
-int64_t EventRouter::consumeInputStampNs() {
+std::int64_t EventRouter::consumeInputStampNs() {
     return inputStampNs_.exchange(0, std::memory_order_relaxed);
 }
 // （全局键盘注入器 / 全局焦点钩子已退役：前者改 Keyboard 直取本树

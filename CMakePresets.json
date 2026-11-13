@@ -1,0 +1,42 @@
+{
+  "version": 8,
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 3,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "gcc",
+      "displayName": "GCC 16.2（niXman，主工具链）",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE",
+        "CMAKE_C_COMPILER": "C:/software/x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/software/x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1/mingw64/bin/g++.exe"
+      }
+    },
+    {
+      "name": "clang",
+      "displayName": "Clang（llvm-mingw，兼容口径）",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-clang",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE",
+        "CMAKE_C_COMPILER": "C:/software/llvm-mingw/bin/clang.exe",
+        "CMAKE_CXX_COMPILER": "C:/software/llvm-mingw/bin/clang++.exe"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    }
+  ]
+}

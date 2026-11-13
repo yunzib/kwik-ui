@@ -1,9 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-#include <vector>
-
 export module kwik.element.stack_index;
 
 import kwik.element.view;

@@ -3,7 +3,6 @@
 // 按定案不做——LockBackBuffer 恒 false。接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.fbdev_window;
 
@@ -72,7 +71,7 @@ void PlatformWindowFBDev::SetShape(const std::vector<std::pair<int, int>> &polyg
     (void)polygon;    // 无合成器，形状窗口不可表达
 }
 
-void PlatformWindowFBDev::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowFBDev::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

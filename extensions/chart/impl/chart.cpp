@@ -7,11 +7,9 @@
 //   3. onDraw → chartRendererOf(type).draw 注册表分发 + 统一图例层
 // ============================================================================
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
-#include <chrono>
-#include <cmath>
 
 module kwik.ext.chart;
 
@@ -58,7 +56,7 @@ void Chart::applyChartProps(const ChartProps &cp) {
 	// 数据未变门：series 逐字段相等（label/data/visible/color）且 value 相等
 	auto seriesEq = [](const std::vector<ChartSeries> &a, const std::vector<ChartSeries> &b) {
 		if (a.size() != b.size()) return false;
-		for (size_t i = 0; i < a.size(); ++i) {
+		for (std::size_t i = 0; i < a.size(); ++i) {
 			if (a[i].label != b[i].label || a[i].data != b[i].data || a[i].visible != b[i].visible
 			    || !(a[i].color == b[i].color))
 				return false;
@@ -68,7 +66,7 @@ void Chart::applyChartProps(const ChartProps &cp) {
 	// 系列身份：数量 + label 序一致即可 morph（数据点内容/显隐可变，身份稳定）
 	auto identityEq = [](const std::vector<ChartSeries> &a, const std::vector<ChartSeries> &b) {
 		if (a.size() != b.size()) return false;
-		for (size_t i = 0; i < a.size(); ++i)
+		for (std::size_t i = 0; i < a.size(); ++i)
 			if (a[i].label != b[i].label) return false;
 		return true;
 	};
@@ -151,10 +149,10 @@ void Chart::onDraw(Graphics &graphics) {
 		if (t > 1.0f) t = 1.0f;
 		float e = t * t * (3.0f - 2.0f * t);
 		displayProps_ = cp_;
-		for (size_t i = 0; i < displayProps_.series.size() && i < morphFrom_.size(); ++i) {
+		for (std::size_t i = 0; i < displayProps_.series.size() && i < morphFrom_.size(); ++i) {
 			const auto &from = morphFrom_[i];
 			auto &to = displayProps_.series[i].data;
-			for (size_t j = 0; j < to.size(); ++j) {
+			for (std::size_t j = 0; j < to.size(); ++j) {
 				// 尺寸变化/非有限旧值 → 不插值直接落新值（morph 中途加点的安全口径）
 				if (j < from.size() && std::isfinite(from[j]) && std::isfinite(to[j]))
 					to[j] = from[j] + (to[j] - from[j]) * e;
@@ -228,7 +226,7 @@ void Chart::scheduleNextFrame() {
 //   → 更新当前值 + 重新播放扫入动画（阈值分段按值域实时跟随）
 // ============================================================================
 bool Chart::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "value") == 0) {
+	if (strcmp(name, "value") == 0) {
 		if (auto *d = std::get_if<double>(&value)) {
 			ChartProps next = cp_;
 			next.value = static_cast<float>(*d);
@@ -267,11 +265,11 @@ bool Chart::onEvent(const DispatchEvent &event) {
 		Point p{event.globalX + comp.x, event.globalY + comp.y};
 
 		// ① 图例项命中 → 开关系列（消费：不走 onClick）
-		for (size_t i = 0; i < legendRects_.size() && i < legendItems_.size(); ++i) {
+		for (std::size_t i = 0; i < legendRects_.size() && i < legendItems_.size(); ++i) {
 			if (legendRects_[i].contains(p)) {
 				int si = legendItems_[i].seriesIndex;
 				if (si >= 0 && si < static_cast<int>(cp_.series.size())) {
-					auto &s = cp_.series[static_cast<size_t>(si)];
+					auto &s = cp_.series[static_cast<std::size_t>(si)];
 					s.visible = !s.visible;
 					applyHover(std::nullopt);    // 显隐变化使命中失效（隐藏系列的旧命中点已不存在）
 					markDirty();
@@ -325,11 +323,11 @@ void Chart::firePoint(std::function<void(const std::optional<ChartPointEvent> &)
 	e.pointIndex = hit->pointIndex;
 	e.value = hit->value;
 	if (hit->seriesIndex >= 0 && hit->seriesIndex < static_cast<int>(cp_.series.size())) {
-		const auto &s = cp_.series[static_cast<size_t>(hit->seriesIndex)];
+		const auto &s = cp_.series[static_cast<std::size_t>(hit->seriesIndex)];
 		e.label = s.label.empty() ? std::to_string(hit->seriesIndex + 1) : s.label;
 	}
 	if (hit->pointIndex >= 0 && hit->pointIndex < static_cast<int>(cp_.categories.size()))
-		e.category = cp_.categories[static_cast<size_t>(hit->pointIndex)];
+		e.category = cp_.categories[static_cast<std::size_t>(hit->pointIndex)];
 	cb(e);
 }
 

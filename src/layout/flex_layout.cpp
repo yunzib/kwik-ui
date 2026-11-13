@@ -1,5 +1,4 @@
 module;
-#include <cstddef>
 
 module kwik.layout.flex_layout;
 
@@ -17,7 +16,7 @@ struct FlexItem {                       // 一次测量后的子项
     float crossSz;                      // 交叉轴尺寸
 };
 struct FlexLine {                       // 一行
-    std::vector<size_t> idx;            // 行内子项索引
+    std::vector<std::size_t> idx;            // 行内子项索引
     float usedMain = 0;                 // 行主轴占用（含 margin/gap）
     float crossSize = 0;                // 行交叉轴高度 = 行内最大 cross
 };
@@ -29,7 +28,7 @@ std::vector<FlexLine> breakFlexLines(const std::vector<FlexItem> &items, bool is
     std::vector<FlexLine> lines;
     FlexLine cur;
     float used = 0;
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (std::size_t i = 0; i < items.size(); ++i) {
         const auto &it = items[i];
         // 主轴/交叉轴方向的 margin 取法随布局方向切换
         float marginMain = isRow ? it.view->props.margin.horizontal() : it.view->props.margin.vertical();

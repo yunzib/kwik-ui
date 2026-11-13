@@ -2,10 +2,6 @@
 // element_type.cpp — 组件类型名注册表实现
 // ============================================================================
 module;
-#include <atomic>
-#include <cstdint>
-#include <string>
-#include <unordered_map>
 
 module kwik.element.element_type;
 

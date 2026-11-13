@@ -19,9 +19,8 @@
 //   成员 menuLayer_，经公共接口 dropdownProps()/menuRect()/commitSelection() 解耦。
 // ============================================================================
 module;
-#include <cstring>
-#include <string>
-#include <vector>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.dropdown;
 import kwik.element.view;
@@ -482,11 +481,11 @@ void Dropdown::fireChange() {
 // getProperty / setProperty — PropBus 支持
 // ════════════════════════════════════════════════════════
 std::string Dropdown::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (dp_.selectedIndex >= 0 && dp_.selectedIndex < (int)dp_.items.size()) return dp_.items[dp_.selectedIndex];
         return "";
     }
-    if (std::strcmp(name, "index") == 0) { return std::to_string(dp_.selectedIndex); }
+    if (strcmp(name, "index") == 0) { return std::to_string(dp_.selectedIndex); }
     return View::getProperty(name);
 }
 
@@ -494,7 +493,7 @@ std::string Dropdown::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（value/index）
 // ============================================================================
 bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             for (int i = 0; i < (int)dp_.items.size(); ++i) {
                 if (dp_.items[i] == *s) {
@@ -506,7 +505,7 @@ bool Dropdown::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "index") == 0) {
+    if (strcmp(name, "index") == 0) {
         auto f = typedToFloat(value);    // int64/double/数字串均可
         if (!f) { return false; }
         int idx = static_cast<int>(*f);

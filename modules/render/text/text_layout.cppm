@@ -1,8 +1,3 @@
-module;
-
-#include <vector>
-#include <cstdint>
-
 export module kwik.render.text.layout;
 
 import std;

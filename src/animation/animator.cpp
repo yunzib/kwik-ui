@@ -1,5 +1,4 @@
 module;
-#include <cstdint>
 
 module kwik.animation.animator;
 
@@ -29,8 +28,8 @@ TypedProp lerpProp(const TypedProp &from, const TypedProp &to, float t) {
     if (std::holds_alternative<Color>(from) && std::holds_alternative<Color>(to)) {
         auto fc = std::get<Color>(from);
         auto tc = std::get<Color>(to);
-        auto lerpByte = [](uint8_t a, uint8_t b, float t) -> uint8_t {
-            return static_cast<uint8_t>(static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * t);
+        auto lerpByte = [](std::uint8_t a, std::uint8_t b, float t) -> std::uint8_t {
+            return static_cast<std::uint8_t>(static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * t);
         };
         return Color{
             lerpByte(fc.r, tc.r, t),

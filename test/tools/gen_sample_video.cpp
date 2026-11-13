@@ -78,10 +78,10 @@ int main(int argc, char **argv) {
                 if (x >= lineX && x < lineX + 4) r = 255 - r, g = 255 - g, b = 255 - b;
                 int Y, U, V;
                 yuv(r, g, b, Y, U, V);
-                f->data[0][y * f->linesize[0] + x] = uint8_t(Y);
+                f->data[0][y * f->linesize[0] + x] = std::uint8_t(Y);
                 if ((x | y) % 2 == 0) {
-                    f->data[1][(y / 2) * f->linesize[1] + x / 2] = uint8_t(U);
-                    f->data[2][(y / 2) * f->linesize[2] + x / 2] = uint8_t(V);
+                    f->data[1][(y / 2) * f->linesize[1] + x / 2] = std::uint8_t(U);
+                    f->data[2][(y / 2) * f->linesize[2] + x / 2] = std::uint8_t(V);
                 }
             }
         f->pts = i;

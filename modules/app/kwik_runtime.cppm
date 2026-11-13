@@ -16,14 +16,6 @@
 //   - CoreTimer 全局：树级 teardown 不清场（防误杀其它树），防线为组件
 //     析构 clear（已审计补齐）；stopAll 仅进程退出时调用
 // ============================================================================
-module;
-#include <string>
-#include <vector>
-#include <memory>
-#include <functional>
-#include <unordered_map>
-#include <filesystem>
-
 export module kwik.app.runtime;
 
 import kwik.platform.window;
@@ -138,7 +130,7 @@ private:
 
     // ── 帧状态（原 Application 成员平移）──
     bool treeStructureChanged_ = true;   // 结构变化标志，renderFrame 消费后清空
-    uint64_t frameId_ = 0;               // 单调递增帧序号（FrameSubmit.frameId）
+    std::uint64_t frameId_ = 0;               // 单调递增帧序号（FrameSubmit.frameId）
     int resizeBurstFrames_ = 0;
     int pendingResizeW_ = 0;              // 待渲染帧携带的 resize 尺寸（>0 时 renderFrame 装配 needsResize，
     int pendingResizeH_ = 0;              //  resize 与内容帧合并，杜绝只重建交换链不呈现的空窗）

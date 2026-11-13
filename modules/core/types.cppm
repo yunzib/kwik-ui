@@ -1,6 +1,3 @@
-module;
-#include <cstdint>
-
 export module kwik.core.types;
 
 import std;
@@ -105,13 +102,13 @@ export struct Rect {
  * @brief 颜色结构体（RGBA）
  */
 export struct Color {
-    uint8_t r = 0;      // 红色分量 (0-255)
-    uint8_t g = 0;      // 绿色分量 (0-255)
-    uint8_t b = 0;      // 蓝色分量 (0-255)
-    uint8_t a = 255;    // 透明度 (0-255)
+    std::uint8_t r = 0;      // 红色分量 (0-255)
+    std::uint8_t g = 0;      // 绿色分量 (0-255)
+    std::uint8_t b = 0;      // 蓝色分量 (0-255)
+    std::uint8_t a = 255;    // 透明度 (0-255)
 
     constexpr Color() = default;
-    constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : r(r), g(g), b(b), a(a) {}
+    constexpr Color(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255) : r(r), g(g), b(b), a(a) {}
 
     // 预定义颜色
     static constexpr Color transparent() { return {0, 0, 0, 0}; }
@@ -185,7 +182,7 @@ export struct Shadow {
  *  Linear  — 线性渐变（color0 → color1，沿 angleDeg 方向）
  *  Radial  — 径向渐变（中心 → 对角线顶点，cover 覆盖）
  */
-export enum class GradientType : uint8_t {
+export enum class GradientType : std::uint8_t {
     None,
     Linear,
     Radial,
@@ -219,7 +216,7 @@ export {
      * 每个组件通过此 ID 指定使用的字体, 支持多字体共存。
      */
     // 字体标识符 (不透明句柄)
-    using FontId = uint32_t;
+    using FontId = std::uint32_t;
     inline constexpr FontId kInvalidFontId = 0;
 };
 
@@ -270,7 +267,7 @@ export struct Transform {
  * 变体成员对应关系：
  *   monostate → 未知/空
  *   bool      → 布尔
- *   int64_t   → 整数
+ *   std::int64_t   → 整数
  *   double    → 浮点数
  *   string    → 字符串
  *   Color     → 颜色
@@ -340,7 +337,7 @@ export inline std::optional<bool> typedToBool(const TypedProp &v) {
  *  索引直接对应 kPropMetas[] 数组偏移，O(1) 查找。
  *  "可动画" 指该属性可以用 animate() 命令式驱动
  */
-export enum class PropId : uint8_t {
+export enum class PropId : std::uint8_t {
     // ── 显示属性 ──
     opacity,          // double → float
     scale,            // double → float
@@ -398,7 +395,7 @@ export enum class PropId : uint8_t {
 /**
  * @brief 动画播放方向
  */
-export enum class AnimDirection : uint8_t {
+export enum class AnimDirection : std::uint8_t {
     Forward,    ///< from → to（默认）
     Reverse,    ///< to → from
     Alternate,  ///< 往返：首轮 Forward，次轮 Reverse，交替
@@ -461,7 +458,7 @@ export struct DragRegion {
  *
  * 边缘优先于拖拽区（缩放语义不被拖拽区抢占）；Caption = 可拖动/双击最大化。
  */
-export enum class WindowHitZone : uint8_t {
+export enum class WindowHitZone : std::uint8_t {
     Client,
     Caption,
     Left,

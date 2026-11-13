@@ -1,8 +1,3 @@
-module;
-#include <cstdint>
-#include <memory>
-#include <vector>
-
 export module kwik.render.command_buffer;
 
 import kwik.core.types;
@@ -51,10 +46,10 @@ public:
     }
 
     /** @brief 追加三角形顶点，返回起始偏移（供 FillTrianglesCmd.vertexOffset 使用） */
-    size_t appendVertices(const AAVertex *v, size_t n);
+    std::size_t appendVertices(const AAVertex *v, std::size_t n);
 
     /** @brief 追加 3D 网格顶点，返回起始偏移 */
-    size_t appendMeshVertices(const Vertex3D *v, size_t n);
+    std::size_t appendMeshVertices(const Vertex3D *v, std::size_t n);
 
     /** @brief 渲染线程回放：叶子命令与子树嵌套按插入位置依次展开。
      *  damageBand = 本帧伤害带（与 bounds 同为逻辑坐标）：子树包含盒与带
@@ -94,16 +89,16 @@ public:
     void clearSubtreeRefs() { subtrees_.clear(); }
 
     /** @brief 诊断/测试访问器 */
-    size_t cmdCount() const { return commands_.size(); }
-    size_t subtreeCount() const { return subtrees_.size(); }
+    std::size_t cmdCount() const { return commands_.size(); }
+    std::size_t subtreeCount() const { return subtrees_.size(); }
     const std::vector<DrawCommand> &commands() const { return commands_; }    ///< 只读命令流（行为锁断言绘制产物用）
-    const std::vector<std::pair<size_t, std::shared_ptr<const DisplayList>>> &subtrees() const {
+    const std::vector<std::pair<std::size_t, std::shared_ptr<const DisplayList>>> &subtrees() const {
         return subtrees_;
     }    ///< 只读子树访问器（递归检查行命令坐标用）
 
 private:
     std::vector<DrawCommand> commands_;     ///< 叶子命令流（16 种，无嵌套）
-    std::vector<std::pair<size_t, std::shared_ptr<const DisplayList>>> subtrees_;
+    std::vector<std::pair<std::size_t, std::shared_ptr<const DisplayList>>> subtrees_;
                                             ///< 嵌套子树：commands_ 插入位置 → 子清单
     std::vector<AAVertex>    vertices_;     ///< 三角形顶点（FillTrianglesCmd 引用）
     std::vector<Vertex3D>    meshVertices_; ///< 3D 网格顶点（DrawMeshCmd 引用）

@@ -8,10 +8,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
-#include <cmath>
 
 module kwik.element.progressring;
 
@@ -99,10 +98,10 @@ void ProgressRing::onDraw(Graphics &graphics) {
 // getProperty — getProp("ringId", "value") 支持
 // ============================================================================
 std::string ProgressRing::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) { return std::to_string(pp_.value); }
-    if (std::strcmp(name, "min") == 0) { return std::to_string(pp_.min); }
-    if (std::strcmp(name, "max") == 0) { return std::to_string(pp_.max); }
-    if (std::strcmp(name, "trackThickness") == 0) { return std::to_string(pp_.trackThickness); }
+    if (strcmp(name, "value") == 0) { return std::to_string(pp_.value); }
+    if (strcmp(name, "min") == 0) { return std::to_string(pp_.min); }
+    if (strcmp(name, "max") == 0) { return std::to_string(pp_.max); }
+    if (strcmp(name, "trackThickness") == 0) { return std::to_string(pp_.trackThickness); }
     return View::getProperty(name);
 }
 
@@ -112,7 +111,7 @@ std::string ProgressRing::getProperty(const char *name) const {
 // setPropertyTyped — 类型安全增量更新（ref 绑定链路）
 // ============================================================================
 bool ProgressRing::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
 		pp_.value = *v;
@@ -120,7 +119,7 @@ bool ProgressRing::setPropertyTyped(const char *name, const TypedProp &value) {
 		return true;
 	}
     // 外环样式动态更新（ref 绑定 / setProp typed）
-    if (std::strcmp(name, "trackColor") == 0) {
+    if (strcmp(name, "trackColor") == 0) {
         if (auto *c = std::get_if<Color>(&value)) {
             pp_.trackColor = *c;
             markDirty();
@@ -128,7 +127,7 @@ bool ProgressRing::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "trackThickness") == 0) {
+    if (strcmp(name, "trackThickness") == 0) {
         // typedToFloat 覆盖 double/string 双形态——命令式 setProp 传
         // '4' 字符串此前被 get_if<double> 拒绝（静默无效）
         auto v = typedToFloat(value);
@@ -138,10 +137,10 @@ bool ProgressRing::setPropertyTyped(const char *name, const TypedProp &value) {
         return true;
     }
     // min / max：自旧字符串版平移（typed 原缺失）
-	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0) {
+	if (strcmp(name, "min") == 0 || strcmp(name, "max") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
-		if (std::strcmp(name, "min") == 0) { pp_.min = *v; }
+		if (strcmp(name, "min") == 0) { pp_.min = *v; }
 		else { pp_.max = *v; }
 		markDirty();
 		return true;

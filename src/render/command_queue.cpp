@@ -1,7 +1,5 @@
 module;
 
-#include <mutex>
-#include <condition_variable>
 
 module kwik.render.command_queue;
 import kwik.render.command_buffer;
@@ -17,13 +15,13 @@ CommandQueue::~CommandQueue() {
 // ── 主线程接口 ──
 FrameSubmit &CommandQueue::currentFrame() {
     waitWritable();    // 先确保该槽已被 GPU 释放，再交给主线程写入
-    size_t idx = writeIdx_.load(std::memory_order_relaxed) % kMaxInFlight;
+    std::size_t idx = writeIdx_.load(std::memory_order_relaxed) % kMaxInFlight;
     return frames_[idx];
 }
 
 bool CommandQueue::submit() {
-    size_t w = writeIdx_.load(std::memory_order_relaxed);
-    size_t r;
+    std::size_t w = writeIdx_.load(std::memory_order_relaxed);
+    std::size_t r;
 
     // 等待 GPU 释放槽位
     while (true) {
@@ -41,8 +39,8 @@ bool CommandQueue::submit() {
 // ── 渲染线程接口 ──
 
 bool CommandQueue::acquire(bool block) {
-    size_t r = readIdx_.load(std::memory_order_relaxed);
-    size_t w = writeIdx_.load(std::memory_order_acquire);
+    std::size_t r = readIdx_.load(std::memory_order_relaxed);
+    std::size_t w = writeIdx_.load(std::memory_order_acquire);
 
     if (!block) {
         if (r == w) return false;
@@ -88,10 +86,10 @@ void CommandQueue::wake() {
  * stopping 时返回 false，避免退出阶段死等。
  */
 bool CommandQueue::waitWritable() {
-    size_t w = writeIdx_.load(std::memory_order_relaxed);
+    std::size_t w = writeIdx_.load(std::memory_order_relaxed);
     while (true) {
         if (stopping_.load(std::memory_order_acquire)) return false;
-        size_t rel = releaseIdx_.load(std::memory_order_acquire);
+        std::size_t rel = releaseIdx_.load(std::memory_order_acquire);
         if (w - rel < kMaxInFlight) return true;    // 槽位空闲：3 帧窗口内
         releaseIdx_.wait(rel, std::memory_order_acquire);    // 等渲染线程 releaseGPU
     }

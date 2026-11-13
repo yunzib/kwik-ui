@@ -1,5 +1,20 @@
 /** @brief Video 元素实现 (引擎中立, 不 import kwik.engine.*)。 */
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <stdint.h>
 
 module kwik.ext.video;
@@ -44,14 +59,14 @@ public:
     bool open(std::string url) override {
         url_ = std::move(url);
         // 私有流推一帧 480×270 深灰 + 中部亮带（静态"画面"）
-        constexpr uint32_t w = 480, h = 270;
+        constexpr std::uint32_t w = 480, h = 270;
         auto wr = stream_->acquire({.format = PixelFormat::RGBA8, .width = w, .height = h});
         if (wr) {
             const PlaneView &p = wr.planes()[0];
-            for (uint32_t y = 0; y < h; ++y) {
-                uint8_t *row = p.data + size_t(p.stride) * y;
-                for (uint32_t x = 0; x < w; ++x) {
-                    const uint8_t v = (y > h / 2 - 8 && y < h / 2 + 8) ? 90 : 26;
+            for (std::uint32_t y = 0; y < h; ++y) {
+                std::uint8_t *row = p.data + std::size_t(p.stride) * y;
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    const std::uint8_t v = (y > h / 2 - 8 && y < h / 2 + 8) ? 90 : 26;
                     row[x * 4] = row[x * 4 + 1] = row[x * 4 + 2] = v;
                     row[x * 4 + 3] = 255;
                 }
@@ -254,7 +269,7 @@ bool Video::setPropertyTyped(const char *name, const TypedProp &value) {
     if (n == "currentTime") {
         double t = 0;
         if (auto *d = std::get_if<double>(&value)) t = *d;
-        else if (auto *i = std::get_if<int64_t>(&value)) t = double(*i);
+        else if (auto *i = std::get_if<std::int64_t>(&value)) t = double(*i);
         else return false;
         seek(float(t));
         return true;
@@ -404,7 +419,7 @@ void Video::pollStream() {
         }
         return;
     }
-    const uint64_t s = stream_->seq();
+    const std::uint64_t s = stream_->seq();
     if (s != lastSeenSeq_) {
         lastSeenSeq_ = s;
         // 已标脏未绘制（被裁剪/滚出视口）不重复标脏：不可见的 Video 不产生空帧

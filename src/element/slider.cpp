@@ -7,9 +7,8 @@
 // ============================================================================
 
 module;
-#include <cstring>
-#include <algorithm>
-#include <cmath>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.slider;
 
@@ -317,7 +316,7 @@ void Slider::fireChange() {
 // getProperty — getProp("sliderId", "value") 支持
 // ============================================================================
 std::string Slider::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) { return std::to_string(sp_.value); }
+    if (strcmp(name, "value") == 0) { return std::to_string(sp_.value); }
     return View::getProperty(name);
 }
 
@@ -327,7 +326,7 @@ std::string Slider::getProperty(const char *name) const {
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool Slider::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "value") == 0) {
+	if (strcmp(name, "value") == 0) {
 		auto v = typedToFloat(value);     // double/int64/数字串均可
 		if (!v) { return false; }
 		setValue(*v);

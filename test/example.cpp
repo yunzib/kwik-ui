@@ -1,16 +1,20 @@
+// GCC16 模块边界守卫（window_win32.cpp 同款实证组合）：斩断
+// Windows.h→malloc.h→mm_malloc→xmmintrin→stdlib.h 包装链——该链产生文本
+// c++config 实例，与 import std 的模块收编版声明冲突
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #if defined(_WIN32)
 #include <Windows.h>
 #endif
-#include <iostream>
-#include <string>
-#include <cstdlib>
-#include <ctime>
-#include <thread>
-#include <coroutine>
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <memory>
+// C++ 标准设施统一经 std 模块（GCC16 模块语义：文本包含 libstdc++ C++ 头会
+// 产生第二份 c++config 实例，与 import 的 std 模块收编版声明冲突）
+import std;
 
 import kwik.platform.window;
 import kwik.platform.win32_window;
@@ -121,8 +125,8 @@ private:
         std::shared_ptr<VideoStream> main, late;
         std::array<std::shared_ptr<VideoStream>, 8> fmt;
         std::array<std::shared_ptr<VideoStream>, 9> grid;
-        int64_t lastMain = -1000, lastLate = -1000, lastFmt = -1000;
-        std::array<int64_t, 9> lastGrid{};
+        std::int64_t lastMain = -1000, lastLate = -1000, lastFmt = -1000;
+        std::array<std::int64_t, 9> lastGrid{};
     };
     static State &state() {
         static State s;
@@ -131,35 +135,35 @@ private:
 
     // RGB 测试图（与格式无关的源）：上 2/3 为 8 色竖条，下 1/3 为灰阶渐变；
     // 一条随时间移动的反色竖线证明画面在动
-    static void sampleRGB(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t lineX, uint8_t &r, uint8_t &g,
-                          uint8_t &b) {
-        static const uint8_t kBars[8][3] = {{235, 235, 235}, {235, 235, 16}, {16, 235, 235}, {16, 235, 16},
+    static void sampleRGB(std::uint32_t x, std::uint32_t y, std::uint32_t w, std::uint32_t h, std::uint32_t lineX, std::uint8_t &r, std::uint8_t &g,
+                          std::uint8_t &b) {
+        static const std::uint8_t kBars[8][3] = {{235, 235, 235}, {235, 235, 16}, {16, 235, 235}, {16, 235, 16},
                                             {235, 16, 235},  {235, 16, 16},  {16, 16, 235},  {16, 16, 16}};
         if (y * 3 < h * 2) {
-            const uint8_t *c = kBars[(x * 8) / w];
+            const std::uint8_t *c = kBars[(x * 8) / w];
             r = c[0];
             g = c[1];
             b = c[2];
         } else {
-            r = g = b = uint8_t((x * 255) / (w > 1 ? w - 1 : 1));
+            r = g = b = std::uint8_t((x * 255) / (w > 1 ? w - 1 : 1));
         }
         if (x >= lineX && x < lineX + 3) {
-            r = uint8_t(255 - r);
-            g = uint8_t(255 - g);
-            b = uint8_t(255 - b);
+            r = std::uint8_t(255 - r);
+            g = std::uint8_t(255 - g);
+            b = std::uint8_t(255 - b);
         }
     }
 
     // RGB → Y'CbCr 编码（着色器解码的逆运算；Kr/Kb 按矩阵取，range 决定量化）
-    static void toYuv(uint8_t r8, uint8_t g8, uint8_t b8, YuvMatrix m, bool full, uint8_t &y8, uint8_t &u8,
-                      uint8_t &v8) {
+    static void toYuv(std::uint8_t r8, std::uint8_t g8, std::uint8_t b8, YuvMatrix m, bool full, std::uint8_t &y8, std::uint8_t &u8,
+                      std::uint8_t &v8) {
         const float kr = m == YuvMatrix::BT601 ? 0.299f : (m == YuvMatrix::BT709 ? 0.2126f : 0.2627f);
         const float kb = m == YuvMatrix::BT601 ? 0.114f : (m == YuvMatrix::BT709 ? 0.0722f : 0.0593f);
         const float r = r8 / 255.0f, g = g8 / 255.0f, b = b8 / 255.0f;
         const float y = kr * r + (1.0f - kr - kb) * g + kb * b;
         const float cb = (b - y) / (2.0f * (1.0f - kb));
         const float cr = (r - y) / (2.0f * (1.0f - kr));
-        auto q = [](float v) { return uint8_t(std::clamp(v + 0.5f, 0.0f, 255.0f)); };
+        auto q = [](float v) { return std::uint8_t(std::clamp(v + 0.5f, 0.0f, 255.0f)); };
         y8 = full ? q(y * 255.0f) : q(16.0f + y * 219.0f);
         u8 = full ? q(128.0f + cb * 255.0f) : q(128.0f + cb * 224.0f);
         v8 = full ? q(128.0f + cr * 255.0f) : q(128.0f + cr * 224.0f);
@@ -167,20 +171,20 @@ private:
 
     // 把测试图按 fmt 编码进池槽平面（色度 2×2/2×1 取左上采样点——测试图色块边界
     // 对齐偶数像素，足以验证转色）
-    static void pushFrame(VideoStream &vs, PixelFormat fmt, uint32_t w, uint32_t h, uint32_t phase, YuvMatrix m,
+    static void pushFrame(VideoStream &vs, PixelFormat fmt, std::uint32_t w, std::uint32_t h, std::uint32_t phase, YuvMatrix m,
                           bool full) {
         auto wr = vs.acquire({.format = fmt, .width = w, .height = h, .matrix = m, .fullRange = full});
         if (!wr) return;    // 池满丢帧（生产者不阻塞）
         auto pl = wr.planes();
-        const uint32_t lineX = phase % w;
-        uint8_t r, g, b, Y, U, V;
-        for (uint32_t y = 0; y < h; ++y) {
-            for (uint32_t x = 0; x < w; ++x) {
+        const std::uint32_t lineX = phase % w;
+        std::uint8_t r, g, b, Y, U, V;
+        for (std::uint32_t y = 0; y < h; ++y) {
+            for (std::uint32_t x = 0; x < w; ++x) {
                 sampleRGB(x, y, w, h, lineX, r, g, b);
                 switch (fmt) {
                 case PixelFormat::RGBA8:
                 case PixelFormat::BGRA8: {
-                    uint8_t *px = pl[0].data + size_t(pl[0].stride) * y + size_t(x) * 4;
+                    std::uint8_t *px = pl[0].data + std::size_t(pl[0].stride) * y + std::size_t(x) * 4;
                     const bool bgra = fmt == PixelFormat::BGRA8;
                     px[0] = bgra ? b : r;
                     px[1] = g;
@@ -191,20 +195,20 @@ private:
                 case PixelFormat::I420:
                 case PixelFormat::YV12: {
                     toYuv(r, g, b, m, full, Y, U, V);
-                    pl[0].data[size_t(pl[0].stride) * y + x] = Y;
+                    pl[0].data[std::size_t(pl[0].stride) * y + x] = Y;
                     if (x % 2 == 0 && y % 2 == 0) {
                         const bool yv = fmt == PixelFormat::YV12;    // 平面序 Y/V/U
-                        pl[1].data[size_t(pl[1].stride) * (y / 2) + x / 2] = yv ? V : U;
-                        pl[2].data[size_t(pl[2].stride) * (y / 2) + x / 2] = yv ? U : V;
+                        pl[1].data[std::size_t(pl[1].stride) * (y / 2) + x / 2] = yv ? V : U;
+                        pl[2].data[std::size_t(pl[2].stride) * (y / 2) + x / 2] = yv ? U : V;
                     }
                     break;
                 }
                 case PixelFormat::NV12:
                 case PixelFormat::NV21: {
                     toYuv(r, g, b, m, full, Y, U, V);
-                    pl[0].data[size_t(pl[0].stride) * y + x] = Y;
+                    pl[0].data[std::size_t(pl[0].stride) * y + x] = Y;
                     if (x % 2 == 0 && y % 2 == 0) {
-                        uint8_t *c = pl[1].data + size_t(pl[1].stride) * (y / 2) + size_t(x / 2) * 2;
+                        std::uint8_t *c = pl[1].data + std::size_t(pl[1].stride) * (y / 2) + std::size_t(x / 2) * 2;
                         const bool nv21 = fmt == PixelFormat::NV21;    // 交错序 VU
                         c[0] = nv21 ? V : U;
                         c[1] = nv21 ? U : V;
@@ -214,7 +218,7 @@ private:
                 case PixelFormat::YUYV:
                 case PixelFormat::UYVY: {
                     toYuv(r, g, b, m, full, Y, U, V);
-                    uint8_t *mp = pl[0].data + size_t(pl[0].stride) * y + size_t(x / 2) * 4;    // 宏像素
+                    std::uint8_t *mp = pl[0].data + std::size_t(pl[0].stride) * y + std::size_t(x / 2) * 4;    // 宏像素
                     if (fmt == PixelFormat::YUYV) {    // Y0 U Y1 V
                         mp[(x % 2) * 2] = Y;
                         if (x % 2 == 0) { mp[1] = U; mp[3] = V; }
@@ -232,9 +236,9 @@ private:
 
     static void tick() {
         auto &s = state();
-        const int64_t ms =
+        const std::int64_t ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - s.t0).count();
-        const uint32_t phase = uint32_t(ms / 8);
+        const std::uint32_t phase = std::uint32_t(ms / 8);
         // main：30fps；每 2 秒轮换 8 种格式（换格式 → RGB↔YUV 管线/布局整组重建），
         // 矩阵与 range 随轮次切换；每 5 秒在 640×360 / 479×269（奇数尺寸）间切换
         // ——偶宽才合法的 4:2:2 遇奇数尺寸改推 NV12（acquire 非法即丢帧）

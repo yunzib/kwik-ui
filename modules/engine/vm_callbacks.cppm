@@ -1,9 +1,9 @@
 module;
-#include <functional>
 
 #include "quickjs.h"
 
 export module kwik.engine.vm_callbacks;
+import std;
 
 /**
  * @brief 渲染回调类型 — 当 State 属性变更时触发 UI 重建

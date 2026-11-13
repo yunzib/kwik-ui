@@ -1,10 +1,3 @@
-module;
-
-#include <cstddef>
-#include <string>
-#include <utility>
-#include <vector>
-
 export module kwik.element.selection;
 
 import kwik.core.types;
@@ -41,22 +34,22 @@ import std;
  * 双向拖动均正确：range() 统一取 min/max 有序对。
  */
 export struct SelectionModel {
-	size_t anchor = 0;    ///< 拖选起点（字节偏移，UTF-8 边界）
-	size_t focus = 0;     ///< 活动端（字节偏移，UTF-8 边界）
+	std::size_t anchor = 0;    ///< 拖选起点（字节偏移，UTF-8 边界）
+	std::size_t focus = 0;     ///< 活动端（字节偏移，UTF-8 边界）
 
 	/** @brief 选区是否为空（anchor == focus 折叠态） */
 	bool empty() const { return anchor == focus; }
 
 	/** @brief 有序字节区间 [min, max) */
-	std::pair<size_t, size_t> range() const {
+	std::pair<std::size_t, std::size_t> range() const {
 		return anchor < focus ? std::pair{anchor, focus} : std::pair{focus, anchor};
 	}
 
 	/** @brief 重置为折叠态（如新会话起点） */
-	void reset(size_t off) { anchor = focus = off; }
+	void reset(std::size_t off) { anchor = focus = off; }
 
 	/** @brief 拖动扩展（只动 focus，anchor 不变） */
-	void extendTo(size_t off) { focus = off; }
+	void extendTo(std::size_t off) { focus = off; }
 };
 
 /**
@@ -70,13 +63,13 @@ public:
 	virtual ~Selectable() = default;
 
 	/** @brief 点（全局逻辑坐标）→ 最近字形边界的字节偏移 */
-	virtual size_t hitOffset(float globalX, float globalY) = 0;
+	virtual std::size_t hitOffset(float globalX, float globalY) = 0;
 
 	/** @brief 字节区间 → 选区高亮矩形（多行多段，全局坐标） */
-	virtual std::vector<Rect> selectionRects(size_t startOff, size_t endOff) = 0;
+	virtual std::vector<Rect> selectionRects(std::size_t startOff, std::size_t endOff) = 0;
 
 	/** @brief 字节区间 → 文本内容（复制用，入参钳 UTF-8 边界） */
-	virtual std::string selectedBytes(size_t startOff, size_t endOff) = 0;
+	virtual std::string selectedBytes(std::size_t startOff, std::size_t endOff) = 0;
 
 	/** @brief 请求重绘（markDirty 封装——选区变化由服务回调） */
 	virtual void requestRedraw() = 0;
@@ -112,7 +105,7 @@ public:
 	 * @param node      选区宿主（Selectable 实现者）
 	 * @param anchorOff 起点字节偏移（hitOffset 产出）
 	 */
-	void begin(Selectable *node, size_t anchorOff) {
+	void begin(Selectable *node, std::size_t anchorOff) {
 		pruneIfDead();
 		if (node == host_) {
 			model_.reset(anchorOff);    // 同节点重启（如再次按下）只换锚
@@ -130,7 +123,7 @@ public:
 	 * @param node     宿主（与当前会话不符则忽略，防御性）
 	 * @param focusOff 活动端字节偏移
 	 */
-	void extend(Selectable *node, size_t focusOff) {
+	void extend(Selectable *node, std::size_t focusOff) {
 		if (node != host_) return;
 		model_.extendTo(focusOff);
 		node->requestRedraw();
@@ -189,7 +182,7 @@ export inline TextSelectionService *selectionOf(const View &v) {
  * @param text 目标文本（displayedText）
  * @param off  待钳制偏移（超界先收拢到 [0, size]）
  */
-export inline size_t clampToUtf8Boundary(const std::string &text, size_t off) {
+export inline std::size_t clampToUtf8Boundary(const std::string &text, std::size_t off) {
 	if (text.empty()) return 0;
 	if (off > text.size()) off = text.size();
 	// 停在首字节（0xxx/11xx）上：连续字节 10xx 时回退
@@ -205,24 +198,24 @@ export inline size_t clampToUtf8Boundary(const std::string &text, size_t off) {
  * @param text 目标文本（组件的 displayedText/plainText）
  * @param off  起始字节偏移（内部钳 UTF-8 边界 + 超界收拢）
  */
-export inline std::pair<size_t, size_t> wordRangeAtText(const std::string &text, size_t off) {
+export inline std::pair<std::size_t, std::size_t> wordRangeAtText(const std::string &text, std::size_t off) {
 	if (text.empty()) return {0, 0};
 	off = clampToUtf8Boundary(text, std::min(off, text.size()));
 	// 码点步进（UTF-8 安全：跨连续字节回退/前进）
-	auto stepBack = [&](size_t p) {
+	auto stepBack = [&](std::size_t p) {
 		if (p == 0) return p;
 		--p;
 		while (p > 0 && (static_cast<unsigned char>(text[p]) & 0xC0) == 0x80) --p;
 		return p;
 	};
-	auto stepFwd = [&](size_t p) {
+	auto stepFwd = [&](std::size_t p) {
 		if (p >= text.size()) return p;
 		++p;
 		while (p < text.size() && (static_cast<unsigned char>(text[p]) & 0xC0) == 0x80) ++p;
 		return p;
 	};
 	// ASCII 空白/标点为词界；非 ASCII（含 CJK）连续段整体选中
-	auto isSep = [&](size_t p) {
+	auto isSep = [&](std::size_t p) {
 		unsigned char c = static_cast<unsigned char>(text[p]);
 		if (c >= 0x80) return false;
 		return c == ' ' || c == '\t' || c == '\n' || c == '\r' || (c >= 0x21 && c <= 0x2F)
@@ -230,9 +223,9 @@ export inline std::pair<size_t, size_t> wordRangeAtText(const std::string &text,
 	};
 	if (off >= text.size()) off = stepBack(off);    // 文末：末码点参与选词（防 text[off] 越界读）
 	if (isSep(off)) return {off, stepFwd(off)};    // 命中分隔符：就近一个码点
-	size_t a = off, b = off;
+	std::size_t a = off, b = off;
 	while (a > 0) {
-		size_t p = stepBack(a);
+		std::size_t p = stepBack(a);
 		if (isSep(p)) break;
 		a = p;
 	}

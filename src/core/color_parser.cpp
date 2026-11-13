@@ -1,12 +1,22 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <stdint.h>
 #include <ctype.h>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <unordered_map>
-#include <optional>
 
 module kwik.core.color_parser;
 
@@ -24,23 +34,23 @@ Color parseColor(const std::string &str) {
 
     // #RGB 格式
     if (s.size() == 4 && s[0] == '#') {
-        return {static_cast<uint8_t>(parseHex(s[1]) * 17), static_cast<uint8_t>(parseHex(s[2]) * 17),
-                static_cast<uint8_t>(parseHex(s[3]) * 17), 255};
+        return {static_cast<std::uint8_t>(parseHex(s[1]) * 17), static_cast<std::uint8_t>(parseHex(s[2]) * 17),
+                static_cast<std::uint8_t>(parseHex(s[3]) * 17), 255};
     }
 
     // #RRGGBB 格式
     if (s.size() == 7 && s[0] == '#') {
-        return {static_cast<uint8_t>((parseHex(s[1]) << 4) | parseHex(s[2])),
-                static_cast<uint8_t>((parseHex(s[3]) << 4) | parseHex(s[4])),
-                static_cast<uint8_t>((parseHex(s[5]) << 4) | parseHex(s[6])), 255};
+        return {static_cast<std::uint8_t>((parseHex(s[1]) << 4) | parseHex(s[2])),
+                static_cast<std::uint8_t>((parseHex(s[3]) << 4) | parseHex(s[4])),
+                static_cast<std::uint8_t>((parseHex(s[5]) << 4) | parseHex(s[6])), 255};
     }
 
     // #RRGGBBAA 格式
     if (s.size() == 9 && s[0] == '#') {
-        return {static_cast<uint8_t>((parseHex(s[1]) << 4) | parseHex(s[2])),
-                static_cast<uint8_t>((parseHex(s[3]) << 4) | parseHex(s[4])),
-                static_cast<uint8_t>((parseHex(s[5]) << 4) | parseHex(s[6])),
-                static_cast<uint8_t>((parseHex(s[7]) << 4) | parseHex(s[8]))};
+        return {static_cast<std::uint8_t>((parseHex(s[1]) << 4) | parseHex(s[2])),
+                static_cast<std::uint8_t>((parseHex(s[3]) << 4) | parseHex(s[4])),
+                static_cast<std::uint8_t>((parseHex(s[5]) << 4) | parseHex(s[6])),
+                static_cast<std::uint8_t>((parseHex(s[7]) << 4) | parseHex(s[8]))};
     }
 
     // 颜色名称
@@ -55,14 +65,14 @@ Color parseColor(const std::string &str) {
 
     // rgba(r, g, b, a) 格式
     if (s.substr(0, 5) == "rgba(") {
-        size_t pos = 5;
+        std::size_t pos = 5;
         int r = 0, g = 0, b = 0;
         float a = 1.0f;
 
         // 简化解析（float 版：alpha 为小数；空标记返回 0 防 stof 抛出）
         auto nextNum = [&s, &pos]() -> float {
             while (pos < s.size() && !std::isdigit(s[pos]) && s[pos] != '.') pos++;
-            size_t start = pos;
+            std::size_t start = pos;
             while (pos < s.size() && (std::isdigit(s[pos]) || s[pos] == '.')) pos++;
             if (start == pos) { return 0.0f; }
             return std::stof(s.substr(start, pos - start));
@@ -80,13 +90,13 @@ Color parseColor(const std::string &str) {
         if (a < 0.0f) { a = 0.0f; }
         if (a > 1.0f) { a = 1.0f; }
 
-        return {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
-                static_cast<uint8_t>(a * 255 + 0.5f)};
+        return {static_cast<std::uint8_t>(r), static_cast<std::uint8_t>(g), static_cast<std::uint8_t>(b),
+                static_cast<std::uint8_t>(a * 255 + 0.5f)};
     }
 
     // rgb(r, g, b) 格式
     if (s.substr(0, 4) == "rgb(") {
-        size_t pos = 4;
+        std::size_t pos = 4;
         auto nextNum = [&s, &pos]() -> int {
             while (pos < s.size() && !std::isdigit(s[pos])) pos++;
             int start = pos;
@@ -94,7 +104,7 @@ Color parseColor(const std::string &str) {
             return std::stoi(s.substr(start, pos - start));
         };
 
-        return {static_cast<uint8_t>(nextNum()), static_cast<uint8_t>(nextNum()), static_cast<uint8_t>(nextNum()), 255};
+        return {static_cast<std::uint8_t>(nextNum()), static_cast<std::uint8_t>(nextNum()), static_cast<std::uint8_t>(nextNum()), 255};
     }
 
     return Color::transparent();
@@ -132,13 +142,13 @@ Shadow parseShadow(const std::string &str) {
     }
     // 第 4 token 为数值 → spread，颜色顺延至第 5 token 起；否则第 4 token
     // 起即颜色（旧三值 + 颜色形态不变）
-    size_t colorIdx = 3;
+    std::size_t colorIdx = 3;
     if (parts.size() >= 5) {
         if (auto sp = parseNum(parts[3])) { shadow.spread = *sp; colorIdx = 4; }
     }
     if (parts.size() > colorIdx) {
         std::string colorStr;
-        for (size_t i = colorIdx; i < parts.size(); i++) colorStr += parts[i];
+        for (std::size_t i = colorIdx; i < parts.size(); i++) colorStr += parts[i];
         shadow.color = parseColor(colorStr);
     }
     return shadow;

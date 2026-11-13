@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
 #if defined(_WIN32)
 #include <Windows.h>
@@ -8,9 +23,6 @@ module;
 #include <vulkan/vulkan_wayland.h>
 #include <X11/Xlib.h>
 #endif
-#include <vector>
-#include <cstdint>
-#include <functional>
 
 export module kwik.render.vulkan.context;
 import kwik.core.types;
@@ -48,7 +60,7 @@ static_assert(sizeof(ImagePushConstants) == 84, "ImagePushConstants size mismatc
 // 着色器侧平铺声明（不嵌套结构——std430 会把嵌套结构补齐到 16 倍数致偏移错位）
 export struct YuvPushConstants {
     ImagePushConstants base;    // 与 image 管线同布局（offset 0..83）
-    uint32_t mode;              // offset 84
+    std::uint32_t mode;              // offset 84
 };
 static_assert(sizeof(YuvPushConstants) == 88, "YuvPushConstants size mismatch");
 
@@ -78,7 +90,7 @@ public:
     ~VulkanContext();
 
     /** @brief 在飞帧上限（三缓冲槽位数）；延迟释放类队列的安全帧距以此为准 */
-    static constexpr uint32_t kMaxFramesInFlight = 3;
+    static constexpr std::uint32_t kMaxFramesInFlight = 3;
 
     // ── 生命周期 ──
     bool initialize(void *nativeHandle);
@@ -114,11 +126,11 @@ public:
     VkBuffer indexBuffer() const;     // 仅初始化时用
 
     // ── 工具 ──
-    static uint32_t findMemoryType(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags props);
+    static std::uint32_t findMemoryType(VkPhysicalDevice physDevice, std::uint32_t typeFilter, VkMemoryPropertyFlags props);
     static bool createBuffer(VkDevice device, VkPhysicalDevice physDevice, VkDeviceSize size, VkBufferUsageFlags usage,
                              VkMemoryPropertyFlags props, VkBuffer &buffer, VkDeviceMemory &memory);
     bool copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
-    static VkShaderModule createShaderModule(VkDevice device, const uint8_t *spv, size_t size);
+    static VkShaderModule createShaderModule(VkDevice device, const std::uint8_t *spv, std::size_t size);
     /** @brief 一次性命令缓冲骨架：alloc→begin→record→end→submit→wait→free。
      *         清单 §四样板收口（原 5 处手写：纹理上传/图集过渡/画布初始清屏等）。 */
     static bool runOneOff(VkDevice device, VkCommandPool pool, VkQueue queue,
@@ -141,12 +153,12 @@ public:
 
     /** @brief 当前主色画布 / 宽 / 高（backdrop 捕获用） */
     VkImage canvasImage() const { return canvasImage_; }
-    uint32_t canvasWidth() const { return swapchainExtent_.width; }
-    uint32_t canvasHeight() const { return swapchainExtent_.height; }
+    std::uint32_t canvasWidth() const { return swapchainExtent_.width; }
+    std::uint32_t canvasHeight() const { return swapchainExtent_.height; }
 
     /** @brief 当前帧槽（0..kMaxFramesInFlight-1，present 后轮转；resize 中
      *  waitIdle 后归零）——staging 分槽渲染器据此对齐 fence 等待周期 */
-    uint32_t frameIndex() const { return frameIndex_; }
+    std::uint32_t frameIndex() const { return frameIndex_; }
 
 private:
     VkFormat depthStencilFormat_ = VK_FORMAT_D24_UNORM_S8_UINT;
@@ -159,7 +171,7 @@ private:
     VkPhysicalDevice vkPhysicalDevice_ = VK_NULL_HANDLE;
     VkDevice vkDevice_ = VK_NULL_HANDLE;
     VkQueue vkQueue_ = VK_NULL_HANDLE;
-    uint32_t queueFamilyIndex_ = 0;
+    std::uint32_t queueFamilyIndex_ = 0;
     VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
     VkFormat swapchainFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
     VkExtent2D swapchainExtent_ = {800, 600};
@@ -176,8 +188,8 @@ private:
     std::vector<VkSemaphore> imageAvailableSemaphores_;
     std::vector<VkSemaphore> renderFinishedSemaphores_;
     std::vector<VkFence> inFlightFences_;
-    uint32_t frameIndex_ = 0;
-    uint32_t currentImageIndex_ = 0;
+    std::uint32_t frameIndex_ = 0;
+    std::uint32_t currentImageIndex_ = 0;
     VkImage canvasImage_ = VK_NULL_HANDLE;
     VkDeviceMemory canvasMemory_ = VK_NULL_HANDLE;
     VkImageView canvasView_ = VK_NULL_HANDLE;

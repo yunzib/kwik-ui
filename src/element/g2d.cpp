@@ -9,9 +9,9 @@
  */
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <sstream>
 
 module kwik.element.g2d;
 
@@ -121,7 +121,7 @@ void G2D::fillRect(float x, float y, float w, float h) {
         drawList_.push_back(FillRectGradC{{x, y, w, h}, *fillGradient_});
     } else {
         Color c = fillStyle_;
-        c.a = static_cast<uint8_t>(c.a * globalAlpha_);
+        c.a = static_cast<std::uint8_t>(c.a * globalAlpha_);
         drawList_.push_back(FillRectC{{x, y, w, h}, c});
     }
     markDirty();
@@ -131,7 +131,7 @@ void G2D::strokeRect(float x, float y, float w, float h) {
     Color c = strokeStyle_;
     // 渐变描边底层不支持 → 取起点色兜底
     if (strokeGradient_) c = strokeGradient_->color0;
-    c.a = static_cast<uint8_t>(c.a * globalAlpha_);
+    c.a = static_cast<std::uint8_t>(c.a * globalAlpha_);
     drawList_.push_back(StrokeRectC{{x, y, w, h}, c, lineWidth_});
     markDirty();
 }
@@ -151,7 +151,7 @@ void G2D::fill() {
     Color c = fillStyle_;
     // 路径填充底层不支持渐变 → 取渐变起点色兜底
     if (fillGradient_) c = fillGradient_->color0;
-    c.a = static_cast<uint8_t>(c.a * globalAlpha_);
+    c.a = static_cast<std::uint8_t>(c.a * globalAlpha_);
     drawList_.push_back(FillPathC{std::move(path_), c});
     path_.clear();
     markDirty();
@@ -163,7 +163,7 @@ void G2D::stroke() {
     arcTrack_.pure = false;         // 消费追踪
     Color c = strokeStyle_;
     if (strokeGradient_) c = strokeGradient_->color0;
-    c.a = static_cast<uint8_t>(c.a * globalAlpha_);
+    c.a = static_cast<std::uint8_t>(c.a * globalAlpha_);
     if (pureArc) {
         // 单弧描边 → Ring SDF（gradMode=2 像素级圆弧）：逐段胶囊链在关节处
         // SrcOver 覆盖率叠加（αA+αB−αAαB > max），AA 半覆盖等值线周期性外凸
@@ -222,7 +222,7 @@ void G2D::restore() {
 void G2D::fillText(const std::string &text, float x, float y, float fontSize) {
     Color c = fillStyle_;
     if (fillGradient_) c = fillGradient_->color0;
-    c.a = static_cast<uint8_t>(c.a * globalAlpha_);
+    c.a = static_cast<std::uint8_t>(c.a * globalAlpha_);
     drawList_.push_back(FillTextC{text, x, y, fontSize, c});
     markDirty();
 }
@@ -230,7 +230,7 @@ void G2D::fillText(const std::string &text, float x, float y, float fontSize) {
 // ============================================================================
 // drawImage
 // ============================================================================
-void G2D::drawImage(uint32_t textureId, float x, float y, float w, float h) {
+void G2D::drawImage(std::uint32_t textureId, float x, float y, float w, float h) {
     drawList_.push_back(DrawImageC{textureId, {x, y, w, h}, globalAlpha_});
     markDirty();
 }
@@ -256,10 +256,10 @@ void G2D::reset() {
 // getProperty / setProperty — 用于 setProp 桥接
 // ============================================================================
 std::string G2D::getProperty(const char *name) const {
-    if (std::strcmp(name, "fillStyle") == 0) return "";
-    if (std::strcmp(name, "strokeStyle") == 0) return "";
-    if (std::strcmp(name, "lineWidth") == 0) return std::to_string(lineWidth_);
-    if (std::strcmp(name, "globalAlpha") == 0) return std::to_string(globalAlpha_);
+    if (strcmp(name, "fillStyle") == 0) return "";
+    if (strcmp(name, "strokeStyle") == 0) return "";
+    if (strcmp(name, "lineWidth") == 0) return std::to_string(lineWidth_);
+    if (strcmp(name, "globalAlpha") == 0) return std::to_string(globalAlpha_);
     return View::getProperty(name);
 }
 
@@ -267,18 +267,18 @@ std::string G2D::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（fillStyle/strokeStyle/lineWidth/globalAlpha）
 // ============================================================================
 bool G2D::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "fillStyle") == 0 || std::strcmp(name, "strokeStyle") == 0) {
+	if (strcmp(name, "fillStyle") == 0 || strcmp(name, "strokeStyle") == 0) {
 		auto *s = std::get_if<std::string>(&value);
 		if (!s) { return false; }
-		if (std::strcmp(name, "fillStyle") == 0) { fillStyle_ = parseColor(*s); fillGradient_.reset(); }
+		if (strcmp(name, "fillStyle") == 0) { fillStyle_ = parseColor(*s); fillGradient_.reset(); }
 		else { strokeStyle_ = parseColor(*s); strokeGradient_.reset(); }
 		markDirty();
 		return true;
 	}
-	if (std::strcmp(name, "lineWidth") == 0 || std::strcmp(name, "globalAlpha") == 0) {
+	if (strcmp(name, "lineWidth") == 0 || strcmp(name, "globalAlpha") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
-		if (std::strcmp(name, "lineWidth") == 0) { lineWidth_ = *v; }
+		if (strcmp(name, "lineWidth") == 0) { lineWidth_ = *v; }
 		else { globalAlpha_ = std::clamp(*v, 0.0f, 1.0f); }
 		markDirty();
 		return true;

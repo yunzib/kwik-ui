@@ -103,9 +103,9 @@ public:
      * 回调由 KwikRuntime::tick 每帧驱动（flush 后、微任务前），
      * 回调内改 State 经 isRenderNeeded 当帧消费。
      */
-    uint64_t scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb);
+    std::uint64_t scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb);
     /** @brief 取消尚未触发的 rAF 回调 */
-    void cancelAnimationFrame(uint64_t id);
+    void cancelAnimationFrame(std::uint64_t id);
     /** @brief 触发本帧全部 rAF 回调（参数为毫秒时间戳）；返回是否执行了回调 */
     bool runAnimationFrameCallbacks();
     /** @brief 是否有待触发的 rAF 回调（主循环防休眠判定用） */
@@ -156,7 +156,7 @@ public:
     bool evalBytecodeModule(const char *module_name);
 
     /** @brief 重置 JS 执行看门狗预算（宿主入口调用，见 QuickJSRuntime::resetWatchdog） */
-    void resetExecWatchdog(uint32_t budgetMs = 1000) { runtime->resetWatchdog(budgetMs); }
+    void resetExecWatchdog(std::uint32_t budgetMs = 1000) { runtime->resetWatchdog(budgetMs); }
 
     const std::vector<std::string> &loadedModuleFiles() const { return loadedModuleFiles_; }
 
@@ -181,11 +181,11 @@ private:
     // ── rAF 队列 ─────────────────────────────────────────────────
     // 每树一份随 ctx 生死；reload() 必须在销毁旧 runtime 前清空
     // （JSValueRef 析构 JS_FreeValue 需旧 context 存活）
-    uint64_t nextRafId_ = 1;
-    std::vector<std::pair<uint64_t, std::shared_ptr<JSValueRef>>> rafQueue_;
+    std::uint64_t nextRafId_ = 1;
+    std::vector<std::pair<std::uint64_t, std::shared_ptr<JSValueRef>>> rafQueue_;
 
     /// bytecode 映射: 模块名 → {data, size}
-    std::unordered_map<std::string, std::pair<const uint8_t *, int>> bytecodeMap_;
+    std::unordered_map<std::string, std::pair<const std::uint8_t *, int>> bytecodeMap_;
     /// 已加载的文件模块列表（Debug 热重载用）
     std::vector<std::string> loadedModuleFiles_;
 

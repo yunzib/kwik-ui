@@ -1,5 +1,3 @@
-module;
-#include <memory>
 export module kwik.layout.stack_layout;
 import kwik.element.view;
 import kwik.core.props;

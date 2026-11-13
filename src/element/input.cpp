@@ -5,11 +5,8 @@
 // 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
-#include <algorithm>
-#include <cstdint>
-#include <string>
-#include <vector>
-#include <chrono>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.input;
 import kwik.element.view;
@@ -38,9 +35,9 @@ static ClipboardService *clipOf(const View &v) {
 // ── 光标点击定位辅助（纯函数族：合成字形可直测，免字体）──
 // 中点规则：x 落第 i 个字形前半 → 边界 i（字形之前）；后半 → 边界 i+1。
 // 越界：x ≤ 首字形前沿 → 0；x ≥ 全文宽 → count（末尾）。
-static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, float x) {
+static std::size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, std::size_t count, float x) {
     float acc = 0;
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         float mid = acc + glyphs[i].advanceX * 0.5f;
         if (x < mid) return i;
         acc += glyphs[i].advanceX;
@@ -48,9 +45,9 @@ static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, fl
     return count;
 }
 // 码点序 → 字节偏移（光标绘制 byteOffsetToGlyphIndex 的逆函数，口径一致）
-static size_t codepointIndexToByteOffset(const std::string &text, size_t index) {
-    size_t byte = 0;
-    for (size_t k = 0; k < index && byte < text.size(); ++k) {
+static std::size_t codepointIndexToByteOffset(const std::string &text, std::size_t index) {
+    std::size_t byte = 0;
+    for (std::size_t k = 0; k < index && byte < text.size(); ++k) {
         unsigned char c = static_cast<unsigned char>(text[byte]);
         byte += (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
     }
@@ -59,7 +56,7 @@ static size_t codepointIndexToByteOffset(const std::string &text, size_t index) 
 // 源文本 → ● 掩码串（每码点一枚掩码；onDraw 密码绘制与 Tap 定位共用）
 static std::string buildMaskedText(const std::string &src) {
     std::string masked;
-    for (size_t i = 0; i < src.size();) {
+    for (std::size_t i = 0; i < src.size();) {
         unsigned char c = static_cast<unsigned char>(src[i]);
         i += (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
         masked += "\xE2\x97\x8F";
@@ -224,13 +221,13 @@ void Input::onDraw(Graphics &graphics) {
             if (input_.isPassword) {
                 // 密码：按掩码 ● 的实际宽度累加（与绘制一致）
                 if (maskedResult) {
-                    size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
-                    for (size_t i = 0; i < glyphIdx && i < maskedResult->glyphs.size(); i++)
+                    std::size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
+                    for (std::size_t i = 0; i < glyphIdx && i < maskedResult->glyphs.size(); i++)
                         cx += maskedResult->glyphs[i].advanceX;
                 }
             } else if (textResult_) {
-                size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
-                for (size_t i = 0; i < glyphIdx && i < textResult_->glyphs.size(); i++)
+                std::size_t glyphIdx = byteOffsetToGlyphIndex(cursorPos_);
+                for (std::size_t i = 0; i < glyphIdx && i < textResult_->glyphs.size(); i++)
                     cx += textResult_->glyphs[i].advanceX;
             }
         }
@@ -267,7 +264,7 @@ bool Input::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::PointerDown: {
         // 拖选落锚（非密码）；不消费——Tap/聚焦链照常，单击定位由 Tap 完成
         if (!input_.isPassword) {
-            size_t off = tapCursorByte(event);
+            std::size_t off = tapCursorByte(event);
             cursorPos_ = selectionStart_ = off;
             draggingSelection_ = true;
             if (auto *svc = selectionOf(*this)) svc->begin(this, off);
@@ -277,7 +274,7 @@ bool Input::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::PanMove: {
         // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
         if (!draggingSelection_) return View::onEvent(event);
-        size_t off = tapCursorByte(event);
+        std::size_t off = tapCursorByte(event);
         if (off != cursorPos_) {
             cursorPos_ = off;
             markDirty();
@@ -306,7 +303,7 @@ bool Input::onEvent(const DispatchEvent &event) {
         // 双击选词（非密码；连续 Tap 间隔 <400ms 且位移 <6px，事件层
         // DoubleTap 为预留类型无生成点，组件内自检同 Text/TextView）
         if (!input_.isPassword) {
-            size_t off = tapCursorByte(event);
+            std::size_t off = tapCursorByte(event);
             bool dbl = lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
                        && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
             lastTapMs_ = event.timestamp;
@@ -333,7 +330,7 @@ bool Input::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::CharInput: {
         Log::debug("[Input] CHAR cp={:#x} focused={}", event.charCode, focused_);
         if (!focused_ || input_.readOnly) return false;
-        uint32_t cp = event.charCode;
+        std::uint32_t cp = event.charCode;
         // 控制字符统一过滤（DEL 与 C1 区塑形成 notdef 豆腐）；\n 允许（触发提交）
         if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
         // Enter 提交（任何模式先于白名单）：'\n' 是提交键不入文本。提交落
@@ -362,8 +359,8 @@ bool Input::onEvent(const DispatchEvent &event) {
         }
         // 长度限制 (按字符数, 非字节数)
         if (input_.maxLength > 0) {
-            size_t charCount = 0;
-            for (size_t i = 0; i < text_.size();) {
+            std::size_t charCount = 0;
+            for (std::size_t i = 0; i < text_.size();) {
                 unsigned char c = text_[i];
                 if ((c & 0xE0) == 0xC0)
                     i += 2;
@@ -375,7 +372,7 @@ bool Input::onEvent(const DispatchEvent &event) {
                     i++;
                 charCount++;
             }
-            if (charCount >= (size_t)input_.maxLength) return true;
+            if (charCount >= (std::size_t)input_.maxLength) return true;
         }
         // Unicode → UTF-8
         std::string utf8;
@@ -406,7 +403,7 @@ bool Input::onEvent(const DispatchEvent &event) {
 
     case DispatchEvent::Type::KeyAction: {
         if (!focused_) return false;
-        uint32_t vk = event.keyCode;
+        std::uint32_t vk = event.keyCode;
         bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl（TextView 同款填法）
         switch (vk) {
         case 0x08:    // VK_BACK
@@ -441,8 +438,8 @@ bool Input::onEvent(const DispatchEvent &event) {
             if (ctrl) {
                 if (auto *clip = clipOf(*this); clip) {
                     if (selectionStart_ != cursorPos_) {
-                        size_t s = std::min(selectionStart_, cursorPos_);
-                        size_t e = std::max(selectionStart_, cursorPos_);
+                        std::size_t s = std::min(selectionStart_, cursorPos_);
+                        std::size_t e = std::max(selectionStart_, cursorPos_);
                         clip->setText(text_.substr(s, e - s));
                     } else if (!text_.empty()) {
                         clip->setText(text_);
@@ -452,8 +449,8 @@ bool Input::onEvent(const DispatchEvent &event) {
             break;
         case 0x58:    // 'X' — Ctrl 组合剪选区（严格语义：无选区/只读/密码不操作）
             if (ctrl && !input_.readOnly && !input_.isPassword && selectionStart_ != cursorPos_) {
-                size_t s = std::min(selectionStart_, cursorPos_);
-                size_t e = std::max(selectionStart_, cursorPos_);
+                std::size_t s = std::min(selectionStart_, cursorPos_);
+                std::size_t e = std::max(selectionStart_, cursorPos_);
                 if (auto *clip = clipOf(*this); clip) clip->setText(text_.substr(s, e - s));
                 text_.erase(s, e - s);
                 cursorPos_ = selectionStart_ = s;
@@ -496,7 +493,7 @@ void Input::insertAtCursor(const std::string &utf8) {
 }
 void Input::deleteBeforeCursor() {
     if (cursorPos_ == 0) return;
-    size_t pos = cursorPos_ - 1;
+    std::size_t pos = cursorPos_ - 1;
     while (pos > 0 && (text_[pos] & 0xC0) == 0x80) pos--;
     text_.erase(pos, cursorPos_ - pos);
     cursorPos_ = pos;
@@ -504,7 +501,7 @@ void Input::deleteBeforeCursor() {
 }
 void Input::deleteAfterCursor() {
     if (cursorPos_ >= text_.size()) return;
-    size_t pos = cursorPos_ + 1;
+    std::size_t pos = cursorPos_ + 1;
     while (pos < text_.size() && (text_[pos] & 0xC0) == 0x80) pos++;
     text_.erase(cursorPos_, pos - cursorPos_);
     selectionStart_ = cursorPos_;
@@ -532,15 +529,15 @@ void Input::cursorToEnd() {
 
 /** @brief 边界序（= 光标前码点数）按源文本码点序换算字节偏移；
  *         密码掩码布局与源文本 1:1，同一函数两用（掩码 glyphs + 源文本） */
-size_t Input::tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x) {
-    size_t boundary = glyphBoundaryIndexForX(glyphs.data(), glyphs.size(), x);
+std::size_t Input::tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x) {
+    std::size_t boundary = glyphBoundaryIndexForX(glyphs.data(), glyphs.size(), x);
     return codepointIndexToByteOffset(text, boundary);
 }
 
 // ── tapCursorByte — Tap 坐标 → 光标字节 ──
 // 与 onDraw 同口径排版（防 measure/draw maxWidth 不同源导致映射漂移）；
 // 空文本恒 0；密码模式喂掩码布局、text_ 传源文本走码点换算
-size_t Input::tapCursorByte(const DispatchEvent &event) {
+std::size_t Input::tapCursorByte(const DispatchEvent &event) {
     // 事件 global 是滚动视口域，inner 是未滚动 frame 域——上溯滚动容器补偏移
     //（Tap/双击/hitOffset 都经本函数，scroll=0 恒 0）
     Point comp = scrollCompensationOf(*this);
@@ -568,9 +565,9 @@ size_t Input::tapCursorByte(const DispatchEvent &event) {
     return tapByteOffsetForX(res->glyphs, text_, gx - inner.x);
 }
 
-size_t Input::byteOffsetToGlyphIndex(size_t byteOffset) const {
-    size_t glyphIdx = 0;
-    for (size_t i = 0; i < byteOffset && i < text_.size();) {
+std::size_t Input::byteOffsetToGlyphIndex(std::size_t byteOffset) const {
+    std::size_t glyphIdx = 0;
+    for (std::size_t i = 0; i < byteOffset && i < text_.size();) {
         unsigned char c = static_cast<unsigned char>(text_[i]);
         if ((c & 0xE0) == 0xC0)
             i += 2;
@@ -645,7 +642,7 @@ void Input::focus() {
 
 // 聚焦并把光标定位到 pos（Tap 点击定位/PointerDown 落锚共用；focus() 的
 // 旧"置文末"语义保留给键盘链）
-void Input::focusWithCursor(size_t pos) {
+void Input::focusWithCursor(std::size_t pos) {
     focused_ = true;
     cursorPos_ = pos;
     selectionStart_ = cursorPos_;    // 定位即折叠（拖选扩展走 PanMove 直写）
@@ -695,12 +692,12 @@ void Input::scheduleBlinkTick() {
 // getProperty / setProperty — Input 属性覆写
 // ============================================================================
 std::string Input::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) return text_;
-    if (std::strcmp(name, "placeholder") == 0) return input_.placeholder;
-    if (std::strcmp(name, "fontSize") == 0) return std::to_string(input_.fontSize);
-    if (std::strcmp(name, "readOnly") == 0) return input_.readOnly ? "true" : "false";
-    if (std::strcmp(name, "isPassword") == 0) return input_.isPassword ? "true" : "false";
-    if (std::strcmp(name, "isNumber") == 0) return input_.isNumber ? "true" : "false";
+    if (strcmp(name, "value") == 0) return text_;
+    if (strcmp(name, "placeholder") == 0) return input_.placeholder;
+    if (strcmp(name, "fontSize") == 0) return std::to_string(input_.fontSize);
+    if (strcmp(name, "readOnly") == 0) return input_.readOnly ? "true" : "false";
+    if (strcmp(name, "isPassword") == 0) return input_.isPassword ? "true" : "false";
+    if (strcmp(name, "isNumber") == 0) return input_.isNumber ? "true" : "false";
     return View::getProperty(name);
 }
 
@@ -709,7 +706,7 @@ std::string Input::getProperty(const char *name) const {
 // 原生分支=增量路径（notify），string 分支=setProp 命令式包装
 // ============================================================================
 bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();
@@ -717,7 +714,7 @@ bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "placeholder") == 0) {
+    if (strcmp(name, "placeholder") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             input_.placeholder = *s;
             markDirty();
@@ -725,14 +722,14 @@ bool Input::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontSize") == 0) {
+    if (strcmp(name, "fontSize") == 0) {
         auto fs = typedToFloat(value);
         if (!fs) { return false; }
         input_.fontSize = *fs;
         markDirty();
         return true;
     }
-    if (std::strcmp(name, "readOnly") == 0) {
+    if (strcmp(name, "readOnly") == 0) {
         auto ro = typedToBool(value);
         if (!ro) { return false; }
         input_.readOnly = *ro;
@@ -779,14 +776,14 @@ void Input::resolveThemeDefaults() {
 // Selectable 接口 — 选区状态自持（selectionStart_/cursorPos_），服务只做
 // 全局互斥登记；几何复用 Text::penOfBoundaryAt（单行排版即 TextLayoutResult）
 // ═══════════════════════════════════════════════════════════════════════════
-size_t Input::hitOffset(float globalX, float globalY) {
+std::size_t Input::hitOffset(float globalX, float globalY) {
     DispatchEvent probe;    // tapCursorByte 只读坐标载荷
     probe.globalX = globalX;
     probe.globalY = globalY;
     return tapCursorByte(probe);
 }
 
-std::vector<Rect> Input::selectionRects(size_t startOff, size_t endOff) {
+std::vector<Rect> Input::selectionRects(std::size_t startOff, std::size_t endOff) {
     std::vector<Rect> out;
     startOff = clampToUtf8Boundary(text_, startOff);
     endOff = clampToUtf8Boundary(text_, endOff);
@@ -805,7 +802,7 @@ std::vector<Rect> Input::selectionRects(size_t startOff, size_t endOff) {
     return out;
 }
 
-std::string Input::selectedBytes(size_t startOff, size_t endOff) {
+std::string Input::selectedBytes(std::size_t startOff, std::size_t endOff) {
     startOff = clampToUtf8Boundary(text_, startOff);
     endOff = clampToUtf8Boundary(text_, endOff);
     if (startOff >= endOff) return {};

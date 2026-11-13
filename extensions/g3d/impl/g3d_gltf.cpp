@@ -36,12 +36,12 @@ bool readVec3Attr(const fastgltf::Asset &asset, const fastgltf::Primitive &prim,
         const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
         if (!arr) return false;
 
-        const uint8_t *base =
-            reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
-        size_t stride = bv.byteStride ? *bv.byteStride : 3 * sizeof(float);
+        const std::uint8_t *base =
+            reinterpret_cast<const std::uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
+        std::size_t stride = bv.byteStride ? *bv.byteStride : 3 * sizeof(float);
 
         out.resize(accessor.count);
-        for (size_t i = 0; i < accessor.count; i++) {
+        for (std::size_t i = 0; i < accessor.count; i++) {
             const float *v = reinterpret_cast<const float *>(base + i * stride);
             out[i] = {v[0], v[1], v[2]};
         }
@@ -66,12 +66,12 @@ bool readVec2Attr(const fastgltf::Asset &asset, const fastgltf::Primitive &prim,
         const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
         if (!arr) return false;
 
-        const uint8_t *base =
-            reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
-        size_t stride = bv.byteStride ? *bv.byteStride : 2 * sizeof(float);
+        const std::uint8_t *base =
+            reinterpret_cast<const std::uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
+        std::size_t stride = bv.byteStride ? *bv.byteStride : 2 * sizeof(float);
 
         out.resize(accessor.count);
-        for (size_t i = 0; i < accessor.count; i++) {
+        for (std::size_t i = 0; i < accessor.count; i++) {
             const float *v = reinterpret_cast<const float *>(base + i * stride);
             out[i] = {v[0], v[1]};
         }
@@ -81,7 +81,7 @@ bool readVec2Attr(const fastgltf::Asset &asset, const fastgltf::Primitive &prim,
 }
 
 // ── 读取索引 (UNSIGNED_SHORT / UNSIGNED_INT) ─────────────────
-bool readIndices(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, std::vector<uint32_t> &out) {
+bool readIndices(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, std::vector<std::uint32_t> &out) {
     if (!prim.indicesAccessor) return false;
     const auto &accessor = asset.accessors[*prim.indicesAccessor];
     if (!accessor.bufferViewIndex) return false;
@@ -91,16 +91,16 @@ bool readIndices(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, 
     const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
     if (!arr) return false;
 
-    const uint8_t *base = reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
-    size_t elem = (accessor.componentType == fastgltf::ComponentType::UnsignedShort) ? 2 : 4;
-    size_t stride = bv.byteStride ? *bv.byteStride : elem;
+    const std::uint8_t *base = reinterpret_cast<const std::uint8_t *>(arr->bytes.data()) + bv.byteOffset + accessor.byteOffset;
+    std::size_t elem = (accessor.componentType == fastgltf::ComponentType::UnsignedShort) ? 2 : 4;
+    std::size_t stride = bv.byteStride ? *bv.byteStride : elem;
 
     out.resize(accessor.count);
-    for (size_t i = 0; i < accessor.count; i++) {
+    for (std::size_t i = 0; i < accessor.count; i++) {
         if (accessor.componentType == fastgltf::ComponentType::UnsignedShort)
-            out[i] = *reinterpret_cast<const uint16_t *>(base + i * stride);
+            out[i] = *reinterpret_cast<const std::uint16_t *>(base + i * stride);
         else if (accessor.componentType == fastgltf::ComponentType::UnsignedInt)
-            out[i] = *reinterpret_cast<const uint32_t *>(base + i * stride);
+            out[i] = *reinterpret_cast<const std::uint32_t *>(base + i * stride);
         else
             return false;
     }
@@ -108,8 +108,8 @@ bool readIndices(const fastgltf::Asset &asset, const fastgltf::Primitive &prim, 
 }
 
 // ── 重算自 start 起每 3 个顶点的平直法线 (模型未提供 NORMAL 时) ──
-void recomputeFlatNormals(std::vector<G3DVertex> &v, size_t start) {
-    for (size_t i = start; i + 2 < v.size(); i += 3) {
+void recomputeFlatNormals(std::vector<G3DVertex> &v, std::size_t start) {
+    for (std::size_t i = start; i + 2 < v.size(); i += 3) {
         G3DVertex &a = v[i], &b = v[i + 1], &c = v[i + 2];
         float ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
         float wx = c.x - a.x, wy = c.y - a.y, wz = c.z - a.z;
@@ -145,9 +145,9 @@ void extractMaterial(const fastgltf::Asset &asset, const fastgltf::Primitive &pr
 // ── 读取一个 glTF image 的原始编码字节 (PNG/JPG, 由扩展层 stb 解码) ──
 // DataSource 变体: Array(已装载) / BufferView(GLB 内嵌) / URI(外部文件回退)
 bool loadImageBytes(const fastgltf::Asset &asset, const fastgltf::Image &img, const std::filesystem::path &baseDir,
-                    std::vector<uint8_t> &out) {
+                    std::vector<std::uint8_t> &out) {
     if (const auto *arr = std::get_if<fastgltf::sources::Array>(&img.data)) {
-        const auto *b = reinterpret_cast<const uint8_t *>(arr->bytes.data());
+        const auto *b = reinterpret_cast<const std::uint8_t *>(arr->bytes.data());
         out.assign(b, b + arr->bytes.size());
         return true;
     }
@@ -156,7 +156,7 @@ bool loadImageBytes(const fastgltf::Asset &asset, const fastgltf::Image &img, co
         const auto &buf = asset.buffers[bv.bufferIndex];
         const auto *arr = std::get_if<fastgltf::sources::Array>(&buf.data);
         if (!arr) return false;
-        const auto *base = reinterpret_cast<const uint8_t *>(arr->bytes.data()) + bv.byteOffset;
+        const auto *base = reinterpret_cast<const std::uint8_t *>(arr->bytes.data()) + bv.byteOffset;
         out.assign(base, base + bv.byteLength);
         return true;
     }
@@ -192,11 +192,11 @@ void buildMeshVertices(const fastgltf::Asset &asset, const fastgltf::Mesh &mesh,
             materialTaken = true;
         }
 
-        std::vector<uint32_t> idx;
+        std::vector<std::uint32_t> idx;
         bool hasIdx = readIndices(asset, prim, idx);
-        size_t start = out.vertices.size();
+        std::size_t start = out.vertices.size();
 
-        auto emit = [&](uint32_t i) {
+        auto emit = [&](std::uint32_t i) {
             G3DVertex v;
             v.x = pos[i][0];
             v.y = pos[i][1];
@@ -209,9 +209,9 @@ void buildMeshVertices(const fastgltf::Asset &asset, const fastgltf::Mesh &mesh,
             out.vertices.push_back(v);
         };
         if (hasIdx) {
-            for (uint32_t i : idx) emit(i);
+            for (std::uint32_t i : idx) emit(i);
         } else {
-            for (size_t i = 0; i < pos.size(); i++) emit(static_cast<uint32_t>(i));
+            for (std::size_t i = 0; i < pos.size(); i++) emit(static_cast<std::uint32_t>(i));
         }
         if (!hasNormal) recomputeFlatNormals(out.vertices, start);
     }
@@ -264,7 +264,7 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
         return false;
     }
 
-    std::fprintf(stderr, "[GLTF] meshes=%zu nodes=%zu accessors=%zu buffers=%zu images=%zu\n", asset.get().meshes.size(),
+    fprintf(stderr, "[GLTF] meshes=%zu nodes=%zu accessors=%zu buffers=%zu images=%zu\n", asset.get().meshes.size(),
                  asset.get().nodes.size(), asset.get().accessors.size(), asset.get().buffers.size(),
                  asset.get().images.size());
 
@@ -273,7 +273,7 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
     for (const auto &img : asset.get().images) {
         G3DImage gi;
         if (loadImageBytes(asset.get(), img, p.parent_path(), gi.encoded))
-            std::fprintf(stderr, "[GLTF] image[%zu] bytes=%zu\n", out.images.size(), gi.encoded.size());
+            fprintf(stderr, "[GLTF] image[%zu] bytes=%zu\n", out.images.size(), gi.encoded.size());
         out.images.push_back(std::move(gi));
     }
 
@@ -290,7 +290,7 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
         for (auto childIdx : node.children) hasParent[childIdx] = 1;
 
     out.root = G3DModel::G3DNode{};
-    for (size_t i = 0; i < asset.get().nodes.size(); i++) {
+    for (std::size_t i = 0; i < asset.get().nodes.size(); i++) {
         if (!hasParent[i]) {
             out.root.children.emplace_back();
             buildNode(asset.get(), asset.get().nodes[i], out.root.children.back());
@@ -302,11 +302,11 @@ bool g3dLoadFromFile(const char *path, G3DModel &out, std::string &error) {
 // ============================================================================
 // g3dDecodeImage — stb 解码 (RGBA) — 传统 TU 内实现, 供 module TU 调用
 // ============================================================================
-bool g3dDecodeImage(const uint8_t *encoded, size_t size, std::vector<uint8_t> &rgba, int &w, int &h) {
+bool g3dDecodeImage(const std::uint8_t *encoded, std::size_t size, std::vector<std::uint8_t> &rgba, int &w, int &h) {
     int channels = 0;
     unsigned char *data = stbi_load_from_memory(encoded, static_cast<int>(size), &w, &h, &channels, 4);    // 强制 RGBA
     if (!data) return false;
-    rgba.assign(data, data + static_cast<size_t>(w) * h * 4);
+    rgba.assign(data, data + static_cast<std::size_t>(w) * h * 4);
     stbi_image_free(data);
     return true;
 }

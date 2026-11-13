@@ -4,7 +4,6 @@
 // VK_MVK_ios_surface），软件路径不做。接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.ios_window;
 
@@ -73,7 +72,7 @@ void PlatformWindowIOS::SetShape(const std::vector<std::pair<int, int>> &polygon
     (void)polygon;    // 不可表达
 }
 
-void PlatformWindowIOS::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowIOS::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

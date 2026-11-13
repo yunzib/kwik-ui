@@ -7,7 +7,8 @@
 // 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
-#include <cstring>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.layout.radio_group;
 
 import kwik.element.view;
@@ -75,13 +76,13 @@ bool RadioGroup::onEvent(const DispatchEvent &event) {
 // getProperty — getProp("grpSize", "selected") 支持
 // ============================================================================
 std::string RadioGroup::getProperty(const char *name) const {
-    if (std::strcmp(name, "selected") == 0) { return group_.selected; }
+    if (strcmp(name, "selected") == 0) { return group_.selected; }
     return View::getProperty(name);
 }
 
 
 bool RadioGroup::setPropertyTyped(const char* name, const TypedProp& value) {
-    if (std::strcmp(name, "selected") == 0) {
+    if (strcmp(name, "selected") == 0) {
         if (auto* s = std::get_if<std::string>(&value)) {
             if (group_.selected == *s) return true;
             group_.selected = *s;

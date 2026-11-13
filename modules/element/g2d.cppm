@@ -20,13 +20,6 @@
  * @endcode
  */
 
-module;
-
-#include <string>
-#include <vector>
-#include <functional>
-#include <cmath>
-
 export module kwik.element.g2d;
 
 import kwik.element.view;
@@ -132,7 +125,7 @@ public:
     void save();
     void restore();
 
-    void drawImage(uint32_t textureId, float x, float y, float w, float h);
+    void drawImage(std::uint32_t textureId, float x, float y, float w, float h);
 
     // ─── P0 新增：文本 / 变换（Canvas 常用子集补齐）───
     /// 绘制文本（x,y = 文本包围盒左上角；fontSize 缺省 14；走 TextRenderPipeline
@@ -190,7 +183,7 @@ private:
     struct FillPathC { Path p; Color c; };
     struct StrokePathC { Path p; Color c; float lw; };
     struct StrokeRingC { float cx, cy, r, a0, a1; Color c; float lw; };    // 单弧描边 → Ring SDF（像素级圆弧）
-    struct DrawImageC { uint32_t tex; Rect r; float alpha; };
+    struct DrawImageC { std::uint32_t tex; Rect r; float alpha; };
     struct FillTextC { std::string text; float x, y, fontSize; Color c; };
     struct TranslateC { float dx, dy; };
     struct RotateC { float angleDeg; };

@@ -1,8 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-
 export module kwik.element.progressring;
 
 import kwik.element.view;

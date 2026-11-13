@@ -12,7 +12,7 @@ module kwik.engine.js_value;
         return static_cast<float>(d);
     }
     int JSValueRef::toInt() const {
-        int32_t i;
+        std::int32_t i;
         JS_ToInt32(context_, &i, value_);
         return i;
     }
@@ -43,7 +43,7 @@ module kwik.engine.js_value;
         return lenProp.toInt();
     }
     JSValueRef JSValueRef::getArrayElement(int index) const {
-        auto atom = JS_NewAtomUInt32(context_, static_cast<uint32_t>(index));
+        auto atom = JS_NewAtomUInt32(context_, static_cast<std::uint32_t>(index));
         auto val = JS_GetProperty(context_, value_, atom);
         JS_FreeAtom(context_, atom);
         return JSValueRef(context_, val);

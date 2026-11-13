@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <hb.h>
 #include <hb-ft.h>
@@ -44,7 +59,7 @@ TextShaper::TextShaper(FontManager &fontManager) : fontManager_(fontManager) {}
 //   行首禁则：闭标点类（句读/收引号/收括号/中点/省略破折），不可居行首
 //   行尾禁则：开括号类（开引号/开括号），不可居行尾
 // ═══════════════════════════════════════════════════════════════════════════
-static bool isKinsokuNoLineStart(uint32_t cp) {
+static bool isKinsokuNoLineStart(std::uint32_t cp) {
     switch (cp) {
     case 0x3001: case 0x3002:                                                // 、。
     case 0xFF01: case 0xFF0C: case 0xFF0E: case 0xFF1A: case 0xFF1B: case 0xFF1F:    // ！，．：；？
@@ -58,7 +73,7 @@ static bool isKinsokuNoLineStart(uint32_t cp) {
         return false;
     }
 }
-static bool isKinsokuNoLineEnd(uint32_t cp) {
+static bool isKinsokuNoLineEnd(std::uint32_t cp) {
     switch (cp) {
     case 0xFF08: case 0xFF3B: case 0xFF5B:                                   // （［｛
     case 0x3010: case 0x3014: case 0x3008: case 0x300A: case 0x300C: case 0x300E:    // 【〔〈《「『
@@ -104,7 +119,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
 
     float cursorX = 0.0f, cursorY = 0.0f;
     // ── Helper: 从 UTF-8 提取单个 Unicode 码点 ──
-    auto decodeUtf8Cp = [](const char *s, int offset) -> uint32_t {
+    auto decodeUtf8Cp = [](const char *s, int offset) -> std::uint32_t {
         const unsigned char *p = (const unsigned char *)s + offset;
         if ((*p & 0x80) == 0) return *p;
         if ((*p & 0xE0) == 0xC0) return ((*p & 0x1Fu) << 6) | (p[1] & 0x3Fu);
@@ -112,7 +127,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         return ((*p & 0x07u) << 18) | ((p[1] & 0x3Fu) << 12) | ((p[2] & 0x3Fu) << 6) | (p[3] & 0x3Fu);
     };
     // ── Helper: 码点的 UTF-8 字节长（按首字节；调用方保证 offset 落在码点首） ──
-    auto decodeUtf8Len = [](const char *s, int offset) -> uint8_t {
+    auto decodeUtf8Len = [](const char *s, int offset) -> std::uint8_t {
         unsigned char c = (unsigned char)s[offset];
         if ((c & 0x80) == 0) return 1;
         if ((c & 0xE0) == 0xC0) return 2;
@@ -121,7 +136,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
     };
 
     for (unsigned int i = 0; i < glyphCount; i++) {
-        const uint32_t gid = glyphInfo[i].codepoint;
+        const std::uint32_t gid = glyphInfo[i].codepoint;
         const float xOff = static_cast<float>(glyphPos[i].x_offset) / 64.0f;
         const float yOff = static_cast<float>(glyphPos[i].y_offset) / 64.0f;
         const float xAdv = static_cast<float>(glyphPos[i].x_advance) / 64.0f;
@@ -136,8 +151,8 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         //   \n → 发 isNewline 标记字形（advance 0，渲染管线跳过、不占宽）
         //   \r → 直接吞掉（CRLF 由随后的 \n 断行；孤立 CR 无渲染语义，
         //        旧实现里它是带步进的空字形，白白占横向空间）
-        if (glyphInfo[i].cluster < UINT32_MAX) {
-            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+        if (glyphInfo[i].cluster < std::numeric_limits<std::uint32_t>::max()) {
+            std::uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
             if (cp == '\n' || cp == '\r') {
                 if (cp == '\n') {
                     ShapedGlyph sg;
@@ -154,11 +169,11 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         }
 
         FontId activeFont = fontId;
-        uint32_t activeGid = gid;
+        std::uint32_t activeGid = gid;
 
         // 字体回退: 主字体缺少该字形 → 查询 fallback 字体
-        if (gid == 0 && glyphInfo[i].cluster < UINT32_MAX) {
-            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+        if (gid == 0 && glyphInfo[i].cluster < std::numeric_limits<std::uint32_t>::max()) {
+            std::uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
             FontId fbFont = fontManager_.resolveForCodepoint(fontId, cp);
             if (fbFont != fontId && fbFont != kInvalidFontId) {
                 auto *fbFace = fontManager_.getFace(fbFont);
@@ -240,7 +255,7 @@ auto TextShaper::shapeText(FontId fontId, const char *text, float fontSize, floa
         sg.cluster = glyphInfo[i].cluster;
         // 码点字节长 + 禁则标记（断行回溯/修剪的判定数据，见 text_layout）
         {
-            uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
+            std::uint32_t cp = decodeUtf8Cp(text, (int)glyphInfo[i].cluster);
             sg.numBytes = decodeUtf8Len(text, (int)glyphInfo[i].cluster);
             sg.isSpace = (cp == 0x20 || cp == 0x3000);
             sg.noLineStart = isKinsokuNoLineStart(cp);

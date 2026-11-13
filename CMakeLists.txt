@@ -41,18 +41,49 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffunction-sections -fdata-sections"
     CACHE STRING "")
 set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG -ffunction-sections -fdata-sections"
     CACHE STRING "")
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+# IPO(LTO)：Clang 全档启用；GNU 16 暂关——全局 IPO 使 vendored 三方归档同为
+# LTO 对象，与 COFF 成员混合时 lto1 报 "COFF object format mismatch"
+# （harfbuzz 实测）。挂任务清单跟踪，根因明确后 GNU 再开
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL FALSE)
+else()
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+endif()
+# ── GCC 运行时静态链接：保持单 exe 分发 ──
+# niXman GCC 默认动态链 libstdc++-6.dll/libgcc_s_seh-1.dll/libwinpthread-1.dll；
+# 仅 static-libgcc/libstdc++ 不够——libwinpthread-1.dll 仍动态，运行时 PATH
+# 撞上旧版（缺 clock_gettime64 入口点，0xc0000139）。-static 将三者全内嵌
+# （系统 DLL kernel32 等与 Vulkan-1 为导入库不受影响）；llvm-mingw Clang
+# 本就默认静态运行时，勿加此类旗标（libc++ 无此选项，加了反告警）
 add_link_options(
-    "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:Clang>>:LINKER:--gc-sections>"
+    "$<$<CXX_COMPILER_ID:GNU>:-static>"
+    # GCC16 模块+PE：模块接口的 inline 函数局部静态（shared_ptr __tag 等）
+    # 在 BMI 消费者 obj 中重复实例化为强符号 → 多定义。同一实体语义安全，
+    # 先放行保 spike（挂任务清单跟踪根因）
+    "$<$<CXX_COMPILER_ID:GNU>:-Wl,--allow-multiple-definition>"
+)
+
+# std::print 运行时（print.cc 的 __open_terminal 等）自 GCC15 拆入 libstdc++exp.a，
+# g++ 默认不链。link_libraries 使其位于链接行对象/库区之后（GNU ld 归档按需
+# 拉入依赖出现顺序——add_link_options 会排在对象之前导致永不拉入）
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    link_libraries(stdc++exp)
+endif()
+
+# ── 死代码裁剪（Release/MinSizeRel 配合 -ffunction-sections）──
+add_link_options(
+    "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:Clang,GNU>>:LINKER:--gc-sections>"
 )
 # ── MinSizeRel flags ─────────────────────────────────────
 set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -DNDEBUG -ffunction-sections -fdata-sections"
     CACHE STRING "")
 set(CMAKE_C_FLAGS_MINSIZEREL   "-Os -DNDEBUG -ffunction-sections -fdata-sections"
     CACHE STRING "")
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+# MINSIZEREL 的 IPO 已随上方 GNU/Clang 分支统一设置
 add_link_options(
-    "$<$<AND:$<CONFIG:MinSizeRel>,$<CXX_COMPILER_ID:Clang>>:LINKER:--gc-sections>"
+    "$<$<AND:$<CONFIG:MinSizeRel>,$<CXX_COMPILER_ID:Clang,GNU>>:LINKER:--gc-sections>"
 )
 
 
@@ -65,8 +96,17 @@ add_link_options(
 #
 # -fno-aligned-allocation 禁止编译器生成 aligned 重载调用，
 # 回退到普通 operator new(size_t)，对齐由标准库内部保证。
-if(MINGW AND CMAKE_CXX_STANDARD GREATER_EQUAL 26)
+# 仅 llvm-mingw 的 libc++ 需要此 workaround；GCC/libstdc++ 不受
+# 该 issue 影响，误开反而禁用正常对齐分配路径。
+if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_STANDARD GREATER_EQUAL 26)
     add_compile_options(-fno-aligned-allocation)
+endif()
+
+# ── Windows API 基线：显式 Win10 ──
+# llvm-mingw 头默认基线较新（此前无需显式定义）；经典 mingw-w64 头（GCC）
+# 默认基线偏低，需显式声明才暴露 GetDpiForWindow / WM_DPICHANGED 等 API
+if(WIN32)
+    add_compile_definitions(_WIN32_WINNT=0x0A00 WINVER=0x0A00)
 endif()
 
 # ── 构建工具（始终构建）──

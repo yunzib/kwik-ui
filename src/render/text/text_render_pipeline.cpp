@@ -6,8 +6,6 @@
  * ensureGlyphs: 遍历 result.glyphs 逐字形确保图集就绪
  */
 module;
-#include <memory>
-#include <cmath>
 
 module kwik.render.text.pipeline;
 

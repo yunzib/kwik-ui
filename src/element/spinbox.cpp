@@ -18,10 +18,8 @@
 //          → 消除 hover 时箭头消失
 // ============================================================================
 module;
-#include <algorithm>
-#include <cstdlib>
-#include <charconv>
-#include <string>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.spinbox;
 import kwik.element.view;
@@ -298,10 +296,10 @@ void SpinBox::fireChange() {
 // getProperty / setProperty / setPropertyTyped
 // ============================================================================
 std::string SpinBox::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) return fmtNum(sp_.value);
-    if (std::strcmp(name, "min") == 0) return sp_.min ? fmtNum(*sp_.min) : "";
-    if (std::strcmp(name, "max") == 0) return sp_.max ? fmtNum(*sp_.max) : "";
-    if (std::strcmp(name, "step") == 0) return sp_.step ? fmtNum(*sp_.step) : "";
+    if (strcmp(name, "value") == 0) return fmtNum(sp_.value);
+    if (strcmp(name, "min") == 0) return sp_.min ? fmtNum(*sp_.min) : "";
+    if (strcmp(name, "max") == 0) return sp_.max ? fmtNum(*sp_.max) : "";
+    if (strcmp(name, "step") == 0) return sp_.step ? fmtNum(*sp_.step) : "";
     return View::getProperty(name);
 }
 
@@ -311,7 +309,7 @@ std::string SpinBox::getProperty(const char *name) const {
 bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
 	// value：增量路径 double 直达；命令式路径 string/int64/double 宽容提取；
 	// clamp 后经 syncFieldText 同步输入框文本（自旧字符串版平移）
-	if (std::strcmp(name, "value") == 0) {
+	if (strcmp(name, "value") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
 		sp_.value = clampValue(*v);
@@ -320,11 +318,11 @@ bool SpinBox::setPropertyTyped(const char *name, const TypedProp &value) {
 		return true;
 	}
     // min/max/step：自旧字符串版平移（typed 原缺失）
-	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0 || std::strcmp(name, "step") == 0) {
+	if (strcmp(name, "min") == 0 || strcmp(name, "max") == 0 || strcmp(name, "step") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
-		if (std::strcmp(name, "min") == 0) { sp_.min = *v; }
-		else if (std::strcmp(name, "max") == 0) { sp_.max = *v; }
+		if (strcmp(name, "min") == 0) { sp_.min = *v; }
+		else if (strcmp(name, "max") == 0) { sp_.max = *v; }
 		else { sp_.step = *v; }
 		// 约束命令式变更：与 applySpinBoxProps 同口径——推送内部字段并重夹当前值
 		if (field_) { field_->setNumberConstraints(sp_.min, sp_.max, sp_.step); }

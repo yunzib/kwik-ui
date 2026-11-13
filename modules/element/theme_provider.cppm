@@ -6,10 +6,8 @@
  * 其唯一职责是在 View 树中占据一个节点，
  * 使子树内的 View::theme() 沿 parent_ 向上遍历时返回其 ThemeData。
  */
-module;
-#include <memory>
-
 export module kwik.element.theme_provider;
+import std;
 
 import kwik.element.view;
 import kwik.core.types;

@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
 #if defined(_WIN32)
 #include <Windows.h>
@@ -7,8 +22,8 @@ module;
 #include <vulkan/vulkan_xlib.h>
 #include <X11/Xlib.h>
 #endif
-#include <cstring>
-#include <algorithm>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.render.vulkan.context;
 import std;
 import kwik.core.types;
@@ -16,8 +31,8 @@ import kwik.core.log;
 // ── 单位四边形（所有管线复用）──────────────────────────────────
 namespace {
 const float kQuadVertices[] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
-const uint16_t kQuadIndices[] = {0, 1, 2, 0, 2, 3};
-constexpr uint32_t MAX_FRAMES_IN_FLIGHT = VulkanContext::kMaxFramesInFlight;    // 别名到导出常量（唯一事实源）
+const std::uint16_t kQuadIndices[] = {0, 1, 2, 0, 2, 3};
+constexpr std::uint32_t MAX_FRAMES_IN_FLIGHT = VulkanContext::kMaxFramesInFlight;    // 别名到导出常量（唯一事实源）
 }    // namespace
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -194,19 +209,19 @@ bool VulkanContext::resize(int w, int h) {
     }
 
     // ── ③ 短路：以 surface 真实尺寸为准（而非事件参数，事件可能滞后）──
-    //    currentExtent 为 UINT32_MAX 表示由 swapchain 决定（Win32 不会出现），此时退回事件尺寸比较。
+    //    currentExtent 为 std::numeric_limits<std::uint32_t>::max() 表示由 swapchain 决定（Win32 不会出现），此时退回事件尺寸比较。
     //    链缺失（上次失败遗留）时跳过短路必重建——extent 匹配不代表链存在
-    const bool extentDefined = caps.currentExtent.width != UINT32_MAX;
-    const uint32_t targetW = extentDefined ? caps.currentExtent.width : static_cast<uint32_t>(w);
-    const uint32_t targetH = extentDefined ? caps.currentExtent.height : static_cast<uint32_t>(h);
+    const bool extentDefined = caps.currentExtent.width != std::numeric_limits<std::uint32_t>::max();
+    const std::uint32_t targetW = extentDefined ? caps.currentExtent.width : static_cast<std::uint32_t>(w);
+    const std::uint32_t targetH = extentDefined ? caps.currentExtent.height : static_cast<std::uint32_t>(h);
     if (swapchain_ != VK_NULL_HANDLE && swapchainExtent_.width == targetW && swapchainExtent_.height == targetH) {
         Log::debug("resize: extent unchanged {}x{} (event {}x{}), skip", swapchainExtent_.width,
                    swapchainExtent_.height, w, h, std::source_location::current());
         return true;
     }
 
-    const uint32_t oldW = swapchainExtent_.width;
-    const uint32_t oldH = swapchainExtent_.height;
+    const std::uint32_t oldW = swapchainExtent_.width;
+    const std::uint32_t oldH = swapchainExtent_.height;
 
     vkDeviceWaitIdle(vkDevice_);
 
@@ -270,18 +285,18 @@ bool VulkanContext::createInstance(void *nativeHandle) {
     ext.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     VkInstanceCreateInfo ci{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     ci.pApplicationInfo = &app;
-    ci.enabledExtensionCount = (uint32_t)ext.size();
+    ci.enabledExtensionCount = (std::uint32_t)ext.size();
     ci.ppEnabledExtensionNames = ext.data();
 
     // 条件启用 validation layer
     const char *validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
-    uint32_t layerCount;
+    std::uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
     std::vector<VkLayerProperties> available(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, available.data());
     bool hasValidation = false;
     for (auto &l : available) {
-        if (std::strcmp(l.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+        if (strcmp(l.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
             hasValidation = true;
             break;
         }
@@ -302,7 +317,7 @@ bool VulkanContext::createInstance(void *nativeHandle) {
     VkResult instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);
     if (instResult == VK_ERROR_EXTENSION_NOT_PRESENT) {
         ext.pop_back();    // 去掉 VK_EXT_debug_utils
-        ci.enabledExtensionCount = (uint32_t)ext.size();
+        ci.enabledExtensionCount = (std::uint32_t)ext.size();
         instResult = vkCreateInstance(&ci, nullptr, &vkInstance_);
     }
     if (instResult != VK_SUCCESS) return false;
@@ -345,17 +360,17 @@ bool VulkanContext::createInstance(void *nativeHandle) {
 // pickPhysicalDevice — 选取第一个满足条件的 GPU
 // ================================================================
 bool VulkanContext::pickPhysicalDevice() {
-    uint32_t n = 0;
+    std::uint32_t n = 0;
     vkEnumeratePhysicalDevices(vkInstance_, &n, nullptr);
     if (n == 0) return false;
     std::vector<VkPhysicalDevice> devs(n);
     vkEnumeratePhysicalDevices(vkInstance_, &n, devs.data());
     vkPhysicalDevice_ = devs[0];
-    uint32_t fn = 0;
+    std::uint32_t fn = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice_, &fn, nullptr);
     std::vector<VkQueueFamilyProperties> fams(fn);
     vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice_, &fn, fams.data());
-    for (uint32_t i = 0; i < fn; i++) {
+    for (std::uint32_t i = 0; i < fn; i++) {
         if (fams[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             VkBool32 present = VK_FALSE;
             vkGetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice_, i, vkSurface_, &present);
@@ -381,12 +396,12 @@ bool VulkanContext::createLogicalDevice() {
     bool hostImport = false;
     {
         const char *off = std::getenv("KWIK_VK_NO_HOST_IMPORT");
-        uint32_t n = 0;
+        std::uint32_t n = 0;
         vkEnumerateDeviceExtensionProperties(vkPhysicalDevice_, nullptr, &n, nullptr);
         std::vector<VkExtensionProperties> props(n);
         vkEnumerateDeviceExtensionProperties(vkPhysicalDevice_, nullptr, &n, props.data());
         for (const auto &p : props)
-            if (std::strcmp(p.extensionName, VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME) == 0) hostImport = true;
+            if (strcmp(p.extensionName, VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME) == 0) hostImport = true;
         if (off && off[0] == '1') hostImport = false;
         if (hostImport) {
             // 拷贝源缓冲（TRANSFER_SRC）须支持宿主分配句柄的导入——规范要求先查能力
@@ -410,7 +425,7 @@ bool VulkanContext::createLogicalDevice() {
     VkDeviceCreateInfo di{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     di.queueCreateInfoCount = 1;
     di.pQueueCreateInfos = &qi;
-    di.enabledExtensionCount = static_cast<uint32_t>(exts.size());
+    di.enabledExtensionCount = static_cast<std::uint32_t>(exts.size());
     di.ppEnabledExtensionNames = exts.data();
     di.pEnabledFeatures = &enabled;
     if (vkCreateDevice(vkPhysicalDevice_, &di, nullptr, &vkDevice_) != VK_SUCCESS) return false;
@@ -452,7 +467,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
         return std::nullopt;
     }
     // ── ① 等待当前帧槽完成 ──
-    VkResult fenceWait = vkWaitForFences(vkDevice_, 1, &inFlightFences_[frameIndex_], VK_TRUE, UINT64_MAX);
+    VkResult fenceWait = vkWaitForFences(vkDevice_, 1, &inFlightFences_[frameIndex_], VK_TRUE, std::numeric_limits<std::uint64_t>::max());
     if (fenceWait != VK_SUCCESS) {
         Log::error("beginFrame: vkWaitForFences failed: {}", static_cast<int>(fenceWait),
                    std::source_location::current());
@@ -460,7 +475,7 @@ std::optional<FrameToken> VulkanContext::beginFrame() {
     }
 
     // ── ② 获取 swapchain 图像 ──
-    VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[frameIndex_],
+    VkResult r = vkAcquireNextImageKHR(vkDevice_, swapchain_, std::numeric_limits<std::uint64_t>::max(), imageAvailableSemaphores_[frameIndex_],
                                        VK_NULL_HANDLE, &currentImageIndex_);
     Log::info("[Ctx] acquire result={} image={}", static_cast<int>(r), currentImageIndex_);
 
@@ -648,9 +663,9 @@ void VulkanContext::endFrame() {
     // ────────────────────────────────────────────────
     // ⑤ 默认: 全量拷贝参数(覆盖整个 Canvas/Swapchain)
     // ────────────────────────────────────────────────
-    uint32_t sx = 0, sy = 0;
-    uint32_t sw = swapchainExtent_.width;
-    uint32_t sh = swapchainExtent_.height;
+    std::uint32_t sx = 0, sy = 0;
+    std::uint32_t sw = swapchainExtent_.width;
+    std::uint32_t sh = swapchainExtent_.height;
 
     // ────────────────────────────────────────────────
     // ⑥ 增量拷贝: 从累积脏区提取拷贝子区域
@@ -659,10 +674,10 @@ void VulkanContext::endFrame() {
     //    → vkCmdCopyImage 只传输这个子区域的像素
     // ────────────────────────────────────────────────
     if (!fullCopy) {
-        sx = (uint32_t)std::max(0.0f, accumulated.x);
-        sy = (uint32_t)std::max(0.0f, accumulated.y);
-        sw = std::min((uint32_t)accumulated.width, swapchainExtent_.width - sx);
-        sh = std::min((uint32_t)accumulated.height, swapchainExtent_.height - sy);
+        sx = (std::uint32_t)std::max(0.0f, accumulated.x);
+        sy = (std::uint32_t)std::max(0.0f, accumulated.y);
+        sw = std::min((std::uint32_t)accumulated.width, swapchainExtent_.width - sx);
+        sh = std::min((std::uint32_t)accumulated.height, swapchainExtent_.height - sy);
         sw = std::max(1u, sw);    // Vulkan 禁止 0 尺寸 extent
         sh = std::max(1u, sh);
     }
@@ -678,8 +693,8 @@ void VulkanContext::endFrame() {
     VkImageCopy copyRegion{};
     copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copyRegion.srcOffset = {(int32_t)sx, (int32_t)sy, 0};
-    copyRegion.dstOffset = {(int32_t)sx, (int32_t)sy, 0};
+    copyRegion.srcOffset = {(std::int32_t)sx, (std::int32_t)sy, 0};
+    copyRegion.dstOffset = {(std::int32_t)sx, (std::int32_t)sy, 0};
     copyRegion.extent = {sw, sh, 1};
 
     // ────────────────────────────────────────────────
@@ -744,7 +759,7 @@ bool VulkanContext::present() {
                    std::source_location::current());
         // 恢复槽位不变量：本帧 fence 已在 beginFrame reset、imageAvailable 已被
         // acquire signal——失败帧无提交者，轮转回本槽时 vkWaitForFences
-        // (UINT64_MAX) 将永久阻塞；且已 signal 的信号量复用给下轮 acquire
+        // (std::numeric_limits<std::uint64_t>::max()) 将永久阻塞；且已 signal 的信号量复用给下轮 acquire
         // 属未定义行为。空提交等掉信号量并 signal fence。
         VkSubmitInfo recovery{VK_STRUCTURE_TYPE_SUBMIT_INFO};
         VkPipelineStageFlags recoveryStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -787,7 +802,7 @@ bool VulkanContext::present() {
 bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice_, vkSurface_, &caps);
-    uint32_t fmtCount;
+    std::uint32_t fmtCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &fmtCount, nullptr);
     std::vector<VkSurfaceFormatKHR> fmts(fmtCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice_, vkSurface_, &fmtCount, fmts.data());
@@ -800,7 +815,7 @@ bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
             break;
         }
     }
-    uint32_t pmCount;
+    std::uint32_t pmCount;
     vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice_, vkSurface_, &pmCount, nullptr);
     std::vector<VkPresentModeKHR> pms(pmCount);
     vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice_, vkSurface_, &pmCount, pms.data());
@@ -811,14 +826,14 @@ bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
             break;
         }
     }
-    if (caps.currentExtent.width != UINT32_MAX)
+    if (caps.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
         swapchainExtent_ = caps.currentExtent;
     else
         swapchainExtent_ = {
-            std::clamp((uint32_t)swapchainExtent_.width, caps.minImageExtent.width, caps.maxImageExtent.width),
-            std::clamp((uint32_t)swapchainExtent_.height, caps.minImageExtent.height, caps.maxImageExtent.height)};
+            std::clamp((std::uint32_t)swapchainExtent_.width, caps.minImageExtent.width, caps.maxImageExtent.width),
+            std::clamp((std::uint32_t)swapchainExtent_.height, caps.minImageExtent.height, caps.maxImageExtent.height)};
 
-    uint32_t imgCount = caps.minImageCount + 1;
+    std::uint32_t imgCount = caps.minImageCount + 1;
     if (caps.maxImageCount > 0 && imgCount > caps.maxImageCount) imgCount = caps.maxImageCount;
     if (imgCount < 3) imgCount = 3;
 
@@ -837,7 +852,7 @@ bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
     sci.clipped = VK_TRUE;
     sci.oldSwapchain = oldSwapchain;
     if (vkCreateSwapchainKHR(vkDevice_, &sci, nullptr, &swapchain_) != VK_SUCCESS) return false;
-    uint32_t n;
+    std::uint32_t n;
     vkGetSwapchainImagesKHR(vkDevice_, swapchain_, &n, nullptr);
     swapchainImages_.resize(n);
 
@@ -846,7 +861,7 @@ bool VulkanContext::createSwapchain(VkSwapchainKHR oldSwapchain) {
 
     vkGetSwapchainImagesKHR(vkDevice_, swapchain_, &n, swapchainImages_.data());
     swapchainImageViews_.resize(n);
-    for (uint32_t i = 0; i < n; i++) {
+    for (std::uint32_t i = 0; i < n; i++) {
         VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         iv.image = swapchainImages_[i];
         iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -957,7 +972,7 @@ bool VulkanContext::createVertexBuffer() {
         vkFreeMemory(vkDevice_, stagingIBMem, nullptr);
         return false;
     }
-    std::memcpy(data, kQuadVertices, vbSize);
+    memcpy(data, kQuadVertices, vbSize);
     vkUnmapMemory(vkDevice_, stagingVBMem);
     if (vkMapMemory(vkDevice_, stagingIBMem, 0, ibSize, 0, &data) != VK_SUCCESS) {
         Log::error("createVertexBuffer: vkMapMemory (index staging) failed", std::source_location::current());
@@ -967,7 +982,7 @@ bool VulkanContext::createVertexBuffer() {
         vkFreeMemory(vkDevice_, stagingIBMem, nullptr);
         return false;
     }
-    std::memcpy(data, kQuadIndices, ibSize);
+    memcpy(data, kQuadIndices, ibSize);
     vkUnmapMemory(vkDevice_, stagingIBMem);
     if (!createBuffer(vbSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_)
@@ -1016,7 +1031,7 @@ bool VulkanContext::createSyncObjects() {
     inFlightFences_.resize(MAX_FRAMES_IN_FLIGHT);
     VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     VkFenceCreateInfo fi{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, VK_FENCE_CREATE_SIGNALED_BIT};
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (std::uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(vkDevice_, &si, nullptr, &imageAvailableSemaphores_[i]) != VK_SUCCESS) return false;
         if (vkCreateSemaphore(vkDevice_, &si, nullptr, &renderFinishedSemaphores_[i]) != VK_SUCCESS) return false;
         if (vkCreateFence(vkDevice_, &fi, nullptr, &inFlightFences_[i]) != VK_SUCCESS) return false;
@@ -1026,10 +1041,10 @@ bool VulkanContext::createSyncObjects() {
 // ================================================================
 // 工具函数（VulkanContext 成员 + 静态）
 // ================================================================
-uint32_t VulkanContext::findMemoryType(VkPhysicalDevice physDevice, uint32_t typeFilter, VkMemoryPropertyFlags props) {
+std::uint32_t VulkanContext::findMemoryType(VkPhysicalDevice physDevice, std::uint32_t typeFilter, VkMemoryPropertyFlags props) {
     VkPhysicalDeviceMemoryProperties mp;
     vkGetPhysicalDeviceMemoryProperties(physDevice, &mp);
-    for (uint32_t i = 0; i < mp.memoryTypeCount; i++)
+    for (std::uint32_t i = 0; i < mp.memoryTypeCount; i++)
         if ((typeFilter & (1u << i)) && (mp.memoryTypes[i].propertyFlags & props) == props) return i;
     return 0;
 }
@@ -1081,7 +1096,7 @@ bool VulkanContext::runOneOff(VkDevice device, VkCommandPool pool, VkQueue queue
 }
 VkShaderModule VulkanContext::createShaderModule(VkDevice device, const std::uint8_t *spv, std::size_t size) {
     VkShaderModuleCreateInfo ci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr, 0, size,
-                                reinterpret_cast<const uint32_t *>(spv)};
+                                reinterpret_cast<const std::uint32_t *>(spv)};
     VkShaderModule mod = VK_NULL_HANDLE;
     vkCreateShaderModule(device, &ci, nullptr, &mod);
     return mod;

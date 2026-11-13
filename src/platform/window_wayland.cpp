@@ -3,7 +3,6 @@
 // 而非崩溃；其余 no-op 保证链接完整。接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.wayland_window;
 
@@ -65,7 +64,7 @@ void PlatformWindowWayland::SetShape(const std::vector<std::pair<int, int>> &pol
     (void)polygon;    // wayland 无任意多边形形状；可经 wl_region 近似，暂不支持
 }
 
-void PlatformWindowWayland::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowWayland::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

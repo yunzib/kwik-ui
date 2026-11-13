@@ -8,9 +8,9 @@
 
 module;
 
-#include <cstring>
-#include <cmath>
 #include "kwik/g3d_gltf.h"
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.ext.g3d;
 
@@ -86,7 +86,7 @@ void convertModel(const G3DModel &model, const G3DModel::G3DNode &src, G3DNode &
         // 材质最小支持: baseColorFactor → 节点色; baseColorTexture → imageIndex (贴图经 pending_ 上传)
         if (md.material.hasMaterial) {
             dst.hasMaterialColor = true;
-            auto toU8 = [](float f) { return static_cast<uint8_t>(std::clamp(f, 0.0f, 1.0f) * 255.0f + 0.5f); };
+            auto toU8 = [](float f) { return static_cast<std::uint8_t>(std::clamp(f, 0.0f, 1.0f) * 255.0f + 0.5f); };
             dst.materialColor = Color{toU8(md.material.baseColorFactor[0]), toU8(md.material.baseColorFactor[1]),
                                       toU8(md.material.baseColorFactor[2]), toU8(md.material.baseColorFactor[3])};
             if (md.material.imageIndex >= 0) dst.imageIndex = md.material.imageIndex;
@@ -204,7 +204,7 @@ void G3D::drawNode(Graphics &g, const G3DNode &node, const Mat4 &parentWorld, co
         float mvpArr[16];
         mvp.toArray(mvpArr);
         Color nodeColor = node.hasMaterialColor ? node.materialColor : color_;
-        uint32_t textureId = 0;
+        std::uint32_t textureId = 0;
         if (node.imageIndex >= 0) {
             if (auto it = imageTextureIds_.find(node.imageIndex); it != imageTextureIds_.end()) textureId = it->second;
         }
@@ -278,7 +278,7 @@ void G3D::loadModel(const std::string &path) {
     root_.vertices.clear();
 
     // ── 材质贴图: 解码 glTF images → pending_ (onDraw 驱动上传; 下标 = imageIndex) ──
-    for (size_t i = 0; i < model.images.size(); ++i) {
+    for (std::size_t i = 0; i < model.images.size(); ++i) {
         PendingTexture pt;
         if (!model.images[i].encoded.empty() &&
             g3dDecodeImage(model.images[i].encoded.data(), model.images[i].encoded.size(), pt.rgba, pt.w, pt.h)) {
@@ -298,9 +298,9 @@ void G3D::loadModel(const std::string &path) {
     Log::info("[G3D] loadModel '{}' ok, root nodes={}", path, root_.children.size());
 
     Log::info("[G3D] meshPool={}", model.meshes.size());
-    for (size_t i = 0; i < model.meshes.size(); ++i)
+    for (std::size_t i = 0; i < model.meshes.size(); ++i)
         Log::info("[G3D] meshPool[{}] verts={}", i, model.meshes[i].vertices.size());
-    for (size_t i = 0; i < root_.children.size(); ++i)
+    for (std::size_t i = 0; i < root_.children.size(); ++i)
         Log::info("[G3D] child[{}] verts={} children={}", i, root_.children[i].vertices.size(),
                   root_.children[i].children.size());
 }
@@ -363,7 +363,7 @@ void G3D::uploadPendingTextures() {
     auto *backend = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
     if (!backend) return;    // 服务槽未接线 (早于 runtime 接线的首帧)——留待后续帧
     auto &tm = TextureManager::instance();
-    for (size_t i = 0; i < pending_.size(); ++i) {
+    for (std::size_t i = 0; i < pending_.size(); ++i) {
         auto &pt = pending_[i];
         if (pt.rgba.empty()) continue;              // 解码失败项 (节点已回退纯色)
         if (pt.id == 0) {                           // 未入队 → 创建 (返回 id 立即可引用)
@@ -506,8 +506,8 @@ void G3D::addPlane(float w, float d, float tx, float ty, float tz) {
 // getProperty / setProperty
 // ============================================================================
 std::string G3D::getProperty(const char *name) const {
-    if (std::strcmp(name, "autoRotate") == 0) return autoRotate_ ? "true" : "false";
-    if (std::strcmp(name, "showAxes") == 0) return showAxes_ ? "true" : "false";    // ← 新增
+    if (strcmp(name, "autoRotate") == 0) return autoRotate_ ? "true" : "false";
+    if (strcmp(name, "showAxes") == 0) return showAxes_ ? "true" : "false";    // ← 新增
     return View::getProperty(name);
 }
 
@@ -515,13 +515,13 @@ std::string G3D::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（autoRotate/showAxes）
 // ============================================================================
 bool G3D::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "autoRotate") == 0) {
+	if (strcmp(name, "autoRotate") == 0) {
 		auto b = typedToBool(value);      // 兼容 "true"/"1"
 		if (!b) { return false; }
 		setAutoRotate(*b);
 		return true;
 	}
-	if (std::strcmp(name, "showAxes") == 0) {
+	if (strcmp(name, "showAxes") == 0) {
 		auto b = typedToBool(value);
 		if (!b) { return false; }
 		setShowAxes(*b);

@@ -6,17 +6,8 @@
  * ThreadPoolAwaitable 用于协程 co_await 切换到 worker 线程。
  */
 
-module;
-
-#include <functional>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
-#include <vector>
-#include <coroutine>
-
 export module kwik.core.thread_pool;
+import std;
 
 export class ThreadPool {
 public:
@@ -26,9 +17,9 @@ public:
      * @brief 构造线程池
      * @param numThreads 工作线程数，默认 4
      */
-    explicit ThreadPool(size_t numThreads = 4)
+    explicit ThreadPool(std::size_t numThreads = 4)
         : stop_(false) {
-        for (size_t i = 0; i < numThreads; ++i) {
+        for (std::size_t i = 0; i < numThreads; ++i) {
             workers_.emplace_back([this] {
                 while (true) {
                     Task task;

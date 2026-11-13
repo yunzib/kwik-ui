@@ -8,15 +8,9 @@
 //   Pie/Line/Bar/Gauge  — 4 内置渲染器（几何逻辑原样迁移，魔数改读 ChartStyle）
 // ============================================================================
 module;
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）
+#include <kwik/c_bridge.h>
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <functional>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 module kwik.ext.chart;
 
@@ -49,9 +43,9 @@ constexpr Color kChartPalette[] = {
 // ============================================================================
 // ChartContext::paletteColor — 调色板取色（style.palette 空时内置默认板兜底）
 // ============================================================================
-Color ChartContext::paletteColor(size_t index) const {
+Color ChartContext::paletteColor(std::size_t index) const {
 	if (!style.palette.empty()) return style.palette[index % style.palette.size()];
-	constexpr size_t n = sizeof(kChartPalette) / sizeof(kChartPalette[0]);
+	constexpr std::size_t n = sizeof(kChartPalette) / sizeof(kChartPalette[0]);
 	return kChartPalette[index % n];
 }
 
@@ -103,7 +97,7 @@ std::string chartFormatValue(float value, const std::string &format, const char 
 	          && (std::strchr("feEgGaA", last) != nullptr || (last == '%' && format.size() >= 2));
 	const char *fmt = ok ? format.c_str() : legacy;
 	char buf[32];
-	std::snprintf(buf, sizeof(buf), fmt, value);
+	kwik_snprintf(buf, sizeof(buf), fmt, value);
 	return buf;
 }
 
@@ -250,11 +244,11 @@ std::vector<Rect> chartDrawLegend(Graphics &g, const ChartContext &ctx, const st
 	bool atBottom = ctx.props.legendPosition == "bottom";
 	float y = atBottom ? ctx.frame.y + ctx.frame.height - ctx.padding.bottom - ctx.style.legendBandHeight + 6
 	                   : ctx.frame.y + ctx.padding.top + 6;
-	for (size_t si = 0; si < items.size(); ++si) {
+	for (std::size_t si = 0; si < items.size(); ++si) {
 		const auto &item = items[si];
 		// 隐藏系列灰显：色块/文字 40% 透明（占位可点回，视觉与主流库一致）
-		uint8_t a = item.visible ? 255 : static_cast<uint8_t>(255 * 0.4f);
-		Color swCol{item.color.r, item.color.g, item.color.b, static_cast<uint8_t>(item.color.a * (item.visible ? 1.0f : 0.4f))};
+		std::uint8_t a = item.visible ? 255 : static_cast<std::uint8_t>(255 * 0.4f);
+		Color swCol{item.color.r, item.color.g, item.color.b, static_cast<std::uint8_t>(item.color.a * (item.visible ? 1.0f : 0.4f))};
 		Color txCol{ctx.props.legendColor.r, ctx.props.legendColor.g, ctx.props.legendColor.b, a};
 
 		Rect sw{x, y + 2, 12, 12};
@@ -305,9 +299,9 @@ std::string ChartRenderer::tooltipText(const ChartHit &hit, const ChartContext &
 	// 「系列名: 值」+ 分类名前缀（line/bar 有 categories 时）
 	std::string text;
 	if (hit.pointIndex >= 0 && hit.pointIndex < static_cast<int>(ctx.props.categories.size()))
-		text = ctx.props.categories[static_cast<size_t>(hit.pointIndex)] + " · ";
+		text = ctx.props.categories[static_cast<std::size_t>(hit.pointIndex)] + " · ";
 	if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size())) {
-		const auto &s = ctx.props.series[static_cast<size_t>(hit.seriesIndex)];
+		const auto &s = ctx.props.series[static_cast<std::size_t>(hit.seriesIndex)];
 		text += (s.label.empty() ? std::to_string(hit.seriesIndex + 1) : s.label);
 		text += ": ";
 	}
@@ -318,7 +312,7 @@ std::string ChartRenderer::tooltipText(const ChartHit &hit, const ChartContext &
 std::vector<LegendItem> ChartRenderer::legendItems(const ChartContext &ctx) const {
 	// 全部系列（含隐藏：灰显占位可点回）；色取系列色/调色板（按原系列索引）
 	std::vector<LegendItem> items;
-	for (size_t si = 0; si < ctx.props.series.size(); ++si) {
+	for (std::size_t si = 0; si < ctx.props.series.size(); ++si) {
 		const auto &s = ctx.props.series[si];
 		Color c = s.color.isTransparent() ? ctx.paletteColor(si) : s.color;
 		items.push_back({s.label.empty() ? std::to_string(si + 1) : s.label, c,
@@ -340,14 +334,14 @@ public:
 
 		// 取第一个可见 series 的 data 作为扇区值列表
 		int si0 = -1;
-		for (size_t i = 0; i < cp.series.size(); ++i) {
+		for (std::size_t i = 0; i < cp.series.size(); ++i) {
 			if (cp.series[i].visible) {
 				si0 = static_cast<int>(i);
 				break;
 			}
 		}
 		if (si0 < 0) return;
-		const std::vector<float> &values = cp.series[static_cast<size_t>(si0)].data;
+		const std::vector<float> &values = cp.series[static_cast<std::size_t>(si0)].data;
 		if (values.empty()) return;
 
 		// 总和只累有限正值：负值/零/NaN 不进分母（旧口径 total 含负值而绘制
@@ -371,16 +365,16 @@ public:
 		float rIn = r * std::clamp(pp.innerRatio, 0.0f, 0.95f);
 
 		// 悬停命中扇区外移 4px（中线方向；draw 与 hitTest 同口径判定）
-		auto isHover = [&](size_t i) {
+		auto isHover = [&](std::size_t i) {
 			return ctx.hover && ctx.hover->seriesIndex == si0 && ctx.hover->pointIndex == static_cast<int>(i);
 		};
 
-		for (size_t i = 0; i < values.size(); ++i) {
+		for (std::size_t i = 0; i < values.size(); ++i) {
 			float v = values[i];
 			if (!std::isfinite(v) || v <= 0) continue;    // 非有限/非正值不画（与分母口径一致）
 			float sweep = v / total * 2.0f * PI * ctx.animProgress;
 			if (sweep <= 0.001f) continue;
-			Color col = ctx.paletteColor(static_cast<size_t>(i));
+			Color col = ctx.paletteColor(static_cast<std::size_t>(i));
 			float mid = startAngle + sweep * 0.5f;
 			float ox = isHover(i) ? std::cos(mid) * 4.0f : 0.0f;    // 高亮外移
 			float oy = isHover(i) ? std::sin(mid) * 4.0f : 0.0f;
@@ -417,7 +411,7 @@ public:
 			if (cp.showLabels) {
 				float lr = rIn + (r - rIn) * pp.labelRadiusRatio;
 				char buf[16];
-				std::snprintf(buf, sizeof(buf), "%.0f%%", v / total * 100.0f);
+				kwik_snprintf(buf, sizeof(buf), "%.0f%%", v / total * 100.0f);
 				chartDrawLabel(g, buf, scx + std::cos(mid) * lr, scy + std::sin(mid) * lr,
 				               ctx.style.pieLabelFontSize, cp.labelColor);
 			}
@@ -430,14 +424,14 @@ public:
 		const auto &pp = cp.pie;
 
 		int si0 = -1;
-		for (size_t i = 0; i < cp.series.size(); ++i) {
+		for (std::size_t i = 0; i < cp.series.size(); ++i) {
 			if (cp.series[i].visible) {
 				si0 = static_cast<int>(i);
 				break;
 			}
 		}
 		if (si0 < 0) return std::nullopt;
-		const std::vector<float> &values = cp.series[static_cast<size_t>(si0)].data;
+		const std::vector<float> &values = cp.series[static_cast<std::size_t>(si0)].data;
 
 		float total = 0;
 		for (float v : values)
@@ -459,7 +453,7 @@ public:
 		float ang = std::atan2(dy, dx);
 
 		float startAngle = pp.startAngle * (PI / 180.0f);
-		for (size_t i = 0; i < values.size(); ++i) {
+		for (std::size_t i = 0; i < values.size(); ++i) {
 			float v = values[i];
 			if (!std::isfinite(v) || v <= 0) continue;
 			float sweep = v / total * 2.0f * PI * ctx.animProgress;
@@ -481,18 +475,18 @@ public:
 		// 扇区：系列名 + 值 + 占比百分比
 		float sum = 0;
 		if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size()))
-			for (float v : ctx.props.series[static_cast<size_t>(hit.seriesIndex)].data)
+			for (float v : ctx.props.series[static_cast<std::size_t>(hit.seriesIndex)].data)
 				if (std::isfinite(v) && v > 0) sum += v;
 		std::string label;
 		if (hit.seriesIndex >= 0 && hit.seriesIndex < static_cast<int>(ctx.props.series.size())) {
-			const auto &s = ctx.props.series[static_cast<size_t>(hit.seriesIndex)];
+			const auto &s = ctx.props.series[static_cast<std::size_t>(hit.seriesIndex)];
 			label = s.label.empty() ? std::to_string(hit.seriesIndex + 1) : s.label;
 			label += " ";
 		}
 	std::string tip = label + chartFormatValue(hit.value, ctx.style.valueFormat, "%g");
 	if (sum > 0) {
 		char buf[16];
-		std::snprintf(buf, sizeof(buf), " (%.0f%%)", hit.value / sum * 100.0f);
+		kwik_snprintf(buf, sizeof(buf), " (%.0f%%)", hit.value / sum * 100.0f);
 		tip += buf;
 	}
 	return tip;
@@ -522,16 +516,16 @@ public:
 				++si;
 				continue;
 			}
-			Color c = s.color.isTransparent() ? ctx.paletteColor(static_cast<size_t>(si)) : s.color;
-			size_t n = s.data.size();
+			Color c = s.color.isTransparent() ? ctx.paletteColor(static_cast<std::size_t>(si)) : s.color;
+			std::size_t n = s.data.size();
 			// NaN/Inf=无数据点：各消费点跳过（数据值未经值域收敛防线，映射前先验有限）
-			auto fin = [&](size_t i) { return std::isfinite(s.data[i]); };
+			auto fin = [&](std::size_t i) { return std::isfinite(s.data[i]); };
 
 			// 坐标求解（面积/折线/数据点三处共用；y 随动画进度从 vmin 起生长）
-			auto xOf = [&](size_t i) {
+			auto xOf = [&](std::size_t i) {
 				return (n == 1) ? (left + right) * 0.5f : left + (right - left) * i / (n - 1);
 			};
-			auto yOf = [&](size_t i) {
+			auto yOf = [&](std::size_t i) {
 				float v = vmin + (s.data[i] - vmin) * ctx.animProgress;
 				return bottom - (v - vmin) / (vmax - vmin) * (bottom - top);
 			};
@@ -540,18 +534,18 @@ public:
 			// 闭合，色=系列色×透明度），段间在无数据处自然断开（带孔多边形填充语义不明）；
 			// 全有限时单段=原整块多边形，先于折线绘制避免盖住线段与数据点
 			if (op > 0.0f && n >= 2) {
-				Color ac{c.r, c.g, c.b, static_cast<uint8_t>(c.a * op)};
-				size_t a = 0;
+				Color ac{c.r, c.g, c.b, static_cast<std::uint8_t>(c.a * op)};
+				std::size_t a = 0;
 				while (a < n) {
 					if (!fin(a)) {
 						++a;
 						continue;
 					}
-					size_t b = a;
+					std::size_t b = a;
 					while (b + 1 < n && fin(b + 1)) ++b;
 					Path area;
 					area.moveTo(xOf(a), bottom);
-					for (size_t i = a; i <= b; ++i) area.lineTo(xOf(i), yOf(i));
+					for (std::size_t i = a; i <= b; ++i) area.lineTo(xOf(i), yOf(i));
 					area.lineTo(xOf(b), bottom);
 					area.closePath();
 					g.fillPath(area, ac);
@@ -562,7 +556,7 @@ public:
 			// 折线：逐段画胶囊（线段 + round cap），SDF 抗锯齿，round cap 天然构成 round join
 			float halfW = cp.strokeWidth * 0.5f;
 			if (!curve || n < 3) {
-				for (size_t i = 1; i < n; ++i)
+				for (std::size_t i = 1; i < n; ++i)
 					if (fin(i - 1) && fin(i))    // 端点任一无数据即断开（gap 语义）
 						g.drawSegment(xOf(i - 1), yOf(i - 1), xOf(i), yOf(i), halfW, c);
 			} else {
@@ -571,16 +565,16 @@ public:
 				// 管线（保持 SDF 品质，规避 strokePath 的 miter 接缝缺陷）。n==2 退化直线。
 				constexpr int kSamples = 8;    // 每段贝塞尔采样数（折线显示密度下足够平滑）
 				auto pt = [&](long i) -> std::pair<float, float> {    // 邻点夹持（端点单侧）
-					size_t j = static_cast<size_t>(std::clamp(i, 0L, static_cast<long>(n - 1)));
+					std::size_t j = static_cast<std::size_t>(std::clamp(i, 0L, static_cast<long>(n - 1)));
 					return {xOf(j), yOf(j)};
 				};
-				for (size_t i = 0; i + 1 < n; ++i) {
+				for (std::size_t i = 0; i + 1 < n; ++i) {
 					// 段内涉及点（夹持后）任一无数据即跳过整段——px/py 每段重新锚定
 					// 于 (x1,y1)，缺口两侧各自成段不断链
 					long lo = static_cast<long>(i) - 1, hi = static_cast<long>(i) + 2;
-					if (!fin(static_cast<size_t>(std::clamp(lo, 0L, static_cast<long>(n - 1)))) ||
+					if (!fin(static_cast<std::size_t>(std::clamp(lo, 0L, static_cast<long>(n - 1)))) ||
 					    !fin(i) || !fin(i + 1) ||
-					    !fin(static_cast<size_t>(std::clamp(hi, 0L, static_cast<long>(n - 1)))))
+					    !fin(static_cast<std::size_t>(std::clamp(hi, 0L, static_cast<long>(n - 1)))))
 						continue;
 					auto [x0, y0] = pt(static_cast<long>(i) - 1);
 					auto [x1, y1] = pt(static_cast<long>(i));
@@ -604,7 +598,7 @@ public:
 
 			// 数据点小圆（悬停点白环放大——主流库 emphasis 同款）
 			float dotR = ctx.style.dotDiameter * 0.5f;
-			for (size_t i = 0; i < n; ++i) {
+			for (std::size_t i = 0; i < n; ++i) {
 				if (!fin(i)) continue;    // 无数据点不画
 				bool hov = ctx.hover && ctx.hover->seriesIndex == si && ctx.hover->pointIndex == static_cast<int>(i);
 				if (hov) {
@@ -620,10 +614,10 @@ public:
 
 		// ── 悬停十字线（纵向贯通绘图区，标签色降透明）──
 		if (ctx.hover && ctx.hover->seriesIndex >= 0 && ctx.hover->seriesIndex < static_cast<int>(cp.series.size())) {
-			const auto &hs = cp.series[static_cast<size_t>(ctx.hover->seriesIndex)];
-			size_t hi = static_cast<size_t>(std::max(ctx.hover->pointIndex, 0));
+			const auto &hs = cp.series[static_cast<std::size_t>(ctx.hover->seriesIndex)];
+			std::size_t hi = static_cast<std::size_t>(std::max(ctx.hover->pointIndex, 0));
 			if (hs.visible && hi < hs.data.size() && std::isfinite(hs.data[hi])) {
-				size_t hn = hs.data.size();
+				std::size_t hn = hs.data.size();
 				float x = (hn == 1) ? (left + right) * 0.5f : left + (right - left) * hi / (hn - 1);
 				g.drawRect(Rect{x - 0.5f, top, 1.0f, bottom - top},
 				           Color{cp.labelColor.r, cp.labelColor.g, cp.labelColor.b, 110});
@@ -632,11 +626,11 @@ public:
 
 		// ── x 轴分类标签（取最大系列点数，点中心定位）──
 		if (cp.showLabels) {
-			size_t n = 0;
+			std::size_t n = 0;
 			for (auto &s : cp.series)
 				if (s.visible) n = std::max(n, s.data.size());
 			if (n > 1) {
-				for (size_t i = 0; i < n; ++i) {
+				for (std::size_t i = 0; i < n; ++i) {
 					float x = left + (right - left) * i / (n - 1);
 					std::string label = i < cp.categories.size() ? cp.categories[i] : "";
 					if (!label.empty())
@@ -663,15 +657,15 @@ public:
 				++si;
 				continue;
 			}
-			size_t n = s.data.size();
-			auto xOf = [&](size_t i) {
+			std::size_t n = s.data.size();
+			auto xOf = [&](std::size_t i) {
 				return (n == 1) ? (left + right) * 0.5f : left + (right - left) * i / (n - 1);
 			};
-			auto yOf = [&](size_t i) {
+			auto yOf = [&](std::size_t i) {
 				float v = vmin + (s.data[i] - vmin) * ctx.animProgress;
 				return bottom - (v - vmin) / (vmax - vmin) * (pa.height);
 			};
-			for (size_t i = 0; i < n; ++i) {
+			for (std::size_t i = 0; i < n; ++i) {
 				if (!std::isfinite(s.data[i])) continue;
 				float dx = p.x - xOf(i), dy = p.y - yOf(i);
 				float d = std::sqrt(dx * dx + dy * dy);
@@ -712,19 +706,19 @@ public:
 		}
 		if (vis.empty()) return;
 
-		size_t n = 0;    // 最大系列点数（槽数）
+		std::size_t n = 0;    // 最大系列点数（槽数）
 		for (auto &[si, s] : vis) n = std::max(n, s->data.size());
 		if (n == 0) return;
 
-		size_t group = vis.size();    // 每组柱数
+		std::size_t group = vis.size();    // 每组柱数
 		float slotW = plotW / static_cast<float>(n);
 		float barW = slotW / static_cast<float>(group) * ctx.style.barWidthRatio;    // 柱宽, 留空隙
 
 		// ── 分组柱绘制 ──
-		for (size_t gj = 0; gj < group; ++gj) {
+		for (std::size_t gj = 0; gj < group; ++gj) {
 			auto [si, s] = vis[gj];
-			Color c = s->color.isTransparent() ? ctx.paletteColor(static_cast<size_t>(gj)) : s->color;
-			for (size_t i = 0; i < s->data.size(); ++i) {
+			Color c = s->color.isTransparent() ? ctx.paletteColor(static_cast<std::size_t>(gj)) : s->color;
+			for (std::size_t i = 0; i < s->data.size(); ++i) {
 				float v = s->data[i];
 				if (!std::isfinite(v) || v <= 0) continue;    // 非有限/非正值不画（NaN 不进绘制命令）
 
@@ -754,7 +748,7 @@ public:
 
 		// ── x 轴分类标签（每组柱槽中心下方）──
 		if (cp.showLabels) {
-			for (size_t i = 0; i < n; ++i) {
+			for (std::size_t i = 0; i < n; ++i) {
 				float cx = left + slotW * i + slotW * 0.5f;
 				std::string label = i < cp.categories.size() ? cp.categories[i] : "";
 				if (!label.empty())
@@ -780,17 +774,17 @@ public:
 		}
 		if (vis.empty()) return std::nullopt;
 
-		size_t n = 0;
+		std::size_t n = 0;
 		for (auto &[si, s] : vis) n = std::max(n, s->data.size());
 		if (n == 0) return std::nullopt;
 
-		size_t group = vis.size();
+		std::size_t group = vis.size();
 		float slotW = plotW / static_cast<float>(n);
 		float barW = slotW / static_cast<float>(group) * ctx.style.barWidthRatio;
 
-		for (size_t gj = 0; gj < group; ++gj) {
+		for (std::size_t gj = 0; gj < group; ++gj) {
 			auto [si, s] = vis[gj];
-			for (size_t i = 0; i < s->data.size(); ++i) {
+			for (std::size_t i = 0; i < s->data.size(); ++i) {
 				float v = s->data[i];
 				if (!std::isfinite(v) || v <= 0) continue;
 				float h = (v / vmax) * plotH * ctx.animProgress;

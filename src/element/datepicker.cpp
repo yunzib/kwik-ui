@@ -20,11 +20,10 @@
 // ============================================================================
 
 module;
-#include <cstring>
-#include <string>
-#include <vector>
-#include <ctime>
-#include <cstdio>
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）
+#include <kwik/c_bridge.h>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.datepicker;
 import kwik.element.view;
@@ -117,12 +116,12 @@ bool splitTime(const std::string &s, int &h, int &mi) {
 /** @brief 数值左补零到 2/4 位 */
 std::string pad2(int v) {
     char b[8];
-    std::snprintf(b, sizeof(b), "%02d", v);
+    kwik_snprintf(b, sizeof(b), "%02d", v);
     return b;
 }
 std::string pad4(int v) {
     char b[8];
-    std::snprintf(b, sizeof(b), "%04d", v);
+    kwik_snprintf(b, sizeof(b), "%04d", v);
     return b;
 }
 
@@ -380,7 +379,7 @@ private:
 
         // 标题 "8月 2026"
         char title[32];
-        std::snprintf(title, sizeof(title), "%d月 %d", vm, vy);
+        kwik_snprintf(title, sizeof(title), "%d月 %d", vm, vy);
         TextLayoutConfig cfg;
         cfg.maxWidth = w;
         auto tr = pipe.layoutText(title, fid, dp.fontSize + 2, cfg);
@@ -444,7 +443,7 @@ private:
             }
             // 数字
             char buf[8];
-            std::snprintf(buf, sizeof(buf), "%d", day);
+            kwik_snprintf(buf, sizeof(buf), "%d", day);
             auto dr = pipe.layoutText(buf, fid, dp.fontSize, cfg);
             pipe.ensureGlyphs(*dr);
             Color col = selected ? dp.selectedTextColor : (inMonth ? dp.textColor : dp.outOfMonthColor);
@@ -530,7 +529,7 @@ private:
             if (val < 0 || val >= count) continue;
             bool isCenter = (i == 0);
             char buf[8];
-            std::snprintf(buf, sizeof(buf), "%02d", val);
+            kwik_snprintf(buf, sizeof(buf), "%02d", val);
             // 选中行字号 +4，其余保持原字号
             float fs = isCenter ? (dp.fontSize + 4) : dp.fontSize;
             auto r = pipe.layoutText(buf, fid, fs, cfg);
@@ -990,8 +989,8 @@ void DateTimePicker::fireChange() {
 }
 
 std::string DateTimePicker::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) return dp_.value;
-    if (std::strcmp(name, "mode") == 0) return dp_.mode;
+    if (strcmp(name, "value") == 0) return dp_.value;
+    if (strcmp(name, "mode") == 0) return dp_.mode;
     return View::getProperty(name);
 }
 
@@ -1001,7 +1000,7 @@ std::string DateTimePicker::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（value/mode）
 // ============================================================================
 bool DateTimePicker::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "value") == 0) {
+	if (strcmp(name, "value") == 0) {
 		if (auto *s = std::get_if<std::string>(&value)) {
 			dp_.value = *s;
 			parseValue();
@@ -1011,7 +1010,7 @@ bool DateTimePicker::setPropertyTyped(const char *name, const TypedProp &value) 
 		return false;
 	}
 	// mode：自旧字符串版平移（typed 原缺失）
-	if (std::strcmp(name, "mode") == 0) {
+	if (strcmp(name, "mode") == 0) {
 		if (auto *s = std::get_if<std::string>(&value)) {
 			dp_.mode = *s;
 			parseValue();

@@ -1,11 +1,5 @@
-module;
-
-#include <coroutine>
-#include <functional>
-#include <exception>
-#include <utility>
-
 export module kwik.core.coroutine;
+import std;
 
 /**
  * @class Task
@@ -73,8 +67,9 @@ private:
 
 /**
  * @brief Task<void> 特化
+ * 注意：显式特化不能带 export（随主模板一并导出；GCC 按标准拒绝，Clang 曾放行）
  */
-export template<>
+template<>
 class Task<void> {
 public:
     struct promise_type {

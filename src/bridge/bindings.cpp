@@ -2,7 +2,8 @@ module;
 // 注意：此处的 ui_exports[] 必须与 <kwik/kwikui_exports.h> 保持同步
 // 修改导出名时需同时更新两处
 #include "quickjs.h"
-#include <atomic>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 extern "C" JSCFunction *kwik_prop_get_fn();
 extern "C" JSCFunction *kwik_prop_set_fn();
@@ -91,7 +92,7 @@ static void resolveRefProp(JSContext *ctx, JSValueConst props, const char *propN
         return;
     }
     const char *tagStr = JS_ToCString(ctx, tag);
-    bool isBind = tagStr && std::strcmp(tagStr, "__kwik_bind__") == 0;
+    bool isBind = tagStr && strcmp(tagStr, "__kwik_bind__") == 0;
     JS_FreeCString(ctx, tagStr);
     JS_FreeValue(ctx, tag);
     if (!isBind) {
@@ -145,13 +146,13 @@ static void resolveAllRefProps(JSContext *ctx, JSValueConst props) {
     if (!JS_IsObject(props)) return;
 
     JSPropertyEnum *tab;
-    uint32_t len;
+    std::uint32_t len;
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
     // JS_GPN_STRING_MASK + JS_GPN_ENUM_ONLY = "只列字符串类型的可枚举属性"
     // 不组合 STRING_MASK 时 QuickJS 无法确定要列哪种类型的属性 → 返回 0 条
 
     // Log::debug("[ref] ALL_ENTER: propsIsObj={} propCount={}", JS_IsObject(props), len);
-    for (uint32_t i = 0; i < len; ++i) {
+    for (std::uint32_t i = 0; i < len; ++i) {
         const char *name = JS_AtomToCString(ctx, tab[i].atom);
         if (name) {
             // Log::debug("[ref] ALL: prop='{}'", name);
@@ -209,14 +210,14 @@ JSValue makeElementHelper(JSContext *ctx, const char *type, JSValueConst props, 
  */
 static JSValue collectChildren(JSContext *ctx, int argc, JSValueConst *argv, int first) {
     JSValue arr = JS_NewArray(ctx);
-    uint32_t n = 0;
+    std::uint32_t n = 0;
     for (int i = first; i < argc; ++i) {
         if (JS_IsArray(argv[i])) {
             JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t k = 0; k < len; ++k) {
+            for (std::uint32_t k = 0; k < len; ++k) {
                 JSValue e = JS_GetPropertyUint32(ctx, argv[i], k);
                 JS_SetPropertyUint32(ctx, arr, n++, JS_DupValue(ctx, e));
                 JS_FreeValue(ctx, e);
@@ -351,11 +352,11 @@ static JSValue js_root(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     int n = 0;
     for (int i = first; i < argc; i++) {
         if (JS_IsArray(argv[i])) {
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t k = 0; k < len; ++k) {
+            for (std::uint32_t k = 0; k < len; ++k) {
                 JSValue elem = JS_GetPropertyUint32(ctx, argv[i], k);
                 JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, elem));
                 JS_FreeValue(ctx, elem);
@@ -503,12 +504,12 @@ static JSValue js_findText(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     }
     const char *needle = JS_ToCString(ctx, argv[1]);
     if (!needle) return JS_UNDEFINED;
-    int64_t from = 0;
+    std::int64_t from = 0;
     if (argc >= 3 && JS_IsNumber(argv[2])) JS_ToInt64(ctx, &from, argv[2]);
     if (from < 0) from = 0;
-    size_t pos = tv->find(std::string(needle), (size_t)from);
+    std::size_t pos = tv->find(std::string(needle), (std::size_t)from);
     JS_FreeCString(ctx, needle);
-    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (int32_t)pos);
+    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (std::int32_t)pos);
 }
 
 // ── findPrev(id, needle[, before])：上一个匹配（严格左于 before 的最后一个）──
@@ -526,12 +527,12 @@ static JSValue js_findPrev(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     }
     const char *needle = JS_ToCString(ctx, argv[1]);
     if (!needle) return JS_UNDEFINED;
-    int64_t before = -1;
+    std::int64_t before = -1;
     if (argc >= 3 && JS_IsNumber(argv[2])) JS_ToInt64(ctx, &before, argv[2]);
-    size_t pos = (before < 0) ? tv->findPrev(std::string(needle))    // 缺省 = 最后一个命中
-                              : tv->findPrev(std::string(needle), (size_t)before);
+    std::size_t pos = (before < 0) ? tv->findPrev(std::string(needle))    // 缺省 = 最后一个命中
+                              : tv->findPrev(std::string(needle), (std::size_t)before);
     JS_FreeCString(ctx, needle);
-    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (int32_t)pos);
+    return JS_NewInt32(ctx, pos == std::string::npos ? -1 : (std::int32_t)pos);
 }
 
 // ── textViewIds(rootId?)：先序枚举子树内带 id 的 TextView（整篇查找入口）──
@@ -549,7 +550,7 @@ static JSValue js_textViewIds(JSContext *ctx, JSValueConst this_val, int argc, J
     std::vector<std::string> ids;
     if (root) collectTextViewIds(*root, ids);
     JSValue arr = JS_NewArray(ctx);
-    for (uint32_t i = 0; i < ids.size(); ++i) {
+    for (std::uint32_t i = 0; i < ids.size(); ++i) {
         JS_SetPropertyUint32(ctx, arr, i, JS_NewString(ctx, ids[i].c_str()));
     }
     return arr;
@@ -581,10 +582,10 @@ static JSValue js_setActiveMatch(JSContext *ctx, JSValueConst this_val, int argc
     }
     TextView *tv = textViewById(ctx, argv[0]);
     if (!tv) return JS_UNDEFINED;
-    int64_t off = 0, len = 0;
+    std::int64_t off = 0, len = 0;
     JS_ToInt64(ctx, &off, argv[1]);
     JS_ToInt64(ctx, &len, argv[2]);
-    tv->setActiveMatch(off < 0 ? 0 : (size_t)off, len <= 0 ? 0 : (size_t)len);
+    tv->setActiveMatch(off < 0 ? 0 : (std::size_t)off, len <= 0 ? 0 : (std::size_t)len);
     return JS_UNDEFINED;
 }
 
@@ -612,10 +613,10 @@ static JSValue js_revealText(JSContext *ctx, JSValueConst this_val, int argc, JS
         Log::warn("revealText: 未找到 TextView 组件——跳过");
         return JS_NewBool(ctx, false);
     }
-    int64_t off = 0;
+    std::int64_t off = 0;
     JS_ToInt64(ctx, &off, argv[1]);
     if (off < 0) return JS_NewBool(ctx, false);
-    Rect r = tv->offsetRect((size_t)off);
+    Rect r = tv->offsetRect((std::size_t)off);
     for (View *p = tv->parent(); p; p = p->parent()) {
         if (p->type() == ElementType::ScrollView) {
             static_cast<ScrollView *>(p)->ensureVisible(r);
@@ -680,7 +681,7 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
 
     JSValue props = argv[0];
     JSPropertyEnum *tab;
-    uint32_t len;
+    std::uint32_t len;
     // JS_GPN_STRING_MASK 必须与 ENUM_ONLY 组合：单独 ENUM_ONLY 恒 0 条
     // （quickjs 按 kind 过滤属性）——同文件 resolveRefProp :140 有正确写法对照
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return JS_UNDEFINED;
@@ -690,7 +691,7 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
     bool allHandled = true;
     bool threw = false;
     try {
-        for (uint32_t i = 0; i < len; ++i) {
+        for (std::uint32_t i = 0; i < len; ++i) {
             JSAtom atom = tab[i].atom;
             JSValue val = JS_GetProperty(ctx, props, atom);
             JS_SetProperty(ctx, sd->data, atom, val);
@@ -698,7 +699,7 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
 
         auto incCb = get_incremental_callback();
         if (incCb) {
-            for (uint32_t i = 0; i < len && allHandled; ++i) {
+            for (std::uint32_t i = 0; i < len && allHandled; ++i) {
                 const char *key = JS_AtomToCString(ctx, tab[i].atom);
                 if (key) {
                     // 从 sd->data 读回已写入的新值
@@ -720,7 +721,7 @@ static JSValue js_state_update(JSContext *ctx, JSValueConst this_val, int argc, 
     }
 
     // 收尾：统一释放 atoms（tab 元素所有权归调用方）
-    for (uint32_t i = 0; i < len; ++i) JS_FreeAtom(ctx, tab[i].atom);
+    for (std::uint32_t i = 0; i < len; ++i) JS_FreeAtom(ctx, tab[i].atom);
     js_free(ctx, tab);
 
     // 异常收场：转为 JS 异常（调用方可捕获），不再继续
@@ -845,11 +846,11 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     std::vector<View *> targets;
     if (JS_IsArray(argv[0])) {
         // 数组形式：['id0', 'id1', 'id2']
-        uint32_t arrLen = 0;
+        std::uint32_t arrLen = 0;
         JSValue lenVal = JS_GetPropertyStr(ctx, argv[0], "length");
         JS_ToUint32(ctx, &arrLen, lenVal);
         JS_FreeValue(ctx, lenVal);
-        for (uint32_t i = 0; i < arrLen; ++i) {
+        for (std::uint32_t i = 0; i < arrLen; ++i) {
             JSValue elem = JS_GetPropertyUint32(ctx, argv[0], i);
             const char *id = JS_ToCString(ctx, elem);
             View *v = (id && root) ? root->findById(id) : nullptr;    // Symbol 等无法转字符串时 ToCString 返回 null
@@ -878,7 +879,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         std::vector<TypedProp> values;
     };
     std::vector<AnimProp> animProps;
-    std::vector<char> propSeen(static_cast<size_t>(PropId::COUNT), 0);
+    std::vector<char> propSeen(static_cast<std::size_t>(PropId::COUNT), 0);
 
     // 值解析三路共用（数组关键帧/单值/别名键）：E3——ToFloat64 失败或
     // NaN（非数字字符串）→ 字符串路径（颜色/文本关键帧）。数组路径原实现
@@ -896,15 +897,15 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         if (!getPropMeta(prop).colorType) { ap.values.push_back(d); }
     };
     auto collectAnimProp = [&](PropId prop, JSValue jsVal) {
-        if (propSeen[static_cast<size_t>(prop)]) return;
+        if (propSeen[static_cast<std::size_t>(prop)]) return;
         AnimProp ap;
         ap.prop = prop;
         if (JS_IsArray(jsVal)) {
-            uint32_t vLen = 0;
+            std::uint32_t vLen = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, jsVal, "length");
             JS_ToUint32(ctx, &vLen, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t j = 0; j < vLen; ++j) {
+            for (std::uint32_t j = 0; j < vLen; ++j) {
                 JSValue ev = JS_GetPropertyUint32(ctx, jsVal, j);
                 pushAnimValue(ap, prop, ev);
                 JS_FreeValue(ctx, ev);
@@ -915,7 +916,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         // 空 values 整属性跳过（如纯数值 color 被"跳过"后 vector 仍为空）——
         // 留空条目会让下游单段模式 values[0] 越界读
         if (ap.values.empty()) return;
-        propSeen[static_cast<size_t>(prop)] = 1;
+        propSeen[static_cast<std::size_t>(prop)] = 1;
         animProps.push_back(std::move(ap));
     };
 
@@ -931,12 +932,12 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     // 同样可驱动动画，与规范键去重
     {
         JSPropertyEnum *tab = nullptr;
-        uint32_t tabLen = 0;
+        std::uint32_t tabLen = 0;
         if (!JS_GetOwnPropertyNames(ctx, &tab, &tabLen, argv[1], JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY)) {
-            for (uint32_t k = 0; k < tabLen; ++k) {
+            for (std::uint32_t k = 0; k < tabLen; ++k) {
                 const char *key = JS_AtomToCString(ctx, tab[k].atom);
                 PropId prop = key ? propIdFromName(key) : PropId::COUNT;
-                if (prop != PropId::COUNT && !propSeen[static_cast<size_t>(prop)]) {
+                if (prop != PropId::COUNT && !propSeen[static_cast<std::size_t>(prop)]) {
                     JSValue v = JS_GetProperty(ctx, argv[1], tab[k].atom);
                     collectAnimProp(prop, v);
                     JS_FreeValue(ctx, v);
@@ -995,7 +996,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             JS_FreeCString(ctx, s);
         } else if (JS_IsArray(e)) {
             // 检查数组长度
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, e, "length");
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
@@ -1031,7 +1032,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             // JS_ToBool 判真 → 变无限循环）
             const char *s = JS_ToCString(ctx, lp);
             if (s) {
-                if (std::strcmp(s, "infinite") == 0) {
+                if (strcmp(s, "infinite") == 0) {
                     opts.loopCount = 0;
                 } else {
                     char *end = nullptr;
@@ -1048,9 +1049,9 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         auto dir = JS_GetPropertyStr(ctx, argv[2], "direction");
         if (JS_IsString(dir)) {
             const char *s = JS_ToCString(ctx, dir);
-            if (std::strcmp(s, "reverse") == 0)
+            if (strcmp(s, "reverse") == 0)
                 opts.direction = AnimDirection::Reverse;
-            else if (std::strcmp(s, "alternate") == 0)
+            else if (strcmp(s, "alternate") == 0)
                 opts.direction = AnimDirection::Alternate;
             JS_FreeCString(ctx, s);
         }
@@ -1058,11 +1059,11 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
 
         auto kf = JS_GetPropertyStr(ctx, argv[2], "keyframes");
         if (JS_IsArray(kf)) {
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, kf, "length");
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t k = 0; k < len; ++k) {
+            for (std::uint32_t k = 0; k < len; ++k) {
                 auto ev = JS_GetPropertyUint32(ctx, kf, k);
                 double v;
                 JS_ToFloat64(ctx, &v, ev);
@@ -1078,7 +1079,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     // ════════════════════════════════════════════════════════
     std::vector<AnimationDesc> descs;
 
-    for (size_t ti = 0; ti < targets.size(); ++ti) {
+    for (std::size_t ti = 0; ti < targets.size(); ++ti) {
         View *tv = targets[ti];
         float staggerDelay = opts.stagger * static_cast<float>(ti);
 
@@ -1099,13 +1100,13 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
             if (ap.values.size() > 1) {
                 // ── 关键帧模式 ──
                 if (opts.keyframes.size() == ap.values.size()) {
-                    for (size_t ki = 0; ki < ap.values.size(); ++ki) {
+                    for (std::size_t ki = 0; ki < ap.values.size(); ++ki) {
                         desc.keyframes.push_back({opts.keyframes[ki], ap.values[ki]});
                     }
                 } else {
                     // 没给 keyframes 时间点 → 等距分布
                     float step = 1.0f / static_cast<float>(ap.values.size() - 1);
-                    for (size_t ki = 0; ki < ap.values.size(); ++ki) {
+                    for (std::size_t ki = 0; ki < ap.values.size(); ++ki) {
                         desc.keyframes.push_back({step * static_cast<float>(ki), ap.values[ki]});
                     }
                 }
@@ -1425,11 +1426,11 @@ static JSValue js_theme_provider(JSContext *ctx, JSValueConst this_val, int argc
     int n = 0;
     for (int i = first; i < argc; i++) {
         if (JS_IsArray(argv[i])) {
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JSValue lenVal = JS_GetPropertyStr(ctx, argv[i], "length");
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t k = 0; k < len; ++k) {
+            for (std::uint32_t k = 0; k < len; ++k) {
                 JSValue elem = JS_GetPropertyUint32(ctx, argv[i], k);
                 JS_SetPropertyUint32(ctx, children, n++, JS_DupValue(ctx, elem));
                 JS_FreeValue(ctx, elem);
@@ -1528,24 +1529,24 @@ static void invokeTimerCallback(JSContext *ctx, const std::shared_ptr<JSValueRef
 static JSValue js_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto h = takeTimerCallback(ctx, argc, argv, "setTimeout");
     if (!h) return JS_EXCEPTION;
-    int32_t ms = 0;
+    std::int32_t ms = 0;
     if (argc >= 2) JS_ToInt32(ctx, &ms, argv[1]);
     // 注意: 帧驱动语义——flush 时消费，setTimeout(fn,0) 实际为下一帧
-    uint64_t id = Channel::setTimeout(ms > 0 ? (uint32_t)ms : 0, [ctx, h] { invokeTimerCallback(ctx, h, "setTimeout"); });
-    return JS_NewInt64(ctx, (int64_t)id);
+    std::uint64_t id = Channel::setTimeout(ms > 0 ? (std::uint32_t)ms : 0, [ctx, h] { invokeTimerCallback(ctx, h, "setTimeout"); });
+    return JS_NewInt64(ctx, (std::int64_t)id);
 }
 
 static JSValue js_setInterval(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     auto h = takeTimerCallback(ctx, argc, argv, "setInterval");
     if (!h) return JS_EXCEPTION;
-    int32_t ms = 100;
+    std::int32_t ms = 100;
     if (argc >= 2) JS_ToInt32(ctx, &ms, argv[1]);
-    uint64_t id = Channel::setInterval(ms > 0 ? (uint32_t)ms : 1, [ctx, h] { invokeTimerCallback(ctx, h, "setInterval"); });
-    return JS_NewInt64(ctx, (int64_t)id);
+    std::uint64_t id = Channel::setInterval(ms > 0 ? (std::uint32_t)ms : 1, [ctx, h] { invokeTimerCallback(ctx, h, "setInterval"); });
+    return JS_NewInt64(ctx, (std::int64_t)id);
 }
 
 static JSValue js_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int64_t id = 0;
+    std::int64_t id = 0;
     if (argc >= 1 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0]) && JS_ToInt64(ctx, &id, argv[0]) == 0)
         Channel::clearTimeout((Channel::TimerId)id);
     return JS_UNDEFINED;
@@ -1555,15 +1556,15 @@ static JSValue js_requestAnimationFrame(JSContext *ctx, JSValueConst this_val, i
     auto h = takeTimerCallback(ctx, argc, argv, "requestAnimationFrame");
     if (!h) return JS_EXCEPTION;
     auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
-    uint64_t id = qctx->scheduleAnimationFrame(std::move(h));
-    return JS_NewInt64(ctx, (int64_t)id);
+    std::uint64_t id = qctx->scheduleAnimationFrame(std::move(h));
+    return JS_NewInt64(ctx, (std::int64_t)id);
 }
 
 static JSValue js_cancelAnimationFrame(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    int64_t id = 0;
+    std::int64_t id = 0;
     if (argc >= 1 && !JS_IsUndefined(argv[0]) && !JS_IsNull(argv[0]) && JS_ToInt64(ctx, &id, argv[0]) == 0) {
         auto *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
-        qctx->cancelAnimationFrame((uint64_t)id);
+        qctx->cancelAnimationFrame((std::uint64_t)id);
     }
     return JS_UNDEFINED;
 }
@@ -1594,11 +1595,11 @@ static JSValue js_setDragRegions(JSContext *ctx, JSValueConst, int argc, JSValue
     std::vector<DragRegion> regions;
     if (argc >= 1 && JS_IsArray(argv[0])) {
         JSValue lenV = JS_GetPropertyStr(ctx, argv[0], "length");
-        int32_t n = 0;
+        std::int32_t n = 0;
         JS_ToInt32(ctx, &n, lenV);
         JS_FreeValue(ctx, lenV);
-        for (int32_t i = 0; i < n; ++i) {
-            JSValue item = JS_GetPropertyUint32(ctx, argv[0], (uint32_t)i);
+        for (std::int32_t i = 0; i < n; ++i) {
+            JSValue item = JS_GetPropertyUint32(ctx, argv[0], (std::uint32_t)i);
             if (JS_IsObject(item)) {
                 DragRegion r;
                 auto num = [&](const char *key, float &out) {
@@ -1690,7 +1691,7 @@ static JSValue js_getViewport(JSContext *ctx, JSValueConst this_val, int argc, J
 // 返回 false，调用方自行处理失败面。
 static JSValue js_setClipboardText(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc < 1 || !JS_IsString(argv[0])) return JS_FALSE;
-    size_t len = 0;
+    std::size_t len = 0;
     const char *text = JS_ToCStringLen(ctx, &len, argv[0]);
     if (!text) return JS_FALSE;
     auto *svc = static_cast<ClipboardService *>(getRegisteredClipboard());
@@ -1708,8 +1709,8 @@ static JSValue js_frameStats(JSContext *ctx, JSValueConst this_val, int argc, JS
     auto s = rt->getFrameStats();
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "avgMs", JS_NewFloat64(ctx, s.averageFrameTimeMs));
-    JS_SetPropertyStr(ctx, obj, "total", JS_NewInt64(ctx, (int64_t)s.totalFrames));
-    JS_SetPropertyStr(ctx, obj, "dropped", JS_NewInt64(ctx, (int64_t)s.droppedFrames));
+    JS_SetPropertyStr(ctx, obj, "total", JS_NewInt64(ctx, (std::int64_t)s.totalFrames));
+    JS_SetPropertyStr(ctx, obj, "dropped", JS_NewInt64(ctx, (std::int64_t)s.droppedFrames));
     JS_SetPropertyStr(ctx, obj, "lastInputLatencyMs", JS_NewFloat64(ctx, s.lastInputToFrameMs));
     return obj;
 }

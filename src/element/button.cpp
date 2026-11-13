@@ -1,5 +1,6 @@
 module;
-#include <cstdint> 
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.button;
 import kwik.element.view;
@@ -180,7 +181,7 @@ void Button::onDraw(Graphics &graphics) {
 }
 
 bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "text") == 0) {
+    if (strcmp(name, "text") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             text_.text = *s;
             textResult_.reset();    // ← 排版缓存废止，下次 onMeasure/onDraw 惰性重建
@@ -200,7 +201,7 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
 
     // 文字色：parse 路径写 TextContent.textColor；运行期 setProp("color") 同源
     // （此前落到 ViewProps 无此字段 → 静默无效，连接/断开等状态色改不动）
-    if (std::strcmp(name, "color") == 0 || std::strcmp(name, "textColor") == 0) {
+    if (strcmp(name, "color") == 0 || strcmp(name, "textColor") == 0) {
         if (auto c = asColor(value)) {
             text_.textColor = *c;
             markDirty();
@@ -211,15 +212,15 @@ bool Button::setPropertyTyped(const char *name, const TypedProp &value) {
     // 运行期写 background 即用户自主选择（含透明幽灵款）：置让位标记，与
     // parse 路径（props_parser:242）同语义——reconcile 主题兜底无条件补调后，
     // 运行期显式透明不被 primary 回填冲掉
-    if (std::strcmp(name, "background") == 0 || std::strcmp(name, "bg") == 0
-        || std::strcmp(name, "backgroundColor") == 0) {
+    if (strcmp(name, "background") == 0 || strcmp(name, "bg") == 0
+        || strcmp(name, "backgroundColor") == 0) {
         if (auto c = asColor(value)) {
             button_.hasBackground = true;
             // 运行期换底色：hover/pressed 派生色同步重推。否则悬停仍显示按
             // 旧底色推导的颜色（连接/断开切换后悬停色错乱、深底深字看似消失）
             auto darken = [](Color col, float f) {
-                return Color{static_cast<uint8_t>(col.r * f), static_cast<uint8_t>(col.g * f),
-                             static_cast<uint8_t>(col.b * f), col.a};
+                return Color{static_cast<std::uint8_t>(col.r * f), static_cast<std::uint8_t>(col.g * f),
+                             static_cast<std::uint8_t>(col.b * f), col.a};
             };
             if (!c->isTransparent()) {
                 button_.hoverBackground = darken(*c, 0.80f);
@@ -262,7 +263,7 @@ void Button::resolveThemeDefaults() {
     };
     // ── darker 辅助 ──
     auto darken = [](Color c, float f) {
-        return Color{(uint8_t)(c.r * f), (uint8_t)(c.g * f), (uint8_t)(c.b * f), c.a};
+        return Color{(std::uint8_t)(c.r * f), (std::uint8_t)(c.g * f), (std::uint8_t)(c.b * f), c.a};
     };
 
     // ── background：token 优先 → theme 兜底 → hardcoded 兜底 ──

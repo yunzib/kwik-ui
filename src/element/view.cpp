@@ -1,7 +1,6 @@
 module;
-#include <cstring>
-#include <cstdint>
-#include <cmath>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.view;
 import kwik.render.graphics;
@@ -72,8 +71,8 @@ void View::layout(Rect bounds) {
         // onLayout 可能增删子节点（如 LazyList 窗口 diff），旧快照按 min 上限对比防越界；
         // 数量变化一律视为位移 → 触发整区重绘，保证新出窗行首帧可见
         bool anyChildMoved = (children.size() != oldChildFrames.size());
-        size_t cmpN = std::min(children.size(), oldChildFrames.size());
-        for (size_t i = 0; i < cmpN; ++i) {
+        std::size_t cmpN = std::min(children.size(), oldChildFrames.size());
+        for (std::size_t i = 0; i < cmpN; ++i) {
             // Rect 无 operator!=, 逐字段比较
             auto &f = children[i]->frame;
             auto &o = oldChildFrames[i];
@@ -722,36 +721,30 @@ static bool parseTransformString(const std::string &s, Transform &out) {
 
 // TypedProp → JS 字符串（getProp 回显 / State 绑定回声用）
 static std::string formatPropValue(const TypedProp &v) {
+    // 数值格式化统一 std::format（GCC16 std 模块下 snprintf 文本头与模块声明
+    // 语言链接冲突，且模块版不可普通查找——format 语义与 %g/%.6g 等价）
     if (const auto *d = std::get_if<double>(&v)) {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "%.6g", *d);
-        return buf;
+        return std::format("{:.6g}", *d);
     }
     if (const auto *b = std::get_if<bool>(&v)) return *b ? "true" : "false";
     if (const auto *s = std::get_if<std::string>(&v)) return *s;
     if (const auto *c = std::get_if<Color>(&v)) {
-        char buf[11];
-        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X%02X", c->r, c->g, c->b, c->a);
-        return buf;
+        return std::format("#{:02X}{:02X}{:02X}{:02X}", c->r, c->g, c->b, c->a);
     }
     if (const auto *t = std::get_if<Transform>(&v)) {
-        char buf[96];
-        std::snprintf(buf, sizeof(buf), "%g,%g,%g,%g",
-                      t->translateX, t->translateY, t->rotate, t->scale);
-        return buf;
+        return std::format("{:g},{:g},{:g},{:g}",
+                           t->translateX, t->translateY, t->rotate, t->scale);
     }
     if (const auto *e = std::get_if<EdgeInsets>(&v)) {
-        char buf[96];
-        std::snprintf(buf, sizeof(buf), "%g,%g,%g,%g", e->left, e->top, e->right, e->bottom);
-        return buf;
+        return std::format("{:g},{:g},{:g},{:g}", e->left, e->top, e->right, e->bottom);
     }
     return "";    // monostate 等：无值
 }
 
 std::string View::getProperty(const char *name) const {
-    if (std::strcmp(name, "width") == 0) return std::to_string(frame.width);
-    if (std::strcmp(name, "height") == 0) return std::to_string(frame.height);
-    if (std::strcmp(name, "id") == 0) return props.id;
+    if (strcmp(name, "width") == 0) return std::to_string(frame.width);
+    if (strcmp(name, "height") == 0) return std::to_string(frame.height);
+    if (strcmp(name, "id") == 0) return props.id;
     PropId pid = propIdFromName(name);
     if (pid == PropId::COUNT) return "";
     return formatPropValue(getPropMeta(pid).reader(props));

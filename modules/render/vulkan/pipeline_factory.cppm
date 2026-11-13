@@ -8,9 +8,6 @@
 // 策略各异各自管理）；管线附属资源（纹理/FBO/staging）。
 // ============================================================================
 module;
-#include <cstdint>
-#include <span>
-#include <vector>
 #include "vulkan/vulkan.h"
 
 export module kwik.render.vulkan.pipeline_factory;
@@ -19,20 +16,20 @@ import std;
 
 export struct PipeDesc {
     // ── ① shader 字节对（构建期 spv_to_header 生成的内嵌数组）──
-    const uint8_t *vertSpv = nullptr;
-    const uint8_t *fragSpv = nullptr;
-    size_t vertSize = 0;
-    size_t fragSize = 0;
+    const std::uint8_t *vertSpv = nullptr;
+    const std::uint8_t *fragSpv = nullptr;
+    std::size_t vertSize = 0;
+    std::size_t fragSize = 0;
 
     // ── ② 顶点输入（quad 2×float / GpuVertex 8×float / Vertex3D 6×float）──
     std::span<const VkVertexInputBindingDescription>    bindings;    // 通常 1 条
     std::span<const VkVertexInputAttributeDescription> attrs;
 
     // ── ③ push constant（全部 VS|FS；0 = 无）──
-    uint32_t pushSize = 0;
+    std::uint32_t pushSize = 0;
 
     // ── ④ 混合形态 ──
-    enum class Blend : uint8_t {
+    enum class Blend : std::uint8_t {
         SrcOver,   // 直 alpha 混合（rect/glyph/image/triangle/mesh/backdrop-composite）
         Write,     // 不混合、全通道写入（backdrop blur 离屏两连：全屏覆盖无需求旧值）
         MaskOnly,  // 不混合、不写颜色（rect stencil 掩码写入管线）
@@ -40,7 +37,7 @@ export struct PipeDesc {
     Blend blend = Blend::SrcOver;
 
     // ── ⑤ depth/stencil 形态 ──
-    enum class DS : uint8_t {
+    enum class DS : std::uint8_t {
         Off,              // 全关（backdrop-blur；triangle 走 Off + 5 动态态防绑定失效）
         StencilTestEqual, // stencil 测试开（EQUAL、不写）——裁剪变体（rect/glyph/image/backdrop-clip）
         StencilWrite,     // stencil 写入（REPLACE、ALWAYS）——rect 掩码写入管线

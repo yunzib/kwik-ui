@@ -1,7 +1,5 @@
 module;
 
-#include <algorithm>
-#include <cstddef>
 #include "quickjs.h"
 
 module kwik.bridge.props_parser;
@@ -130,17 +128,17 @@ ViewProps parseViewProps(PropsExtractor &ex) {
         // transform 序列化为 "tx,ty,rot,scale"（逗号分隔，向后兼容 "tx,ty"）
         std::string s = ex.raw().getProperty("transform").toString();
         Transform t;
-        size_t c1 = s.find(',');
+        std::size_t c1 = s.find(',');
         if (c1 == std::string::npos) {
             t.translateX = std::stof(s);
         } else {
             t.translateX = std::stof(s.substr(0, c1));
-            size_t c2 = s.find(',', c1 + 1);
+            std::size_t c2 = s.find(',', c1 + 1);
             if (c2 == std::string::npos) {
                 t.translateY = std::stof(s.substr(c1 + 1));
             } else {
                 t.translateY = std::stof(s.substr(c1 + 1, c2 - c1 - 1));
-                size_t c3 = s.find(',', c2 + 1);
+                std::size_t c3 = s.find(',', c2 + 1);
                 if (c3 == std::string::npos) {
                     t.rotate = std::stof(s.substr(c2 + 1));
                 } else {
@@ -318,8 +316,8 @@ ImageProps parseImageProps(PropsExtractor &ex) {
         JSContext *ctx = dataVal.context();
         JSValue raw = dataVal.raw();
         if (!JS_IsNull(raw) && !JS_IsUndefined(raw)) {
-            size_t byteLen = 0;
-            uint8_t *buf = JS_GetArrayBuffer(ctx, &byteLen, raw);
+            std::size_t byteLen = 0;
+            std::uint8_t *buf = JS_GetArrayBuffer(ctx, &byteLen, raw);
             if (buf && byteLen > 0) {
                 result.data.assign(buf, buf + byteLen);
                 result.source = ImageSource::Buffer;
@@ -464,10 +462,10 @@ template <>
 Color convertTo<Color>(const JSValueRef &v) {
     if (v.isString()) { return parseColor(v.toString()); }
     if (v.isArray() && v.getArrayLength() >= 3) {
-        uint8_t r = static_cast<uint8_t>(v.getArrayElement(0).toInt());
-        uint8_t g = static_cast<uint8_t>(v.getArrayElement(1).toInt());
-        uint8_t b = static_cast<uint8_t>(v.getArrayElement(2).toInt());
-        uint8_t a = v.getArrayLength() >= 4 ? static_cast<uint8_t>(v.getArrayElement(3).toInt()) : 255;
+        std::uint8_t r = static_cast<std::uint8_t>(v.getArrayElement(0).toInt());
+        std::uint8_t g = static_cast<std::uint8_t>(v.getArrayElement(1).toInt());
+        std::uint8_t b = static_cast<std::uint8_t>(v.getArrayElement(2).toInt());
+        std::uint8_t a = v.getArrayLength() >= 4 ? static_cast<std::uint8_t>(v.getArrayElement(3).toInt()) : 255;
         return {r, g, b, a};
     }
     return Color::transparent();

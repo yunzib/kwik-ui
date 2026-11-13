@@ -90,10 +90,10 @@ static void batchRecordBindings(View *view, const JSValueRef &pv) {
     JSValue props = pv.raw();
 
     JSPropertyEnum *tab = nullptr;
-    uint32_t len = 0;
+    std::uint32_t len = 0;
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
 
-    for (uint32_t i = 0; i < len; ++i) {
+    for (std::uint32_t i = 0; i < len; ++i) {
         const char *keyName = JS_AtomToCString(ctx, tab[i].atom);
         std::string propName;    // "__bind_<name>Key" 中段的属性名
         if (keyName) {
@@ -123,7 +123,7 @@ static void batchRecordBindings(View *view, const JSValueRef &pv) {
         TypedProp expect = pm.reader(view->props);
         PropType hint = PropType::String;
         if (std::get_if<double>(&expect)) { hint = PropType::Float; }
-        else if (std::get_if<int64_t>(&expect)) { hint = PropType::Int; }
+        else if (std::get_if<std::int64_t>(&expect)) { hint = PropType::Int; }
         else if (std::get_if<bool>(&expect)) { hint = PropType::Bool; }
         else if (std::get_if<Color>(&expect)) { hint = PropType::Color; }
         else if (std::get_if<EdgeInsets>(&expect)) { hint = PropType::EdgeInsets; }
@@ -199,10 +199,10 @@ static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
     if (!view || !propsVal.isObject()) return;
     JSContext *ctx = propsVal.context();
     JSPropertyEnum *tab;
-    uint32_t len;
+    std::uint32_t len;
     JSValue props = propsVal.raw();
     if (JS_GetOwnPropertyNames(ctx, &tab, &len, props, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) return;
-    for (uint32_t i = 0; i < len; ++i) {
+    for (std::uint32_t i = 0; i < len; ++i) {
         const char *name = JS_AtomToCString(ctx, tab[i].atom);
         if (name) {
             JSValue val = JS_GetProperty(ctx, props, tab[i].atom);
@@ -872,11 +872,11 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
                                       std::vector<std::unique_ptr<View>> &oldChildren) {
     if (!childrenVal.isArray()) return;
 
-    size_t oldN = oldChildren.size();
+    std::size_t oldN = oldChildren.size();
 
     // ── ① 建 id→索引 映射 ──
-    std::unordered_map<std::string, size_t> oldById;
-    for (size_t i = 0; i < oldN; ++i) {
+    std::unordered_map<std::string, std::size_t> oldById;
+    for (std::size_t i = 0; i < oldN; ++i) {
         if (!oldChildren[i]->props.id.empty()) oldById[oldChildren[i]->props.id] = i;
     }
 
@@ -885,7 +885,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
     std::vector<std::unique_ptr<View>> newChildren;
     std::vector<bool> freshChild;    // 27：与 newChildren 平行——true=新建子树（含类型切换），挂接后需补主题解析
     int newLen = childrenVal.getArrayLength();
-    size_t posCursor = 0;    // 位置匹配游标（遍历 oldN，跳过已被 id 认领的）
+    std::size_t posCursor = 0;    // 位置匹配游标（遍历 oldN，跳过已被 id 认领的）
 
     for (int i = 0; i < newLen; ++i) {
         auto jsChild = childrenVal.getArrayElement(i);
@@ -896,7 +896,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         // 尝试读 id
         if (jsProps.isObject() && jsProps.hasProperty("id")) jsId = jsProps.getProperty("id").toString();
 
-        size_t matchIdx = SIZE_MAX;
+        std::size_t matchIdx = std::numeric_limits<std::size_t>::max();
 
         // ── id 优先匹配 ──
         if (!jsId.empty()) {
@@ -909,7 +909,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         }
 
         // ── id 未命中 → 位置+类型匹配 ──
-        if (matchIdx == SIZE_MAX) {
+        if (matchIdx == std::numeric_limits<std::size_t>::max()) {
             std::string_view newType = canonicalTypeName(jsType);
             for (; posCursor < oldN; ++posCursor) {
                 if (claimed[posCursor]) continue;
@@ -926,7 +926,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
         // 27：fresh 标记按指针身份判定——reconcileNode 返回指针 ≠ 旧指针
         // 即类型切换新建；parseNode 路径恒新建。两类子树缺乏主题解析
         // （resolveThemeDefaults 仅 parse 入口调用），挂接后统一补
-        if (matchIdx != SIZE_MAX) {
+        if (matchIdx != std::numeric_limits<std::size_t>::max()) {
             claimed[matchIdx] = true;
             View *oldPtr = oldChildren[matchIdx].get();
             auto oldView = std::move(oldChildren[matchIdx]);
@@ -942,7 +942,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
 
     // ── ③ 清理未被认领的旧节点 ──
     auto *reg = getRegisteredRegistry();
-    for (size_t i = 0; i < oldN; ++i) {
+    for (std::size_t i = 0; i < oldN; ++i) {
         if (!claimed[i] && oldChildren[i]) {
             // 稳N1：销毁整棵子树前整子树解绑——单节点 unbind 会让后代条目
             // 悬空，State 变更 notify 直写已释放内存（UAF）
@@ -954,7 +954,7 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
 
     // 替换 parent 的 children
     parent->children.clear();    // View::children 是 public vector<unique_ptr<View>>
-    for (size_t i = 0; i < newChildren.size(); ++i) {
+    for (std::size_t i = 0; i < newChildren.size(); ++i) {
         View *raw = newChildren[i].get();
         parent->addChild(std::move(newChildren[i]));
         // 27：必须挂接（addChild 设 parent_）后再解析——theme() 需沿 parent_
@@ -1267,7 +1267,7 @@ void ElementParser::printTree(const View *view, int depth, const std::string &pr
     }
     if (p.opacity < 1.0f) std::print(" opacity={:.2f}", p.opacity);
     std::println();
-    for (size_t i = 0; i < view->children.size(); ++i) {
+    for (std::size_t i = 0; i < view->children.size(); ++i) {
         bool last = (i == view->children.size() - 1);
         std::string childPrefix = prefix;
         childPrefix += last ? "    " : "│   ";

@@ -6,8 +6,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
 
 module kwik.element.line;
 
@@ -65,9 +66,9 @@ void Line::onDraw(Graphics &graphics) {
 // getProperty
 // ============================================================================
 std::string Line::getProperty(const char *name) const {
-    if (std::strcmp(name, "direction") == 0) return lp_.direction;
-    if (std::strcmp(name, "strokeWidth") == 0) return std::to_string(lp_.strokeWidth);
-    if (std::strcmp(name, "color") == 0) return "";  // Color 不暴露为字符串
+    if (strcmp(name, "direction") == 0) return lp_.direction;
+    if (strcmp(name, "strokeWidth") == 0) return std::to_string(lp_.strokeWidth);
+    if (strcmp(name, "color") == 0) return "";  // Color 不暴露为字符串
     return View::getProperty(name);
 }
 
@@ -75,7 +76,7 @@ std::string Line::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（direction/strokeWidth）
 // ============================================================================
 bool Line::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "direction") == 0) {
+	if (strcmp(name, "direction") == 0) {
 		auto *s = std::get_if<std::string>(&value);
 		if (!s) { return false; }
 		lp_.direction = *s;
@@ -83,7 +84,7 @@ bool Line::setPropertyTyped(const char *name, const TypedProp &value) {
 		requestLayout();    // 横↔竖改自然尺寸，仅 markDirty 不重排会留旧尺寸
 		return true;
 	}
-	if (std::strcmp(name, "strokeWidth") == 0) {
+	if (strcmp(name, "strokeWidth") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
 		lp_.strokeWidth = *v;

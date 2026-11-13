@@ -2,14 +2,6 @@
  * @file path.cppm
  * @brief 2D 路径类型 + 三角剖分函数声明
  */
-module;
-
-#include <cstdint>
-#include <cmath>
-#include <numbers>
-#include <vector>
-#include <algorithm>
-
 export module kwik.core.path;
 
 import kwik.core.types;
@@ -25,7 +17,7 @@ export struct Triangle {
     Vec2 p0;
     Vec2 p1;
     Vec2 p2;
-    uint8_t edgeMask = 0;   // bit0=(p0,p1) bit1=(p1,p2) bit2=(p2,p0)，1=轮廓边(需AA)
+    std::uint8_t edgeMask = 0;   // bit0=(p0,p1) bit1=(p1,p2) bit2=(p2,p0)，1=轮廓边(需AA)
 };
 
 /**

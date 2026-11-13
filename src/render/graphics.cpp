@@ -1,7 +1,24 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <stdint.h>
 #include <cassert>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.render.graphics;
 
@@ -91,12 +108,12 @@ void Graphics::appendCmd(DrawCommand cmd) {
     if (auto *s = sink()) s->append(std::move(cmd));
 }
 
-size_t Graphics::appendVerts(const AAVertex *v, size_t n) {
+std::size_t Graphics::appendVerts(const AAVertex *v, std::size_t n) {
     if (auto *s = sink()) return s->appendVertices(v, n);
     return 0;
 }
 
-size_t Graphics::appendMeshVerts(const Vertex3D *v, size_t n) {
+std::size_t Graphics::appendMeshVerts(const Vertex3D *v, std::size_t n) {
     if (auto *s = sink()) return s->appendMeshVertices(v, n);
     return 0;
 }
@@ -289,12 +306,12 @@ void Graphics::drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Colo
 // 图像
 // ════════════════════════════════════════════
 
-void Graphics::drawImage(uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
+void Graphics::drawImage(std::uint32_t textureId, const Rect &rect, float opacity, float cornerRadius) {
     if (!recording_) return;
     appendCmd(DrawImageCmd{textureId, rect, opacity, cornerRadius, currentState_.m});
 }
 
-void Graphics::drawImageUv(uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
+void Graphics::drawImageUv(std::uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
                            float opacity, float cornerRadius) {
     if (!recording_) return;
     DrawImageCmd cmd{textureId, rect, opacity, cornerRadius, currentState_.m};
@@ -321,7 +338,7 @@ void Graphics::fillPath(const Path &path, const Color &color) {
     if (triangles.empty()) return;
 
     std::vector<AAVertex> verts(triangles.size() * 3);
-    uint32_t i = 0;
+    std::uint32_t i = 0;
     for (auto &t : triangles) {
         float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
         float e2x = t.p2.x - t.p0.x, e2y = t.p2.y - t.p0.y;
@@ -338,9 +355,9 @@ void Graphics::fillPath(const Path &path, const Color &color) {
         verts[i++] = {{t.p1.x, t.p1.y}, mask, h0, h1, h2};
         verts[i++] = {{t.p2.x, t.p2.y}, mask, h0, h1, h2};
     }
-    size_t off = appendVerts(verts.data(), verts.size());
+    std::size_t off = appendVerts(verts.data(), verts.size());
     appendCmd(
-        FillTrianglesCmd{off, (uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
+        FillTrianglesCmd{off, (std::uint32_t)verts.size(), applyOpacity(color), BlendMode::SrcOver, currentState_.m});
 }
 
 std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
@@ -352,7 +369,7 @@ std::vector<AAVertex> Graphics::strokeVerts(const Path &path, float lineWidth) {
     float sc = std::sqrt(m.m00 * m.m00 + m.m10 * m.m10);
 
     std::vector<AAVertex> verts(triangles.size() * 3);
-    uint32_t i = 0;
+    std::uint32_t i = 0;
     for (auto &t : triangles) {
         float e1x = t.p1.x - t.p0.x, e1y = t.p1.y - t.p0.y;
         float e2x = t.p2.x - t.p0.x, e2y = t.p2.y - t.p0.y;
@@ -384,8 +401,8 @@ void Graphics::strokePath(const Path &path, const Color &color, float lineWidth)
     // 会有轻微加深（不透明色无此现象）。
     for (auto &contour : path.contours()) {
         auto &pts = contour.points;
-        size_t n = pts.size();
-        for (size_t i = 0; i + 1 < n; ++i) {
+        std::size_t n = pts.size();
+        for (std::size_t i = 0; i + 1 < n; ++i) {
             const Vec2 &a = pts[i];
             const Vec2 &b = pts[i + 1];
             float dx = b.x - a.x, dy = b.y - a.y;
@@ -415,8 +432,8 @@ void Graphics::strokeArc(float cx, float cy, float r, float a0, float a1, float 
 
     // 圆心/角度以本地逻辑坐标传给 shader，随矩阵一起作用于顶点 → 渐变与纯色变换一致
     // 两端颜色均烘焙透明度，渐变中间 alpha 由 shader 插值（lerp 语义）
-    size_t off = appendVerts(verts.data(), verts.size());
-    appendCmd(StrokeArcCmd{off, (uint32_t)verts.size(), applyOpacity(color0), cx, cy, a0, a1, applyOpacity(color1),
+    std::size_t off = appendVerts(verts.data(), verts.size());
+    appendCmd(StrokeArcCmd{off, (std::uint32_t)verts.size(), applyOpacity(color0), cx, cy, a0, a1, applyOpacity(color1),
                              currentState_.m});
 }
 
@@ -435,12 +452,12 @@ void Graphics::fillRing(float cx, float cy, float midR, float halfW, float a0, f
 }
 
 void Graphics::drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
-                        const float lightDir[3], const Rect &viewport, uint32_t textureId) {
+                        const float lightDir[3], const Rect &viewport, std::uint32_t textureId) {
     if (!recording_) return;
     if (vertices.empty()) return;
-    size_t off = appendMeshVerts(vertices.data(), vertices.size());
-    DrawMeshCmd cmd{off, static_cast<uint32_t>(vertices.size())};
-    std::memcpy(cmd.mvp, mvp, sizeof(cmd.mvp));
+    std::size_t off = appendMeshVerts(vertices.data(), vertices.size());
+    DrawMeshCmd cmd{off, static_cast<std::uint32_t>(vertices.size())};
+    memcpy(cmd.mvp, mvp, sizeof(cmd.mvp));
     cmd.color = applyOpacity(color);
     cmd.lightDir[0] = lightDir[0];
     cmd.lightDir[1] = lightDir[1];
@@ -478,7 +495,7 @@ Rect Graphics::transformRect(const Rect &rect) const {
 
 Color Graphics::applyOpacity(const Color &color) const {
     Color result = color;
-    result.a = static_cast<uint8_t>(color.a * currentState_.opacity);
+    result.a = static_cast<std::uint8_t>(color.a * currentState_.opacity);
     return result;
 }
 

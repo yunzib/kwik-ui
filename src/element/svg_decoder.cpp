@@ -21,7 +21,7 @@ SvgImage svgLoadFromFile(const char *path, int targetW, int targetH) {
     int w = (targetW > 0) ? targetW : (image->width > 0.0f) ? static_cast<int>(image->width) : 256;
     int h = (targetH > 0) ? targetH : (image->height > 0.0f) ? static_cast<int>(image->height) : 256;
     // ③ 分配 RGBA 缓冲区
-    result.pixels.resize(static_cast<size_t>(w) * h * 4, 0);
+    result.pixels.resize(static_cast<std::size_t>(w) * h * 4, 0);
     // ④ 创建光栅化器并渲染到 RGBA 缓冲区
     NSVGrasterizer *rast = nsvgCreateRasterizer();
     if (rast) {
@@ -44,7 +44,7 @@ SvgImage svgLoadFromFile(const char *path, int targetW, int targetH) {
 //
 // 先复制一份可变缓冲区 (nsvgParse 会内联修改输入)
 // ============================================================================
-SvgImage svgLoadFromMemory(const char *data, size_t dataSize, int targetW, int targetH) {
+SvgImage svgLoadFromMemory(const char *data, std::size_t dataSize, int targetW, int targetH) {
     SvgImage result;
     // nanosvg 会在解析时修改输入缓冲区, 必须拷贝一份可写副本
     std::vector<char> buffer(data, data + dataSize);
@@ -56,7 +56,7 @@ SvgImage svgLoadFromMemory(const char *data, size_t dataSize, int targetW, int t
     }
     int w = (targetW > 0) ? targetW : (image->width > 0.0f) ? static_cast<int>(image->width) : 256;
     int h = (targetH > 0) ? targetH : (image->height > 0.0f) ? static_cast<int>(image->height) : 256;
-    result.pixels.resize(static_cast<size_t>(w) * h * 4, 0);
+    result.pixels.resize(static_cast<std::size_t>(w) * h * 4, 0);
     NSVGrasterizer *rast = nsvgCreateRasterizer();
     if (rast) {
         float scaleX = static_cast<float>(w) / image->width;

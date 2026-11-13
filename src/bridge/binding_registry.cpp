@@ -70,7 +70,7 @@ void *getRegisteredClipboard() { return s_registeredClipboard; }
 //
 // 类型与 PropType 的对应关系：
 //   PropType::Bool   → bool
-//   PropType::Int    → int64_t
+//   PropType::Int    → std::int64_t
 //   PropType::Float  → double
 //   PropType::String → std::string
 //   PropType::Color  → Color（通过 parseColor 解析 "#RRGGBB"）
@@ -82,9 +82,9 @@ TypedProp jsValueToTypedProp(JSContext *ctx, JSValueConst value, PropType type) 
     case PropType::Bool: return static_cast<bool>(JS_ToBool(ctx, value));
 
     case PropType::Int: {
-        int32_t i = 0;
+        std::int32_t i = 0;
         JS_ToInt32(ctx, &i, value);
-        return static_cast<int64_t>(i);
+        return static_cast<std::int64_t>(i);
     }
 
     case PropType::Float: {

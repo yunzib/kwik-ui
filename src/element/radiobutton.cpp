@@ -8,8 +8,8 @@
 // ============================================================================
 
 module;
-#include <cmath>
-#include <cstring>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.element.radiobutton;
 
 import kwik.element.view;
@@ -148,8 +148,8 @@ void RadioButton::onDraw(Graphics &graphics) {
 // checked 和 value，无需打破模块边界进行 static_cast。
 // ============================================================================
 std::string RadioButton::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) { return radio_.checked ? "true" : "false"; }
-    if (std::strcmp(name, "value") == 0) { return radio_.value; }
+    if (strcmp(name, "checked") == 0) { return radio_.checked ? "true" : "false"; }
+    if (strcmp(name, "value") == 0) { return radio_.value; }
     return View::getProperty(name);
 }
 
@@ -158,7 +158,7 @@ std::string RadioButton::getProperty(const char *name) const {
 // RadioGroup 联动经 View::setProperty 包装到达此处（radio_group.cpp:30/86/111）
 // ============================================================================
 bool RadioButton::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "checked") == 0) {
+	if (strcmp(name, "checked") == 0) {
 		auto b = typedToBool(value);
 		if (!b) { return false; }
 		setChecked(*b);

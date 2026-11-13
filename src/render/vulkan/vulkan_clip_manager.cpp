@@ -1,8 +1,20 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstdint>
-#include <cmath>
-#include <vector>
 
 module kwik.render.vulkan.clip_manager;
 import kwik.core.types;
@@ -20,9 +32,9 @@ static VkRect2D clampToRenderArea(const Rect &r, const VkExtent2D &ext) {
     const float top = std::floor(std::max(r.y, 0.0f));
     const float right = std::ceil(std::min(r.x + r.width, static_cast<float>(ext.width)));
     const float bottom = std::ceil(std::min(r.y + r.height, static_cast<float>(ext.height)));
-    return {{static_cast<int32_t>(left), static_cast<int32_t>(top)},
-            {static_cast<uint32_t>(std::max(0.0f, right - left)),
-             static_cast<uint32_t>(std::max(0.0f, bottom - top))}};
+    return {{static_cast<std::int32_t>(left), static_cast<std::int32_t>(top)},
+            {static_cast<std::uint32_t>(std::max(0.0f, right - left)),
+             static_cast<std::uint32_t>(std::max(0.0f, bottom - top))}};
 }
 
 // 两矩形求交（AA 边缘保守展开：floor 左上 / ceil 右下，圆角描边像素不被裁）
@@ -41,13 +53,13 @@ void ClipManager::beginFrame(const VkExtent2D &extent, const VkRect2D &initialSc
     // 伤害带 scissor 同样收口：backend 只对偏移保证非负，不保证对 extent 求交；
     // int 域用 int64 中转防回卷。空栈回退（resetClip/restoreState/reapplyState）
     // 都直接使用它，必须在源头保证合法。
-    const int32_t bandL = std::max(0, initialScissor.offset.x);
-    const int32_t bandT = std::max(0, initialScissor.offset.y);
-    const int64_t bandR = std::min<int64_t>(bandL + static_cast<int64_t>(initialScissor.extent.width), extent.width);
-    const int64_t bandB = std::min<int64_t>(bandT + static_cast<int64_t>(initialScissor.extent.height), extent.height);
+    const std::int32_t bandL = std::max(0, initialScissor.offset.x);
+    const std::int32_t bandT = std::max(0, initialScissor.offset.y);
+    const std::int64_t bandR = std::min<std::int64_t>(bandL + static_cast<std::int64_t>(initialScissor.extent.width), extent.width);
+    const std::int64_t bandB = std::min<std::int64_t>(bandT + static_cast<std::int64_t>(initialScissor.extent.height), extent.height);
     initialScissor_ = {{bandL, bandT},
-                       {static_cast<uint32_t>(std::max<int64_t>(0, bandR - bandL)),
-                        static_cast<uint32_t>(std::max<int64_t>(0, bandB - bandT))}};
+                       {static_cast<std::uint32_t>(std::max<std::int64_t>(0, bandR - bandL)),
+                        static_cast<std::uint32_t>(std::max<std::int64_t>(0, bandB - bandT))}};
     renderExtent_ = extent;
 }
 

@@ -1,7 +1,3 @@
-module;
-#include <memory>
-#include <vector>
-
 export module kwik.element.view;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -79,9 +75,9 @@ export struct TreeArgs {
  */
 export struct KeyArgs {
     std::string value;
-    uint32_t charCode = 0;
-    uint32_t keyCode = 0;
-    uint32_t modifiers = 0;    ///< 修饰键位（bit0=Ctrl 0x1 / bit1=Shift 0x2，与 RawEvent 同口径）
+    std::uint32_t charCode = 0;
+    std::uint32_t keyCode = 0;
+    std::uint32_t modifiers = 0;    ///< 修饰键位（bit0=Ctrl 0x1 / bit1=Shift 0x2，与 RawEvent 同口径）
 };
 
 /**

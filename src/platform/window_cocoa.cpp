@@ -4,7 +4,6 @@
 // VK_EXT_metal_surface），软件路径不做。接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.cocoa_window;
 
@@ -68,7 +67,7 @@ void PlatformWindowCocoa::SetShape(const std::vector<std::pair<int, int>> &polyg
     (void)polygon;    // 待接：NSWindow setOpaque:NO + 环形路径（低优）
 }
 
-void PlatformWindowCocoa::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowCocoa::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

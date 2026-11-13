@@ -1,7 +1,3 @@
-module;
-#include <cstdint>
-#include <memory>
-
 export module kwik.render.backend;
 
 import kwik.core.types;
@@ -117,12 +113,12 @@ public:
      *         实际 GPU 上传由后端在渲染线程帧首批量执行（同帧录制同帧可用，
      *         未就绪 id 的绘制命令当帧跳过）。调用返回不代表上传完成
      */
-    virtual uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) = 0;
+    virtual std::uint32_t createImageTexture(const std::uint8_t *rgba, std::uint32_t width, std::uint32_t height) = 0;
     /**
      * @brief 销毁图像纹理（资源通道）：id 即失效（后续绘制不再命中）；
      *         实际释放由后端延迟到在飞帧引用全部结束后，调用方线程不阻塞
      */
-    virtual void destroyImageTexture(uint32_t id) = 0;
+    virtual void destroyImageTexture(std::uint32_t id) = 0;
 
     /**
      * @brief 创建流纹理（资源通道，V1 推流）：绑定一路 VideoStream 持续取最新帧
@@ -131,7 +127,7 @@ public:
      *        （同流多显示端各自持 id，计数归零才真释放）。
      *        默认返回 0 = 本后端不支持流纹理（调用方按无纹理占位处理）。
      */
-    virtual uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) {
+    virtual std::uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) {
         (void)stream;
         return 0;
     }
@@ -141,7 +137,7 @@ public:
      *        绘制"，后端帧首据此决定是否上传新帧——不可见（未录制）的显示端
      *        不触碰、不上传。默认无操作。
      */
-    virtual void touchStreamTexture(uint32_t id) { (void)id; }
+    virtual void touchStreamTexture(std::uint32_t id) { (void)id; }
 
     /**
      * @brief 图像纹理异步上传回执状态（UI 线程查询用，资源通道）
@@ -159,7 +155,7 @@ public:
      * （调用方应自己记住终态）。默认 Landed——同步创建的后端没有异步回执
      * 通道，createImageTexture 返回非零即已上传完成。
      */
-    virtual TextureUploadStatus imageTextureResult(uint32_t id) {
+    virtual TextureUploadStatus imageTextureResult(std::uint32_t id) {
         (void)id;
         return TextureUploadStatus::Landed;
     }

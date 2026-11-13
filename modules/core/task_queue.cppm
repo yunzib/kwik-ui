@@ -6,14 +6,8 @@
  * MainThreadAwaitable 用于协程 co_await 切回主线程。
  */
 
-module;
-
-#include <functional>
-#include <vector>
-#include <mutex>
-#include <coroutine>
-
 export module kwik.core.task_queue;
+import std;
 
 /**
  * @class TaskQueue

@@ -1,9 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-#include <vector>
-
 export module kwik.element.text;
 
 import kwik.element.view;
@@ -89,9 +83,9 @@ public:
     bool onEvent(const DispatchEvent &event) override;
 
     // ── Selectable 接口（树级选区服务经此操作本节点，见 selection.cppm）──
-    size_t hitOffset(float globalX, float globalY) override;
-    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
-    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    std::size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(std::size_t startOff, std::size_t endOff) override;
+    std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
     bool alive() const override;
 
@@ -101,10 +95,10 @@ public:
      * localX 最近的字形落笔边界 → 字节偏移（cluster，天然 UTF-8 边界）；
      * 行尾末笔（末字形落笔+步进）参与最近比较。
      */
-    static size_t lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, float localX);
+    static std::size_t lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, float localX);
 
     /** @brief 边界偏移在行内的落笔 x（纯函数；首个 cluster>=off 的字形落笔，越界取末笔） */
-    static float penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, size_t off);
+    static float penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, std::size_t off);
 
 protected:
     std::string displayedText_;    ///< 实际排版文本（maxLines 截断后含省略号，缓存匹配基准）
@@ -131,7 +125,7 @@ protected:
 private:
     std::shared_ptr<TextLayoutResult> layoutResult_; /**< 排版结果 */
 
-    uint64_t lastTapMs_ = 0;    ///< 双击检测：上次 Tap 时间戳 ms（间隔 <400ms 且位移 <6px 判双击）
+    std::uint64_t lastTapMs_ = 0;    ///< 双击检测：上次 Tap 时间戳 ms（间隔 <400ms 且位移 <6px 判双击）
     float lastTapX_ = 0;        ///< 上次 Tap 位置（位移阈值判据）
     float lastTapY_ = 0;
 

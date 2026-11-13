@@ -5,12 +5,6 @@
  * ThemeData 持有颜色方案、文字主题、形状主题，
  * 通过 ThemeData::of(view) 沿 View 树向上查找最近的 ThemeProvider。
  */
-module;
-#include <cstdint>
-#include <optional>
-#include <string_view>
-#include <vector>
-
 export module kwik.core.theme;
 
 import kwik.core.types;

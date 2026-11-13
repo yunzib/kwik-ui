@@ -5,7 +5,6 @@
 // 接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.harmony_window;
 
@@ -74,7 +73,7 @@ void PlatformWindowHarmony::SetShape(const std::vector<std::pair<int, int>> &pol
     (void)polygon;    // 不可表达
 }
 
-void PlatformWindowHarmony::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowHarmony::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

@@ -1,7 +1,8 @@
 module;
 
-#include <algorithm>
 #include <cfloat>    // FLT_MAX（onLayout 容器约束高度上限）
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.layer_view;
 
@@ -118,10 +119,10 @@ void LayerView::onLayout() {
     if (iw < 0) iw = 0;
 
     Constraints cc = {0, iw > 0 ? iw : rf.width, 0, FLT_MAX};
-    size_t n = children.size();
+    std::size_t n = children.size();
     std::vector<float> childHeights(n);
     float sum = 0, maxW = 0;
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         Size s = children[i]->measure(cc);
         float h = std::isnan(s.height) ? 0 : s.height;
         childHeights[i] = h;
@@ -151,7 +152,7 @@ void LayerView::onLayout() {
 
     float y0 = contentBounds_.y + lp_.padding.top;
     float ix = contentBounds_.x + lp_.padding.left;
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         children[i]->layout({ix, y0, iw > 0 ? iw : (cw - lp_.padding.horizontal()), childHeights[i]});
         y0 += childHeights[i];
     }
@@ -299,9 +300,9 @@ void LayerView::fireClose() {
 
 // ── 属性读写 ──
 std::string LayerView::getProperty(const char *name) const {
-    if (std::strcmp(name, "active") == 0) return lp_.active ? "true" : "false";
-    if (std::strcmp(name, "modal") == 0) return lp_.modal ? "true" : "false";
-    if (std::strcmp(name, "open") == 0) return lp_.active ? "true" : "false";
+    if (strcmp(name, "active") == 0) return lp_.active ? "true" : "false";
+    if (strcmp(name, "modal") == 0) return lp_.modal ? "true" : "false";
+    if (strcmp(name, "open") == 0) return lp_.active ? "true" : "false";
     return View::getProperty(name);
 }
 
@@ -316,7 +317,7 @@ std::string LayerView::getProperty(const char *name) const {
 // 原 typed 经 setProperty("active",…) 回环调用的写法随旧函数一并删除。
 // ============================================================================
 bool LayerView::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "active") == 0 || std::strcmp(name, "open") == 0) {
+	if (strcmp(name, "active") == 0 || strcmp(name, "open") == 0) {
 		auto b = typedToBool(value);
 		if (!b) { return false; }
 		if (*b != lp_.active) {
@@ -327,34 +328,34 @@ bool LayerView::setPropertyTyped(const char *name, const TypedProp &value) {
 		}
 		return true;
 	}
-	if (std::strcmp(name, "modal") == 0 || std::strcmp(name, "maskClosable") == 0 ||
-	    std::strcmp(name, "transparent") == 0) {
+	if (strcmp(name, "modal") == 0 || strcmp(name, "maskClosable") == 0 ||
+	    strcmp(name, "transparent") == 0) {
 		auto b = typedToBool(value);
 		if (!b) { return false; }
-		if (std::strcmp(name, "modal") == 0) { lp_.modal = *b; markDirty(); }
-		else if (std::strcmp(name, "maskClosable") == 0) { lp_.maskClosable = *b; }   // 原实现无重绘
+		if (strcmp(name, "modal") == 0) { lp_.modal = *b; markDirty(); }
+		else if (strcmp(name, "maskClosable") == 0) { lp_.maskClosable = *b; }   // 原实现无重绘
 		else { lp_.transparent = *b; markDirty(); }
 		return true;
 	}
 	// 尺寸/偏移：变化影响布局 → requestLayout（原 try/stof 换宽容提取）
-	if (std::strcmp(name, "width") == 0 || std::strcmp(name, "height") == 0 ||
-	    std::strcmp(name, "offsetX") == 0 || std::strcmp(name, "offsetY") == 0 ||
-	    std::strcmp(name, "borderRadius") == 0) {
+	if (strcmp(name, "width") == 0 || strcmp(name, "height") == 0 ||
+	    strcmp(name, "offsetX") == 0 || strcmp(name, "offsetY") == 0 ||
+	    strcmp(name, "borderRadius") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
-		if (std::strcmp(name, "width") == 0) { lp_.width = *v; }
-		else if (std::strcmp(name, "height") == 0) { lp_.height = *v; }
-		else if (std::strcmp(name, "offsetX") == 0) { lp_.offsetX = *v; }
-		else if (std::strcmp(name, "offsetY") == 0) { lp_.offsetY = *v; }
+		if (strcmp(name, "width") == 0) { lp_.width = *v; }
+		else if (strcmp(name, "height") == 0) { lp_.height = *v; }
+		else if (strcmp(name, "offsetX") == 0) { lp_.offsetX = *v; }
+		else if (strcmp(name, "offsetY") == 0) { lp_.offsetY = *v; }
 		else { lp_.borderRadius = *v; }
 		markDirty();
-		if (std::strcmp(name, "borderRadius") != 0) { requestLayout(); }    // 圆角仅重绘
+		if (strcmp(name, "borderRadius") != 0) { requestLayout(); }    // 圆角仅重绘
 		return true;
 	}
-	if (std::strcmp(name, "position") == 0 || std::strcmp(name, "anchor") == 0) {
+	if (strcmp(name, "position") == 0 || strcmp(name, "anchor") == 0) {
 		auto *s = std::get_if<std::string>(&value);
 		if (!s) { return false; }
-		if (std::strcmp(name, "position") == 0) { lp_.position = *s; }
+		if (strcmp(name, "position") == 0) { lp_.position = *s; }
 		else { lp_.anchor = *s; }
 		markDirty();
 		requestLayout();

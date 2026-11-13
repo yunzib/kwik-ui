@@ -7,7 +7,6 @@
 import std;
 import kwik.core.path;
 
-#include <cstddef>
 
 static int failures = 0;
 
@@ -37,7 +36,7 @@ static float triAreaSum(const std::vector<Triangle> &tris) {
 
 static float shoelaceArea(const std::vector<Vec2> &pts) {
     float a2 = 0.0f;
-    for (size_t i = 0; i < pts.size(); ++i) {
+    for (std::size_t i = 0; i < pts.size(); ++i) {
         const Vec2 &a = pts[i];
         const Vec2 &b = pts[(i + 1) % pts.size()];
         a2 += a.x * b.y - b.x * a.y;
@@ -48,7 +47,7 @@ static float shoelaceArea(const std::vector<Vec2> &pts) {
 static Path polyPath(const std::vector<Vec2> &pts) {
     Path p;
     p.moveTo(pts[0].x, pts[0].y);
-    for (size_t i = 1; i < pts.size(); ++i) p.lineTo(pts[i].x, pts[i].y);
+    for (std::size_t i = 1; i < pts.size(); ++i) p.lineTo(pts[i].x, pts[i].y);
     p.closePath();
     return p;
 }

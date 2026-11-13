@@ -13,9 +13,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <algorithm>
-#include <cmath>
 
 module kwik.element.lazy_list;
 
@@ -329,7 +329,7 @@ void LazyList::onDraw(Graphics &g) {
     // 可视窗口（裁剪区换算回未滚动的布局坐标系）
     const Rect visRect = {clipX + scrollOffset_.x, clipY + scrollOffset_.y, clipW, clipH};
 
-    for (size_t i = 0; i < children.size(); ++i) {
+    for (std::size_t i = 0; i < children.size(); ++i) {
         auto *row = static_cast<LazyListRow *>(children[i].get());
         if (!row->frame.intersects(visRect)) continue;    // 窗口剔除
         row->drawForced(g);                               // 跳过脏判断恒录
@@ -406,7 +406,7 @@ bool LazyList::applyScroll(float dx, float dy) {
 // setPropertyTyped — scrollX/scrollY 命令式通路（定位/贴底/动画）
 // ============================================================================
 bool LazyList::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "scrollX") == 0 || std::strcmp(name, "scrollY") == 0) {
+    if (strcmp(name, "scrollX") == 0 || strcmp(name, "scrollY") == 0) {
         auto v = typedToFloat(value);
         if (!v) return false;
         if (name[6] == 'X') scrollOffset_.x = *v; else scrollOffset_.y = *v;

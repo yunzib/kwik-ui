@@ -1,7 +1,3 @@
-module;
-
-#include <string>
-
 export module kwik.element.line;
 
 import kwik.element.view;

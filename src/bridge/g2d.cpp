@@ -1,7 +1,10 @@
 /** @brief G2D 元素: JS 工厂 / 方法 / 插件式注册 (自 bindings.cpp / element_parser.cpp 抽取)。 */
 module;
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）
+#include <kwik/c_bridge.h>
 #include "quickjs.h"
-#include <atomic>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.bridge.g2d;
 
@@ -31,7 +34,7 @@ import std;
         if (!JS_IsUndefined(_ptr)) {                                                                                   \
             double _v;                                                                                                 \
             JS_ToFloat64(ctx, &_v, _ptr);                                                                              \
-            auto *_cached = reinterpret_cast<G2D *>(static_cast<uintptr_t>(_v));                                       \
+            auto *_cached = reinterpret_cast<G2D *>(static_cast<std::uintptr_t>(_v));                                       \
             if (TargetLiveness::instance().isAlive(_cached)) {                                                         \
                 JS_FreeValue(ctx, _ptr);                                                                               \
                 JS_FreeValue(ctx, _p);                                                                                 \
@@ -48,7 +51,7 @@ import std;
         auto *_r = dynamic_cast<G2D *>(_root ? _root->findById(_idStr) : nullptr);                                     \
         if (_r) { /* 缓存到 __g2d_ptr 下次直接走快路径 */                                                              \
             JS_SetPropertyStr(ctx, _p, "__g2d_ptr",                                                                    \
-                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));               \
+                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<std::uintptr_t>(_r))));               \
         }                                                                                                              \
         JS_FreeCString(ctx, _idStr);                                                                                   \
         JS_FreeValue(ctx, _id);                                                                                        \
@@ -221,7 +224,7 @@ static JSValue js_g2d_drawImage(JSContext *ctx, JSValueConst this_val, int argc,
         if (!v) { return JS_EXCEPTION; }
         _a[_i - 1] = *v;
     }
-    g2d->drawImage(uint32_t(*texId), _a[0], _a[1], _a[2], _a[3]);
+    g2d->drawImage(std::uint32_t(*texId), _a[0], _a[1], _a[2], _a[3]);
     return JS_UNDEFINED;
 }
 
@@ -233,7 +236,7 @@ static bool g2dGradFromJS(JSContext *ctx, JSValueConst v, Gradient &out) {
     if (!isGrad) return false;
     JSValue type = JS_GetPropertyStr(ctx, v, "type");
     const char *ts = JS_ToCString(ctx, type);
-    out.type = (ts && std::strcmp(ts, "radial") == 0) ? GradientType::Radial : GradientType::Linear;
+    out.type = (ts && strcmp(ts, "radial") == 0) ? GradientType::Radial : GradientType::Linear;
     JS_FreeCString(ctx, ts);
     JS_FreeValue(ctx, type);
     auto num = [&](const char *k, float &dst) {
@@ -445,9 +448,9 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
     JSValue props = (argc > 0 && JS_IsObject(argv[0])) ? JS_DupValue(ctx, argv[0]) : JS_NewObject(ctx);
     JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
     if (JS_IsUndefined(idVal)) {
-        static std::atomic<uint32_t> g2d_id_counter{0};
+        static std::atomic<std::uint32_t> g2d_id_counter{0};
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "__g2d_%u", g2d_id_counter.fetch_add(1));
+        kwik_snprintf(buf, sizeof(buf), "__g2d_%u", g2d_id_counter.fetch_add(1));
         JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
     }
     JS_FreeValue(ctx, idVal);
@@ -458,7 +461,7 @@ static JSValue js_g2d(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
         // 立即创建 C++ G2D, 指针存到 props (命令式绘制在树建立前就要到达 C++)
         auto *g2d = new G2D();
         JS_SetPropertyStr(ctx, props, "__g2d_ptr",
-                          JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g2d))));
+                          JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<std::uintptr_t>(g2d))));
     }
     JS_FreeValue(ctx, props);
     return obj;
@@ -472,7 +475,7 @@ static std::unique_ptr<View> createG2D(const JSValueRef &pv) {
         JSContext *ctx = pv.context();
         double v;
         JS_ToFloat64(ctx, &v, ptrVal.raw());
-        auto *existing = reinterpret_cast<G2D *>(static_cast<uintptr_t>(v));
+        auto *existing = reinterpret_cast<G2D *>(static_cast<std::uintptr_t>(v));
         TypedPropMap meta;
         PropsExtractor ex(pv, &meta);
         existing->props = parseViewProps(ex);     // 更新 ViewProps (width/height 等)

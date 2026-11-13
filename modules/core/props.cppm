@@ -1,7 +1,3 @@
-module;
-
-#include <optional>
-
 export module kwik.core.props;
 import std;
 
@@ -183,7 +179,7 @@ export enum class ImageSource {
  */
 export struct ImageProps {
     std::string src;              // 文件路径 (source == File/Url 时使用)
-    std::vector<uint8_t> data;    // 像素缓冲区 (source == Buffer 时使用)
+    std::vector<std::uint8_t> data;    // 像素缓冲区 (source == Buffer 时使用)
     int bufferWidth = 0;          // 缓冲区位图宽度 (source == Buffer)
     int bufferHeight = 0;         // 缓冲区位图高度 (source == Buffer)
     ImageSource source = ImageSource::File;

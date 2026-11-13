@@ -7,6 +7,21 @@
  * 因此移除了原有的排版 ring buffer（LayoutEntry / TextLayoutKey）。
  */
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <stdint.h>
 export module kwik.render.text.cache;
 
@@ -46,10 +61,10 @@ public:
     void requeueUploads(std::vector<UploadJob> &jobs);
 
     /** @brief 图集尺寸（512² = 1MB/页，上限 16MB） */
-    static constexpr uint32_t kAtlasSize = 512;
+    static constexpr std::uint32_t kAtlasSize = 512;
 
     /** @brief 最大图集页数 */
-    static constexpr uint32_t kMaxPages = 16;
+    static constexpr std::uint32_t kMaxPages = 16;
 
     /**
      * @brief 设置当前 DPI 缩放比例，字形将在 rasterize 时按此比例缩放
@@ -77,9 +92,9 @@ private:
     /** @brief 缓存键: 字体 + 字形 + 字号 + 子像素偏移 + 斜体（剪切栅格化独立条目） */
     struct GlyphKey {
         FontId fontId;
-        uint32_t glyph;
+        std::uint32_t glyph;
         float fontSize;
-        uint32_t subpixelOffset = 0;
+        std::uint32_t subpixelOffset = 0;
         bool italic = false;
         bool operator==(const GlyphKey &o) const {
             return fontId == o.fontId && glyph == o.glyph && fontSize == o.fontSize
@@ -87,31 +102,31 @@ private:
         }
     };
     struct GlyphKeyHash {
-        size_t operator()(const GlyphKey &k) const {
-            return std::hash<uint32_t>{}(k.fontId) ^ (std::hash<uint32_t>{}(k.glyph) << 1)
-                   ^ (std::hash<float>{}(k.fontSize) << 2) ^ (std::hash<uint32_t>{}(k.subpixelOffset) << 3)
-                   ^ (std::hash<uint32_t>{}(k.italic ? 1u : 0u) << 4);
+        std::size_t operator()(const GlyphKey &k) const {
+            return std::hash<std::uint32_t>{}(k.fontId) ^ (std::hash<std::uint32_t>{}(k.glyph) << 1)
+                   ^ (std::hash<float>{}(k.fontSize) << 2) ^ (std::hash<std::uint32_t>{}(k.subpixelOffset) << 3)
+                   ^ (std::hash<std::uint32_t>{}(k.italic ? 1u : 0u) << 4);
         }
     };
 
     /** @brief 缓存条目: 字形度量 + 图集坐标 + 所属页版本 */
     struct CachedGlyph {
         GlyphInfo info;
-        uint32_t pageIndex = 0;
-        uint32_t atlasX = 0;
-        uint32_t atlasY = 0;
-        uint32_t packedW = 0;
-        uint32_t packedH = 0;
+        std::uint32_t pageIndex = 0;
+        std::uint32_t atlasX = 0;
+        std::uint32_t atlasY = 0;
+        std::uint32_t packedW = 0;
+        std::uint32_t packedH = 0;
         bool packed = false;
         bool unfittable = false;    // 尺寸超单页（>kAtlasSize）永远装不下：跳过重打包尝试
                                     // 与整页淘汰风暴（A5），pixelData 已释放、仅保留度量
-        uint32_t pageGeneration = 0;    // 打包时所属页的版本（页被淘汰时该页版本递增）
+        std::uint32_t pageGeneration = 0;    // 打包时所属页的版本（页被淘汰时该页版本递增）
     };
     std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> glyphCache_;
 
     /** @brief 栅格化字形（FreeType LCD 子像素；italic = 伪斜体剪切变换） */
-    void rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
-                        uint32_t subpixelOffset = 0, bool italic = false);
+    void rasterizeGlyph(FontId font, std::uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
+                        std::uint32_t subpixelOffset = 0, bool italic = false);
 
     /** @brief Skyline 打包 + 加入上传队列 */
     void packGlyph(CachedGlyph &entry);
@@ -121,18 +136,18 @@ private:
     // ═══════════════════════════════════════════════════════════════════════════
 
     struct AtlasPage {
-        uint32_t width = kAtlasSize;
-        uint32_t height = kAtlasSize;
+        std::uint32_t width = kAtlasSize;
+        std::uint32_t height = kAtlasSize;
         std::vector<int> skyline;
-        uint64_t lastFrameUsed = 0;
-        uint32_t generation = 0;    // 页版本：仅本页被淘汰/需失效时递增（其余页条目不受牵连）
+        std::uint64_t lastFrameUsed = 0;
+        std::uint32_t generation = 0;    // 页版本：仅本页被淘汰/需失效时递增（其余页条目不受牵连）
     };
 
     std::vector<AtlasPage> pages_;
-    uint32_t pageCount_ = 0;
+    std::uint32_t pageCount_ = 0;
     // 帧时钟: UI 线程录制期读（tryPack 记 lastFrameUsed），渲染线程
     // consumeUploads 写 — atomic 防跨线程撕裂
-    std::atomic<uint64_t> frameCounter_{0};
+    std::atomic<std::uint64_t> frameCounter_{0};
     // 上传队列: UI 线程 packGlyph 生产 / 渲染线程 consumeUploads 消费，
     // 多窗口时为多个渲染线程 — 互斥保护
     std::mutex uploadsMutex_;
@@ -141,5 +156,5 @@ private:
     float dpiScale_ = 1.0f;
 
     /** @brief 尝试在指定页上打包 w×h 矩形 */
-    auto tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optional<PackResult>;
+    auto tryPack(AtlasPage &page, std::uint32_t w, std::uint32_t h) -> std::optional<PackResult>;
 };

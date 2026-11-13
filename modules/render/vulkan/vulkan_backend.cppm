@@ -1,7 +1,20 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstdint>
-#include <vector>
 export module kwik.render.vulkan_backend;
 import kwik.render.backend;
 import kwik.render.command;
@@ -48,11 +61,11 @@ public:
     void drawShadow(const Rect &rect, float radius, const Shadow &shadow, const Transform2D &t) override;
     void drawGlyph(const DrawGlyphCmd &cmd) override;
     void drawImage(const DrawImageCmd &cmd) override;
-    uint32_t createImageTexture(const uint8_t *rgba, uint32_t width, uint32_t height) override;
-    void destroyImageTexture(uint32_t id) override;
-    uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) override;
-    void touchStreamTexture(uint32_t id) override;
-    RenderBackend::TextureUploadStatus imageTextureResult(uint32_t id) override;
+    std::uint32_t createImageTexture(const std::uint8_t *rgba, std::uint32_t width, std::uint32_t height) override;
+    void destroyImageTexture(std::uint32_t id) override;
+    std::uint32_t createStreamTexture(std::shared_ptr<VideoStream> stream) override;
+    void touchStreamTexture(std::uint32_t id) override;
+    RenderBackend::TextureUploadStatus imageTextureResult(std::uint32_t id) override;
     void pushClipRoundedRect(const Rect &rect, float radius, const Transform2D &t, const Rect &clipRect) override;
     void popState() override;
     BackendType getType() const override { return BackendType::Vulkan; }
@@ -88,9 +101,9 @@ private:
     MeshRenderer mesh_;
     BackdropRenderer backdrop_;
 
-    enum class PushKind : uint8_t { Clip };    // 仅剩 Clip（transform/opacity 已烘烤）
+    enum class PushKind : std::uint8_t { Clip };    // 仅剩 Clip（transform/opacity 已烘烤）
     std::vector<PushKind> pushKinds_;
 
-    uint32_t drawCalls_ = 0;    ///< 临时探针：本帧绘制调用计数
-    uint64_t resourceFrame_ = 0;    ///< 资源通道帧号（drainResources 的 retire 帧距基准）
+    std::uint32_t drawCalls_ = 0;    ///< 临时探针：本帧绘制调用计数
+    std::uint64_t resourceFrame_ = 0;    ///< 资源通道帧号（drainResources 的 retire 帧距基准）
 };

@@ -10,9 +10,6 @@
 
 module;
 
-#include <algorithm>
-#include <cctype>
-#include <chrono>
 
 module kwik.element.keyboard;
 
@@ -34,24 +31,24 @@ import std;
 
 // ── 功能键码常量（与平台无关，Input/TextArea 已硬编码消费）──────────────
 namespace {
-constexpr uint32_t VK_BACK = 0x08;     // Backspace
-constexpr uint32_t VK_ENTER = 0x0D;    // Enter
-constexpr uint32_t VK_LEFT = 0x25;     // ←
-constexpr uint32_t VK_RIGHT = 0x27;    // →
-constexpr uint32_t VK_HOME = 0x24;     // Home
-constexpr uint32_t VK_END = 0x23;      // End
-constexpr uint32_t VK_UP = 0x26;       // ↑（TextArea 用）
-constexpr uint32_t VK_DOWN = 0x28;     // ↓（TextArea 用）
-constexpr uint32_t VK_DELETE = 0x2E;   // Delete（Input/TextArea 删后向）
+constexpr std::uint32_t VK_BACK = 0x08;     // Backspace
+constexpr std::uint32_t VK_ENTER = 0x0D;    // Enter
+constexpr std::uint32_t VK_LEFT = 0x25;     // ←
+constexpr std::uint32_t VK_RIGHT = 0x27;    // →
+constexpr std::uint32_t VK_HOME = 0x24;     // Home
+constexpr std::uint32_t VK_END = 0x23;      // End
+constexpr std::uint32_t VK_UP = 0x26;       // ↑（TextArea 用）
+constexpr std::uint32_t VK_DOWN = 0x28;     // ↓（TextArea 用）
+constexpr std::uint32_t VK_DELETE = 0x2E;   // Delete（Input/TextArea 删后向）
 // 修饰键位（与 RawEvent.modifiers 同口径：bit0=Ctrl / bit1=Shift）
-constexpr uint32_t MOD_SHIFT = 0x2;
+constexpr std::uint32_t MOD_SHIFT = 0x2;
 // 长按连发节拍（键表能力批次）：首迟 350ms 起发，此后每 60ms 一发
-constexpr uint64_t kRepeatFirstDelayMs = 350;
-constexpr uint64_t kRepeatPeriodMs = 60;
+constexpr std::uint64_t kRepeatFirstDelayMs = 350;
+constexpr std::uint64_t kRepeatPeriodMs = 60;
 
 /// 取 steady 时钟毫秒（连发计时基准；仅相对差值有意义）
-uint64_t steadyMs() {
-    return (uint64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+std::uint64_t steadyMs() {
+    return (std::uint64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }
@@ -196,10 +193,10 @@ std::vector<Keyboard::KeyRow> Keyboard::layoutRows() const {
         tool.keys.push_back({0, VK_DELETE, "Del", 1.0f, false, false});
 
         KeyRow r1, r2, r3, r4;
-        for (char c : std::string("qwertyuiop")) r1.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
-        for (char c : std::string("asdfghjkl")) r2.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("qwertyuiop")) r1.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("asdfghjkl")) r2.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
         r3.keys.push_back({0, 0, "shift", 1.5f, true, false});    // shift sticky
-        for (char c : std::string("zxcvbnm")) r3.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("zxcvbnm")) r3.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
         r3.keys.push_back({0, VK_BACK, "Backspace", 1.5f, false, false});
         r4.keys.push_back({0, 0, "123", 1.5f, false, true});    // → number
         r4.keys.push_back({' ', 0, "space", 5.0f, false, false});
@@ -212,9 +209,9 @@ std::vector<Keyboard::KeyRow> Keyboard::layoutRows() const {
         // 无工具行（光标键对数字编辑无意义），但数字页不能困死用户，123 键
         // 从 text 页直达此处后，回 text/symbol 的就近出口置于底行前段。
         KeyRow r1, r2, r3, r4;
-        for (char c : std::string("123")) r1.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
-        for (char c : std::string("456")) r2.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
-        for (char c : std::string("789")) r3.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("123")) r1.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("456")) r2.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("789")) r3.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
         r4.keys.push_back({0, 0, "abc", 1.0f, false, true});    // → text
         r4.keys.push_back({0, 0, "#+=", 1.0f, false, true});    // → symbol
         r4.keys.push_back({'-', 0, "-", 1.0f, false, false});
@@ -241,9 +238,9 @@ std::vector<Keyboard::KeyRow> Keyboard::layoutRows() const {
         tool.keys.push_back({0, VK_DELETE, "Del", 1.0f, false, false});
 
         KeyRow r1, r2, r3, r4;
-        for (char c : std::string("!@#$%^&*()")) r1.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
-        for (char c : std::string("-+=[]{};:")) r2.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
-        for (char c : std::string("\",.<>/?\\|")) r3.keys.push_back({(uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("!@#$%^&*()")) r1.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("-+=[]{};:")) r2.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
+        for (char c : std::string("\",.<>/?\\|")) r3.keys.push_back({(std::uint32_t)c, 0, std::string(1, c), 1.0f, false, false});
         r4.keys.push_back({0, 0, "abc", 1.5f, false, true});    // → text
         r4.keys.push_back({' ', 0, "space", 2.0f, false, false});
         r4.keys.push_back({0, VK_ENTER, "Enter", 2.0f, false, false});
@@ -259,7 +256,7 @@ std::vector<Keyboard::KeyRow> Keyboard::layoutRows() const {
 float Keyboard::panelHeight() const {
     auto rows = layoutRows();
     float h = kp_.panelPadding.vertical();
-    for (size_t r = 0; r < rows.size(); ++r) {
+    for (std::size_t r = 0; r < rows.size(); ++r) {
         if (r > 0) h += kp_.keyGap;
         h += kp_.keyHeight * rows[r].heightScale;
     }
@@ -303,7 +300,7 @@ const Keyboard::KeyDef *Keyboard::hitKey(Point local, Rect &keyRectOut) {
     const float availW = frame.width - kp_.panelPadding.horizontal();
     const float innerX = frame.x + kp_.panelPadding.left;
     float y = frame.y + kp_.panelPadding.top;
-    for (size_t r = 0; r < rows.size(); ++r) {
+    for (std::size_t r = 0; r < rows.size(); ++r) {
         const auto &row = rows[r].keys;
         const float rowH = kp_.keyHeight * rows[r].heightScale;
         float totalWeight = 0;
@@ -336,8 +333,8 @@ void Keyboard::injectKey(const KeyDef &key) {
     raw.device = RawEvent::Device::Keyboard;
     raw.modifiers = shiftSticky_ ? MOD_SHIFT : 0;    // 修饰键位随注入（bit1=Shift，shift 大写同源）
     if (key.charCode != 0) {
-        uint32_t cp = key.charCode;
-        if (shiftSticky_ && cp < 0x80) cp = (uint32_t)std::toupper((unsigned char)cp);
+        std::uint32_t cp = key.charCode;
+        if (shiftSticky_ && cp < 0x80) cp = (std::uint32_t)std::toupper((unsigned char)cp);
         raw.action = RawEvent::Action::TextInput;
         raw.charCode = cp;
     } else if (key.keyCode != 0) {
@@ -411,7 +408,7 @@ bool Keyboard::handlePress(Point local) {
     lastRepeatMs_ = 0;
     if (firstWait_ && repeatTimerId_ == 0) {
         // 60ms 节拍定时器：首迟窗口内空转，350ms 后逐拍发键（onRepeatTick 门控）
-        repeatTimerId_ = CoreTimer::setInterval((uint32_t)kRepeatPeriodMs, [this]() { onRepeatTick(); });
+        repeatTimerId_ = CoreTimer::setInterval((std::uint32_t)kRepeatPeriodMs, [this]() { onRepeatTick(); });
     }
     triggerKey(*k);    // act-on-down 首发注入 + 按下态视觉（markDirty 内含）
     return true;
@@ -438,7 +435,7 @@ void Keyboard::onRepeatTick() {
         }
         return;
     }
-    uint64_t now = steadyMs();
+    std::uint64_t now = steadyMs();
     if (firstWait_) {
         if (now - pressStartMs_ < kRepeatFirstDelayMs) return;    // 首迟未到，静默空转
         firstWait_ = false;
@@ -512,7 +509,7 @@ void Keyboard::onDraw(Graphics &g) {
     // 按下态背景（键表能力批次）：对 keyActiveBackground 深化 15% 派生——
     // 常规键（resting=keyBackground）与功能/状态键（resting=keyActiveBackground）
     // 均获得可辨的按压反馈，无需新增 props 色位
-    auto pressed = [](uint8_t c) { return (uint8_t)(c * 0.85f + 0.5f); };
+    auto pressed = [](std::uint8_t c) { return (std::uint8_t)(c * 0.85f + 0.5f); };
     const Color pressedBg{pressed(kp_.keyActiveBackground.r), pressed(kp_.keyActiveBackground.g),
                           pressed(kp_.keyActiveBackground.b), kp_.keyActiveBackground.a};
 
@@ -522,7 +519,7 @@ void Keyboard::onDraw(Graphics &g) {
     cfg.maxWidth = 1e10f;    // 不限宽（单字符/标签居中即可）
     cfg.align = LayoutTextAlign::Start;
 
-    for (size_t r = 0; r < rows.size(); ++r) {
+    for (std::size_t r = 0; r < rows.size(); ++r) {
         const auto &row = rows[r].keys;
         const float rowH = kp_.keyHeight * rows[r].heightScale;
         float totalWeight = 0;
@@ -647,8 +644,8 @@ KeyArgs Keyboard::makeKeyArgs(const KeyDef &key) const {
     a.keyCode = key.keyCode;
     a.modifiers = shiftSticky_ ? MOD_SHIFT : 0;    // 修饰键位（bit1=Shift）——onKey 载荷与注入同源
     if (key.charCode != 0) {
-        uint32_t cp = key.charCode;
-        if (shiftSticky_ && cp < 0x80) cp = (uint32_t)std::toupper((unsigned char)cp);
+        std::uint32_t cp = key.charCode;
+        if (shiftSticky_ && cp < 0x80) cp = (std::uint32_t)std::toupper((unsigned char)cp);
         // UTF-8 编码（与 Input 文本存储一致，避免 JS 侧多字节错乱）
         if (cp < 0x80) {
             a.value += (char)cp;

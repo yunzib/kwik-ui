@@ -1,7 +1,3 @@
-module;
-#include <memory>
-#include <vector>
-#include <string>
 export module kwik.element.image;
 import kwik.render.texture_manager;
 import kwik.element.view;
@@ -65,13 +61,13 @@ protected:
 
 private:
     ImageProps imageProps_;
-    std::vector<uint8_t> pixels_;    // 解码后的 RGBA 像素数据
+    std::vector<std::uint8_t> pixels_;    // 解码后的 RGBA 像素数据
     int decodedWidth_ = 0;
     int decodedHeight_ = 0;
     bool loaded_ = false;
     bool svgLoaded_ = false;          // SVG 源（显式尺寸变更重光栅化判据，20 号）
     std::string errorMsg_;
-    uint32_t textureId_ = 0;    // GPU 纹理句柄 (0=未上传)
+    std::uint32_t textureId_ = 0;    // GPU 纹理句柄 (0=未上传)
     bool uploadConfirmed_ = false;    // 17 号：当前 id 已确认落地（落地才释放 pixels_，失败重试需源数据）
     int uploadRetries_ = 0;           // 17 号：异步上传失败重试计数（超限弃传，防每帧刷写）
     bool errorPending_ = false;       // 17 号：装载失败待报（构造期 onError 槽未接线时挂起，首帧补发）

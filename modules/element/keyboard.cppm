@@ -23,7 +23,21 @@
 // ============================================================================
 
 module;
-#include <cstddef>
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <stdint.h>
 
 export module kwik.element.keyboard;
@@ -76,8 +90,8 @@ protected:
 private:
     /// 键定义：可打印键 charCode≠0（按 shift 取大写），功能键 keyCode≠0
     struct KeyDef {
-        uint32_t charCode = 0;          // Unicode 码点（可打印键）
-        uint32_t keyCode = 0;           // 虚拟键码（功能键）
+        std::uint32_t charCode = 0;          // Unicode 码点（可打印键）
+        std::uint32_t keyCode = 0;           // 虚拟键码（功能键）
         std::string label;              // 键面文字
         float weight = 1.0f;            // 宽度权重（space=5.0 / enter=2.0 加宽）
         bool isShift = false;           // shift 切换键（高亮 + sticky 大写）
@@ -106,9 +120,9 @@ private:
     /// （视觉反馈早一步），PointerUp/Cancel/失活/析构遣散；Tap 仅吞不发防双发
     std::optional<KeyDef> pressKey_;      // 当前按下的键（拷贝自临时键表行，悬空安全)
     bool pressActive_ = false;            // 按下态在效（pressKey_ 有值且未抬起）
-    uint32_t repeatTimerId_ = 0;          // 长按连发 CoreTimer 令牌（0=无）
-    uint64_t pressStartMs_ = 0;           // 按下时刻（首迟计时基准）
-    uint64_t lastRepeatMs_ = 0;           // 上一次连发时刻（节拍对齐）
+    std::uint32_t repeatTimerId_ = 0;          // 长按连发 CoreTimer 令牌（0=无）
+    std::uint64_t pressStartMs_ = 0;           // 按下时刻（首迟计时基准）
+    std::uint64_t lastRepeatMs_ = 0;           // 上一次连发时刻（节拍对齐）
     bool firstWait_ = false;              // 首迟窗口期（350ms 未到不发）
 
     /// 当前布局的键行（每行一组 KeyDef，工具行在前）

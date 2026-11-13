@@ -7,11 +7,22 @@
  */
 
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstdint>
-#include <cstring>
-#include <tuple>
-#include <vector>
 
 export module kwik.render.vulkan.triangle_renderer;
 
@@ -59,7 +70,7 @@ public:
      *  帧首 fence 等待已保证上一次使用本槽的帧（3 帧前）GPU 执行完毕，CPU
      *  重写不与在飞帧 GPU 读竞争（原每帧从 0 覆写，复用距 1 帧 < fence 距
      *  3 帧，高负载下花屏）；同时回收到期的扩容旧缓冲 */
-    void resetOffset(uint32_t frameSlot) {
+    void resetOffset(std::uint32_t frameSlot) {
         flushPendingDestroy();
         curSlot_ = frameSlot % kFrameSlots;
         curSlotBase_ = curSlot_ * slotCapacity();
@@ -84,7 +95,7 @@ public:
      *   flushPending）③ render pass 结束 三种时机统一冲刷——绘制次序与
      *   逐命令立即绘制完全一致（命令序 = 混合序），像素零差异。
      */
-    void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const AAVertex *vertices, uint32_t vertexCount,
+    void drawTriangles(VkCommandBuffer cmd, VkExtent2D extent, const AAVertex *vertices, std::uint32_t vertexCount,
                        const Color &color, float alpha, const Transform2D &t, const SweepGrad *sweep = nullptr);
     /**
      * @brief 绘制 SDF 圆环（UberSDF 同款：CPU 仅生成 6 顶点 quad，几何/渐变/端帽全在 shader）
@@ -132,33 +143,33 @@ private:
     VkBuffer stagingBuffer_ = VK_NULL_HANDLE;          ///< host-visible 顶点缓冲
     VkDeviceMemory stagingMemory_ = VK_NULL_HANDLE;    ///< 缓冲内存
     void *mappedData_ = nullptr;                       ///< 映射指针
-    size_t bufferCapacity_ = 0;                        ///< 缓冲容量（全槽合计）
-    size_t writeOffset_ = 0;                           ///< 当前帧顶点写入偏移（帧内逐命令累加）
-    size_t curSlotBase_ = 0;                           ///< 当前帧槽基址（resetOffset 设定）
-    uint32_t curSlot_ = 0;                             ///< 当前帧槽号（扩容迁移数据用）
+    std::size_t bufferCapacity_ = 0;                        ///< 缓冲容量（全槽合计）
+    std::size_t writeOffset_ = 0;                           ///< 当前帧顶点写入偏移（帧内逐命令累加）
+    std::size_t curSlotBase_ = 0;                           ///< 当前帧槽基址（resetOffset 设定）
+    std::uint32_t curSlot_ = 0;                             ///< 当前帧槽号（扩容迁移数据用）
 
     // ── 合批状态（同 push constants 连续三角形命令并成一次 vkCmdDraw）──
     bool hasPending_ = false;          ///< 有未提交合批区间
     PushConstants pendingPc_{};        ///< pending 区间的 push constants 快照
     VkExtent2D pendingExtent_{};       ///< pending 视口（pc 已含，冗余存防 memcmp 假同）
     VkDeviceSize pendingOffset_ = 0;   ///< pending 区间在 staging 中的起始偏移
-    uint32_t pendingCount_ = 0;        ///< pending 区间顶点数
+    std::uint32_t pendingCount_ = 0;        ///< pending 区间顶点数
     /// push constants 逐字节相等（两处填充均已 memset 清零 pad，可 memcmp）
     static bool pcEqual(const PushConstants &a, const PushConstants &b) {
         return std::memcmp(&a, &b, sizeof(PushConstants)) == 0;
     }
 
-    static constexpr uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
+    static constexpr std::uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
     /** @brief 单帧槽容量（向下对齐 16B：槽基址作 vkCmdBindVertexBuffers 偏移
      *  须满足顶点格式对齐，整除三等分不保证 4B 对齐） */
-    size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~size_t(0xF); }
+    std::size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~std::size_t(0xF); }
     /** @brief 帧槽基址（frameSlot 为 ctx 帧槽，取模防御异常入参） */
-    size_t slotBase(uint32_t frameSlot) const { return (frameSlot % kFrameSlots) * slotCapacity(); }
+    std::size_t slotBase(std::uint32_t frameSlot) const { return (frameSlot % kFrameSlots) * slotCapacity(); }
 
     /** @brief 延迟销毁队列：存扩容时被替换的旧 staging buffer。
      *  帧首 fence 等待只覆盖 3 帧前的提交——扩容时在飞的近 2 帧命令缓冲
      *  仍引用旧缓冲，倒计时 kFrameSlots 帧后（此刻引用者必然已执行完）销毁 */
-    std::vector<std::tuple<VkBuffer, VkDeviceMemory, uint32_t>> pendingStaging_;
+    std::vector<std::tuple<VkBuffer, VkDeviceMemory, std::uint32_t>> pendingStaging_;
 
     /** @brief 扩容重建 staging 缓冲（容量 2× 递增，保留已写数据），失败返回 false */
     bool growStagingBuffer(VkDeviceSize required);
@@ -166,6 +177,6 @@ private:
     /** @brief 销毁 pendingStaging_ 中的旧缓冲（仅可在 fence 等待完成、下一帧开始前调用） */
     void flushPendingDestroy();
 
-    static constexpr size_t kDefaultCapacity =
+    static constexpr std::size_t kDefaultCapacity =
         1048576;    ///< 默认 1MB（AA 顶点 7 float）——128KB 对多环复杂路径过小，超限命令被静默丢弃
 };

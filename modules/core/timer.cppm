@@ -6,23 +6,17 @@
 //   CoreTimer::tick() 由 Application::run() 每帧调用
 //   回调在 tick() 中同步执行，无需锁
 // ============================================================================
-module;
-#include <functional>
-#include <vector>
-#include <cstdint>
-#include <algorithm>
-
 export module kwik.core.timer;
 
 import std;
 
 export class CoreTimer {
 public:
-    using Id = uint32_t;
+    using Id = std::uint32_t;
 
     /// 安排一个重复定时器，每隔 ms 毫秒调用 callback
     /// 返回唯一 Id，用于 clear() 取消
-    static Id setInterval(uint32_t ms, std::function<void()> callback) {
+    static Id setInterval(std::uint32_t ms, std::function<void()> callback) {
         auto &inst = instance();
         Id id = ++inst.nextId_;
         inst.pending_.push_back({id, ms, clock::now(), std::move(callback), true});
@@ -79,7 +73,7 @@ public:
 private:
     struct Entry {
         Id id;
-        uint32_t interval;                 // 毫秒
+        std::uint32_t interval;                 // 毫秒
         std::chrono::steady_clock::time_point lastFire;
         std::function<void()> callback;
         bool active = true;

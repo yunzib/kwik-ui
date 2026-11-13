@@ -6,7 +6,6 @@
 module;
 
 #include "quickjs.h"
-#include <chrono>
 
 module kwik.engine.channel;
 import kwik.core.log;
@@ -109,12 +108,12 @@ void Channel::flush(JSContext *ctx) {
 
     // ── 3. 触发到期定时器 ──
 check_timers:
-    uint64_t now = ch.currentMs();
+    std::uint64_t now = ch.currentMs();
     // 周期定时器执行后需重排，fired 须携带 id 与间隔（一次性项 intervalMs=0）
     struct FiredTimer {
         std::function<void()> task;
-        uint64_t id;
-        uint32_t intervalMs;
+        std::uint64_t id;
+        std::uint32_t intervalMs;
     };
     std::vector<FiredTimer> fired;
     {
@@ -157,7 +156,7 @@ void Channel::send(const std::string &topic, bool data) {
     inst().queue_.push_back(std::move(e));
 }
 
-void Channel::send(const std::string &topic, int64_t data) {
+void Channel::send(const std::string &topic, std::int64_t data) {
     QueueEntry e = {QueueEntry::Send, topic, 0, DispatchValue{data}};
     std::lock_guard lock(inst().queueMutex_);
     inst().queue_.push_back(std::move(e));
@@ -199,7 +198,7 @@ void Channel::handle(const std::string &topic, std::function<void(const Data &, 
 // 定时器
 // ═══════════════════════════════════════════════════════════════════════════
 
-Channel::TimerId Channel::setTimeout(uint32_t ms, std::function<void()> task) {
+Channel::TimerId Channel::setTimeout(std::uint32_t ms, std::function<void()> task) {
     auto &ch = inst();
     std::lock_guard lock(ch.timerMutex_);
     TimerId id = ch.nextTimerId_++;
@@ -207,7 +206,7 @@ Channel::TimerId Channel::setTimeout(uint32_t ms, std::function<void()> task) {
     return id;
 }
 
-Channel::TimerId Channel::setInterval(uint32_t ms, std::function<void()> task) {
+Channel::TimerId Channel::setInterval(std::uint32_t ms, std::function<void()> task) {
     auto &ch = inst();
     std::lock_guard lock(ch.timerMutex_);
     TimerId id = ch.nextTimerId_++;
@@ -260,7 +259,7 @@ JSValue Channel::dataToJS(JSContext *ctx, const Data &d) const {
                 return JS_UNDEFINED;
             } else if constexpr (std::is_same_v<T, bool>) {
                 return JS_NewBool(ctx, arg);
-            } else if constexpr (std::is_same_v<T, int64_t>) {
+            } else if constexpr (std::is_same_v<T, std::int64_t>) {
                 return JS_NewInt64(ctx, arg);
             } else if constexpr (std::is_same_v<T, double>) {
                 return JS_NewFloat64(ctx, arg);
@@ -275,18 +274,18 @@ JSValue Channel::dataToJS(JSContext *ctx, const Data &d) const {
 // call 管理
 // ═══════════════════════════════════════════════════════════════════════════
 
-uint64_t Channel::nextCallId() {
+std::uint64_t Channel::nextCallId() {
     std::lock_guard lock(callMutex_);
     return nextCallId_++;
 }
 
-uint64_t Channel::currentMs() const {
+std::uint64_t Channel::currentMs() const {
     static auto start = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 }
 
-void Channel::resolveCall(uint64_t callId, JSValueConst result) {
+void Channel::resolveCall(std::uint64_t callId, JSValueConst result) {
     PendingCall pc;
     {
         std::lock_guard lock(callMutex_);
@@ -311,7 +310,7 @@ void Channel::resolveCall(uint64_t callId, JSValueConst result) {
 
 // rejectCall — resolveCall 的镜像：以 reason 拒绝 pendingCall 的 Promise。
 // 参数所有权归本函数（与 resolveCall 对 result 的语义一致）。
-void Channel::rejectCall(uint64_t callId, JSValueConst reason) {
+void Channel::rejectCall(std::uint64_t callId, JSValueConst reason) {
     PendingCall pc;
     {
         std::lock_guard lock(callMutex_);
@@ -363,7 +362,7 @@ void Channel::jsOff(JSContext *ctx, const char *topic, JSValue handler) {
     auto it = inst().jsOnHandlers_.find(topic);
     if (it == inst().jsOnHandlers_.end()) return;
     auto &v = it->second;
-    for (size_t i = 0; i < v.size(); ++i) {
+    for (std::size_t i = 0; i < v.size(); ++i) {
         if (JS_VALUE_GET_PTR(v[i]) == JS_VALUE_GET_PTR(handler)) {
             JS_FreeValue(ctx, v[i]);
             v.erase(v.begin() + static_cast<std::ptrdiff_t>(i));
@@ -379,7 +378,7 @@ JSValue Channel::jsCall(JSContext *ctx, const char *topic, JSValueConst data) {
     JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
     if (JS_IsException(promise)) return promise;
 
-    uint64_t callId = ch.nextCallId();
+    std::uint64_t callId = ch.nextCallId();
     {
         std::lock_guard lock(ch.callMutex_);
         ch.pendingCalls_[callId] = {ctx, JS_DupValue(ctx, resolving_funcs[0]), JS_DupValue(ctx, resolving_funcs[1])};
@@ -462,7 +461,7 @@ void TimeoutAwaitable::await_suspend(std::coroutine_handle<> h) noexcept {
 // Channel::timeout
 // ═══════════════════════════════════════════════════════════════════════════
 
-TimeoutAwaitable Channel::timeout(uint32_t ms) {
+TimeoutAwaitable Channel::timeout(std::uint32_t ms) {
     return TimeoutAwaitable(ms);
 }
 

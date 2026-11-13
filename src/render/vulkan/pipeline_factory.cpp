@@ -5,7 +5,6 @@
 // ============================================================================
 module;
 
-#include <cstdint>
 #include "vulkan/vulkan.h"
 
 module kwik.render.vulkan.pipeline_factory;
@@ -18,13 +17,13 @@ PipeBundle makePipeline(VkDevice device, VkPipelineCache cache, const PipeDesc &
     // ── ① shader module（用毕即毁）──
     VkShaderModuleCreateInfo vci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     vci.codeSize = d.vertSize;
-    vci.pCode = reinterpret_cast<const uint32_t *>(d.vertSpv);
+    vci.pCode = reinterpret_cast<const std::uint32_t *>(d.vertSpv);
     VkShaderModule vert = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &vci, nullptr, &vert) != VK_SUCCESS) return {};
 
     VkShaderModuleCreateInfo fci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     fci.codeSize = d.fragSize;
-    fci.pCode = reinterpret_cast<const uint32_t *>(d.fragSpv);
+    fci.pCode = reinterpret_cast<const std::uint32_t *>(d.fragSpv);
     VkShaderModule frag = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &fci, nullptr, &frag) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vert, nullptr);
@@ -42,7 +41,7 @@ PipeBundle makePipeline(VkDevice device, VkPipelineCache cache, const PipeDesc &
         out.setLayout = d.externalSetLayout;
     } else if (d.externalLayout == VK_NULL_HANDLE && !d.descBindings.empty()) {
         VkDescriptorSetLayoutCreateInfo dsl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        dsl.bindingCount = static_cast<uint32_t>(d.descBindings.size());
+        dsl.bindingCount = static_cast<std::uint32_t>(d.descBindings.size());
         dsl.pBindings = d.descBindings.data();
         if (vkCreateDescriptorSetLayout(device, &dsl, nullptr, &out.setLayout) != VK_SUCCESS) {
             vkDestroyShaderModule(device, vert, nullptr);
@@ -79,9 +78,9 @@ PipeBundle makePipeline(VkDevice device, VkPipelineCache cache, const PipeDesc &
     };
 
     VkPipelineVertexInputStateCreateInfo vi{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vi.vertexBindingDescriptionCount = static_cast<uint32_t>(d.bindings.size());
+    vi.vertexBindingDescriptionCount = static_cast<std::uint32_t>(d.bindings.size());
     vi.pVertexBindingDescriptions = d.bindings.data();
-    vi.vertexAttributeDescriptionCount = static_cast<uint32_t>(d.attrs.size());
+    vi.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(d.attrs.size());
     vi.pVertexAttributeDescriptions = d.attrs.data();
 
     VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};

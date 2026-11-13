@@ -1,9 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-#include <vector>
-
 export module kwik.element.checkbox;
 
 import kwik.element.view;

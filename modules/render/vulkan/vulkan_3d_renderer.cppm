@@ -17,9 +17,22 @@
  */
 
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstdint>
-#include <cstddef>
 
 export module kwik.render.vulkan.mesh_renderer;
 
@@ -69,7 +82,7 @@ public:
      *
      *  上帧溢出（drawMesh 槽不足丢弃）→ 帧边界按需倍增重建（见 growStaging）。
      *  非 3D 应用永不溢出 → 永不扩容，内存占用维持初始 192KB 不变 */
-    void resetOffset(uint32_t frameSlot) {
+    void resetOffset(std::uint32_t frameSlot) {
         if (overflowed_ && bufferCapacity_ < kMaxCapacity) growStaging();
         curSlotBase_ = (frameSlot % kFrameSlots) * slotCapacity();
         writeOffset_ = curSlotBase_;
@@ -97,7 +110,7 @@ public:
      * (见 G3D 组件构造投影时的 scale(1,-1,1))。
      */
     void drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D scissor, const Vertex3D *vertices,
-                  uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3],
+                  std::uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3],
                   VkDescriptorSet textureSet);
 
 private:
@@ -112,20 +125,20 @@ private:
     VkBuffer stagingBuffer_ = VK_NULL_HANDLE;            ///< host-visible 顶点缓冲
     VkDeviceMemory stagingMemory_ = VK_NULL_HANDLE;      ///< 缓冲内存
     void *mappedData_ = nullptr;                         ///< 映射指针
-    size_t bufferCapacity_ = 0;                          ///< 缓冲容量（全槽合计）
-    size_t writeOffset_ = 0;                             ///< 当前帧顶点写入偏移
-    size_t curSlotBase_ = 0;                             ///< 当前帧槽基址（resetOffset 设定）
+    std::size_t bufferCapacity_ = 0;                          ///< 缓冲容量（全槽合计）
+    std::size_t writeOffset_ = 0;                             ///< 当前帧顶点写入偏移
+    std::size_t curSlotBase_ = 0;                             ///< 当前帧槽基址（resetOffset 设定）
 
-    static constexpr uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
+    static constexpr std::uint32_t kFrameSlots = VulkanContext::kMaxFramesInFlight;    ///< 分槽数 = 在飞帧数
     /** @brief 单帧槽容量（向下对齐 16B：槽基址作 vkCmdBindVertexBuffers 偏移
      *  须满足顶点格式对齐，整除三等分不保证 4B 对齐） */
-    size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~size_t(0xF); }
+    std::size_t slotCapacity() const { return (bufferCapacity_ / kFrameSlots) & ~std::size_t(0xF); }
 
     /// 默认 3×64KB：分槽后单帧仍保 64KB（G3D 网格顶点 32B/个，≈2048 顶点/帧）。
     /// 超限不静默——drawMesh 告警 + 帧首按需倍增（非 3D 应用永不触发，零增量）
-    static constexpr size_t kDefaultCapacity = 196608;
+    static constexpr std::size_t kDefaultCapacity = 196608;
     /// 扩容上限（全槽合计）：约 32 万顶点/帧封顶，防异常模型无界吃内存
-    static constexpr size_t kMaxCapacity = size_t{32} << 20;
+    static constexpr std::size_t kMaxCapacity = std::size_t{32} << 20;
     bool overflowed_ = false;    ///< 上帧槽不足标志（resetOffset 消费并触发扩容）
 
     /** @brief 帧边界按需倍增 staging（resetOffset 调用，渲染线程）

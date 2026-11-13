@@ -7,8 +7,6 @@
 
 module;
 
-#include <cmath>
-#include <algorithm>
 
 module kwik.element.spinner;
 
@@ -83,7 +81,7 @@ void Spinner::onDraw(Graphics &graphics) {
         }
 
         Color c = sp_.color;
-        c.a = static_cast<uint8_t>(alpha * 255.0f);
+        c.a = static_cast<std::uint8_t>(alpha * 255.0f);
         graphics.drawRoundedRect(dot, dotR, c);
     }
 

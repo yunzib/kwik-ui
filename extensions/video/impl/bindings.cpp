@@ -1,11 +1,14 @@
 /** @brief Video 扩展: JS 工厂 / 方法 / 事件接线 / 自注册。 */
 module;
 #include "quickjs.h"
-#include <cstdio>
-#include <atomic>
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）：
+// memcpy/snprintf 等全局 C 函数在模块 TU 统一经桥/纯 C 头提供，
+// fprintf 一类触发 std 模块 binding 合并的名字一律不走（改经 Log）
+#include <kwik/c_bridge.h>
 
 module kwik.ext.video;
 
+import std;
 import kwik.bridge.element_parser; // ElementParser::registerExtension / applyBindings
 import kwik.bridge.element_spec;   // ElementSpec
 import kwik.bridge.props_parser;   // PropsExtractor / parseViewProps
@@ -15,8 +18,7 @@ import kwik.engine.context;        // QuickJSContext (getUserPointer)
 import kwik.element.view;          // View::findById
 import kwik.element.typed_prop;    // TypedPropMap
 import kwik.engine.js_value;
-
-import std;
+import kwik.core.log;              // Log — 事件回调异常上报（fprintf 禁用于模块 TU）
 
 // ═══════════════════════════════════════════════════════════
 // 属性解析 (对齐 parseLineProps 模式, 不污染内置 props_parser)
@@ -110,9 +112,9 @@ static JSValue js_video(JSContext *ctx, JSValueConst, int argc, JSValueConst *ar
         // 保证有 id, 方法调用 (play/pause/seek) 才能按 id 定位 C++ Video
         JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
         if (JS_IsUndefined(idVal)) {
-            static std::atomic<uint32_t> counter{0};
+            static std::atomic<std::uint32_t> counter{0};
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "__video_%u", counter++);
+            kwik_snprintf(buf, sizeof(buf), "__video_%u", counter++);
             JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
         }
         JS_FreeValue(ctx, idVal);
@@ -159,8 +161,8 @@ static void attachVideoHandlers(View &view, const JSValueRef &props) {
             if (fn) {
                 arg = JS_NewObject(ctx);
                 JS_SetPropertyStr(ctx, arg, "duration", JS_NewFloat64(ctx, e.info.duration));
-                JS_SetPropertyStr(ctx, arg, "width", JS_NewInt32(ctx, int32_t(e.info.width)));
-                JS_SetPropertyStr(ctx, arg, "height", JS_NewInt32(ctx, int32_t(e.info.height)));
+                JS_SetPropertyStr(ctx, arg, "width", JS_NewInt32(ctx, std::int32_t(e.info.width)));
+                JS_SetPropertyStr(ctx, arg, "height", JS_NewInt32(ctx, std::int32_t(e.info.height)));
                 JS_SetPropertyStr(ctx, arg, "fps", JS_NewFloat64(ctx, e.info.fps));
                 JS_SetPropertyStr(ctx, arg, "hasAudio", JS_NewBool(ctx, e.info.hasAudio));
             }
@@ -188,7 +190,11 @@ static void attachVideoHandlers(View &view, const JSValueRef &props) {
         if (JS_IsException(ret)) {
             JSValue ex = JS_GetException(ctx);
             const char *msg = JS_ToCString(ctx, ex);
-            std::fprintf(stderr, "[video] media event handler threw: %s\n", msg ? msg : "?");
+            // 经 Log 而非 fprintf(stderr)：GCC16 模块语义下 import std 引入 std
+            // 模块收编的全局 ::fprintf binding，与文本 quickjs.h→stdio.h 同名声明
+            // 合并失败（语言链接冲突），任何 fprintf 名字查找都会触发——fprintf
+            // 禁用于模块 TU（g3d_gltf.cpp 同因同改）
+            Log::error("[video] media event handler threw: {}", msg ? msg : "?");
             if (msg) JS_FreeCString(ctx, msg);
             JS_FreeValue(ctx, ex);
         }

@@ -6,9 +6,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
 
 module kwik.element.progressbar;
 
@@ -76,9 +76,9 @@ void ProgressBar::onDraw(Graphics &graphics) {
 // getProperty — getProp("progressId", "value") 支持
 // ============================================================================
 std::string ProgressBar::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) { return std::to_string(pp_.value); }
-    if (std::strcmp(name, "min") == 0) { return std::to_string(pp_.min); }
-    if (std::strcmp(name, "max") == 0) { return std::to_string(pp_.max); }
+    if (strcmp(name, "value") == 0) { return std::to_string(pp_.value); }
+    if (strcmp(name, "min") == 0) { return std::to_string(pp_.min); }
+    if (strcmp(name, "max") == 0) { return std::to_string(pp_.max); }
     return View::getProperty(name);
 }
 
@@ -88,7 +88,7 @@ std::string ProgressBar::getProperty(const char *name) const {
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool ProgressBar::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "value") == 0) {
+	if (strcmp(name, "value") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
 		pp_.value = *v;
@@ -96,10 +96,10 @@ bool ProgressBar::setPropertyTyped(const char *name, const TypedProp &value) {
 		return true;
 	}
 	// min / max：自旧字符串版平移（typed 原缺失）
-	if (std::strcmp(name, "min") == 0 || std::strcmp(name, "max") == 0) {
+	if (strcmp(name, "min") == 0 || strcmp(name, "max") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
-		if (std::strcmp(name, "min") == 0) { pp_.min = *v; }
+		if (strcmp(name, "min") == 0) { pp_.min = *v; }
 		else { pp_.max = *v; }
 		markDirty();
 		return true;

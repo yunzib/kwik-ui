@@ -1,6 +1,3 @@
-module;
-#include <cstddef>
-
 export module kwik.element.layer_view;
 
 import kwik.element.view;

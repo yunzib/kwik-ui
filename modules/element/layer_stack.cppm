@@ -1,9 +1,3 @@
-module;
-
-#include <cstddef>
-#include <functional>
-#include <vector>
-
 export module kwik.element.layer_stack;
 
 import kwik.core.types;
@@ -44,7 +38,7 @@ public:
     /** 清空图层列表（HMR tree_.reset() 前调用，防 borrowed 指针悬空） */
     void clear();
     /** 当前图层数 */
-    size_t layerCount() const { return layers_.size(); }
+    std::size_t layerCount() const { return layers_.size(); }
     /** 底→顶遍历各图层（清单接线：KwikRuntime 组装复合根清单用） */
     void forEachLayer(const std::function<void(View *)> &fn) {
         for (auto *l : layers_) fn(l);

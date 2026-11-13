@@ -113,7 +113,7 @@ Video({ src: '../../test/assets/sample.mp4', width: 640, height: 360,
   接入点见源码 `IMediaClock`/NullAudioSink 注释（结构已预留）
 - **构建**：FFmpeg 源内树随主构建一次编译（`cmake --build build` 自动
   configure + 编静态库，首次约 3 分钟，产物缓存于 `build/ffmpeg-build`）；
-  工具链复用 llvm-mingw，`KWIK_VIDEO_FFMPEG=ON` 默认开启
+  工具链随主编译器（GCC/Clang 自动分派构建工具名），`KWIK_VIDEO_FFMPEG=ON` 默认开启
 - **示例素材**（`test/assets/`，demo 内可切换）：
 
   | 文件 | 规格 | 用途 |

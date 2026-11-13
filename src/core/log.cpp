@@ -1,8 +1,7 @@
 module;
-#include <print>
-#include <chrono>
-#include <ctime>
-#include <string>
+// localtime_s/_r 为平台扩展（std 模块不含），经纯 C 头文本引入；
+// time.h 无 libstdc++ C++ 包装，与 import std 无冲突
+#include <time.h>
 
 module kwik.core.log;
 
@@ -64,8 +63,8 @@ std::string_view get_cached_time() {
     auto sec = duration_cast<seconds>(now.time_since_epoch());
     if (sec != t_cached_time.epoch) {
         t_cached_time.epoch = sec;
-        time_t tt = system_clock::to_time_t(now);
-        tm tm_buf;
+        std::time_t tt = system_clock::to_time_t(now);
+        std::tm tm_buf;
 #if defined(_WIN32)
         localtime_s(&tm_buf, &tt);
 #else

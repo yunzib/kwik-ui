@@ -8,9 +8,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
 
 module kwik.element.scroll_view;
 
@@ -302,7 +302,7 @@ bool ScrollView::onEvent(const DispatchEvent &event) {
             float dy = event.panDy - dragLastPan_.y;
 
             // 指针速度采样（EMA 平滑，dt 毫秒级抖动防护）
-            uint64_t dt = event.timestamp - dragLastT_;
+            std::uint64_t dt = event.timestamp - dragLastT_;
             if (dt > 0) {
                 float k = 1000.0f / static_cast<float>(dt);    // px → px/s
                 dragVelX_ = dragVelX_ * (1.0f - kVelEma) + dx * k * kVelEma;
@@ -520,9 +520,9 @@ void ScrollView::updateThumbs() {
 // getProperty / setProperty / setPropertyTyped
 // ============================================================================
 std::string ScrollView::getProperty(const char *name) const {
-    if (std::strcmp(name, "scrollX") == 0) return std::to_string(scrollOffset_.x);
-    if (std::strcmp(name, "scrollY") == 0) return std::to_string(scrollOffset_.y);
-    if (std::strcmp(name, "direction") == 0) {
+    if (strcmp(name, "scrollX") == 0) return std::to_string(scrollOffset_.x);
+    if (strcmp(name, "scrollY") == 0) return std::to_string(scrollOffset_.y);
+    if (strcmp(name, "direction") == 0) {
         switch (sp_.direction) {
         case ScrollDirection::Horizontal: return "horizontal";
         case ScrollDirection::Both: return "both";
@@ -538,14 +538,14 @@ std::string ScrollView::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（scrollX/scrollY/direction）
 // ============================================================================
 bool ScrollView::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "scrollX") == 0) {
+	if (strcmp(name, "scrollX") == 0) {
 		auto v = typedToFloat(value);     // 修复原实现类型不符仍返回 true 的隐患
 		if (!v) { return false; }
 		physX_.stop();    // 命令式滚动打断物理动画
 		setScroll(*v, scrollOffset_.y);
 		return true;
 	}
-	if (std::strcmp(name, "scrollY") == 0) {
+	if (strcmp(name, "scrollY") == 0) {
 		auto v = typedToFloat(value);
 		if (!v) { return false; }
 		physY_.stop();
@@ -553,7 +553,7 @@ bool ScrollView::setPropertyTyped(const char *name, const TypedProp &value) {
 		return true;
 	}
 	// direction：自旧字符串版平移（typed 原缺失）
-	if (std::strcmp(name, "direction") == 0) {
+	if (strcmp(name, "direction") == 0) {
 		auto *s = std::get_if<std::string>(&value);
 		if (!s) { return false; }
 		if (*s == "horizontal") { sp_.direction = ScrollDirection::Horizontal; }

@@ -11,11 +11,6 @@
  * 依赖方向：core ← 扩展（chart 扩展与内置组件都 import 本模块，
  * 扩展不能反向被 core 依赖，故几何下沉于此）。
  */
-module;
-
-#include <cmath>
-#include <algorithm>
-
 export module kwik.core.ring_geom;
 
 import std;

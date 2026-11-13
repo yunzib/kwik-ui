@@ -3,14 +3,28 @@
  * @brief 视频流数据层实现 — 内存块 / 槽池状态机 / 帧率 / 命名注册表
  */
 module;
-#include <cstdlib>
-#include <cstring>
-#include <unordered_map>
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #ifdef _WIN32
 #include <windows.h>    // VirtualAlloc / VirtualFree（64KiB 分配粒度 = 天然导入对齐）
 #else
 #include <sys/mman.h>   // mmap / munmap（页对齐，尺寸按 64KiB 取整后对齐亦满足）
 #endif
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.render.video_stream;
 
@@ -19,9 +33,9 @@ import std;
 // ═══════════════════════════════════════════════════════════════════
 // MemoryBlock — 64KiB 对齐、整块独占（零拷贝导入单元）
 // ═══════════════════════════════════════════════════════════════════
-MemoryBlock::MemoryBlock(size_t bytes) {
+MemoryBlock::MemoryBlock(std::size_t bytes) {
     if (bytes == 0) return;
-    const size_t sz = (bytes + kAlignment - 1) & ~(kAlignment - 1);
+    const std::size_t sz = (bytes + kAlignment - 1) & ~(kAlignment - 1);
 #ifdef _WIN32
     // VirtualAlloc 起址按系统分配粒度（64KiB）对齐，且整段独立映射
     void *p = VirtualAlloc(nullptr, sz, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -30,7 +44,7 @@ MemoryBlock::MemoryBlock(size_t bytes) {
     if (p == MAP_FAILED) p = nullptr;
 #endif
     if (!p) return;
-    data_ = static_cast<uint8_t *>(p);
+    data_ = static_cast<std::uint8_t *>(p);
     size_ = sz;
 }
 
@@ -110,9 +124,9 @@ const std::shared_ptr<MemoryBlock> &PinGuard::block() const {
 // ═══════════════════════════════════════════════════════════════════
 // VideoStream — 槽池 + 最新帧指针
 // ═══════════════════════════════════════════════════════════════════
-VideoStream::VideoStream(uint32_t poolSlots) {
+VideoStream::VideoStream(std::uint32_t poolSlots) {
     // 至少 2：一帧在显 + 一帧在写；上限 kMaxSlots（槽数组定长）
-    basePoolSlots_ = std::clamp<uint32_t>(poolSlots, 2, kMaxSlots);
+    basePoolSlots_ = std::clamp<std::uint32_t>(poolSlots, 2, kMaxSlots);
     slotCount_ = basePoolSlots_;
 }
 VideoStream::~VideoStream() {
@@ -123,25 +137,25 @@ VideoStream::~VideoStream() {
 
 // 槽视图/描述/块读取：Writing（生产者独占）或被固定（pins>0 期间不被复用）时
 // 字段稳定，调用方均处于这两态之一，故无需加锁
-std::span<const PlaneView> VideoStream::planesFor(size_t idx) const {
+std::span<const PlaneView> VideoStream::planesFor(std::size_t idx) const {
     return std::span<const PlaneView>(slots_[idx].views.data(), FrameLayout::forDesc(slots_[idx].desc).planeCount);
 }
-const FrameDesc &VideoStream::descFor(size_t idx) const { return slots_[idx].desc; }
-const std::shared_ptr<MemoryBlock> &VideoStream::blockFor(size_t idx) const { return slots_[idx].block; }
+const FrameDesc &VideoStream::descFor(std::size_t idx) const { return slots_[idx].desc; }
+const std::shared_ptr<MemoryBlock> &VideoStream::blockFor(std::size_t idx) const { return slots_[idx].block; }
 
-uint32_t VideoStream::slotCount() const {
+std::uint32_t VideoStream::slotCount() const {
     std::lock_guard<std::mutex> lk(mtx_);
     return slotCount_;
 }
 
-void VideoStream::reserveConsumerPins(uint32_t n) {
+void VideoStream::reserveConsumerPins(std::uint32_t n) {
     std::lock_guard<std::mutex> lk(mtx_);
     consumerPins_ += n;
     // 只增不减：已启用槽可能正被固定/在写，缩容须等其空闲，收益不抵复杂度
-    slotCount_ = std::max(slotCount_, std::min<uint32_t>(basePoolSlots_ + consumerPins_, kMaxSlots));
+    slotCount_ = std::max(slotCount_, std::min<std::uint32_t>(basePoolSlots_ + consumerPins_, kMaxSlots));
 }
 
-void VideoStream::releaseConsumerPins(uint32_t n) {
+void VideoStream::releaseConsumerPins(std::uint32_t n) {
     std::lock_guard<std::mutex> lk(mtx_);
     consumerPins_ = consumerPins_ > n ? consumerPins_ - n : 0;
 }
@@ -155,10 +169,10 @@ FrameWriter VideoStream::acquire(const FrameDesc &d) {
     // ① 优先空闲槽；② 无空闲则回收「未被固定且非最新」的 Ready 槽（最新帧优先，
     //    保证显示端总能拿到最新画面而非排队旧帧）；③ 全忙 → 丢帧不阻塞
     int target = -1;
-    for (size_t i = 0; i < slotCount_; ++i)
+    for (std::size_t i = 0; i < slotCount_; ++i)
         if (slots_[i].st == Slot::St::Free) { target = (int)i; break; }
     if (target < 0)
-        for (size_t i = 0; i < slotCount_; ++i) {
+        for (std::size_t i = 0; i < slotCount_; ++i) {
             auto &s = slots_[i];
             if (s.st == Slot::St::Ready && s.pins == 0 && (int)i != latest_) { target = (int)i; break; }
         }
@@ -175,30 +189,30 @@ FrameWriter VideoStream::acquire(const FrameDesc &d) {
     }
     s.st = Slot::St::Writing;
     s.desc = d;
-    for (uint32_t p = 0; p < L.planeCount; ++p) {
+    for (std::uint32_t p = 0; p < L.planeCount; ++p) {
         const auto &pl = L.planes[p];
         s.views[p] = PlaneView{s.block->data() + pl.offset, pl.stride, pl.width, pl.height};
     }
-    return FrameWriter{this, (size_t)target};
+    return FrameWriter{this, (std::size_t)target};
 }
 
 void VideoStream::push(const FrameDesc &d, std::span<const PlaneView> src) {
     auto w = acquire(d);
     if (!w) return;
     auto dst = w.planes();
-    for (uint32_t p = 0; p < dst.size() && p < src.size(); ++p) {
+    for (std::uint32_t p = 0; p < dst.size() && p < src.size(); ++p) {
         const auto &dv = dst[p];
         const auto &sv = src[p];
         if (!sv.data || sv.height == 0) continue;
-        uint32_t rows = std::min(dv.height, sv.height);
-        uint32_t rowBytes = std::min(dv.stride, sv.stride);    // 拷行内容字节（stride 差由两端各自行距消化）
-        for (uint32_t y = 0; y < rows; ++y)
-            std::memcpy(dv.data + size_t(dv.stride) * y, sv.data + size_t(sv.stride) * y, rowBytes);
+        std::uint32_t rows = std::min(dv.height, sv.height);
+        std::uint32_t rowBytes = std::min(dv.stride, sv.stride);    // 拷行内容字节（stride 差由两端各自行距消化）
+        for (std::uint32_t y = 0; y < rows; ++y)
+            memcpy(dv.data + std::size_t(dv.stride) * y, sv.data + std::size_t(sv.stride) * y, rowBytes);
     }
     w.commit();
 }
 
-void VideoStream::commitSlot(size_t idx) {
+void VideoStream::commitSlot(std::size_t idx) {
     std::lock_guard<std::mutex> lk(mtx_);
     auto &s = slots_[idx];
     s.st = Slot::St::Ready;
@@ -220,7 +234,7 @@ void VideoStream::commitSlot(size_t idx) {
 
 float VideoStream::fpsAt(std::chrono::steady_clock::time_point now) const {
     std::lock_guard<std::mutex> lk(mtx_);
-    const uint64_t n = std::min<uint64_t>(commitCount_, kFpsRing);
+    const std::uint64_t n = std::min<std::uint64_t>(commitCount_, kFpsRing);
     if (n < 2) return 0.0f;
     const auto newest = commitTimes_[(commitCount_ - 1) % kFpsRing];
     const auto oldest = commitTimes_[(commitCount_ - n) % kFpsRing];
@@ -230,12 +244,12 @@ float VideoStream::fpsAt(std::chrono::steady_clock::time_point now) const {
     return span > 0.0f ? float(n - 1) / span : 0.0f;    // 区间数 / 时长
 }
 
-void VideoStream::abortWrite(size_t idx) {
+void VideoStream::abortWrite(std::size_t idx) {
     std::lock_guard<std::mutex> lk(mtx_);
     if (slots_[idx].st == Slot::St::Writing) slots_[idx].st = Slot::St::Free;
 }
 
-void VideoStream::unpin(size_t idx) {
+void VideoStream::unpin(std::size_t idx) {
     std::lock_guard<std::mutex> lk(mtx_);
     auto &s = slots_[idx];
     if (s.pins > 0) --s.pins;
@@ -254,7 +268,7 @@ PinGuard VideoStream::pinLatest() {
     auto &s = slots_[latest_];
     ++s.pins;
     // 句柄共享持有流：零拷贝路径跨帧持有时，流对象不早于句柄析构
-    return PinGuard{shared_from_this(), (size_t)latest_, seq_.load(std::memory_order_acquire)};
+    return PinGuard{shared_from_this(), (std::size_t)latest_, seq_.load(std::memory_order_acquire)};
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -271,7 +285,7 @@ std::unordered_map<std::string, std::weak_ptr<VideoStream>> &registry() {
 }
 }    // namespace
 
-std::shared_ptr<VideoStream> createVideoStream(std::string name, uint32_t poolSlots) {
+std::shared_ptr<VideoStream> createVideoStream(std::string name, std::uint32_t poolSlots) {
     auto s = std::make_shared<VideoStream>(poolSlots);
     std::lock_guard<std::mutex> lk(regMutex());
     registry()[std::move(name)] = s;    // 同名覆盖：旧流由既有持有者续命

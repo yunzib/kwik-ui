@@ -9,10 +9,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
-#include <cmath>
 
 module kwik.element.table;
 
@@ -50,7 +49,7 @@ std::vector<float> Table::calcColumnWidths(float availableW) const {
     float fixedTotal = 0;
     float totalFlex = 0;
 
-    for (size_t i = 0; i < tp_.columns.size(); ++i) {
+    for (std::size_t i = 0; i < tp_.columns.size(); ++i) {
         if (tp_.columns[i].width > 0) {
             widths[i] = tp_.columns[i].width;
             fixedTotal += widths[i];
@@ -61,7 +60,7 @@ std::vector<float> Table::calcColumnWidths(float availableW) const {
 
     float remain = availableW - fixedTotal;
     if (totalFlex > 0 && remain > 0) {
-        for (size_t i = 0; i < tp_.columns.size(); ++i) {
+        for (std::size_t i = 0; i < tp_.columns.size(); ++i) {
             if (tp_.columns[i].width <= 0 && tp_.columns[i].flex > 0) {
                 widths[i] = remain * (tp_.columns[i].flex / totalFlex);
             }
@@ -70,12 +69,12 @@ std::vector<float> Table::calcColumnWidths(float availableW) const {
 
     // 未指定宽度的列平分剩余空间
     if (totalFlex <= 0 && remain > 0) {
-        size_t autoCount = 0;
-        for (size_t i = 0; i < tp_.columns.size(); ++i)
+        std::size_t autoCount = 0;
+        for (std::size_t i = 0; i < tp_.columns.size(); ++i)
             if (tp_.columns[i].width <= 0) ++autoCount;
         if (autoCount > 0) {
             float each = remain / static_cast<float>(autoCount);
-            for (size_t i = 0; i < tp_.columns.size(); ++i)
+            for (std::size_t i = 0; i < tp_.columns.size(); ++i)
                 if (tp_.columns[i].width <= 0) widths[i] = each;
         }
     }
@@ -228,7 +227,7 @@ void Table::drawHeader(Graphics &g, float x, float y, float w, float h, const st
     cfg.wrap = WrapMode::NoWrap;
 
     float cx = x;
-    for (size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
+    for (std::size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
         float cw = colWidths[i];
         if (cw <= 0) continue;
 
@@ -297,7 +296,7 @@ void Table::drawRow(Graphics &g, float x, float y, float h, const std::vector<fl
     cfg.wrap = WrapMode::NoWrap;
 
     float cx = x;
-    for (size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
+    for (std::size_t i = 0; i < tp_.columns.size() && i < colWidths.size(); ++i) {
         float cw = colWidths[i];
         if (cw <= 0) continue;
 
@@ -440,7 +439,7 @@ bool Table::onEvent(const DispatchEvent &event) {
             float delta = event.panDy - dragLastPanY_;    // 本帧指针位移（下移为正）
 
             // 指针速度采样（EMA 平滑，dt 毫秒级抖动防护）
-            uint64_t dt = event.timestamp - dragLastT_;
+            std::uint64_t dt = event.timestamp - dragLastT_;
             if (dt > 0) {
                 float inst = delta / static_cast<float>(dt) * 1000.0f;    // px/s
                 dragVelY_ = dragVelY_ * (1.0f - kVelEma) + inst * kVelEma;
@@ -561,14 +560,14 @@ void Table::fireRowClick(int index) {
 // getProperty / setPropertyTyped — getProp/setProp 支持
 // ============================================================================
 std::string Table::getProperty(const char *name) const {
-    if (std::strcmp(name, "rowCount") == 0) { return std::to_string(rowCount()); }
-    if (std::strcmp(name, "scrollY") == 0) { return std::to_string(scrollY_); }
+    if (strcmp(name, "rowCount") == 0) { return std::to_string(rowCount()); }
+    if (strcmp(name, "scrollY") == 0) { return std::to_string(scrollY_); }
     return View::getProperty(name);
 }
 
 bool Table::setPropertyTyped(const char *name, const TypedProp &value) {
     // scrollY 命令式通路（定位/贴底；夹紧到滚动范围）
-    if (std::strcmp(name, "scrollY") == 0) {
+    if (strcmp(name, "scrollY") == 0) {
         auto v = typedToFloat(value);
         if (!v) { return false; }
         physY_.stop();

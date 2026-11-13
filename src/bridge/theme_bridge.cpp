@@ -11,11 +11,12 @@
  */
 module;
 #include "quickjs.h"
-#include <cstdlib>
-#include <cstring>
+// C 库函数全局名（std 模块不导出 C 函数 using 声明）；string.h 无 C++ 包装，直通纯 C
+#include <string.h>
 
 module kwik.bridge.theme_bridge;
 
+import std;    // std::uint32_t 等（接口未传递，本单元显式导入）
 import kwik.core.theme;
 import kwik.core.color_parser;
 import kwik.engine.js_value;
@@ -47,8 +48,8 @@ static void parseTextStyleField(JSContext* ctx, JSValue obj,
     if (JS_IsString(wt)) {
         const char* w = JS_ToCString(ctx, wt);
         if (w) {
-            if (std::strcmp(w, "bold")  == 0) target.fontWeight = 7;  // FontWeight::Bold
-            if (std::strcmp(w, "light") == 0) target.fontWeight = 2;  // FontWeight::Light
+            if (strcmp(w, "bold")  == 0) target.fontWeight = 7;  // FontWeight::Bold
+            if (strcmp(w, "light") == 0) target.fontWeight = 2;  // FontWeight::Light
         }
         JS_FreeCString(ctx, w);
     }
@@ -65,7 +66,7 @@ ThemeData parseTheme(JSContext* ctx, JSValue val) {
     JSValue modeVal = JS_GetPropertyStr(ctx, val, "mode");
     if (JS_IsString(modeVal)) {
         const char* mode = JS_ToCString(ctx, modeVal);
-        if (mode && std::strcmp(mode, "dark") == 0) theme = ThemeData::darkBase();
+        if (mode && strcmp(mode, "dark") == 0) theme = ThemeData::darkBase();
         else theme = ThemeData::defaultTheme();
         if (mode) JS_FreeCString(ctx, mode);
     } else {
@@ -95,10 +96,10 @@ ThemeData parseTheme(JSContext* ctx, JSValue val) {
         if (JS_IsArray(pal)) {
             theme.colors.chartPalette.clear();
             JSValue lenVal = JS_GetPropertyStr(ctx, pal, "length");
-            uint32_t len = 0;
+            std::uint32_t len = 0;
             JS_ToUint32(ctx, &len, lenVal);
             JS_FreeValue(ctx, lenVal);
-            for (uint32_t i = 0; i < len; ++i) {
+            for (std::uint32_t i = 0; i < len; ++i) {
                 JSValue item = JS_GetPropertyUint32(ctx, pal, i);
                 if (JS_IsString(item)) {
                     const char* str = JS_ToCString(ctx, item);
@@ -107,17 +108,17 @@ ThemeData parseTheme(JSContext* ctx, JSValue val) {
                 } else if (JS_IsArray(item)) {
                     // [r,g,b] / [r,g,b,a] 按通道取值，缺省 alpha=255
                     JSValue lenV = JS_GetPropertyStr(ctx, item, "length");
-                    uint32_t n = 0;
+                    std::uint32_t n = 0;
                     JS_ToUint32(ctx, &n, lenV);
                     JS_FreeValue(ctx, lenV);
                     if (n >= 3) {
-                        int32_t ch[4] = {0, 0, 0, 255};
-                        for (uint32_t k = 0; k < 4 && k < n; ++k) {
+                        std::int32_t ch[4] = {0, 0, 0, 255};
+                        for (std::uint32_t k = 0; k < 4 && k < n; ++k) {
                             JSValue cv = JS_GetPropertyUint32(ctx, item, k);
                             JS_ToInt32(ctx, &ch[k], cv);
                             JS_FreeValue(ctx, cv);
                         }
-                        auto clamp8 = [](int32_t x) { return static_cast<uint8_t>(x < 0 ? 0 : (x > 255 ? 255 : x)); };
+                        auto clamp8 = [](std::int32_t x) { return static_cast<std::uint8_t>(x < 0 ? 0 : (x > 255 ? 255 : x)); };
                         theme.colors.chartPalette.push_back({clamp8(ch[0]), clamp8(ch[1]), clamp8(ch[2]), clamp8(ch[3])});
                     }
                 }

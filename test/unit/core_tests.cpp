@@ -1,7 +1,6 @@
 // 纯逻辑单测（不依赖窗口/GPU）
 // 覆盖：Rect 运算 / PropMeta 表完整性与行为锁（原双源登记 bug 的回归防线）/ DisplayList 基本操作
 // 运行：ctest -R core_tests 或直接执行 kwik_unit_tests
-#include <print>
 
 import kwik.core.types;
 import kwik.core.prop_meta;
@@ -195,7 +194,7 @@ static void test_display_list() {
 static void test_surrogate_recombine() {
     KeyboardHandler kh;
     std::vector<DispatchEvent> out;
-    auto feed = [&kh, &out](uint32_t cp) {
+    auto feed = [&kh, &out](std::uint32_t cp) {
         RawEvent raw{};
         raw.action = RawEvent::Action::TextInput;
         raw.charCode = cp;
@@ -329,9 +328,9 @@ static void test_xy_writer_sets_explicit_flag() {
 // 锁住域隔离 + 摘键 + 未注册域防御三项语义。
 namespace {
 struct CountingBackend : RenderBackend {
-    std::vector<uint32_t> created;
-    std::vector<uint32_t> destroyed;
-    uint32_t nextId = 100;
+    std::vector<std::uint32_t> created;
+    std::vector<std::uint32_t> destroyed;
+    std::uint32_t nextId = 100;
     bool initialize(void *) override { return true; }
     void shutdown() override {}
     bool resize(int, int) override { return true; }
@@ -350,11 +349,11 @@ struct CountingBackend : RenderBackend {
     void fillRing(const FillRingCmd &) override {}
     void drawMesh(const DrawMeshCmd &, const Vertex3D *) override {}
     void backdropBlur(const BackdropBlurCmd &) override {}
-    uint32_t createImageTexture(const uint8_t *, uint32_t, uint32_t) override {
+    std::uint32_t createImageTexture(const std::uint8_t *, std::uint32_t, std::uint32_t) override {
         created.push_back(nextId);
         return nextId++;
     }
-    void destroyImageTexture(uint32_t id) override { destroyed.push_back(id); }
+    void destroyImageTexture(std::uint32_t id) override { destroyed.push_back(id); }
     void pushClipRoundedRect(const Rect &, float, const Transform2D &, const Rect &) override {}
     void popState() override {}
     BackendType getType() const override { return BackendType::Vulkan; }
@@ -373,15 +372,15 @@ static void test_texture_manager_domain_isolation() {
     mgr.registerBackend(&backendA);    // 重复注册幂等
     mgr.registerBackend(&backendB);
 
-    uint8_t px[16] = {};
-    uint32_t idA = mgr.createTexture(&backendA, px, 2, 2);
-    uint32_t idB = mgr.createTexture(&backendB, px, 2, 2);
+    std::uint8_t px[16] = {};
+    std::uint32_t idA = mgr.createTexture(&backendA, px, 2, 2);
+    std::uint32_t idB = mgr.createTexture(&backendB, px, 2, 2);
     CHECK(idA != 0 && idB != 0 && idA != idB);
     CHECK(backendA.created.size() == 1 && backendB.created.size() == 1);
 
     // 域隔离：销毁 A 域只销毁 A 的纹理，B 域原样不受牵连
     mgr.destroyBackend(&backendA);
-    CHECK(backendA.destroyed == std::vector<uint32_t>{idA});
+    CHECK(backendA.destroyed == std::vector<std::uint32_t>{idA});
     CHECK(backendB.destroyed.empty());
 
     // 域键已摘除：A 域再建纹理走未注册防御路径返回 0，不产生新建
@@ -409,7 +408,7 @@ static void test_texture_manager_domain_isolation() {
 namespace {
 struct ScriptedBackend : CountingBackend {
     int answer = 0;    // 脚本应答：0=在途 1=落地 2=失败；应答一次后回零（单次领取）
-    RenderBackend::TextureUploadStatus imageTextureResult(uint32_t) override {
+    RenderBackend::TextureUploadStatus imageTextureResult(std::uint32_t) override {
         if (answer == 0) return RenderBackend::TextureUploadStatus::Pending;
         int r = answer;
         answer = 0;
@@ -923,7 +922,7 @@ static void test_4b_playlist_scroll_to_end() {
         g.endFrame();
         std::vector<const FillRoundedRectCmd *> bgCmds;
         collectBg(dl, bgCmds);
-        size_t leafHits = 0;
+        std::size_t leafHits = 0;
         for (const auto *cmd : bgCmds) {
             if (cmd->color.r != 50) continue;    // 只看孙级探针背景
             ++leafHits;
@@ -938,7 +937,7 @@ static void test_4b_playlist_scroll_to_end() {
     };
 
     auto draw_and_verify = [&](int step) {
-        for (size_t i = 0; i < rows.size(); ++i) {
+        for (std::size_t i = 0; i < rows.size(); ++i) {
             rows[i]->draws = 0;
             leaves[i]->draws = 0;
         }
@@ -947,7 +946,7 @@ static void test_4b_playlist_scroll_to_end() {
         page.draw(g);
         g.endFrame();
         Rect vis{0, list->scrollOffset.y, 350, 290};
-        for (size_t i = 0; i < rows.size(); ++i) {
+        for (std::size_t i = 0; i < rows.size(); ++i) {
             auto *row = rows[i];
             if (!row->frame.intersects(vis)) continue;    // 视口外不绘制合法
             if (row->draws == 0) {                        // 可视行未被绘制 = 消失（行级）
@@ -1286,8 +1285,8 @@ static void test_flex_space_justify_every_gap() {
 // ⑦ maxLines 恰排满不误截断（跳过尾随 \n 后无可见字形 = 不截断）
 static void test_text_layout_wrap_rules() {
     // 合成字形辅助：advance 10、fontSize 16、cluster 按调用方给的字节位
-    auto mk = [](std::vector<ShapedGlyph> &gs, uint32_t cluster, bool nl = false, bool sp = false, bool nls = false,
-                 bool nle = false, uint8_t nb = 1) {
+    auto mk = [](std::vector<ShapedGlyph> &gs, std::uint32_t cluster, bool nl = false, bool sp = false, bool nls = false,
+                 bool nle = false, std::uint8_t nb = 1) {
         ShapedGlyph g;
         g.cluster = cluster;
         g.advanceX = nl ? 0 : 10;
@@ -1344,7 +1343,7 @@ static void test_text_layout_wrap_rules() {
         CHECK(r.lines[1].glyphStart == 2 && r.lines[1].glyphCount == 2);     // "cd" 移入下一行
         CHECK(r.lines[1].clusterStart == 3);
         CHECK(r.lines[2].glyphCount == 2);                                   // "ef"
-        size_t rendered = 0;
+        std::size_t rendered = 0;
         for (auto &l : r.lines) rendered += l.glyphCount;
         CHECK(rendered == 6);                                                // 8 字形 - 2 空格，无字丢失
     }
@@ -1395,11 +1394,11 @@ static void test_text_layout_wrap_rules() {
             return ly.layout(gs, cfg);
         };
         std::vector<ShapedGlyph> exact;    // "abcd" 恰好 4×10=40
-        for (int k = 0; k < 4; ++k) mk(exact, (uint32_t)k);
+        for (int k = 0; k < 4; ++k) mk(exact, (std::uint32_t)k);
         CHECK(layout(exact, 40).truncated == false);                   // 恰排满 → 不误截断
 
         std::vector<ShapedGlyph> over;    // "abcde" 溢出
-        for (int k = 0; k < 5; ++k) mk(over, (uint32_t)k);
+        for (int k = 0; k < 5; ++k) mk(over, (std::uint32_t)k);
         CHECK(layout(over, 40).truncated == true);
 
         std::vector<ShapedGlyph> tailNl;    // "ab\ncd\n"：尾随 \n 不产生可见丢失
@@ -1440,8 +1439,8 @@ public:
     }
 };
 
-static void feed(EventRouter &router, RawEvent::Device dev, RawEvent::Action act, float x, float y, uint32_t key = 0,
-                 uint64_t ts = 0) {
+static void feed(EventRouter &router, RawEvent::Device dev, RawEvent::Action act, float x, float y, std::uint32_t key = 0,
+                 std::uint64_t ts = 0) {
     RawEvent raw;
     raw.device = dev;
     raw.action = act;
@@ -1692,13 +1691,13 @@ static void test_textview_undo_redo() {
     focus.type = DispatchEvent::Type::FocusGained;
     vb.onEvent(focus);
 
-    auto type = [&](uint32_t cp) {
+    auto type = [&](std::uint32_t cp) {
         DispatchEvent ch;
         ch.type = DispatchEvent::Type::CharInput;
         ch.charCode = cp;
         vb.onEvent(ch);
     };
-    auto key = [&](uint16_t vk) {
+    auto key = [&](std::uint16_t vk) {
         DispatchEvent k;
         k.type = DispatchEvent::Type::KeyAction;
         k.keyCode = vk;
@@ -1778,7 +1777,7 @@ static void test_textview_find_highlight() {
     CHECK(tv.find("") == std::string::npos);           // 空关键词恒 npos
 
     // ② highlightAll：非重叠计数 + 首区间
-    size_t n = tv.highlightAll("the");
+    std::size_t n = tv.highlightAll("the");
     CHECK(n == 2);
     CHECK(tv.highlights().size() == 2);
     CHECK(tv.highlights()[0].first == 0 && tv.highlights()[0].second == 3);
@@ -1824,9 +1823,9 @@ static void test_textview_find_prev() {
     CHECK(tv.findPrev("", 2) == std::string::npos);         // 空关键词
     CHECK(tv.findPrev("zz", 2) == std::string::npos);       // 无匹配
     // 导航回绕闭环（demo 同款推进）：0 →next→ 2 →next→ 空 →回绕 0
-    size_t cur = tv.find("aX", 0);
+    std::size_t cur = tv.find("aX", 0);
     CHECK(cur == 0);
-    size_t nxt = tv.find("aX", cur + 1);
+    std::size_t nxt = tv.find("aX", cur + 1);
     CHECK(nxt == 2);
     CHECK(tv.find("aX", nxt + 1) == std::string::npos);
     // 2 →prev→ 0 →prev→ 空 →回绕 2
@@ -1955,7 +1954,7 @@ static void test_textview_runs_wire() {
     // 解析不受影响——后续版本在 record 末尾加字段无需改本版读端
     std::vector<TextRun> one = {{"ab", {}, "u"}};
     std::string b1 = serializeTextRuns(one);
-    uint32_t rl = 0;
+    std::uint32_t rl = 0;
     std::memcpy(&rl, b1.data() + 10, 4);    // 唯一 run 的 recordLen（header 6+4 之后首 4B）
     rl += 2;
     std::memcpy(b1.data() + 10, &rl, 4);
@@ -2009,7 +2008,7 @@ static void test_textview_apply_props_relayout() {
 class CtxProbeView : public View {
 public:
     int pointerDowns = 0, pointerUps = 0, taps = 0, contextMenus = 0;
-    uint8_t lastDownButton = 0, lastUpButton = 0;
+    std::uint8_t lastDownButton = 0, lastUpButton = 0;
     float ctxX = -1, ctxY = -1;
     bool onEvent(const DispatchEvent &event) override {
         switch (event.type) {
@@ -2032,7 +2031,7 @@ public:
     }
 };
 
-static void feedB(EventRouter &router, RawEvent::Action act, float x, float y, uint8_t btn) {
+static void feedB(EventRouter &router, RawEvent::Action act, float x, float y, std::uint8_t btn) {
     RawEvent raw;
     raw.device = RawEvent::Device::Mouse;
     raw.action = act;
@@ -2474,7 +2473,7 @@ static void test_tap_caret_mapping() {
     // ① 源文本 "a中b"（a=0(1字节) 中=1(3字节) b=4），等宽 10px：中点各 5/15/25
     std::string text = "a中b";
     std::vector<ShapedGlyph> gs;
-    auto single = [&gs](uint32_t cluster, uint8_t nb) {
+    auto single = [&gs](std::uint32_t cluster, std::uint8_t nb) {
         ShapedGlyph g;
         g.cluster = cluster;
         g.numBytes = nb;
@@ -2497,7 +2496,7 @@ static void test_tap_caret_mapping() {
     std::vector<ShapedGlyph> mask;
     for (int i = 0; i < 3; ++i) {
         ShapedGlyph g;
-        g.cluster = (uint32_t)(i * 3);
+        g.cluster = (std::uint32_t)(i * 3);
         g.advanceX = 8;
         g.fontSize = 16;
         mask.push_back(g);
@@ -2509,7 +2508,7 @@ static void test_tap_caret_mapping() {
 
     // ③ y→visual line（行高 16*1.4；"ab\n\ncd" → 3 行，中间空行保留）
     std::vector<ShapedGlyph> gs2;
-    auto mk2 = [&gs2](uint32_t cluster, bool nl) {
+    auto mk2 = [&gs2](std::uint32_t cluster, bool nl) {
         ShapedGlyph g;
         g.cluster = cluster;
         g.advanceX = nl ? 0 : 10;
@@ -2561,13 +2560,13 @@ static void test_input_latency_stamp() {
 
     // ③ KeyDown 打戳，取走即清
     feed(router, RawEvent::Device::Keyboard, RawEvent::Action::KeyDown, 0, 0, 'A');
-    int64_t s1 = router.consumeInputStampNs();
+    std::int64_t s1 = router.consumeInputStampNs();
     CHECK(s1 > 0);
     CHECK(router.consumeInputStampNs() == 0);
 
     // ④ TextInput（字符输入）同样打戳；连打后一戳覆盖前一戳
     feed(router, RawEvent::Device::Keyboard, RawEvent::Action::TextInput, 0, 0, 'a');
-    int64_t s2 = router.consumeInputStampNs();
+    std::int64_t s2 = router.consumeInputStampNs();
     CHECK(s2 >= s1);
 
     // ⑤ 消费不干扰事件分发本身：KeyUp 不打戳，但键路由照常执行（无崩溃/无残留）
@@ -3305,7 +3304,7 @@ static void test_treemenu_controlled_keys() {
     rowsSnapshot(after);
     CHECK(after.size() == before.size());
     bool identitySame = true;
-    for (size_t i = 0; i < after.size(); ++i)
+    for (std::size_t i = 0; i < after.size(); ++i)
         if (after[i] != before[i]) identitySame = false;
     CHECK(identitySame);                                // 行指针身份不变（复用非重建）
 
@@ -3410,7 +3409,7 @@ static void test_focus_programmatic_and_tab() {
     // ② Tab 遍历全链（EventRouter 真管线；router 自持独立焦点管理器）
     EventRouter router;
     router.setRootTarget(&page);
-    auto tab = [&](uint32_t mods) {
+    auto tab = [&](std::uint32_t mods) {
         RawEvent e;
         e.device = RawEvent::Device::Keyboard;
         e.action = RawEvent::Action::KeyDown;
@@ -3606,9 +3605,9 @@ struct FakeSelectable : Selectable {
     std::string content = "hello 中文 world";
     int redraws = 0;
     bool live = true;
-    size_t hitOffset(float, float) override { return 0; }
-    std::vector<Rect> selectionRects(size_t, size_t) override { return {}; }
-    std::string selectedBytes(size_t s, size_t e) override {
+    std::size_t hitOffset(float, float) override { return 0; }
+    std::vector<Rect> selectionRects(std::size_t, std::size_t) override { return {}; }
+    std::string selectedBytes(std::size_t s, std::size_t e) override {
         s = clampToUtf8Boundary(content, s);
         e = clampToUtf8Boundary(content, e);
         return s < e ? content.substr(s, e - s) : std::string{};
@@ -3674,7 +3673,7 @@ static void test_text_selection() {
     // ⑥ Text 纯几何：手搭 "a中b" 等宽字形（'a'/'中'/'b' 各 10px，Input
     // tapByteOffsetForX 测试同款数据），验证最近边界扫描与边界落笔
     std::vector<ShapedGlyph> gs;
-    auto single = [&](uint32_t cluster, uint8_t nb, float x) {
+    auto single = [&](std::uint32_t cluster, std::uint8_t nb, float x) {
         ShapedGlyph g;
         g.cluster = cluster;
         g.numBytes = nb;
@@ -3857,14 +3856,14 @@ static void test_input_selection() {
     in.setTreeService(View::kSvcSelection, &svc);
 
     View &vb = in;
-    auto feedKey = [&](uint32_t vk) {
+    auto feedKey = [&](std::uint32_t vk) {
         DispatchEvent k;
         k.type = DispatchEvent::Type::KeyAction;
         k.keyCode = vk;
         k.modifiers = 0x01;    // bit0=Ctrl
         vb.onEvent(k);
     };
-    auto feedChar = [&](uint32_t cp) {
+    auto feedChar = [&](std::uint32_t cp) {
         DispatchEvent c;
         c.type = DispatchEvent::Type::CharInput;
         c.charCode = cp;
@@ -3918,9 +3917,9 @@ static void test_input_selection() {
 // ═══════════════════════════════════════════════════════════════════
 
 // 把 writer 全部平面写成同一字节值（帧内容标记）
-static void vsFill(FrameWriter &w, uint8_t v) {
+static void vsFill(FrameWriter &w, std::uint8_t v) {
     for (const auto &p : w.planes())
-        for (uint32_t y = 0; y < p.height; ++y) std::memset(p.data + size_t(p.stride) * y, v, p.stride);
+        for (std::uint32_t y = 0; y < p.height; ++y) std::memset(p.data + std::size_t(p.stride) * y, v, p.stride);
 }
 
 // 布局：8 格式平面数/stride/偏移（256 对齐）+ 奇数尺寸色度 ⌈w/2⌉ + 4:2:2 奇宽非法
@@ -4030,17 +4029,17 @@ static void test_video_stream_realloc_and_push() {
     CHECK(vs.desc().width == 64 && vs.desc().height == 64);
 
     // 源 3×2 RGBA、行距 20（12B 内容 + 8B 填充）→ 池行距 256
-    std::array<uint8_t, 40> src{};
-    for (uint32_t y = 0; y < 2; ++y)
-        for (uint32_t i = 0; i < 20; ++i) src[y * 20 + i] = i < 12 ? uint8_t(y * 16 + i) : 0xFF;
+    std::array<std::uint8_t, 40> src{};
+    for (std::uint32_t y = 0; y < 2; ++y)
+        for (std::uint32_t i = 0; i < 20; ++i) src[y * 20 + i] = i < 12 ? std::uint8_t(y * 16 + i) : 0xFF;
     const PlaneView sp{src.data(), 20, 3, 2};
     vs.push({.format = PixelFormat::RGBA8, .width = 3, .height = 2}, std::span<const PlaneView>(&sp, 1));
     auto pin = vs.pinLatest();
     CHECK(pin && pin.desc().width == 3 && pin.planes()[0].stride == 256);
     bool rowsOk = true;
-    for (uint32_t y = 0; y < 2; ++y)
-        for (uint32_t i = 0; i < 12; ++i)
-            if (pin.planes()[0].data[size_t(256) * y + i] != uint8_t(y * 16 + i)) rowsOk = false;
+    for (std::uint32_t y = 0; y < 2; ++y)
+        for (std::uint32_t i = 0; i < 12; ++i)
+            if (pin.planes()[0].data[std::size_t(256) * y + i] != std::uint8_t(y * 16 + i)) rowsOk = false;
     CHECK(rowsOk);
 }
 
@@ -4071,7 +4070,7 @@ static void test_video_stream_threaded_no_tearing() {
         for (int i = 0; i < kFrames; ++i) {
             auto w = vs.acquire(d);
             if (!w) continue;    // 池满丢帧（计入 droppedFrames）
-            vsFill(w, uint8_t(i % 251 + 1));
+            vsFill(w, std::uint8_t(i % 251 + 1));
             w.commit();
         }
         done = true;
@@ -4081,10 +4080,10 @@ static void test_video_stream_threaded_no_tearing() {
         auto pin = vs.pinLatest();
         if (!pin) continue;
         const auto &p = pin.planes()[0];
-        const uint8_t first = p.data[0];
-        for (uint32_t y = 0; y < p.height && torn == 0; ++y)
-            for (uint32_t x = 0; x < p.width * 4; ++x)
-                if (p.data[size_t(p.stride) * y + x] != first) {
+        const std::uint8_t first = p.data[0];
+        for (std::uint32_t y = 0; y < p.height && torn == 0; ++y)
+            for (std::uint32_t x = 0; x < p.width * 4; ++x)
+                if (p.data[std::size_t(p.stride) * y + x] != first) {
                     ++torn;
                     break;
                 }
@@ -4092,7 +4091,7 @@ static void test_video_stream_threaded_no_tearing() {
     }
     producer.join();
     CHECK(torn == 0);
-    CHECK(vs.seq() + vs.droppedFrames() == uint64_t(kFrames));
+    CHECK(vs.seq() + vs.droppedFrames() == std::uint64_t(kFrames));
 }
 
 // ── 行为锁: 批 3 数据层 — 内存块 / 长时持有扩容 / 帧率 ──
@@ -4102,7 +4101,7 @@ static void test_video_stream_zero_copy_layer() {
     // ① MemoryBlock 对齐/尺寸
     MemoryBlock blk(1);
     CHECK(blk.data() != nullptr);
-    CHECK(reinterpret_cast<uintptr_t>(blk.data()) % MemoryBlock::kAlignment == 0);
+    CHECK(reinterpret_cast<std::uintptr_t>(blk.data()) % MemoryBlock::kAlignment == 0);
     CHECK(blk.size() == MemoryBlock::kAlignment);
     CHECK(!blk.retired());
     blk.markRetired();
@@ -4133,7 +4132,7 @@ static void test_video_stream_zero_copy_layer() {
         auto p3 = std::make_shared<VideoStream>(2);
         p3->reserveConsumerPins(holdN);
         std::vector<PinGuard> held;
-        for (uint32_t f = 0; f < holdN; ++f) {
+        for (std::uint32_t f = 0; f < holdN; ++f) {
             auto w = p3->acquire(d);
             CHECK(static_cast<bool>(w));
             w.commit();

@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <stdint.h>
 
@@ -47,7 +62,7 @@ public:
     void CloseWindow() override;
     bool SetWindowIcon(const std::string &path) override;
     void SetShape(const std::vector<std::pair<int, int>> &polygon) override;
-    void SetShapeMask(const uint8_t *maskData, int width, int height) override;
+    void SetShapeMask(const std::uint8_t *maskData, int width, int height) override;
     void SetResizable(bool resizable) override;
 
     void SetRawEventCallback(PlatformWindow::RawEventCallback callback) override;
@@ -83,7 +98,7 @@ private:
     std::vector<DragRegion> dragRegions_;    // 无边框拖拽区（逻辑像素、窗口坐标）
     HICON hIconLarge_ = nullptr;             // 窗口/任务栏大图标（WM_SETICON + 类图标）
     HICON hIconSmall_ = nullptr;             // 标题栏/Alt-Tab 小图标
-    uint8_t windowState_ = 0;                // 0=普通 1=最大化 2=最小化（变化时发 WindowStateChanged）
+    std::uint8_t windowState_ = 0;                // 0=普通 1=最大化 2=最小化（变化时发 WindowStateChanged）
     RawEventCallback rawCallback_ = nullptr;
     float grabRelX_ = 0.5f;   // 抓取点在窗口内的归一化位置（0~1）：ENTERSIZEMOVE 时记录，
     float grabRelY_ = 0.5f;   // 拖动全程钉住——跨屏尺寸变化后 WM_MOVE 持续纠偏的基准

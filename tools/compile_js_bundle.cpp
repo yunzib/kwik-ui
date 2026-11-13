@@ -64,7 +64,7 @@ static JSModuleDef *module_loader(JSContext *ctx, const char *module_name, void 
     // "kwikui" 由下方 JS_NewCModule 注册为 C 模块，
     // QuickJS 内部机制会优先匹配 C 模块表，通常不会走到此回调。
     // 此处显式拦截作为安全防护，防止意外尝试打开 "kwikui" 文件而报错。
-    if (strcmp(module_name, "kwikui") == 0) return nullptr;
+    if (std::strcmp(module_name, "kwikui") == 0) return nullptr;
 
     // 查重：已编译过的直接返回
     for (auto &m : g_modules) {
@@ -105,14 +105,14 @@ static JSModuleDef *module_loader(JSContext *ctx, const char *module_name, void 
  */
 static void output_bytecode_array(FILE *out, JSContext *ctx, const char *varname, JSValue obj, int strip_flags) {
     // 序列化为 bytecode
-    // API: uint8_t *JS_WriteObject(JSContext *ctx, size_t *psize, JSValueConst obj, int flags)
-    size_t len;
-    uint8_t *buf = JS_WriteObject(ctx, &len, obj, JS_WRITE_OBJ_BYTECODE | strip_flags);
+    // API: std::uint8_t *JS_WriteObject(JSContext *ctx, std::size_t *psize, JSValueConst obj, int flags)
+    std::size_t len;
+    std::uint8_t *buf = JS_WriteObject(ctx, &len, obj, JS_WRITE_OBJ_BYTECODE | strip_flags);
 
     // 写出 C 数组定义
     fprintf(out, "/** %s */\n", varname);
-    fprintf(out, "static const uint8_t k%s[] = {\n", varname);
-    for (size_t i = 0; i < len; i++) {
+    fprintf(out, "static const std::uint8_t k%s[] = {\n", varname);
+    for (std::size_t i = 0; i < len; i++) {
         if (i % 16 == 0) fputs("    ", out);
         fprintf(out, "0x%02x,", buf[i]);
         if ((i + 1) % 16 == 0 || i == len - 1) fputc('\n', out);
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
     // 所有导出均使用 js_stub 作为实现（COMPILE_ONLY 阶段不执行函数体）
     static const auto stub_exports = []() -> std::vector<JSCFunctionListEntry> {
         std::vector<JSCFunctionListEntry> entries;
-        for (size_t i = 0; i < kwik_ui::export_count; ++i) {
+        for (std::size_t i = 0; i < kwik_ui::export_count; ++i) {
             JSCFunctionListEntry entry = JS_CFUNC_DEF(kwik_ui::exports[i], 1, js_stub);
             entries.push_back(entry);
         }
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
     JS_ResolveModule(ctx, func_val);
 
     // ── 生成输出头文件 ──
-    FILE *out = fopen(output_file, "w");
+    FILE *out = std::fopen(output_file, "w");
     if (!out) {
         fprintf(stderr, "无法写入输出文件: %s\n", output_file);
         return 1;
@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
     fprintf(out, "} // namespace kwik_js\n");
 
     fclose(out);
-    printf("[KwiK] 已生成字节码头文件: %s (%zu 个模块)\n", output_file, g_modules.size());
+    std::printf("[KwiK] 已生成字节码头文件: %s (%zu 个模块)\n", output_file, g_modules.size());
 
     // ── 可选：生成注册源文件 ──
     if (c_output_file) { output_registration_source(c_output_file); }

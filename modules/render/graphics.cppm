@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <stdint.h>
 
@@ -97,11 +112,11 @@ public:
     void drawText(const std::string &fontPath, const std::string &text, float fontSize, float x, float y,
                   const Color &color);
     void drawTextCached(const std::vector<ShapedGlyph> &glyphs, const Color &color);
-    void drawImage(uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
+    void drawImage(std::uint32_t textureId, const Rect &rect, float opacity = 1.0f, float cornerRadius = 0.0f);
     /** @brief 带 UV 源窗口绘图像（20 号 ImageFit 裁剪语义）：
      *         [u0,v0]-[u1,v1] 为源纹理裁剪窗口（cover 裁长轴 / none 1:1 裁剪），
      *         dst 仍为落笔矩形；fill/contain 走满幅窗口等价 drawImage */
-    void drawImageUv(uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
+    void drawImageUv(std::uint32_t textureId, const Rect &rect, float u0, float v0, float u1, float v1,
                      float opacity = 1.0f, float cornerRadius = 0.0f);
     void fillPath(const Path &path, const Color &color);
     void strokePath(const Path &path, const Color &color, float lineWidth);
@@ -119,7 +134,7 @@ public:
     /** @brief 3D 网格绘制（G3D）：textureId 非 0 走材质贴图路径（顶点 UV 采样），
      *         0 走纯色路径（现状行为） */
     void drawMesh(const std::vector<Vertex3D> &vertices, const float mvp[16], const Color &color,
-                  const float lightDir[3], const Rect &viewport, uint32_t textureId = 0);
+                  const float lightDir[3], const Rect &viewport, std::uint32_t textureId = 0);
 
     /** @brief 追加液态玻璃 backdrop 命令
      *  frame 为元素逻辑框（未外扩）：内部按 ceil(3σ) 烘焙外扩 captureBox，
@@ -158,8 +173,8 @@ private:
     std::vector<DisplayList *> sinkStack_;
     DisplayList *sink();                   // nullptr = 无落笔目标（丢弃，防御）
     void appendCmd(DrawCommand cmd);
-    size_t appendVerts(const AAVertex *v, size_t n);
-    size_t appendMeshVerts(const Vertex3D *v, size_t n);
+    std::size_t appendVerts(const AAVertex *v, std::size_t n);
+    std::size_t appendMeshVerts(const Vertex3D *v, std::size_t n);
 
     /** @brief 折线 path → AA 三角形顶点（含解析 AA 边高，随当前变换矩阵缩放） */
     std::vector<AAVertex> strokeVerts(const Path &path, float lineWidth);

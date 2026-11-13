@@ -1,8 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-
 export module kwik.element.switch_button;
 
 import kwik.element.view;

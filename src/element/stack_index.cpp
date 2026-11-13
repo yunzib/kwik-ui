@@ -7,9 +7,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <cstdlib>
 
 module kwik.element.stack_index;
 
@@ -45,7 +45,7 @@ void StackIndex::onLayout() {
     int idx = activeChild_();
     Rect area{frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
               frame.height - props.padding.vertical()};
-    for (size_t i = 0; i < children.size(); ++i) {
+    for (std::size_t i = 0; i < children.size(); ++i) {
         // 选中面板铺满内容区; 非活跃面板空 frame (0,0,0,0) → 不参与绘制/命中
         children[i]->layout(static_cast<int>(i) == idx ? area : Rect{0, 0, 0, 0});
     }
@@ -86,7 +86,7 @@ void StackIndex::setIndex(int index) {
     int idx = activeChild_();
     if (idx >= 0) {
         // 新面板可能从未参与测量（启动只测 index 指向的面板）
-        children[static_cast<size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
+        children[static_cast<std::size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
         onLayout();    // 立即交换各面板 frame；固定尺寸下框架布局门(moved||childChanged, view.cpp:51)不会触发
     }
     markDirty();
@@ -116,7 +116,7 @@ void StackIndex::applyStackIndexProps(StackIndexProps sp) {
     // ——非用户操作，State 源已持有同一值（回声链由 State 端自行闭环）
     int idx = activeChild_();
     if (idx >= 0) {
-        children[static_cast<size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
+        children[static_cast<std::size_t>(idx)]->measure(Constraints::loose(Size{frame.width, frame.height}));
         onLayout();    // 立即交换各面板 frame
     }
     markDirty();
@@ -127,7 +127,7 @@ void StackIndex::applyStackIndexProps(StackIndexProps sp) {
 // getProperty / setProperty — getProp("sid","index") / setProp("sid","index",n)
 // ============================================================================
 std::string StackIndex::getProperty(const char *name) const {
-    if (std::strcmp(name, "index") == 0) { return std::to_string(sp_.index); }
+    if (strcmp(name, "index") == 0) { return std::to_string(sp_.index); }
     return View::getProperty(name);
 }
 
@@ -135,7 +135,7 @@ std::string StackIndex::getProperty(const char *name) const {
 // setPropertyTyped — 属性写入唯一入口（index）
 // ============================================================================
 bool StackIndex::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "index") == 0) {
+	if (strcmp(name, "index") == 0) {
 		auto v = typedToFloat(value);     // int64/double/数字串均可
 		if (!v) { return false; }
 		setIndex(static_cast<int>(*v));

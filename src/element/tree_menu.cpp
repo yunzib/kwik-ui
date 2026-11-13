@@ -9,9 +9,8 @@
 //   ④ 事件通报   — onTreeExpand（开合翻转后）/ onTreeSelect（行区点击）+ onChange 勾选族
 // ============================================================================
 module;
-#include <cstring>
-#include <algorithm>
-#include <functional>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.tree_menu;
 
@@ -266,7 +265,7 @@ void TreeMenu::applyTreeMenuProps(const TreeMenuProps &tp) {
     tp_ = tp;
     const bool shapeKept = sameShape(nodes_, tp.nodes);    // 必须先于 nodes_ 覆盖判定
     if (shapeKept) {
-        for (size_t i = 0; i < nodes_.size(); ++i) syncTreeData(nodes_[i], tp.nodes[i]);
+        for (std::size_t i = 0; i < nodes_.size(); ++i) syncTreeData(nodes_[i], tp.nodes[i]);
     } else {
         nodes_ = tp.nodes;    // 运行时树整体替换（旧行先于本句被 children.clear() 销毁，无悬垂）
     }
@@ -406,7 +405,7 @@ void TreeMenu::fireRowTap(const TreeNodeData &n) {
 /// @brief 同构判定：同位同标识（key 缺省回退 title）+ 子树结构逐位一致
 bool TreeMenu::sameShape(const std::vector<TreeNodeData> &a, const std::vector<TreeNodeData> &b) {
     if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
+    for (std::size_t i = 0; i < a.size(); ++i) {
         if (nodeKeyOf(a[i]) != nodeKeyOf(b[i])) return false;
         if (!sameShape(a[i].children, b[i].children)) return false;
     }
@@ -419,7 +418,7 @@ bool TreeMenu::sameShape(const std::vector<TreeNodeData> &a, const std::vector<T
 void TreeMenu::syncTreeData(TreeNodeData &dst, const TreeNodeData &src) {
     dst.title = src.title;
     dst.icon = src.icon;
-    for (size_t i = 0; i < dst.children.size(); ++i) syncTreeData(dst.children[i], src.children[i]);
+    for (std::size_t i = 0; i < dst.children.size(); ++i) syncTreeData(dst.children[i], src.children[i]);
 }
 
 /// @brief CSV 切分（PropBus "checked" 与受控勾选共用）：空段跳过
@@ -480,7 +479,7 @@ bool TreeMenu::applyExpandedMap(const std::string &map) {
 // getProperty / setProperty — PropBus 支持
 // ════════════════════════════════════════════════════════
 std::string TreeMenu::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) {
+    if (strcmp(name, "checked") == 0) {
         // 返回逗号连接的勾选 key 列表（无 key 时回退 title）
         std::vector<std::string> keys;
         std::function<void(const TreeNodeData &)> dfs = [&](const TreeNodeData &n) {
@@ -495,7 +494,7 @@ std::string TreeMenu::getProperty(const char *name) const {
         }
         return joined;
     }
-    if (std::strcmp(name, "expanded") == 0) {
+    if (strcmp(name, "expanded") == 0) {
         // 非叶节点全量 map "a:1,b:0"（DFS 序；与受控键格式同形——读侧输出
         // 可直接回喂 setProp("expanded")，读/写对偶）
         std::string joined;
@@ -542,12 +541,12 @@ bool TreeMenu::applyCheckedSet(const std::vector<std::string> &want) {
 
 
 bool TreeMenu::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "checked") == 0) {
+    if (strcmp(name, "checked") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             return applyCheckedSet(splitCsv(*s));    // 整集合覆盖口径（含级联+半选推导）
         }
     }
-    if (std::strcmp(name, "expanded") == 0) {
+    if (strcmp(name, "expanded") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (applyExpandedMap(*s)) markAllDirty();    // 逐键覆盖口径（未列/未命中键保持运行时态）
             return true;                                 // 键失配 = 已按语义就近处理（不落入通用回退链）

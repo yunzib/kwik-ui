@@ -19,17 +19,6 @@
  *   // style 子对象（新增能力）：集中样式覆写（字号/间距/指示弧色/调色板…）
  *   Chart({ type: "bar", series: [...], style: { barCornerRadius: 6 } })
  */
-module;
-
-#include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <functional>
-#include <limits>
-#include <optional>
-#include <string>
-#include <vector>
-
 export module kwik.ext.chart;
 
 import kwik.element.view;
@@ -273,7 +262,7 @@ export struct ChartContext {
 	const ChartHit *hover = nullptr;    ///< 当前悬停命中（高亮消费；null=无悬停）
 
 	/** @brief 系列调色板取色（按索引循环） */
-	Color paletteColor(size_t index) const;
+	Color paletteColor(std::size_t index) const;
 };
 
 /**
@@ -441,7 +430,7 @@ private:
 	std::chrono::steady_clock::time_point animStart_;  // 动画起点（首帧/morph 起点记录）
 	bool animStarted_ = false;                          // 是否已启动（首帧置真）
 	float animProgress_ = 0.0f;                         // 0..1 缓动进度（入场；morph 期间恒 1）
-	uint32_t animTimerId_ = 0;                          // 动画定时器 id（0=未启动）
+	std::uint32_t animTimerId_ = 0;                          // 动画定时器 id（0=未启动）
 
 	// ── 数据更新 morph（animateOnData=true 且系列身份一致时消费）──
 	// displayProps_ = 渲染/命中唯一入口：非 morph 期 = cp_ 同步副本；morph 期

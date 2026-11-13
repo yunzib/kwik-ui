@@ -1,10 +1,3 @@
-module;
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <atomic>
-
 export module kwik.render.command_queue;
 
 import kwik.core.types;
@@ -18,7 +11,7 @@ import std;
  * ring buffer 传递此结构，层树通过 shared_ptr 传递。
  */
 export struct FrameSubmit {
-    uint64_t frameId = 0;             /**< 单调递增帧序号 */
+    std::uint64_t frameId = 0;             /**< 单调递增帧序号 */
     /**< 保留式清单根（每帧必填，渲染线程唯一回放源；生命周期由槽位 shared_ptr 托底） */
     std::shared_ptr<const DisplayList> displayList;
     Rect dirtyRect = {};              /**< 脏区（物理像素坐标，后端 scissor 用） */
@@ -88,15 +81,15 @@ public:
     void wake();
 
 private:
-    static constexpr size_t kMaxInFlight = 3;    // 3缓冲：录制/解析/GPU 各一槽
+    static constexpr std::size_t kMaxInFlight = 3;    // 3缓冲：录制/解析/GPU 各一槽
 
     FrameSubmit frames_[kMaxInFlight]; /**< 帧元数据槽位 */
 
-    std::atomic<size_t> writeIdx_{0};   /**< 主线程独占递增 */
-    std::atomic<size_t> readIdx_{0};    /**< 渲染线程独占递增 */
-    std::atomic<size_t> releaseIdx_{0}; /**< 渲染线程独占递增 */
+    std::atomic<std::size_t> writeIdx_{0};   /**< 主线程独占递增 */
+    std::atomic<std::size_t> readIdx_{0};    /**< 渲染线程独占递增 */
+    std::atomic<std::size_t> releaseIdx_{0}; /**< 渲染线程独占递增 */
 
-    size_t pendingIdx_ = 0;
+    std::size_t pendingIdx_ = 0;
     std::atomic<bool> stopping_{false};
 
     /**

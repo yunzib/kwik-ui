@@ -3,9 +3,6 @@
 // 渲染后端选择工厂（清单 §四）：具体后端类型与创建集中于此，
 // 渲染线程只面向 RenderBackend 抽象（不再 import 具体后端模块）。
 // ============================================================================
-module;
-#include <memory>
-
 export module kwik.render.backend_factory;
 
 import kwik.render.backend;

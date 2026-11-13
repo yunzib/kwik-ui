@@ -1,6 +1,3 @@
-module;
-#include <cstdint>
-
 export module kwik.animation.animator;
 
 import kwik.animation.easing;
@@ -36,7 +33,7 @@ export using AnimationCallback = std::function<void(const AnimationResult &)>;
  */
 export struct ActiveAnimation {
     /// 动画唯一标识（由 AnimationEngine 分配）
-    uint64_t id = 0;
+    std::uint64_t id = 0;
 
     /// 目标控件 ID（用于 stopByView / hasActiveAnimation 查询）
     std::string viewId;
@@ -71,7 +68,7 @@ export struct ActiveAnimation {
     bool isReversing = false;    ///< Alternate 模式下当前是否处于反向段
 
     /// ── 状态 ──
-    enum State : uint8_t { Pending, Running, Paused, Finished };
+    enum State : std::uint8_t { Pending, Running, Paused, Finished };
     State state = Pending;
 
     /// 目标 View 指针（void* 避免模块循环依赖，实现中 static_cast<View*>）

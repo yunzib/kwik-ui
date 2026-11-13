@@ -11,8 +11,24 @@
  * 拷贝源缓冲（零 CPU 拷贝，固定持有到该帧 fence）；否则 memcpy 进 staging。
  */
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstring>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.context;
 import kwik.render.command;
@@ -38,8 +54,8 @@ namespace {
  * bit0-1 平面形态（0 三平面 / 1 双平面 / 2 打包 4:2:2）、bit2 交换 U/V、
  * bit3 打包序 UYVY、bit4-5 矩阵（YuvMatrix 枚举序 601/709/2020）、bit6 full range
  */
-uint32_t yuvModeFor(const FrameDesc &d) {
-    uint32_t m = 0;
+std::uint32_t yuvModeFor(const FrameDesc &d) {
+    std::uint32_t m = 0;
     switch (d.format) {
     case PixelFormat::I420: m = 0u; break;
     case PixelFormat::YV12: m = 0u | 4u; break;    // 平面序 Y/V/U
@@ -49,7 +65,7 @@ uint32_t yuvModeFor(const FrameDesc &d) {
     case PixelFormat::UYVY: m = 2u | 8u; break;
     default: break;                                // RGB 不走 YUV 管线
     }
-    m |= uint32_t(d.matrix) << 4;
+    m |= std::uint32_t(d.matrix) << 4;
     if (d.fullRange) m |= 64u;
     return m;
 }
@@ -80,9 +96,9 @@ VkDescriptorSet ImageRenderer::allocDescSet(const DeviceContext &dc, VkDescripto
     };
     VkDescriptorSet set = VK_NULL_HANDLE;
     VkResult r = tryAlloc(descPools_.back(), set);
-    for (size_t i = 0; r != VK_SUCCESS && i + 1 < descPools_.size(); ++i) r = tryAlloc(descPools_[i], set);
+    for (std::size_t i = 0; r != VK_SUCCESS && i + 1 < descPools_.size(); ++i) r = tryAlloc(descPools_[i], set);
     if (r != VK_SUCCESS) {
-        uint32_t cap = std::min<uint32_t>(256u << (descPools_.size() - 1), 4096);
+        std::uint32_t cap = std::min<std::uint32_t>(256u << (descPools_.size() - 1), 4096);
         VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cap};
         VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         pi.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -104,8 +120,8 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
     st.layout = FrameLayout::forDesc(st.desc);
     st.plan = TexturePlan::forDesc(st.desc);
     if (st.layout.planeCount == 0 || st.plan.count == 0) return false;
-    const uint32_t P = st.plan.count;                        // GPU 采样平面数（RGB 1 / YUV 2~3）
-    const uint32_t N = VulkanContext::kMaxFramesInFlight;    // 环槽距 = 在飞帧数
+    const std::uint32_t P = st.plan.count;                        // GPU 采样平面数（RGB 1 / YUV 2~3）
+    const std::uint32_t N = VulkanContext::kMaxFramesInFlight;    // 环槽距 = 在飞帧数
 
     // ① 全流共享采样器（线性 + clamp、单 mip——流纹理按帧覆写，不产 mip 链）
     if (streamSampler_ == VK_NULL_HANDLE) {
@@ -128,13 +144,13 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
     // ② 图像环：每槽一块 DEVICE_LOCAL 内存按对齐子分配绑定全部采样平面。
     //    打包 4:2:2 的两张视图共享同一块内存（Y 视图与宏像素色度视图各占一段
     //    绑定偏移——帧内存同一平面按不同纹素宽解释，两视图不重叠）
-    for (uint32_t s = 0; s < N; ++s) {
+    for (std::uint32_t s = 0; s < N; ++s) {
         auto &slot = r.slots[s];
         slot.images.assign(P, VK_NULL_HANDLE);
         slot.views.assign(P, VK_NULL_HANDLE);
         std::vector<VkFormat> fmts(P, VK_FORMAT_UNDEFINED);
         std::vector<VkMemoryRequirements> reqs(P);
-        for (uint32_t p = 0; p < P; ++p) {
+        for (std::uint32_t p = 0; p < P; ++p) {
             const auto &pl = st.plan.planes[p];
             VkImageCreateInfo ii{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
             ii.imageType = VK_IMAGE_TYPE_2D;
@@ -154,14 +170,14 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
         }
         std::vector<VkDeviceSize> bindOff(P, 0);
         VkDeviceSize total = 0;
-        for (uint32_t p = 0; p < P; ++p) {
+        for (std::uint32_t p = 0; p < P; ++p) {
             bindOff[p] = (total + reqs[p].alignment - 1) & ~(VkDeviceSize(reqs[p].alignment) - 1);
             total = bindOff[p] + reqs[p].size;
         }
         // 内存类型取全部平面的交集（R8/RG8/RGBA8 常同型；交集为空即无法共用一块，
         // 按创建失败收场——findMemoryType 无匹配时回退 0，不能据返回值判失败）
-        uint32_t typeBits = reqs[0].memoryTypeBits;
-        for (uint32_t p = 1; p < P; ++p) typeBits &= reqs[p].memoryTypeBits;
+        std::uint32_t typeBits = reqs[0].memoryTypeBits;
+        for (std::uint32_t p = 1; p < P; ++p) typeBits &= reqs[p].memoryTypeBits;
         VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         ai.allocationSize = total;
         ai.memoryTypeIndex = VulkanContext::findMemoryType(dc.physicalDevice, typeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -169,7 +185,7 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
             freeStreamResources(r);
             return false;
         }
-        for (uint32_t p = 0; p < P; ++p) {
+        for (std::uint32_t p = 0; p < P; ++p) {
             if (vkBindImageMemory(dc.device, slot.images[p], slot.memory, bindOff[p]) != VK_SUCCESS) {
                 freeStreamResources(r);
                 return false;
@@ -190,7 +206,7 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
     // ④ 每槽描述符集：写一次此后只读——绝不更新在飞帧正在采样的 set（规范
     //    禁止）。YUV 三绑定缺的平面用 plane0 占位（着色器按 mode 只取用到的
     //    绑定，占位仅满足"静态使用须有效"）；RGB 单绑定走 image 布局
-    for (uint32_t s = 0; s < N; ++s) {
+    for (std::uint32_t s = 0; s < N; ++s) {
         auto &slot = r.slots[s];
         const bool yuv = st.plan.yuv;
         slot.descSet = allocDescSet(dc, yuv ? yuvDescSetLayout_ : imageDescSetLayout_, slot.pool);
@@ -200,7 +216,7 @@ bool ImageRenderer::createStreamResources(const DeviceContext &dc, StreamTexture
         }
         VkDescriptorImageInfo di[3];
         VkWriteDescriptorSet w[3];
-        for (uint32_t b = 0; b < (yuv ? 3u : 1u); ++b) {
+        for (std::uint32_t b = 0; b < (yuv ? 3u : 1u); ++b) {
             di[b] = {streamSampler_, slot.views[b < P ? b : 0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
             w[b] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
             w[b].dstSet = slot.descSet;
@@ -236,14 +252,14 @@ void ImageRenderer::freeStreamResources(const StreamResources &r) {
     }
 }
 
-void ImageRenderer::deferFreeResources(StreamResources &&r, uint64_t frameNo) {
+void ImageRenderer::deferFreeResources(StreamResources &&r, std::uint64_t frameNo) {
     // 帧距满后执行（退役/重建两路共用；在飞帧引用保护同 retire 队列口径）
     deferredFrees_.push_back({frameNo, [this, r = std::move(r)]() { freeStreamResources(r); }});
 }
 
 // ── 拷贝路径 staging 懒建：每在飞帧一份常驻映射（HOST_COHERENT）——写入按帧槽
 //    轮转，复用安全由 fence 等待保证（与顶点分槽同源）──
-bool ImageRenderer::ensureStage(const DeviceContext &dc, StreamTexture &st, uint32_t frameSlot) {
+bool ImageRenderer::ensureStage(const DeviceContext &dc, StreamTexture &st, std::uint32_t frameSlot) {
     if (st.res.stages.size() <= frameSlot) st.res.stages.resize(VulkanContext::kMaxFramesInFlight);
     StreamStage &stage = st.res.stages[frameSlot];
     if (stage.buffer != VK_NULL_HANDLE) return stage.capacity >= st.layout.totalBytes;
@@ -269,7 +285,7 @@ VkBuffer ImageRenderer::importBlock(const DeviceContext &dc, StreamTexture &st,
     if (!block || !block->data() || !dc.getHostPointerProps || dc.hostImportAlignment == 0) return VK_NULL_HANDLE;
     if (auto it = st.imports.find(block.get()); it != st.imports.end()) return it->second.buffer;
     // 地址与尺寸须为 minImportedHostPointerAlignment 整数倍（块按 64KiB 分配，主流驱动 4KiB 恒满足）
-    const auto addr = reinterpret_cast<uintptr_t>(block->data());
+    const auto addr = reinterpret_cast<std::uintptr_t>(block->data());
     if (addr % dc.hostImportAlignment != 0 || block->size() % dc.hostImportAlignment != 0) return VK_NULL_HANDLE;
     VkMemoryHostPointerPropertiesEXT hp{VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT};
     if (dc.getHostPointerProps(dc.device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, block->data(), &hp)
@@ -290,17 +306,17 @@ VkBuffer ImageRenderer::importBlock(const DeviceContext &dc, StreamTexture &st,
     vkGetBufferMemoryRequirements(dc.device, ib.buffer, &mr);
     // 内存类型：导入指针允许的类型 ∩ 缓冲要求，且须 HOST_COHERENT——生产者 CPU
     // 写入经队列提交的隐式宿主依赖对 GPU 可见（与 staging 路径同一前提，免 flush）
-    const uint32_t bits = hp.memoryTypeBits & mr.memoryTypeBits;
+    const std::uint32_t bits = hp.memoryTypeBits & mr.memoryTypeBits;
     VkPhysicalDeviceMemoryProperties mp;
     vkGetPhysicalDeviceMemoryProperties(dc.physicalDevice, &mp);
     const VkMemoryPropertyFlags want = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    uint32_t type = UINT32_MAX;
-    for (uint32_t i = 0; i < mp.memoryTypeCount; ++i)
+    std::uint32_t type = std::numeric_limits<std::uint32_t>::max();
+    for (std::uint32_t i = 0; i < mp.memoryTypeCount; ++i)
         if ((bits & (1u << i)) && (mp.memoryTypes[i].propertyFlags & want) == want) {
             type = i;
             break;
         }
-    if (type == UINT32_MAX || mr.size > block->size()) {
+    if (type == std::numeric_limits<std::uint32_t>::max() || mr.size > block->size()) {
         vkDestroyBuffer(dc.device, ib.buffer, nullptr);
         return VK_NULL_HANDLE;
     }
@@ -328,7 +344,7 @@ VkBuffer ImageRenderer::importBlock(const DeviceContext &dc, StreamTexture &st,
 // ── 释放已退役块的导入对象：块退役 = 池已换块，本流再不会从它拷贝；但此前
 //    帧的拷贝可能仍在飞——延迟到帧距满再销毁缓冲/内存，最后才放开块（宿主
 //    内存释放必须晚于导入对象销毁）──
-void ImageRenderer::pruneImports(StreamTexture &st, uint64_t frameNo) {
+void ImageRenderer::pruneImports(StreamTexture &st, std::uint64_t frameNo) {
     for (auto it = st.imports.begin(); it != st.imports.end();) {
         if (it->second.block->retired()) {
             // lambda 持块 shared_ptr：先执行销毁 GPU 对象，lambda 析构时才释放块
@@ -345,7 +361,7 @@ void ImageRenderer::pruneImports(StreamTexture &st, uint64_t frameNo) {
 
 // ── 流整体退役：GPU 资源组、全部导入块、跨帧固定一并延迟到帧距满释放；
 //    长时持有登记即时撤销（只影响池后续扩容，已启用槽不回收）──
-void ImageRenderer::retireStream(StreamTexture &st, uint64_t frameNo) {
+void ImageRenderer::retireStream(StreamTexture &st, std::uint64_t frameNo) {
     deferFreeResources(std::move(st.res), frameNo);
     for (auto &[key, ib] : st.imports) {
         deferredFrees_.push_back({frameNo, [this, ib]() {
@@ -361,11 +377,11 @@ void ImageRenderer::retireStream(StreamTexture &st, uint64_t frameNo) {
     st.reservedPins = 0;
 }
 
-void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer cb, uint32_t frameSlot,
-                                        uint64_t frameNo) {
+void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer cb, std::uint32_t frameSlot,
+                                        std::uint64_t frameNo) {
     if (streams_.empty()) return;
     const bool zeroCopyAvail = dc.getHostPointerProps != nullptr;
-    constexpr uint32_t kImportFailLimit = 3;    // 同一流连续导入失败达此数 → 永久回退 memcpy
+    constexpr std::uint32_t kImportFailLimit = 3;    // 同一流连续导入失败达此数 → 永久回退 memcpy
 
     // ① 逐流取最新帧，决定拷贝源：零拷贝 = 池槽内存块导入的缓冲（无 CPU 拷贝）；
     //    拷贝路径 = memcpy 进本帧 staging。两者均为主机可见一致性内存，CPU 写
@@ -424,12 +440,12 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
             if (!ensureStage(dc, st, frameSlot)) continue;    // staging 建失败：本帧跳过，下帧重试
             StreamStage &stage = st.res.stages[frameSlot];
             auto planes = pin.planes();
-            for (uint32_t p = 0; p < st.layout.planeCount && p < planes.size(); ++p) {
+            for (std::uint32_t p = 0; p < st.layout.planeCount && p < planes.size(); ++p) {
                 const auto &pl = st.layout.planes[p];
-                uint8_t *dst = static_cast<uint8_t *>(stage.mapped) + pl.offset;
-                uint32_t rowBytes = pl.width * pl.bytesPerTexel;
-                for (uint32_t y = 0; y < pl.height; ++y)
-                    std::memcpy(dst + size_t(pl.stride) * y, planes[p].data + size_t(planes[p].stride) * y, rowBytes);
+                std::uint8_t *dst = static_cast<std::uint8_t *>(stage.mapped) + pl.offset;
+                std::uint32_t rowBytes = pl.width * pl.bytesPerTexel;
+                for (std::uint32_t y = 0; y < pl.height; ++y)
+                    memcpy(dst + std::size_t(pl.stride) * y, planes[p].data + std::size_t(planes[p].stride) * y, rowBytes);
             }
             srcBuf = stage.buffer;
         }
@@ -438,11 +454,11 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
         // 帧 U_n，该槽下次覆写最早在 U_(n+3) ≥ U_(n+1)+3 帧，而其最后一次采样
         // 在 ≤ U_(n+1)-1 帧（该帧 fence 已等）。故 oldLayout=UNDEFINED 弃旧内容、
         // src 阶段 TOP_OF_PIPE 即合法，与在飞帧无执行依赖（GPU 无同步气泡）
-        st.ringIndex = (st.ringIndex + 1) % uint32_t(st.res.slots.size());
+        st.ringIndex = (st.ringIndex + 1) % std::uint32_t(st.res.slots.size());
         StreamSlot &slot = st.res.slots[st.ringIndex];
         // 逐 GPU 采样平面：拷贝源 = 源缓冲中第 srcPlane 平面，行长按该视图
         // 纹素字节换算（打包 4:2:2 同一源平面拷两次：RG8 亮度视图 + RGBA8 色度视图）
-        for (uint32_t p = 0; p < st.plan.count; ++p) {
+        for (std::uint32_t p = 0; p < st.plan.count; ++p) {
             const auto &tp = st.plan.planes[p];
             const auto &src = st.layout.planes[tp.srcPlane];
             VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -494,11 +510,11 @@ void ImageRenderer::recordStreamUploads(const DeviceContext &dc, VkCommandBuffer
     // ② 批量录制：前屏障（全部流合并）→ 拷贝 → 后屏障——屏障次数与流数无关
     if (copies.empty()) return;
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, uint32_t(preBarriers.size()), preBarriers.data());
+                         nullptr, std::uint32_t(preBarriers.size()), preBarriers.data());
     for (const auto &c : copies)
         vkCmdCopyBufferToImage(cb, c.buf, c.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c.region);
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                         nullptr, uint32_t(postBarriers.size()), postBarriers.data());
+                         nullptr, std::uint32_t(postBarriers.size()), postBarriers.data());
 }
 
 void ImageRenderer::drawStream(VkCommandBuffer cb, VkExtent2D extent, const DrawImageCmd &cmd, float globalAlpha,

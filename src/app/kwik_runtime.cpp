@@ -7,10 +7,6 @@
 //   主循环骨架与帧率统计
 // ============================================================================
 module;
-#include <chrono>
-#include <memory>
-#include <filesystem>
-#include <unordered_map>
 #include "kwik/bytecode_module.h"
 
 module kwik.app.runtime;
@@ -512,7 +508,7 @@ void KwikRuntime::renderFrame() {
     // 键入→渲染提交延迟打点：有键入在途（戳未消费）时记录本次帧提交为
     // 链路终点。近似口径——同帧若由其他动效触发，延迟含同帧合并的误差；
     // 超过 500ms 的陈旧戳（键入被丢弃、无渲染跟随）不计
-    if (int64_t stampNs = eventRouter_.consumeInputStampNs(); stampNs > 0) {
+    if (std::int64_t stampNs = eventRouter_.consumeInputStampNs(); stampNs > 0) {
         auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
                          std::chrono::steady_clock::now().time_since_epoch()).count();
         double ms = static_cast<double>(nowNs - stampNs) / 1e6;

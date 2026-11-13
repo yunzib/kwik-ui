@@ -5,9 +5,8 @@
 // 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
 module;
-#include <string>
-#include <vector>
-#include <chrono>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.textarea;
 import kwik.element.view;
@@ -29,16 +28,16 @@ import std;
 // ════════════════════════════════════════════════════════
 // 辅助 — Unicode 字符数统计
 // ════════════════════════════════════════════════════════
-static size_t utf8CharCount(const std::string &s) {
-    size_t n = 0;
-    for (size_t i = 0; i < s.size(); ++i)
+static std::size_t utf8CharCount(const std::string &s) {
+    std::size_t n = 0;
+    for (std::size_t i = 0; i < s.size(); ++i)
         if ((s[i] & 0xC0) != 0x80) ++n;
     return n;
 }
 // ════════════════════════════════════════════════════════
 // 辅助 — UTF-8 字节游标前进一个字符
 // ════════════════════════════════════════════════════════
-static void skipForward(const std::string &s, size_t &pos) {
+static void skipForward(const std::string &s, std::size_t &pos) {
     if (pos >= s.size()) return;
     ++pos;
     while (pos < s.size() && (s[pos] & 0xC0) == 0x80) ++pos;
@@ -46,7 +45,7 @@ static void skipForward(const std::string &s, size_t &pos) {
 // ════════════════════════════════════════════════════════
 // 辅助 — Unicode 字节游标后退一个字符
 // ════════════════════════════════════════════════════════
-static void skipBackward(const std::string &s, size_t &pos) {
+static void skipBackward(const std::string &s, std::size_t &pos) {
     if (pos == 0) return;
     --pos;
     while (pos > 0 && (s[pos] & 0xC0) == 0x80) --pos;
@@ -69,7 +68,7 @@ TextArea::~TextArea() {
 // ════════════════════════════════════════════════════════
 // 辅助 — Unicode 码点 → UTF-8 字节
 // ════════════════════════════════════════════════════════
-static std::string codepointToUtf8(uint32_t cp) {
+static std::string codepointToUtf8(std::uint32_t cp) {
     std::string s;
     if (cp <= 0x7F) {
         s += (char)cp;
@@ -117,14 +116,14 @@ void TextArea::insertAtCursor(const std::string &utf8) {
 }
 void TextArea::deleteBeforeCursor() {
     if (cursorBytePos_ == 0 || text_.empty()) return;
-    size_t old = cursorBytePos_;
+    std::size_t old = cursorBytePos_;
     skipBackward(text_, cursorBytePos_);
     text_.erase(cursorBytePos_, old - cursorBytePos_);
     selectionStart_ = cursorBytePos_;
 }
 void TextArea::deleteAfterCursor() {
     if (cursorBytePos_ >= text_.size()) return;
-    size_t start = cursorBytePos_;
+    std::size_t start = cursorBytePos_;
     skipForward(text_, cursorBytePos_);
     text_.erase(start, cursorBytePos_ - start);
     cursorBytePos_ = start;
@@ -147,9 +146,9 @@ void TextArea::moveCursorRight() {
 //   文末光标（pos == 尾字节 == 末行 clusterEnd）匹配末行——多字节结尾
 //   文本此前因末行 clusterEnd 回退值偏小而匹配失败（光标不可见/上下键失效）
 // ════════════════════════════════════════════════════════
-int TextArea::lineForByte(size_t pos) const {
+int TextArea::lineForByte(std::size_t pos) const {
     if (!textResult_) return -1;
-    for (size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
+    for (std::size_t vi = 0; vi < textResult_->lines.size(); ++vi) {
         auto &l = textResult_->lines[vi];
         bool isEmpty = (l.glyphCount == 0);
         bool isLast = (vi == textResult_->lines.size() - 1);
@@ -165,7 +164,7 @@ int TextArea::lineForByte(size_t pos) const {
 // ════════════════════════════════════════════════════════
 int TextArea::lineIndexForY(const std::vector<TextLayoutLine> &lines, float y) {
     float acc = 0;
-    for (size_t i = 0; i < lines.size(); ++i) {
+    for (std::size_t i = 0; i < lines.size(); ++i) {
         acc += lines[i].height;
         if (y < acc) return (int)i;    // 落在第 i 行底边 → 归属下方行（半开区间）
     }
@@ -174,9 +173,9 @@ int TextArea::lineIndexForY(const std::vector<TextLayoutLine> &lines, float y) {
 
 // 行内中点规则（与 Input 同族，元素层互不 import 惯例下各自实现）：
 // x 落第 i 个字形前半 → 边界 i；后半 → 边界 i+1；越界 → 0 / count
-static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, float x) {
+static std::size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, std::size_t count, float x) {
     float acc = 0;
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         float mid = acc + glyphs[i].advanceX * 0.5f;
         if (x < mid) return i;
         acc += glyphs[i].advanceX;
@@ -184,15 +183,15 @@ static size_t glyphBoundaryIndexForX(const ShapedGlyph *glyphs, size_t count, fl
     return count;
 }
 
-size_t TextArea::tapByteOffsetForLine(const TextLayoutResult &layout, int lineIdx, float x, const std::string &text) {
+std::size_t TextArea::tapByteOffsetForLine(const TextLayoutResult &layout, int lineIdx, float x, const std::string &text) {
     if (lineIdx < 0 || lineIdx >= (int)layout.lines.size()) return 0;
     auto &sl = layout.lines[lineIdx];
     if (sl.glyphCount == 0) return sl.clusterStart;    // 空行：光标吸行首（lineForByte isEmpty 同款）
     const ShapedGlyph *g = layout.glyphs.data() + sl.glyphStart;
-    size_t b = glyphBoundaryIndexForX(g, sl.glyphCount, x);
+    std::size_t b = glyphBoundaryIndexForX(g, sl.glyphCount, x);
     // 边界 → 码点边界：b==0 取行首字形 cluster；b<count 取第 b 字形 cluster；b==count 取行尾
-    size_t pos = (b == 0) ? (size_t)g[0].cluster
-                          : (b >= sl.glyphCount) ? (size_t)sl.clusterEnd : (size_t)g[b].cluster;
+    std::size_t pos = (b == 0) ? (std::size_t)g[0].cluster
+                          : (b >= sl.glyphCount) ? (std::size_t)sl.clusterEnd : (std::size_t)g[b].cluster;
     bool isLast = (lineIdx == (int)layout.lines.size() - 1);
     // 行尾落点撞下一行行首（非末行 clusterEnd 已不再匹配本行）→ 码点安全收回本行；
     // 末行放行至文末（pos == 尾字节是 lineForByte isLast 的合法匹配）
@@ -211,9 +210,9 @@ void TextArea::moveCursorUp() {
     // 上一行同列位置（字节列）
     auto &prev = textResult_->lines[lineIdx - 1];
     auto &cur = textResult_->lines[lineIdx];
-    size_t col = cursorBytePos_ - cur.clusterStart;
-    size_t len = prev.clusterEnd - prev.clusterStart;
-    size_t target = prev.clusterStart + std::min(col, len);
+    std::size_t col = cursorBytePos_ - cur.clusterStart;
+    std::size_t len = prev.clusterEnd - prev.clusterStart;
+    std::size_t target = prev.clusterStart + std::min(col, len);
     // 落点码点边界对齐：continuation 字节回退到码点首字节——否则此后
     // insertAtCursor 在多字节字符中间插入，text_ 永久非法 UTF-8
     while (target > prev.clusterStart && target < text_.size() && (text_[target] & 0xC0) == 0x80) --target;
@@ -233,9 +232,9 @@ void TextArea::moveCursorDown() {
     // 下一行同列位置（字节列）
     auto &cur = textResult_->lines[lineIdx];
     auto &next = textResult_->lines[lineIdx + 1];
-    size_t col = cursorBytePos_ - cur.clusterStart;
-    size_t len = next.clusterEnd - next.clusterStart;
-    size_t target = next.clusterStart + std::min(col, len);
+    std::size_t col = cursorBytePos_ - cur.clusterStart;
+    std::size_t len = next.clusterEnd - next.clusterStart;
+    std::size_t target = next.clusterStart + std::min(col, len);
     // 落点码点边界对齐（同 moveCursorUp）
     while (target > next.clusterStart && target < text_.size() && (text_[target] & 0xC0) == 0x80) --target;
     // 行尾落点对齐到上一码点（末行文末除外——isLast 规则可直接匹配）
@@ -254,7 +253,7 @@ void TextArea::focus() {
 
 // 聚焦并把光标定位到 pos（Tap 点击定位/PointerDown 落锚共用；focus() 的
 // 旧"置文末"语义保留给键盘链）
-void TextArea::focusWithCursor(size_t pos) {
+void TextArea::focusWithCursor(std::size_t pos) {
     focused_ = true;
     cursorBytePos_ = pos;
     selectionStart_ = cursorBytePos_;    // 定位即折叠（拖选扩展走 PanMove 直写）
@@ -271,7 +270,7 @@ void TextArea::focusWithCursor(size_t pos) {
 // 与 onDraw 同口径排版（WordWrap/maxWidth 同源，防 measure/draw 漂移）；
 // 空文本/无行 → 0（光标吸行首）
 // ════════════════════════════════════════════════════════
-size_t TextArea::tapCursorByte(const DispatchEvent &event) {
+std::size_t TextArea::tapCursorByte(const DispatchEvent &event) {
     // 事件 global 是滚动视口域，inner/行带是未滚动 frame 域——上溯滚动容器补偏移
     //（hitOffset 与 Tap 路径都经本函数，scroll=0 恒 0）
     Point comp = scrollCompensationOf(*this);
@@ -326,7 +325,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         return View::onEvent(event);    // 透传触发 JS onBlur 槽
     case DispatchEvent::Type::PointerDown: {
         // 拖选落锚；不消费——Tap/聚焦链照常，单击定位由 Tap 完成
-        size_t off = tapCursorByte(event);
+        std::size_t off = tapCursorByte(event);
         cursorBytePos_ = selectionStart_ = off;
         draggingSelection_ = true;
         if (auto *svc = selectionOf(*this)) svc->begin(this, off);
@@ -335,7 +334,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::PanMove: {
         // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
         if (!draggingSelection_) return View::onEvent(event);
-        size_t off = tapCursorByte(event);
+        std::size_t off = tapCursorByte(event);
         if (off != cursorBytePos_) {
             cursorBytePos_ = off;
             markDirty();
@@ -362,7 +361,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
         // 双击选词（连续 Tap 间隔 <400ms 且位移 <6px，事件层 DoubleTap 为
         // 预留类型无生成点，组件内自检同 Text/Input/TextView）
         {
-            size_t off = tapCursorByte(event);
+            std::size_t off = tapCursorByte(event);
             bool dbl = lastTapMs_ != 0 && (event.timestamp - lastTapMs_ < 400)
                        && std::abs(event.globalX - lastTapX_) < 6 && std::abs(event.globalY - lastTapY_) < 6;
             lastTapMs_ = event.timestamp;
@@ -389,10 +388,10 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     case DispatchEvent::Type::CharInput: {
         // readOnly/被过滤字符返回 false（与 Input 对齐——不消费则沿祖先链传播）
         if (!focused_ || props_.readOnly) return false;
-        uint32_t cp = event.charCode;
+        std::uint32_t cp = event.charCode;
         // 控制字符统一过滤（与 Input 同口径）：DEL 与 C1 区塑形成 notdef
         if ((cp < 0x20 && cp != '\n') || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
-        if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (size_t)props_.maxLength) return true;
+        if (cp != '\n' && props_.maxLength > 0 && utf8CharCount(text_) >= (std::size_t)props_.maxLength) return true;
         insertAtCursor(cp == '\n' ? "\n" : codepointToUtf8(cp));
         cursorVisible_ = true;
         lastBlinkTime_ =
@@ -408,7 +407,7 @@ bool TextArea::onEvent(const DispatchEvent &event) {
     }
     case DispatchEvent::Type::KeyAction: {
         if (!focused_) return false;
-        uint32_t vk = event.keyCode;
+        std::uint32_t vk = event.keyCode;
         bool ctrl = (event.modifiers & 0x01) != 0;    // bit0=Ctrl（TextView 同款填法）
         switch (vk) {
         case 0x08:
@@ -451,8 +450,8 @@ bool TextArea::onEvent(const DispatchEvent &event) {
             if (ctrl) {
                 if (auto *clip = clipOf(*this); clip) {
                     if (selectionStart_ != cursorBytePos_) {
-                        size_t s = std::min(selectionStart_, cursorBytePos_);
-                        size_t e = std::max(selectionStart_, cursorBytePos_);
+                        std::size_t s = std::min(selectionStart_, cursorBytePos_);
+                        std::size_t e = std::max(selectionStart_, cursorBytePos_);
                         clip->setText(text_.substr(s, e - s));
                     } else if (!text_.empty()) {
                         clip->setText(text_);
@@ -462,8 +461,8 @@ bool TextArea::onEvent(const DispatchEvent &event) {
             break;
         case 0x58:    // 'X' — Ctrl 组合剪选区（严格语义：无选区/只读不操作）
             if (ctrl && !props_.readOnly && selectionStart_ != cursorBytePos_) {
-                size_t s = std::min(selectionStart_, cursorBytePos_);
-                size_t e = std::max(selectionStart_, cursorBytePos_);
+                std::size_t s = std::min(selectionStart_, cursorBytePos_);
+                std::size_t e = std::max(selectionStart_, cursorBytePos_);
                 if (auto *clip = clipOf(*this); clip) clip->setText(text_.substr(s, e - s));
                 text_.erase(s, e - s);
                 cursorBytePos_ = selectionStart_ = s;
@@ -550,16 +549,16 @@ void TextArea::onDraw(Graphics &graphics) {
         for (auto &sl : textResult_->lines) {
             // 选区高亮：本行与选区的字节交集，贴字形墨迹带（文字之下）
             if (selectionStart_ != cursorBytePos_) {
-                size_t selS = std::min(selectionStart_, cursorBytePos_);
-                size_t selE = std::max(selectionStart_, cursorBytePos_);
-                size_t s = std::max(selS, static_cast<size_t>(sl.clusterStart));
-                size_t e = std::min(selE, static_cast<size_t>(sl.clusterEnd));
+                std::size_t selS = std::min(selectionStart_, cursorBytePos_);
+                std::size_t selE = std::max(selectionStart_, cursorBytePos_);
+                std::size_t s = std::max(selS, static_cast<std::size_t>(sl.clusterStart));
+                std::size_t e = std::min(selE, static_cast<std::size_t>(sl.clusterEnd));
                 if (s < e) {
                     float xs = Text::penOfBoundaryAt(textResult_->glyphs, sl, s);
                     float xe = Text::penOfBoundaryAt(textResult_->glyphs, sl, e);
                     float inkBottom = 0;
-                    size_t gEnd = sl.glyphStart + sl.glyphCount;
-                    for (size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
+                    std::size_t gEnd = sl.glyphStart + sl.glyphCount;
+                    for (std::size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
                         auto &g = textResult_->glyphs[gi];
                         inkBottom = std::max(inkBottom, g.y + g.height);
                     }
@@ -583,12 +582,12 @@ void TextArea::onDraw(Graphics &graphics) {
     if (focused_ && !props_.readOnly && textResult_) {
         if (updateCursorBlink()) markDirty();
         if (cursorVisible_) {
-            size_t pos = cursorBytePos_;
+            std::size_t pos = cursorBytePos_;
             int matchLine = lineForByte(pos);
             if (matchLine >= 0) {
                 auto &sl = textResult_->lines[matchLine];
                 float cx = inner.x;
-                for (uint32_t j = 0; j < sl.glyphCount; ++j) {
+                for (std::uint32_t j = 0; j < sl.glyphCount; ++j) {
                     auto &g = textResult_->glyphs[sl.glyphStart + j];
                     if (g.cluster < pos) cx += g.advanceX;
                 }
@@ -645,13 +644,13 @@ void TextArea::fireChange() {
 // getProperty / setProperty — 属性总线
 // ════════════════════════════════════════════════════════
 std::string TextArea::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) return text_;
+    if (strcmp(name, "value") == 0) return text_;
     return View::getProperty(name);
 }
 
 
 bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();
@@ -659,7 +658,7 @@ bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontSize") == 0) {
+    if (strcmp(name, "fontSize") == 0) {
         if (auto *d = std::get_if<double>(&value)) {
             props_.fontSize = static_cast<float>(*d);
             markDirty();
@@ -667,8 +666,8 @@ bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "rows") == 0) {
-        if (auto *i = std::get_if<int64_t>(&value)) {
+    if (strcmp(name, "rows") == 0) {
+        if (auto *i = std::get_if<std::int64_t>(&value)) {
             props_.rows = static_cast<int>(*i);
             markDirty();
             return true;
@@ -704,14 +703,14 @@ void TextArea::applyTextAreaProps(const TextAreaProps &p) {
 // Selectable 接口 — 选区状态自持（selectionStart_/cursorBytePos_），服务
 // 只做全局互斥登记；几何复用 Text::penOfBoundaryAt（整段排版含行元数据）
 // ════════════════════════════════════════════════════════
-size_t TextArea::hitOffset(float globalX, float globalY) {
+std::size_t TextArea::hitOffset(float globalX, float globalY) {
     DispatchEvent probe;    // tapCursorByte 只读坐标载荷
     probe.globalX = globalX;
     probe.globalY = globalY;
     return tapCursorByte(probe);
 }
 
-std::vector<Rect> TextArea::selectionRects(size_t startOff, size_t endOff) {
+std::vector<Rect> TextArea::selectionRects(std::size_t startOff, std::size_t endOff) {
     std::vector<Rect> out;
     startOff = clampToUtf8Boundary(text_, startOff);
     endOff = clampToUtf8Boundary(text_, endOff);
@@ -719,14 +718,14 @@ std::vector<Rect> TextArea::selectionRects(size_t startOff, size_t endOff) {
     Rect inner = frame.inset(props.padding.left, props.padding.top, props.padding.right, props.padding.bottom);
     float yCursor = inner.y;
     for (auto &sl : textResult_->lines) {
-        size_t s = std::max(startOff, static_cast<size_t>(sl.clusterStart));
-        size_t e = std::min(endOff, static_cast<size_t>(sl.clusterEnd));
+        std::size_t s = std::max(startOff, static_cast<std::size_t>(sl.clusterStart));
+        std::size_t e = std::min(endOff, static_cast<std::size_t>(sl.clusterEnd));
         if (s < e) {
             float xs = Text::penOfBoundaryAt(textResult_->glyphs, sl, s);
             float xe = Text::penOfBoundaryAt(textResult_->glyphs, sl, e);
             float inkBottom = 0;
-            size_t gEnd = sl.glyphStart + sl.glyphCount;
-            for (size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
+            std::size_t gEnd = sl.glyphStart + sl.glyphCount;
+            for (std::size_t gi = sl.glyphStart; gi < gEnd; ++gi) {
                 auto &g = textResult_->glyphs[gi];
                 inkBottom = std::max(inkBottom, g.y + g.height);
             }
@@ -737,7 +736,7 @@ std::vector<Rect> TextArea::selectionRects(size_t startOff, size_t endOff) {
     return out;
 }
 
-std::string TextArea::selectedBytes(size_t startOff, size_t endOff) {
+std::string TextArea::selectedBytes(std::size_t startOff, std::size_t endOff) {
     startOff = clampToUtf8Boundary(text_, startOff);
     endOff = clampToUtf8Boundary(text_, endOff);
     if (startOff >= endOff) return {};

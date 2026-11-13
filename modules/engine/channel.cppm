@@ -17,19 +17,9 @@
 module;
 
 #include "quickjs.h"
-#include <functional>
-#include <string>
-#include <unordered_map>
-#include <vector>
-#include <variant>
-#include <mutex>
-#include <coroutine>
-#include <queue>
-#include <unordered_set>
-#include <exception>
-#include <concepts>
 
 export module kwik.engine.channel;
+import std;
 
 import kwik.core.scheduler;
 import kwik.core.task_queue;
@@ -42,9 +32,9 @@ import kwik.core.log;
 
 /** @brief 超时 awaitable */
 export struct TimeoutAwaitable {
-    uint32_t ms_;
+    std::uint32_t ms_;
 
-    explicit TimeoutAwaitable(uint32_t ms) : ms_(ms) {}
+    explicit TimeoutAwaitable(std::uint32_t ms) : ms_(ms) {}
 
     bool await_ready() const noexcept { return ms_ == 0; }
 
@@ -62,29 +52,29 @@ export class Channel {
 public:
     /** @brief 通用数据类型（不暴露 JSValue） */
     struct Data {
-        std::variant<std::monostate, bool, int64_t, double, std::string> _data;
+        std::variant<std::monostate, bool, std::int64_t, double, std::string> _data;
         Data() = default;
         Data(bool v) : _data(v) {}
-        Data(int64_t v) : _data(v) {}
+        Data(std::int64_t v) : _data(v) {}
         Data(double v) : _data(v) {}
         Data(const std::string &v) : _data(v) {}
         Data(const char *v) : _data(std::string(v)) {}
-        Data(std::variant<std::monostate, bool, int64_t, double, std::string> v) : _data(std::move(v)) {}
+        Data(std::variant<std::monostate, bool, std::int64_t, double, std::string> v) : _data(std::move(v)) {}
 
         bool isNull() const { return std::holds_alternative<std::monostate>(_data); }
         bool isBool() const { return std::holds_alternative<bool>(_data); }
-        bool isInt() const { return std::holds_alternative<int64_t>(_data); }
+        bool isInt() const { return std::holds_alternative<std::int64_t>(_data); }
         bool isNumber() const { return std::holds_alternative<double>(_data); }
         bool isString() const { return std::holds_alternative<std::string>(_data); }
 
         bool asBool() const { return std::get<bool>(_data); }
-        int64_t asInt() const { return std::get<int64_t>(_data); }
+        std::int64_t asInt() const { return std::get<std::int64_t>(_data); }
         double asNumber() const { return std::get<double>(_data); }
         std::string_view asString() const { return std::get<std::string>(_data); }
     };
 
     using Responder = std::function<void(const Data &)>;
-    using TimerId = uint64_t;
+    using TimerId = std::uint64_t;
 
     // ────────────────────────────────────────────────────────────
     // CoroTask — 协程 handler 返回类型（自动 respond + 自动析构）
@@ -158,7 +148,7 @@ public:
 
     static void send(const std::string &topic);
     static void send(const std::string &topic, bool data);
-    static void send(const std::string &topic, int64_t data);
+    static void send(const std::string &topic, std::int64_t data);
     static void send(const std::string &topic, double data);
     static void send(const std::string &topic, const std::string &data);
     static void send(const std::string &topic, const char *data);
@@ -190,16 +180,16 @@ public:
     // 定时器
     // ═══════════════════════════════════════════════════════════
 
-    static TimerId setTimeout(uint32_t ms, std::function<void()> task);
+    static TimerId setTimeout(std::uint32_t ms, std::function<void()> task);
     /** @brief 周期定时器：每 ms 重复触发（帧驱动，flush 时消费）；与 setTimeout 同 id 空间，clearTimeout 取消 */
-    static TimerId setInterval(uint32_t ms, std::function<void()> task);
+    static TimerId setInterval(std::uint32_t ms, std::function<void()> task);
     static void clearTimeout(TimerId id);
 
     // ═══════════════════════════════════════════════════════════
     // 超时 awaitable
     // ═══════════════════════════════════════════════════════════
 
-    static TimeoutAwaitable timeout(uint32_t ms);
+    static TimeoutAwaitable timeout(std::uint32_t ms);
 
     // ═══════════════════════════════════════════════════════════
     // 协程调度（转发到 Scheduler）
@@ -254,12 +244,12 @@ private:
     static Channel &inst();
 
     struct DispatchValue {
-        std::variant<std::monostate, bool, int64_t, double, std::string> data;
+        std::variant<std::monostate, bool, std::int64_t, double, std::string> data;
     };
     struct QueueEntry {
         enum Type { Send, ResolveCall } type;
         std::string topic;
-        uint64_t callId;
+        std::uint64_t callId;
         DispatchValue value;
     };
     std::mutex queueMutex_;
@@ -278,8 +268,8 @@ private:
         JSValue reject;
     };
     std::mutex callMutex_;
-    uint64_t nextCallId_ = 1;
-    std::unordered_map<uint64_t, PendingCall> pendingCalls_;
+    std::uint64_t nextCallId_ = 1;
+    std::unordered_map<std::uint64_t, PendingCall> pendingCalls_;
 
     struct MergedEntry {
         JSValue data;
@@ -288,16 +278,16 @@ private:
     std::unordered_map<std::string, MergedEntry> merged_;
 
     struct TimerEntry {
-        uint64_t id;
-        uint64_t fireTimeMs;
+        std::uint64_t id;
+        std::uint64_t fireTimeMs;
         std::function<void()> task;
-        uint32_t intervalMs = 0;    // >0 = 周期定时器（setInterval）：执行后按此间隔重排
+        std::uint32_t intervalMs = 0;    // >0 = 周期定时器（setInterval）：执行后按此间隔重排
         bool operator>(const TimerEntry &o) const { return fireTimeMs > o.fireTimeMs; }
     };
     std::mutex timerMutex_;
-    uint64_t nextTimerId_ = 1;
+    std::uint64_t nextTimerId_ = 1;
     std::priority_queue<TimerEntry, std::vector<TimerEntry>, std::greater<>> timers_;
-    std::unordered_set<uint64_t> cancelledTimers_;
+    std::unordered_set<std::uint64_t> cancelledTimers_;
 
     // 跨线程投递函数
     static std::function<void(std::function<void()>)> s_postToMain;
@@ -305,9 +295,9 @@ private:
 
     Data jsToData(JSContext *ctx, JSValueConst v) const;
     JSValue dataToJS(JSContext *ctx, const Data &d) const;
-    uint64_t nextCallId();
-    uint64_t currentMs() const;
-    void resolveCall(uint64_t callId, JSValueConst result);
+    std::uint64_t nextCallId();
+    std::uint64_t currentMs() const;
+    void resolveCall(std::uint64_t callId, JSValueConst result);
     /// 以 reason 拒绝 pendingCall 的 Promise（参数所有权归被调方，与 resolveCall 一致）
-    void rejectCall(uint64_t callId, JSValueConst reason);
+    void rejectCall(std::uint64_t callId, JSValueConst reason);
 };

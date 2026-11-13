@@ -10,12 +10,8 @@
  *   co_await Scheduler::main_thread();   // 切回主线程
  */
 
-module;
-
-#include <coroutine>
-#include <functional>
-
 export module kwik.core.scheduler;
+import std;
 
 import kwik.core.task_queue;
 import kwik.core.thread_pool;

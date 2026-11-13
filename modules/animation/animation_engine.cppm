@@ -1,6 +1,3 @@
-module;
-#include <cstdint>
-
 export module kwik.animation.engine;
 
 import kwik.animation.animator;
@@ -27,7 +24,7 @@ export bool animationPropAffectsLayout(PropId prop);
  *  轻量值类型（8 字节），可自由拷贝。同 std::thread::id 模式。
  */
 export struct AnimationHandle {
-    uint64_t id = 0;
+    std::uint64_t id = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -41,7 +38,7 @@ export struct AnimationHandle {
  *  组操作（暂停/恢复/停止/跳转）经 AnimationEngine 的 *Group 方法。
  */
 export struct AnimationGroup {
-    uint64_t id = 0;
+    std::uint64_t id = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -102,31 +99,31 @@ public:
 
     // ────────── 控制 ──────────
 
-    void pause(uint64_t id);
-    void resume(uint64_t id);
-    void stop(uint64_t id, bool complete = true);
-    void seek(uint64_t id, float progress);
-    void setDirection(uint64_t id, AnimDirection dir);
+    void pause(std::uint64_t id);
+    void resume(std::uint64_t id);
+    void stop(std::uint64_t id, bool complete = true);
+    void seek(std::uint64_t id, float progress);
+    void setDirection(std::uint64_t id, AnimDirection dir);
 
     // ────────── 批量停止 ──────────
 
     /**
      * @brief 停止指定组内所有动画
      */
-    void stopAllGroup(uint64_t groupId);
+    void stopAllGroup(std::uint64_t groupId);
 
     // ────────── 组操作（AnimationGroup token 的方法面，纯转发）──────────
 
     /** @brief 暂停整组（组内所有动画） */
-    void pauseGroup(uint64_t groupId);
+    void pauseGroup(std::uint64_t groupId);
     /** @brief 恢复整组 */
-    void resumeGroup(uint64_t groupId);
+    void resumeGroup(std::uint64_t groupId);
     /** @brief 整组跳转到指定进度 */
-    void seekGroup(uint64_t groupId, float progress);
+    void seekGroup(std::uint64_t groupId, float progress);
     /** @brief 组内是否有活跃动画 */
-    bool groupRunning(uint64_t groupId) const;
+    bool groupRunning(std::uint64_t groupId) const;
     /** @brief 组进度（组内首动画，粗略估计） */
-    float groupProgress(uint64_t groupId);
+    float groupProgress(std::uint64_t groupId);
 
     /**
      * @brief 停止所有动画（rebuildTree 前调用）
@@ -161,7 +158,7 @@ public:
     /**
      * @brief 查询指定动画是否活跃
      */
-    bool isActive(uint64_t id) const;
+    bool isActive(std::uint64_t id) const;
 
     /**
      * @brief 是否有布局属性（width/height/padding/margin）在动画中
@@ -196,7 +193,7 @@ public:
     /**
      * @brief 查找指定 ID 的动画（供句柄类使用）
      */
-    auto findAnim(uint64_t id) {
+    auto findAnim(std::uint64_t id) {
         return std::find_if(animations_.begin(), animations_.end(), [id](auto &a) { return a->id == id; });
     }
     auto begin() { return animations_.begin(); }
@@ -204,12 +201,12 @@ public:
 
 private:
     std::vector<std::unique_ptr<ActiveAnimation>> animations_;
-    uint64_t nextId_ = 1;
+    std::uint64_t nextId_ = 1;
 
     // groupId → { animId... }
-    std::unordered_map<uint64_t, std::vector<uint64_t>> groups_;
+    std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> groups_;
     // groupId → 完成回调
-    std::unordered_map<uint64_t, AnimationCallback> groupCallbacks_;
+    std::unordered_map<std::uint64_t, AnimationCallback> groupCallbacks_;
     // animId → groupId（反向索引，O(1) 查找组）
-    std::unordered_map<uint64_t, uint64_t> animToGroup_;
+    std::unordered_map<std::uint64_t, std::uint64_t> animToGroup_;
 };

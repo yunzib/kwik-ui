@@ -94,7 +94,7 @@ private:
     };
 
     struct BindingKeyHash {
-        size_t operator()(const BindingKey& k) const {
+        std::size_t operator()(const BindingKey& k) const {
             return std::hash<void*>{}(k.statePtr) ^
                    (std::hash<std::string>{}(k.key) << 1);
         }

@@ -1,8 +1,20 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstdint>
-#include <cstddef>
-#include <vector>
 
 export module kwik.render.vulkan.backdrop_renderer;
 import kwik.render.command;
@@ -57,7 +69,7 @@ public:
     /** 帧内拦截：捕获 + 离屏模糊（canvas 须处于 TRANSFER_SRC 且主 pass 已结束）。
      *  目标固定为 canvas/4 尺寸（换画布才重建，帧内零重分配）；cap 为本元素捕获盒
      *  （已 ∩ 画布/scissor，物理 px），blit 到纹理内对应子区域；sigmaScreen 为屏幕空间高斯 σ */
-    bool draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas, uint32_t canvasW, uint32_t canvasH,
+    bool draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas, std::uint32_t canvasW, std::uint32_t canvasH,
               VkPhysicalDevice phys, const Rect &cap, float sigmaScreen);
 
     /** 主 pass 恢复后：合成到元素 rect（UV=世界坐标/视口，无需 cap） */
@@ -65,9 +77,9 @@ public:
 
 private:
     void destroyTargets();
-    bool ensureTargets(VkPhysicalDevice phys, uint32_t w, uint32_t h);
+    bool ensureTargets(VkPhysicalDevice phys, std::uint32_t w, std::uint32_t h);
     VkRenderPass createOffscreenPass(VkFormat fmt);
-    uint32_t downsample_ = 4;
+    std::uint32_t downsample_ = 4;
 
     VkDevice device_ = VK_NULL_HANDLE;
     VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
@@ -82,7 +94,7 @@ private:
     VkFramebuffer captureFbo_ = VK_NULL_HANDLE;
     VkFramebuffer pingAFbo_ = VK_NULL_HANDLE;
     VkFramebuffer pingBFbo_ = VK_NULL_HANDLE;
-    uint32_t tw_ = 0, th_ = 0;
+    std::uint32_t tw_ = 0, th_ = 0;
 
     VkDescriptorPool descPool_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout descSetLayout_ = VK_NULL_HANDLE;

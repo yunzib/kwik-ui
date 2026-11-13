@@ -30,11 +30,6 @@
 //   creator / reconcileProps / attachHandlers(onToggle) / jsFactory 全部出自
 //   一份 spec；bindings 只留一行显式强链调用，零散点接线。
 // ============================================================================
-module;
-
-#include <memory>
-#include <string>
-
 export module kwik.element.expansion;
 
 import kwik.layout.flex_layout;

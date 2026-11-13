@@ -1,7 +1,3 @@
-module;
-#include <cstdint>
-#include <unordered_map>
-#include <vector>
 export module kwik.render.texture_manager;
 import kwik.render.backend;
 import kwik.render.command;
@@ -39,11 +35,11 @@ public:
      * @brief 创建图像纹理并上传 RGBA 像素到 GPU（目标 backend 域内记账）
      * @return 非零纹理句柄，0 表示失败
      */
-    uint32_t createTexture(RenderBackend *backend, const uint8_t *rgba, uint32_t width, uint32_t height) {
+    std::uint32_t createTexture(RenderBackend *backend, const std::uint8_t *rgba, std::uint32_t width, std::uint32_t height) {
         if (!backend || !rgba || width == 0 || height == 0) return 0;
         auto it = domains_.find(backend);
         if (it == domains_.end()) return 0;    // 未注册域（防御）
-        uint32_t id = backend->createImageTexture(rgba, width, height);
+        std::uint32_t id = backend->createImageTexture(rgba, width, height);
         if (id != 0) {
             it->second.push_back(id);
         }
@@ -56,11 +52,11 @@ public:
      * id 语义与销毁路径（destroyTexture）和普通纹理一致；域记账同 createTexture。
      * 后端内按 VideoStream* 共享 GPU 资源（同流多显示端各自持 id 引用计数）。
      */
-    uint32_t createStreamTexture(RenderBackend *backend, std::shared_ptr<VideoStream> stream) {
+    std::uint32_t createStreamTexture(RenderBackend *backend, std::shared_ptr<VideoStream> stream) {
         if (!backend || !stream) return 0;
         auto it = domains_.find(backend);
         if (it == domains_.end()) return 0;    // 未注册域（防御）
-        uint32_t id = backend->createStreamTexture(std::move(stream));
+        std::uint32_t id = backend->createStreamTexture(std::move(stream));
         if (id != 0) {
             it->second.push_back(id);
         }
@@ -70,14 +66,14 @@ public:
     /**
      * @brief 触碰流纹理（录制绘制时调用；后端帧首按触碰决定是否上传新帧）
      */
-    void touchStreamTexture(RenderBackend *backend, uint32_t id) {
+    void touchStreamTexture(RenderBackend *backend, std::uint32_t id) {
         if (backend && id != 0) backend->touchStreamTexture(id);
     }
 
     /**
      * @brief 销毁图像纹理（按所属 backend 域路由）
      */
-    void destroyTexture(RenderBackend *backend, uint32_t id) {
+    void destroyTexture(RenderBackend *backend, std::uint32_t id) {
         if (!backend || id == 0) return;
         backend->destroyImageTexture(id);
         if (auto it = domains_.find(backend); it != domains_.end()) {
@@ -92,7 +88,7 @@ public:
      * 直通转发 backend->imageTextureResult（命中即摘除该 id 回执——
      * 回执单次领取，重复查询返回 Pending，调用方须自持终态）。
      */
-    RenderBackend::TextureUploadStatus pollTextureResult(RenderBackend *backend, uint32_t id) {
+    RenderBackend::TextureUploadStatus pollTextureResult(RenderBackend *backend, std::uint32_t id) {
         if (!backend) return RenderBackend::TextureUploadStatus::Pending;    // 后端未知（防御）
         return backend->imageTextureResult(id);
     }
@@ -110,11 +106,11 @@ public:
     void destroyBackend(RenderBackend *backend) {
         if (!backend) return;
         if (auto it = domains_.find(backend); it != domains_.end()) {
-            for (uint32_t id : it->second) backend->destroyImageTexture(id);
+            for (std::uint32_t id : it->second) backend->destroyImageTexture(id);
             domains_.erase(it);    // 连键带纹理清场：悬空键域不再可能残留
         }
     }
 private:
     TextureManager() = default;
-    std::unordered_map<RenderBackend *, std::vector<uint32_t>> domains_;    // backend → 活跃纹理 id
+    std::unordered_map<RenderBackend *, std::vector<std::uint32_t>> domains_;    // backend → 活跃纹理 id
 };

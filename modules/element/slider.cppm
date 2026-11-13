@@ -1,8 +1,3 @@
-module;
-
-#include <string>
-#include <cmath>
-
 export module kwik.element.slider;
 
 import kwik.element.view;

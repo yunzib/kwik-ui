@@ -1,6 +1,4 @@
 module;
-#include <cstdint>
-#include <chrono>
 
 module kwik.animation.engine;
 
@@ -47,9 +45,9 @@ void stopAnim(ActiveAnimation &anim, bool writeFinal) {
 }
 
 /// 通知组完成（如果组内所有动画都已完成）
-void notifyGroupComplete(AnimationEngine &engine, uint64_t groupId,
-                         const std::unordered_map<uint64_t, std::vector<uint64_t>> &groups,
-                         std::unordered_map<uint64_t, AnimationCallback> &callbacks,
+void notifyGroupComplete(AnimationEngine &engine, std::uint64_t groupId,
+                         const std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> &groups,
+                         std::unordered_map<std::uint64_t, AnimationCallback> &callbacks,
                          const std::vector<std::unique_ptr<ActiveAnimation>> &anims) {
     auto git = groups.find(groupId);
     if (git == groups.end()) return;
@@ -86,22 +84,22 @@ bool animationPropAffectsLayout(PropId prop) { return getPropMeta(prop).flags & 
 
 // ── 组操作（原 AnimationGroup 方法平移为 Engine 成员，token.id 入参）──
 
-void AnimationEngine::pauseGroup(uint64_t groupId) {
+void AnimationEngine::pauseGroup(std::uint64_t groupId) {
     auto git = groups_.find(groupId);
     if (git == groups_.end()) return;
     for (auto id : git->second) pause(id);
 }
-void AnimationEngine::resumeGroup(uint64_t groupId) {
+void AnimationEngine::resumeGroup(std::uint64_t groupId) {
     auto git = groups_.find(groupId);
     if (git == groups_.end()) return;
     for (auto id : git->second) resume(id);
 }
-void AnimationEngine::seekGroup(uint64_t groupId, float p) {
+void AnimationEngine::seekGroup(std::uint64_t groupId, float p) {
     auto git = groups_.find(groupId);
     if (git == groups_.end()) return;
     for (auto id : git->second) seek(id, p);
 }
-bool AnimationEngine::groupRunning(uint64_t groupId) const {
+bool AnimationEngine::groupRunning(std::uint64_t groupId) const {
     auto git = groups_.find(groupId);
     if (git == groups_.end()) return false;
     for (auto id : git->second) {
@@ -109,7 +107,7 @@ bool AnimationEngine::groupRunning(uint64_t groupId) const {
     }
     return false;
 }
-float AnimationEngine::groupProgress(uint64_t groupId) {
+float AnimationEngine::groupProgress(std::uint64_t groupId) {
     auto git = groups_.find(groupId);
     if (git == groups_.end() || git->second.empty()) return 0.0f;
     auto it = findAnim(git->second[0]);
@@ -157,7 +155,7 @@ AnimationHandle AnimationEngine::start(const std::string& viewId, const Animatio
     // 高速缓存目标 View 指针，避免后续 root→findById 查找
     if (root) anim->target_ = static_cast<View*>(root)->findById(viewId);
 
-    uint64_t id = anim->id;
+    std::uint64_t id = anim->id;
     animations_.push_back(std::move(anim));
 
     Log::debug("[AnimationEngine] start id={} prop={}", id, propName(desc.prop));
@@ -165,8 +163,8 @@ AnimationHandle AnimationEngine::start(const std::string& viewId, const Animatio
 }
 
 AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &descs, AnimationCallback onComplete, void* root) {
-    uint64_t groupId = nextId_++;    // 组 ID 与动画 ID 共享同一个计数器
-    std::vector<uint64_t> animIds;
+    std::uint64_t groupId = nextId_++;    // 组 ID 与动画 ID 共享同一个计数器
+    std::vector<std::uint64_t> animIds;
 
     for (auto &desc : descs) {
         auto handle = start(desc.viewId, desc, root);   // 透传 root
@@ -193,12 +191,12 @@ AnimationGroup AnimationEngine::startMulti(const std::vector<AnimationDesc> &des
 // AnimationEngine — 控制
 // ═══════════════════════════════════════════════════════════════════════════
 
-void AnimationEngine::pause(uint64_t id) {
+void AnimationEngine::pause(std::uint64_t id) {
     auto it = findAnim(id);
     if (it != animations_.end()) { (*it)->pause(); }
 }
 
-void AnimationEngine::resume(uint64_t id) {
+void AnimationEngine::resume(std::uint64_t id) {
     auto it = findAnim(id);
     if (it != animations_.end()) {
         // 计算暂停期间跨越的时间，调整 startTime
@@ -209,17 +207,17 @@ void AnimationEngine::resume(uint64_t id) {
     }
 }
 
-void AnimationEngine::stop(uint64_t id, bool writeFinal) {
+void AnimationEngine::stop(std::uint64_t id, bool writeFinal) {
     auto it = findAnim(id);
     if (it != animations_.end()) { stopAnim(**it, writeFinal); }
 }
 
-void AnimationEngine::seek(uint64_t id, float progress) {
+void AnimationEngine::seek(std::uint64_t id, float progress) {
     auto it = findAnim(id);
     if (it != animations_.end()) { (*it)->seek(progress); }
 }
 
-void AnimationEngine::setDirection(uint64_t id, AnimDirection dir) {
+void AnimationEngine::setDirection(std::uint64_t id, AnimDirection dir) {
     auto it = findAnim(id);
     if (it != animations_.end()) { (*it)->setDirection(dir); }
 }
@@ -227,7 +225,7 @@ void AnimationEngine::setDirection(uint64_t id, AnimDirection dir) {
 // ═══════════════════════════════════════════════════════════════════════════
 // AnimationEngine — 批量停止
 // ═══════════════════════════════════════════════════════════════════════════
-void AnimationEngine::stopAllGroup(uint64_t groupId) {
+void AnimationEngine::stopAllGroup(std::uint64_t groupId) {
     auto git = groups_.find(groupId);
     if (git == groups_.end()) return;
     for (auto id : git->second) { stop(id, true); }
@@ -288,7 +286,7 @@ bool AnimationEngine::hasActiveAnimation(const std::string& viewId, PropId prop)
 // AnimationEngine — 查询
 // ═══════════════════════════════════════════════════════════════════════════
 
-bool AnimationEngine::isActive(uint64_t id) const {
+bool AnimationEngine::isActive(std::uint64_t id) const {
     auto it = std::find_if(animations_.begin(), animations_.end(),
                            [id](auto &a) { return a->id == id && a->state != ActiveAnimation::Finished; });
     return it != animations_.end();
@@ -336,7 +334,7 @@ void AnimationEngine::update(double realtimeSec, void* root) {
             // 从组中移除
             auto it = animToGroup_.find(a->id);
             if (it != animToGroup_.end()) {
-                uint64_t gid = it->second;
+                std::uint64_t gid = it->second;
                 notifyGroupComplete(*this, gid, groups_, groupCallbacks_, animations_);
                 animToGroup_.erase(it);
             }

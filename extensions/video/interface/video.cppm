@@ -1,12 +1,4 @@
 /** @brief 可选扩展元素 Video — 插件式视频组件接口。 */
-module;
-#include <atomic>
-#include <cstdint>
-#include <functional>
-#include <vector>
-#include <string>
-#include <memory>
-
 export module kwik.ext.video;
 
 import kwik.element.view;
@@ -31,8 +23,8 @@ export struct VideoProps {
 /** @brief 打开的媒体信息（onLoaded 载荷）。 */
 export struct MediaInfo {
     double duration = 0;        ///< 总时长（秒）
-    uint32_t width = 0;         ///< 视频宽
-    uint32_t height = 0;        ///< 视频高
+    std::uint32_t width = 0;         ///< 视频宽
+    std::uint32_t height = 0;        ///< 视频高
     double fps = 0;             ///< 标称帧率
     bool hasAudio = false;      ///< 含音频轨（音频子系统未接入，现为只上报）
 };
@@ -43,7 +35,7 @@ export struct MediaInfo {
  * 事件命名按媒体级而非视频级——后续音频模块复用同一事件集（音频预留）。
  */
 export struct MediaEvent {
-    enum class Kind : uint8_t { Loaded, TimeUpdate, End, Error, Buffering, Playing };
+    enum class Kind : std::uint8_t { Loaded, TimeUpdate, End, Error, Buffering, Playing };
     Kind kind = Kind::Loaded;
     double currentTime = 0;     ///< TimeUpdate：当前播放位置（秒）
     MediaInfo info;             ///< Loaded：媒体信息
@@ -165,13 +157,13 @@ private:
     // 播放状态缓存（UI 线程：事件回调更新，getProp 读取）
     double curTime_ = 0, duration_ = 0;
     bool paused_ = true, buffering_ = false;
-    uint32_t videoW_ = 0, videoH_ = 0;
+    std::uint32_t videoW_ = 0, videoH_ = 0;
 
     // ── 流显示（stream:// 命名流，或文件源播放器私有流——同一条通路）──
     std::shared_ptr<VideoStream> stream_;      // 绑定的流（持 shared：除名后仍显示最后一帧）
-    uint32_t streamTexId_ = 0;                 // 后端流纹理别名 id（0 = 未绑定）
+    std::uint32_t streamTexId_ = 0;                 // 后端流纹理别名 id（0 = 未绑定）
     std::string boundName_;                    // stream:// 当前绑定/待查找的流名（文件源为空）
-    uint64_t lastSeenSeq_ = 0;                 // 轮询已见的帧序号
+    std::uint64_t lastSeenSeq_ = 0;                 // 轮询已见的帧序号
     bool pendingDirty_ = false;                // 已标脏待绘制（未绘制前不重复标脏：不可见不空转）
     bool polling_ = false;                     // 是否已注册 StreamPoller
 

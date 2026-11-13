@@ -14,19 +14,24 @@
  * 其余格式经 swscale 兜底转 NV12。
  */
 module;
-#include <atomic>
-#include <deque>
-#include <mutex>
-#include <thread>
 
-// FFmpeg 为 C 库：头文件不自带 extern "C"，C++ 侧须包裹（否则按 C++ 修饰名链接失败）
-extern "C" {
-#include "libavformat/avformat.h"
-#include "libavcodec/avcodec.h"
-#include "libavutil/opt.h"
-#include "libavutil/pixfmt.h"
-#include "libswscale/swscale.h"
-}
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名
+// （无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
+// FFmpeg 头内部会包含 stdio.h/stdlib.h/wchar.h——必须先在 GMF 无 extern "C"
+// 包裹地包含一遍（走 libstdc++ 包装路径，与 std 模块收编版声明合并成功，
+// theme_bridge.cpp 同款实证）：否则 FFmpeg 的 extern "C" 块内首次展开这些头，
+// 产生的声明与 std 模块 binding 无法合并（_iobuf 重定义族冲突），且 include
+// guard 令后续包含短路，extern "C" 块内不再重复声明
+#include <cstdio>
+#include <cstdlib>
+#include <cwchar>
+// common.h:36 的 <math.h> 在 extern "C" 块内首次展开会经 libstdc++ math.h
+// 包装拉进完整 <cmath>（type_traits 族文本实例 vs std 模块 → 重定义冲突）；
+// 同理须先在 GMF 无包裹包含。avutil.h:300 的 <inttypes.h> 同类（imaxabs
+// 重定义，Release 下首次暴露）
+#include <cmath>
+#include <cinttypes>
 
 module kwik.ext.video;
 
@@ -34,7 +39,22 @@ import kwik.render.video_stream;    // VideoStream / PlaneView
 import kwik.engine.channel;         // Channel::getMainThreadQueue（事件回 UI 线程）
 import kwik.core.log;
 
-import std;
+// std 名字经同模块接口 video.cppm 的 import std 可见（同 quickjs_context.cpp
+// 实证模式）——不直接 import std：直接导入会加载 std binding 与文本
+// FFmpeg→stdio.h 链冲突（FILE/_iobuf 重定义族）
+// 注意：post-module imports 必须连续（GCC 要求）——extern "C" FFmpeg 块只能置于其后
+
+// FFmpeg 为 C 库：头文件不自带 extern "C"，C++ 侧须包裹（否则按 C++ 修饰名链接失败）
+// ——extern "C" 块不能出现在全局模块片段（只许预处理指令，GCC 报
+// -Wglobal-module），故置于模块声明后的 purview：此处 include 的声明同样
+// attached 到全局模块，语义与 GMF 包含等价
+extern "C" {
+#include "libavformat/avformat.h"
+#include "libavcodec/avcodec.h"
+#include "libavutil/opt.h"
+#include "libavutil/pixfmt.h"
+#include "libswscale/swscale.h"
+}
 
 namespace {
 
@@ -74,7 +94,7 @@ private:
 
 // ── 控制命令邮箱（UI 线程生产 / 会话线程串行消费）──
 struct SessionCmd {
-    enum class Kind : uint8_t { Play, Pause, Seek, Stop } kind;
+    enum class Kind : std::uint8_t { Play, Pause, Seek, Stop } kind;
     double seekTo = 0;
 };
 
@@ -239,7 +259,7 @@ private:
                     paused_ = true;
                     break;
                 case SessionCmd::Kind::Seek:
-                    if (av_seek_frame(fmt, vidx, int64_t(c.seekTo / av_q2d(vs->time_base)), AVSEEK_FLAG_BACKWARD)
+                    if (av_seek_frame(fmt, vidx, std::int64_t(c.seekTo / av_q2d(vs->time_base)), AVSEEK_FLAG_BACKWARD)
                         >= 0) {
                         avcodec_flush_buffers(cdc);
                         eof = false;
@@ -320,28 +340,28 @@ private:
         case AV_PIX_FMT_UYVY422: pf = PixelFormat::UYVY; break;
         default: pf = PixelFormat::NV12; direct = false; break;
         }
-        const uint32_t w = unsigned(f->width), h = unsigned(f->height);
+        const std::uint32_t w = unsigned(f->width), h = unsigned(f->height);
         auto wr = stream_->acquire({.format = pf, .width = w, .height = h});
         if (!wr) return;    // 池满丢帧（显示端跟不上解码节奏）
         auto planes = wr.planes();
 
         if (direct) {
             // 逐平面按行拷贝（src linesize → 池 stride）
-            for (uint32_t p = 0; p < planes.size(); ++p) {
+            for (std::uint32_t p = 0; p < planes.size(); ++p) {
                 const PlaneView &dv = planes[p];
-                const uint8_t *src = f->data[p];
+                const std::uint8_t *src = f->data[p];
                 const int ls = f->linesize[p];
                 if (!src) continue;
-                const uint32_t rowBytes = std::min<uint32_t>(dv.stride, uint32_t(ls < 0 ? -ls : ls));
-                for (uint32_t y = 0; y < dv.height; ++y)
-                    std::memcpy(dv.data + size_t(dv.stride) * y, src + size_t(ls) * y, rowBytes);
+                const std::uint32_t rowBytes = std::min<std::uint32_t>(dv.stride, std::uint32_t(ls < 0 ? -ls : ls));
+                for (std::uint32_t y = 0; y < dv.height; ++y)
+                    memcpy(dv.data + std::size_t(dv.stride) * y, src + std::size_t(ls) * y, rowBytes);
             }
         } else {
             // swscale 兜底 → NV12（换格式即换源，cached context 复用）
             *sws = sws_getCachedContext(*sws, int(w), int(h), AVPixelFormat(f->format), int(w), int(h),
                                         AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
             if (!*sws) return;    // 转换器建失败：丢帧
-            uint8_t *dst[2] = {planes[0].data, planes[1].data};    // NV12 两平面
+            std::uint8_t *dst[2] = {planes[0].data, planes[1].data};    // NV12 两平面
             const int dstStride[2] = {int(planes[0].stride), int(planes[1].stride)};
             sws_scale(*sws, f->data, f->linesize, 0, int(h), dst, dstStride);
         }

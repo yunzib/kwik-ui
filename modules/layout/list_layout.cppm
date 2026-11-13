@@ -1,7 +1,3 @@
-module;
-
-#include <memory>
-
 export module kwik.layout.list_layout;
 
 import kwik.element.view;

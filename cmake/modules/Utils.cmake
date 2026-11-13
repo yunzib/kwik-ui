@@ -14,6 +14,9 @@ target_sources(kwik_utils
     # 添加私有实现源文件（PRIVATE_SOURCES）
     PRIVATE
         src/utils/string_utils.cpp
+        # C printf 族桥（经典编译 TU）：std 模块不导出 C 函数 using 声明，
+        # 模块 TU 经 kwik/c_bridge.h 的 extern "C" 声明调用（见头注释）
+        src/utils/c_printf_bridge.cpp
 )
 
 

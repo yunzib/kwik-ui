@@ -1,8 +1,6 @@
 module;
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <cstdlib>
+// C 库函数全局名（std 模块不导出 C 函数 using 声明）；string.h 无 C++ 包装，直通纯 C
+#include <string.h>
 
 module kwik.element.tabs;
 
@@ -32,7 +30,7 @@ void Tabs::layoutTabs(Constraints constraints) {
     float availW = constraints.maxWidth;
     if (availW <= 0) availW = 200;
 
-    size_t n = tp_.items.size();
+    std::size_t n = tp_.items.size();
     tabLayouts_.resize(n);
     tabWidths_.resize(n);
     totalContentWidth_ = 0;
@@ -42,7 +40,7 @@ void Tabs::layoutTabs(Constraints constraints) {
     cfg.wrap = WrapMode::NoWrap;
     cfg.maxWidth = 99999;
 
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         // 对每个标签文本单独排版
         auto result = pipe.layoutText(tp_.items[i], fid, tp_.fontSize, cfg);
         pipe.ensureGlyphs(*result);
@@ -58,7 +56,7 @@ void Tabs::layoutTabs(Constraints constraints) {
     // 等宽模式 (tabSpacing <= 0)：每个 tab 平分可用宽度
     if (tp_.tabSpacing <= 0 && n > 0) {
         float eachW = std::max(kMinTabWidth, availW / static_cast<float>(n));
-        for (size_t i = 0; i < n; ++i) tabWidths_[i] = eachW;
+        for (std::size_t i = 0; i < n; ++i) tabWidths_[i] = eachW;
         totalContentWidth_ = eachW * n;
     } else if (n > 0) {
         // 自然宽度 + 间距
@@ -191,10 +189,10 @@ void Tabs::onDraw(Graphics &graphics) {
     // ═══════════════════════════════════════════════════════
     // 防御：items 增多后重测前 tabWidths_/tabLayouts_ 仍为旧尺寸（apply 已
     // requestLayout，正常下一帧 layoutTabs 同步；窗口期按旧向量长度截断防越界）
-    size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
+    std::size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
     float drawY = frame.y + kTabPaddingV;
 
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         float x0 = frame.x + tabX(static_cast<int>(i));
         float w = tabWidths_[i];
         float h = tabAreaHeight_;
@@ -287,8 +285,8 @@ bool Tabs::onEvent(const DispatchEvent &event) {
 // ═══════════════════════════════════════════════════════════
 int Tabs::hitTestTab(float localX, float localY) const {
     // 与 onDraw 同防线：重测同步前的窗口期按旧向量长度截断，新 tab 下帧出现
-    size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
-    for (size_t i = 0; i < n; ++i) {
+    std::size_t n = std::min({tp_.items.size(), tabWidths_.size(), tabLayouts_.size()});
+    for (std::size_t i = 0; i < n; ++i) {
         float x0 = tabX(static_cast<int>(i));
         float x1 = x0 + tabWidths_[i];
         if (localX >= x0 && localX < x1 &&
@@ -387,10 +385,10 @@ void Tabs::applyTabsProps(TabsProps tp) {
 // getProperty / setProperty — PropBus 支持
 // ═══════════════════════════════════════════════════════════
 std::string Tabs::getProperty(const char *name) const {
-    if (std::strcmp(name, "selectedIndex") == 0) {
+    if (strcmp(name, "selectedIndex") == 0) {
         return std::to_string(tp_.selectedIndex);
     }
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (tp_.selectedIndex >= 0 && tp_.selectedIndex < static_cast<int>(tp_.items.size())) {
             return tp_.items[tp_.selectedIndex];
         }
@@ -400,9 +398,9 @@ std::string Tabs::getProperty(const char *name) const {
 }
 
 bool Tabs::setPropertyTyped(const char* name, const TypedProp& value) {
-	if (std::strcmp(name, "selectedIndex") == 0) {
+	if (strcmp(name, "selectedIndex") == 0) {
 		int idx = -1;
-		if (auto *v = std::get_if<int64_t>(&value)) { idx = static_cast<int>(*v); }
+		if (auto *v = std::get_if<std::int64_t>(&value)) { idx = static_cast<int>(*v); }
 		else if (auto *s = std::get_if<std::string>(&value)) { idx = std::atoi(s->c_str()); }   // ← 自旧字符串版平移
 		else { return false; }
 		setSelectedIndex(idx);

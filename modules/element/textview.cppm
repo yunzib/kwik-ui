@@ -11,13 +11,6 @@
 //     - word-wrap 换行（空格处折行）+ 硬换行（\n）
 //     - JS onChange(content: Array<TextRun>) 回调
 // ============================================================================
-module;
-
-#include <string>
-#include <vector>
-#include <cstdint>
-#include <memory>
-
 export module kwik.element.textview;
 
 import kwik.element.view;
@@ -44,12 +37,12 @@ import std;
  * 在画面中的像素位置，避免逐帧重算 run 和换行逻辑。
  */
 struct LineGlyph {
-    size_t runIndex;      ///< 所属 run 在 runShapes_ 中的索引
-    size_t glyphIndex;    ///< 在该 run glyphs[] 中的偏移
+    std::size_t runIndex;      ///< 所属 run 在 runShapes_ 中的索引
+    std::size_t glyphIndex;    ///< 在该 run glyphs[] 中的偏移
     float x;              ///< 行内 X 偏移（相对于行首）
     float advance;        ///< 该 glyph advanceX（用于选区末端定位）
-    size_t byteOffset;    ///< 在 plainText_ 中的 UTF-8 字节偏移
-    size_t byteLen;       ///< UTF-8 字节长度（近似 = 1）
+    std::size_t byteOffset;    ///< 在 plainText_ 中的 UTF-8 字节偏移
+    std::size_t byteLen;       ///< UTF-8 字节长度（近似 = 1）
 };
 
 /**
@@ -62,8 +55,8 @@ struct LineInfo {
     std::vector<LineGlyph> glyphs;
     float width = 0;         ///< 行总宽度（px）
     float height = 0;        ///< 行高 = max(lineHeight of runs)
-    size_t startByte = 0;    ///< 本行在 plainText_ 中的起始字节
-    size_t endByte = 0;      ///< 本行结束字节（不含）
+    std::size_t startByte = 0;    ///< 本行在 plainText_ 中的起始字节
+    std::size_t endByte = 0;      ///< 本行结束字节（不含）
 };
 
 /**
@@ -115,7 +108,7 @@ public:
             if (tvp.content.size() != tvp_.content.size()) {
                 changed = true;
             } else {
-                for (size_t i = 0; i < tvp.content.size() && !changed; ++i) {
+                for (std::size_t i = 0; i < tvp.content.size() && !changed; ++i) {
                     auto &a = tvp.content[i], &b = tvp_.content[i];
                     changed = a.text != b.text || a.link != b.link
                               || a.style.fontSize != b.style.fontSize
@@ -154,9 +147,9 @@ public:
 
     // ── Selectable 接口（选区状态自持于 selectionStart_/cursorPos_；经服务
     //    只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠本组件选区）──
-    size_t hitOffset(float globalX, float globalY) override;
-    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
-    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    std::size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(std::size_t startOff, std::size_t endOff) override;
+    std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
     void onSelectionEvicted() override;
     bool alive() const override;
@@ -189,21 +182,21 @@ public:
 
     // ── 查找高亮（M1-⑦）──
     /** @brief 从 from 起查找 needle 首个匹配的 UTF-8 字节偏移（无匹配返回 npos） */
-    size_t find(const std::string &needle, size_t from = 0) const;
+    std::size_t find(const std::string &needle, std::size_t from = 0) const;
     /** @brief 查找 needle 严格左于 before 的最后一个匹配（上一个；缺省 = 文本尾）
      *
      *  与 find 对称构成 上一个/下一个导航：命中起点恒 < before，返回 npos =
      *  前方无命中（调用方据此回绕到最后一个匹配）。
      */
-    size_t findPrev(const std::string &needle, size_t before = std::string::npos) const;
+    std::size_t findPrev(const std::string &needle, std::size_t before = std::string::npos) const;
     /** @brief 高亮 needle 全部出现（返回命中数；编辑后随 rebuild_ 自动重算偏移） */
-    size_t highlightAll(const std::string &needle);
+    std::size_t highlightAll(const std::string &needle);
     /** @brief 设置"当前命中"区间（查找导航 第 k/N 处的视觉区分；len==0 清除）
      *
      *  绘制在 highlightAll 琥珀高亮之上、文字之下（更深的琥珀色）；内容编辑
      *  （rebuild_）自动清除——旧偏移已失效。跨组件导航时调用方负责清除前一项。
      */
-    void setActiveMatch(size_t start, size_t len);
+    void setActiveMatch(std::size_t start, std::size_t len);
     /** @brief 是否存在当前命中区间（断言/测试可观察） */
     bool hasActiveMatch() const { return activeStart_ < activeEnd_; }
     /// 当前命中底色（深琥珀：与 highlightColor 浅琥珀区分，导航时当前项更醒目）
@@ -211,7 +204,7 @@ public:
     /** @brief 清除全部查找高亮 */
     void clearHighlight();
     /** @brief 当前高亮区间列表（plainText_ 字节偏移对 [s, e)） */
-    const std::vector<std::pair<size_t, size_t>> &highlights() const { return highlights_; }
+    const std::vector<std::pair<std::size_t, std::size_t>> &highlights() const { return highlights_; }
 
     /** @brief 字节偏移所在行盒矩形（全局坐标，未滚动坐标系）
      *
@@ -219,7 +212,7 @@ public:
      *  x/width = 内容区整宽（横向由容器按需用 x 轴）。空文档返回内容区。
      *  依赖 lines_ 已建行（measure/onLayout 后）；越界偏移收敛到末行。
      */
-    Rect offsetRect(size_t byteOffset) const;
+    Rect offsetRect(std::size_t byteOffset) const;
 
     void resolveThemeDefaults() override;
 
@@ -243,28 +236,28 @@ private:
     FontId fontId_ = kInvalidFontId;    ///< TextRenderPipeline 字体 ID，首次 rebuild_ 时初始化
 
     bool focused_ = false;          ///< 聚焦状态
-    size_t cursorPos_ = 0;          ///< 光标在 plainText_ 中的字节偏移
-    size_t selectionStart_ = 0;     ///< 选区起点（= cursorPos_ 时无选区）
+    std::size_t cursorPos_ = 0;          ///< 光标在 plainText_ 中的字节偏移
+    std::size_t selectionStart_ = 0;     ///< 选区起点（= cursorPos_ 时无选区）
     bool cursorVisible_ = true;     ///< 光标闪烁可见
-    uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
+    std::uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
     bool draggingSelection_ = false;    ///< 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
-    uint64_t lastTapMs_ = 0;        ///< 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
+    std::uint64_t lastTapMs_ = 0;        ///< 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
     float lastTapX_ = 0;
     float lastTapY_ = 0;
 
     // ── 查找高亮（M1-⑦）：字节区间 + 关键词缓存（编辑后 rebuild_ 重算）──
     std::string highlightNeedle_;                          ///< 当前高亮关键词（空 = 无高亮）
-    std::vector<std::pair<size_t, size_t>> highlights_;    ///< 命中区间 [s, e)（plainText_ 字节偏移）
-    size_t activeStart_ = 0;                               ///< 当前命中区间起点（start>=end = 无）
-    size_t activeEnd_ = 0;                                 ///< 当前命中区间终点（字节偏移，开区间）
+    std::vector<std::pair<std::size_t, std::size_t>> highlights_;    ///< 命中区间 [s, e)（plainText_ 字节偏移）
+    std::size_t activeStart_ = 0;                               ///< 当前命中区间起点（start>=end = 无）
+    std::size_t activeEnd_ = 0;                                 ///< 当前命中区间终点（字节偏移，开区间）
 
     // ── 撤销/重做（快照栈：TextRun[] 拷贝 + 光标恢复）──
-    static constexpr size_t kMaxUndoSteps_ = 100;
+    static constexpr std::size_t kMaxUndoSteps_ = 100;
     std::vector<std::vector<TextRun>> undoStack_;
     std::vector<std::vector<TextRun>> redoStack_;
-    std::vector<size_t> undoCursor_;     ///< 与 undoStack_ 一一对应的恢复光标
-    std::vector<size_t> redoCursor_;     ///< 与 redoStack_ 一一对应的恢复光标
-    uint64_t lastTypeMs_ = 0;            ///< 连续输入合并窗口锚点（0=上一操作非输入）
+    std::vector<std::size_t> undoCursor_;     ///< 与 undoStack_ 一一对应的恢复光标
+    std::vector<std::size_t> redoCursor_;     ///< 与 redoStack_ 一一对应的恢复光标
+    std::uint64_t lastTypeMs_ = 0;            ///< 连续输入合并窗口锚点（0=上一操作非输入）
 
     // ── 内部方法 ──
     static float lh_(float fs) { return std::ceil(fs * 1.4f); }    ///< 计算行高（默认 1.4 倍）
@@ -274,7 +267,7 @@ private:
         return std::ceil(fs * 1.4f * m);
     }
 
-    void locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const;
+    void locateByte_(std::size_t pos, std::size_t &runIdx, std::size_t &runByteOff) const;
 
     void rebuild_();                         ///< content_ → plainText_ → runShapes_
     void rebuildLines_(float availWidth);    ///< runShapes_ → lines_
@@ -312,9 +305,9 @@ private:
     void toggleStyle_(void (*mod)(TextStyle &));
 
     // 坐标换算
-    size_t lineForByte_(size_t pos) const;
-    float xForByte_(size_t pos) const;
-    size_t hitByteForPoint_(float globalX, float globalY) const;    ///< 点→最近字形边界字节（拖选/点击定位）
+    std::size_t lineForByte_(std::size_t pos) const;
+    float xForByte_(std::size_t pos) const;
+    std::size_t hitByteForPoint_(float globalX, float globalY) const;    ///< 点→最近字形边界字节（拖选/点击定位）
 
     void fireChange_();
     bool updateCursorBlink_();

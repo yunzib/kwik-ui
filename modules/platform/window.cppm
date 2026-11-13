@@ -1,11 +1,5 @@
-module;
-
-#include <functional>
-#include <string>
-#include <vector>
-#include <cstdint>
-
 export module kwik.platform.window;
+import std;
 import kwik.event;
 import kwik.core.types;    // DragRegion / WindowHitZone（无边框命中测试纯几何）
 
@@ -36,9 +30,9 @@ export struct Event {
     int y = 0;                  // Y坐标（客户区）
     int width = 0;              // 窗口宽度
     int height = 0;             // 窗口高度
-    uint32_t keyCode = 0;       // 虚拟键码 (VK_*), KeyDown/KeyUp 使用
-    uint32_t modifiers = 0;     // Ctrl(1), Shift(2), Alt(4), Meta(8)
-    uint32_t charCode = 0;      // Unicode 码点, TextInput 使用
+    std::uint32_t keyCode = 0;       // 虚拟键码 (VK_*), KeyDown/KeyUp 使用
+    std::uint32_t modifiers = 0;     // Ctrl(1), Shift(2), Alt(4), Meta(8)
+    std::uint32_t charCode = 0;      // Unicode 码点, TextInput 使用
     int touchId = 0;            // 触摸点ID
     float pressure = 1.0f;      // 触摸压力
     float wheelDelta = 0.0f;    // 滚轮增量
@@ -234,7 +228,7 @@ public:
      * @param width 遮罩宽度
      * @param height 遮罩高度
      */
-    virtual void SetShapeMask(const uint8_t *maskData, int width, int height) = 0;
+    virtual void SetShapeMask(const std::uint8_t *maskData, int width, int height) = 0;
 
     /**
      * @brief 设置窗口是否可调整大小

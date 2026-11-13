@@ -4,11 +4,26 @@
  */
 
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstddef>
-#include <cstring>
 #include "mesh_shaders.h"
 #include "mesh_tex_shaders.h"    // 贴图变体 frag（材质最小支持）
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.render.vulkan.mesh_renderer;
 
@@ -68,9 +83,11 @@ void MeshRenderer::destroy() {
 //   释放旧缓冲前须全设备等闲（在飞 1~2 帧仍可能绑定旧缓冲顶点）；
 //   每档容量最多触发一次，达到 kMaxCapacity 后停止（持续告警提示丢弃）
 void MeshRenderer::growStaging() {
-    size_t newCap = std::min(bufferCapacity_ * 2, kMaxCapacity);    // 先记旧容量（freeStaging 会清零）
+    std::size_t newCap = std::min(bufferCapacity_ * 2, kMaxCapacity);    // 先记旧容量（freeStaging 会清零）
+    vkDeviceWaitIdle(device_);    // 在飞帧仍绑定旧缓冲——必须先等闲再释放（顺序颠倒会
+                                  // vkFreeMemory 使用中释放：GCC 构建下验证层必现，
+                                  // Clang/libc++ 时序恰未触发，潜伏至本修复）
     freeStaging();
-    vkDeviceWaitIdle(device_);    // 在飞帧可能仍绑定旧缓冲——整块重建须等闲
 
     VkBuffer newBuf = VK_NULL_HANDLE;
     VkDeviceMemory newMem = VK_NULL_HANDLE;
@@ -166,7 +183,7 @@ bool MeshRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDevi
  * textureSet 非空走贴图管线（uv 采样 × 颜色），空走纯色管线（现状行为）。
  */
 void MeshRenderer::drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D scissor, const Vertex3D *vertices,
-                            uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3],
+                            std::uint32_t vertexCount, const float mvp[16], const Color &color, const float lightDir[3],
                             VkDescriptorSet textureSet) {
     if (!vertices || vertexCount < 3 || (vertexCount % 3) != 0) return;
 
@@ -186,7 +203,7 @@ void MeshRenderer::drawMesh(VkCommandBuffer cmd, const Rect &viewport, VkRect2D 
     memcpy(static_cast<char *>(mappedData_) + writeOffset_, vertices, dataSize);
 
     PushConstants pc;
-    std::memcpy(pc.mvp, mvp, 16 * sizeof(float));
+    memcpy(pc.mvp, mvp, 16 * sizeof(float));
     pc.r = color.r / 255.0f;
     pc.g = color.g / 255.0f;
     pc.b = color.b / 255.0f;

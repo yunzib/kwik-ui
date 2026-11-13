@@ -1,6 +1,4 @@
 module;
-#include <algorithm>
-#include <cmath>
 
 module kwik.render.text.layout;
 import kwik.render.text.types;
@@ -38,7 +36,7 @@ TextLayoutResult TextLayout::layout(const std::vector<ShapedGlyph> &glyphs, cons
 void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const TextLayoutConfig &cfg,
                               TextLayoutResult &result) {
     // 记录当前扁平数组末尾作为本行起始
-    uint32_t glyphStart = static_cast<uint32_t>(result.glyphs.size());
+    std::uint32_t glyphStart = static_cast<std::uint32_t>(result.glyphs.size());
     float cursorX = 0;
     float minY = 0;
     float maxBottom = 0;
@@ -64,15 +62,15 @@ void TextLayout::layoutNoWrap(const std::vector<ShapedGlyph> &glyphs, const Text
         default: break;
         }
         if (offset > 0) {
-            for (uint32_t i = glyphStart; i < result.glyphs.size(); i++) result.glyphs[i].x += offset;
+            for (std::uint32_t i = glyphStart; i < result.glyphs.size(); i++) result.glyphs[i].x += offset;
         }
     }
 
     // 预烘焙 baseline 到 glyph.y，绘制时无需再逐行加 baseline
     float baseline = -minY;
-    for (uint32_t i = glyphStart; i < result.glyphs.size(); i++) result.glyphs[i].y += baseline;
+    for (std::uint32_t i = glyphStart; i < result.glyphs.size(); i++) result.glyphs[i].y += baseline;
 
-    uint32_t gCountNow = static_cast<uint32_t>(result.glyphs.size() - glyphStart);
+    std::uint32_t gCountNow = static_cast<std::uint32_t>(result.glyphs.size() - glyphStart);
 
     /* 行字节区间（选区/光标命中消费）：noWrap 单行的覆盖 = 首末字形 cluster
      * 区间。此前该字段缺省（0/0），Selectable 的行交集 s<e 恒假 → 不换行
@@ -111,8 +109,8 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         return;
     }
 
-    uint32_t startIdx = static_cast<uint32_t>(result.glyphs.size());
-    uint32_t lineStart = 0;
+    std::uint32_t startIdx = static_cast<std::uint32_t>(result.glyphs.size());
+    std::uint32_t lineStart = 0;
     float totalW = 0;
     float totalH = 0;
 
@@ -120,9 +118,9 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         float cursorX = 0;
         float minY = 0;
         float maxBottom = 0;
-        uint32_t i;
+        std::uint32_t i;
         bool isHardBreak = false;
-        uint32_t nextStart = 0;    // 下一行起始（源索引）：硬断行 = \n 之后，软断行 = 断点/词首
+        std::uint32_t nextStart = 0;    // 下一行起始（源索引）：硬断行 = \n 之后，软断行 = 断点/词首
 
         // ── 收集当前行字形 ──────────────────────────────────────────
         for (i = lineStart; i < glyphs.size(); ++i) {
@@ -138,7 +136,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                      * 多行文本 totalHeight 才算对；clusterEnd 指向下一行首 */
                     float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : g.fontSize * 1.4f;
                     result.lines.push_back({
-                        .glyphStart  = static_cast<uint32_t>(result.glyphs.size()),
+                        .glyphStart  = static_cast<std::uint32_t>(result.glyphs.size()),
                         .glyphCount  = 0,
                         .width       = 0,
                         .height      = rowH,
@@ -163,22 +161,22 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
             maxBottom = std::max(maxBottom, g.y + g.height);
         }
         if (i == lineStart) ++i;           // 单个超宽 glyph 也要推进
-        uint32_t lineEnd = i;
+        std::uint32_t lineEnd = i;
         if (!isHardBreak) nextStart = lineEnd;    // 无断行（末行）默认即行尾；软/硬断行路径已各自覆写
 
         // ── 软断行修正：词回溯 + 禁则 + 行尾空格修剪（硬断行/末行不适用）──
         if (!isHardBreak && lineEnd > lineStart && lineEnd < glyphs.size()) {
             // ① 词回溯：行内最后一个空格处断行
             int sp = -1;
-            for (uint32_t j = lineEnd; j-- > lineStart;)
+            for (std::uint32_t j = lineEnd; j-- > lineStart;)
                 if (glyphs[j].isSpace) { sp = (int)j; break; }
             if (sp > (int)lineStart) {
-                lineEnd = (uint32_t)sp;
+                lineEnd = (std::uint32_t)sp;
                 while (lineEnd > lineStart && glyphs[lineEnd - 1].isSpace) --lineEnd;    // 空格串一并修剪
                 nextStart = sp + 1;    // 空格之后的半截词整体移入下一行（丢弃的只有被修剪的空格串）
                 // 重算行宽/ink 包围（修剪部分不再计入）
                 cursorX = 0; minY = 0; maxBottom = 0;
-                for (uint32_t j = lineStart; j < lineEnd; ++j) {
+                for (std::uint32_t j = lineStart; j < lineEnd; ++j) {
                     cursorX += glyphs[j].advanceX;
                     minY = std::min(minY, glyphs[j].y);
                     maxBottom = std::max(maxBottom, glyphs[j].y + glyphs[j].height);
@@ -196,7 +194,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         if (lineEnd > lineStart) {
             /* 本行扁平数组起点：\n 被跳过 → 源索引 ≠ 扁平索引，
              * 必须取当前扁平长度（原 startIdx+lineStart 会越界读） */
-            uint32_t flatStart = static_cast<uint32_t>(result.glyphs.size());
+            std::uint32_t flatStart = static_cast<std::uint32_t>(result.glyphs.size());
             /* 对齐偏移（Justify 在行写入时逐字拉宽） */
             float alignOff = 0;
             if (cfg.align == LayoutTextAlign::Center)
@@ -215,7 +213,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                              && !isTextEnd && !isHardBreak && cursorX < cfg.maxWidth;
             float justifyGap = 0; int spaceCount = 0;
             if (doJustify) {
-                for (uint32_t j = lineStart; j < lineEnd; ++j)
+                for (std::uint32_t j = lineStart; j < lineEnd; ++j)
                     if (glyphs[j].isSpace) ++spaceCount;
                 if (spaceCount > 0)
                     justifyGap = (cfg.maxWidth - cursorX) / (float)spaceCount;
@@ -223,7 +221,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                     justifyGap = (cfg.maxWidth - cursorX) / (float)(lineEnd - lineStart - 1);
             }
             float penExtra = 0;    // 已累计的 justify 附加位移
-            for (uint32_t j = lineStart; j < lineEnd; ++j) {
+            for (std::uint32_t j = lineStart; j < lineEnd; ++j) {
                 ShapedGlyph sg = glyphs[j];
                 sg.x = sg.x - lineBaseX + alignOff + penExtra;
                 sg.y += baseline;
@@ -259,7 +257,7 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
         // 可见字形才算截断（原 lines.size()>=maxLines 判据在恰满时误加省略号
         // 且可能切出非法 UTF-8）
         if (cfg.maxLines > 0 && (int)result.lines.size() >= cfg.maxLines) {
-            uint32_t j = lineEnd;
+            std::uint32_t j = lineEnd;
             while (j < glyphs.size() && glyphs[j].isNewline) ++j;
             result.truncated = (j < glyphs.size());
             break;

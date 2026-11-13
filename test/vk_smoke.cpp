@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <vector>
 
 static VkInstance g_instance = VK_NULL_HANDLE;
@@ -14,7 +15,7 @@ static VkSurfaceKHR g_surface = VK_NULL_HANDLE;
 static VkDevice g_device = VK_NULL_HANDLE;
 static VkSwapchainKHR g_swapchain = VK_NULL_HANDLE;
 static VkQueue g_queue = VK_NULL_HANDLE;
-static uint32_t g_queueFamily = 0;
+static std::uint32_t g_queueFamily = 0;
 
 static bool ok(VkResult r, const char *what) {
     if (r == VK_SUCCESS) return true;
@@ -31,12 +32,12 @@ static bool createInstance() {
     std::vector<const char *> ext = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME};
     VkInstanceCreateInfo ci{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     ci.pApplicationInfo = &app;
-    ci.enabledExtensionCount = (uint32_t)ext.size();
+    ci.enabledExtensionCount = (std::uint32_t)ext.size();
     ci.ppEnabledExtensionNames = ext.data();
     return ok(vkCreateInstance(&ci, nullptr, &g_instance), "vkCreateInstance");
 }
 
-static bool createWindowAndSurface(HWND &hwnd, uint32_t w, uint32_t h) {
+static bool createWindowAndSurface(HWND &hwnd, std::uint32_t w, std::uint32_t h) {
     WNDCLASSW wc{};
     wc.lpfnWndProc = [](HWND h, UINT m, WPARAM, LPARAM) -> LRESULT {
         return m == WM_DESTROY ? (PostQuitMessage(0), 0L) : DefWindowProcW(h, m, 0, 0);
@@ -58,8 +59,8 @@ static bool createWindowAndSurface(HWND &hwnd, uint32_t w, uint32_t h) {
     return ok(vkCreateWin32SurfaceKHR(g_instance, &si, nullptr, &g_surface), "vkCreateWin32SurfaceKHR");
 }
 
-static bool createDeviceAndSwapchain(HWND hwnd, uint32_t w, uint32_t h) {
-    uint32_t gpuCount = 0;
+static bool createDeviceAndSwapchain(HWND hwnd, std::uint32_t w, std::uint32_t h) {
+    std::uint32_t gpuCount = 0;
     if (!ok(vkEnumeratePhysicalDevices(g_instance, &gpuCount, nullptr), "enum gpus")) return false;
     std::vector<VkPhysicalDevice> gpus(gpuCount);
     vkEnumeratePhysicalDevices(g_instance, &gpuCount, gpus.data());
@@ -69,12 +70,12 @@ static bool createDeviceAndSwapchain(HWND hwnd, uint32_t w, uint32_t h) {
     vkGetPhysicalDeviceProperties(gpu, &props);
     std::printf("GPU: %s\n", props.deviceName);
 
-    uint32_t qfamCount = 0;
+    std::uint32_t qfamCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(gpu, &qfamCount, nullptr);
     std::vector<VkQueueFamilyProperties> qfam(qfamCount);
     vkGetPhysicalDeviceQueueFamilyProperties(gpu, &qfamCount, qfam.data());
     g_queueFamily = 0;
-    for (uint32_t i = 0; i < qfamCount; i++)
+    for (std::uint32_t i = 0; i < qfamCount; i++)
         if (qfam[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             g_queueFamily = i;
             break;
@@ -96,7 +97,7 @@ static bool createDeviceAndSwapchain(HWND hwnd, uint32_t w, uint32_t h) {
 
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, g_surface, &caps);
-    uint32_t fmtCount = 0;
+    std::uint32_t fmtCount = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, g_surface, &fmtCount, nullptr);
     std::vector<VkSurfaceFormatKHR> fmts(fmtCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, g_surface, &fmtCount, fmts.data());
@@ -129,14 +130,14 @@ static void presentAFewFrames() {
     VkCommandBuffer cb;
     vkAllocateCommandBuffers(g_device, &cai, &cb);
 
-    uint32_t imgCount = 0;
+    std::uint32_t imgCount = 0;
     vkGetSwapchainImagesKHR(g_device, g_swapchain, &imgCount, nullptr);
     std::vector<VkImage> images(imgCount);
     vkGetSwapchainImagesKHR(g_device, g_swapchain, &imgCount, images.data());
 
     for (int i = 0; i < 3; i++) {
-        uint32_t idx = 0;
-        if (vkAcquireNextImageKHR(g_device, g_swapchain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &idx)
+        std::uint32_t idx = 0;
+        if (vkAcquireNextImageKHR(g_device, g_swapchain, std::numeric_limits<std::uint64_t>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE, &idx)
             != VK_SUCCESS)
             break;
         VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -158,11 +159,11 @@ static void presentAFewFrames() {
 }
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    uint32_t w = 1920, h = 1080;
+    std::uint32_t w = 1920, h = 1080;
     // 也可用命令行: vk_smoke 2880 1800
     if (__argc >= 3) {
-        w = (uint32_t)std::atoi(__argv[1]);
-        h = (uint32_t)std::atoi(__argv[2]);
+        w = (std::uint32_t)std::atoi(__argv[1]);
+        h = (std::uint32_t)std::atoi(__argv[2]);
     }
 
     if (!createInstance()) return 1;

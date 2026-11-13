@@ -6,12 +6,6 @@
 //       运行时（一个窗口/一棵 UI 树一份），主循环逐树驱动。
 //       用法：Application app; auto& rt = app.createRuntime(window, cfg); app.run();
 // ============================================================================
-module;
-#include <string>
-#include <vector>
-#include <functional>
-#include <memory>
-
 export module kwik.app;
 import kwik.platform.window;
 import kwik.render.backend;
@@ -56,7 +50,7 @@ public:
     KwikRuntime &createRuntime(PlatformWindow &window, const RunConfig &config);
 
     /** @brief 运行时数量 */
-    size_t runtimeCount() const { return runtimes_.size(); }
+    std::size_t runtimeCount() const { return runtimes_.size(); }
 
     // ═══════════════ 主入口 ═══════════════
     /**

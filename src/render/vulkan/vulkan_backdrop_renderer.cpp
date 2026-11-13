@@ -1,7 +1,20 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cmath>
-#include <cstddef>
 #include "backdrop_shaders.h"
 #include "backdrop_quad_shaders.h"
 module kwik.render.vulkan.backdrop_renderer;
@@ -119,13 +132,13 @@ VkRenderPass BackdropRenderer::createOffscreenPass(VkFormat fmt) {
 // 帧内多玻璃元素共用同一套 target/descSet，零中途销毁重建——
 // 中途 reset 描述符池/销毁图像会使本命令缓冲已录制的 draw 失效（DEVICE_LOST）。
 // ================================================================
-bool BackdropRenderer::ensureTargets(VkPhysicalDevice phys, uint32_t w, uint32_t h) {
+bool BackdropRenderer::ensureTargets(VkPhysicalDevice phys, std::uint32_t w, std::uint32_t h) {
     if (w == tw_ && h == th_ && capture_.image != VK_NULL_HANDLE) return true;
     destroyTargets();
     // destroyTargets 后旧 descSet 全部失效：整体重置池从头分配（此刻设备空闲，安全）。
     if (descPool_ != VK_NULL_HANDLE) vkResetDescriptorPool(device_, descPool_, 0);
 
-    auto mkTarget = [&](BackdropTarget &t, uint32_t tw, uint32_t th) -> bool {
+    auto mkTarget = [&](BackdropTarget &t, std::uint32_t tw, std::uint32_t th) -> bool {
         VkImageCreateInfo ii{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         ii.imageType = VK_IMAGE_TYPE_2D; ii.format = offscreenFormat_;
         ii.extent = {tw, th, 1}; ii.mipLevels = 1; ii.arrayLayers = 1;
@@ -221,11 +234,11 @@ bool BackdropRenderer::ensureTargets(VkPhysicalDevice phys, uint32_t w, uint32_t
 //        调用方已 endRenderPass，canvas 处于 TRANSFER_SRC
 // ================================================================
 bool BackdropRenderer::draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas,
-                            uint32_t canvasW, uint32_t canvasH,
+                            std::uint32_t canvasW, std::uint32_t canvasH,
                             VkPhysicalDevice phys, const Rect &cap, float sigmaScreen) {
     int tw = std::max(1, static_cast<int>(canvasW) / static_cast<int>(downsample_));
     int th = std::max(1, static_cast<int>(canvasH) / static_cast<int>(downsample_));
-    if (!ensureTargets(phys, static_cast<uint32_t>(tw), static_cast<uint32_t>(th)))
+    if (!ensureTargets(phys, static_cast<std::uint32_t>(tw), static_cast<std::uint32_t>(th)))
         return false;
 
     // ① canvas → capture：blit 降采样到同位置子区域（防御性 clamp 到画布；
@@ -270,7 +283,7 @@ bool BackdropRenderer::draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas,
     vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &cb2);
 
-    auto beginOff = [&](VkFramebuffer fbo, uint32_t w2, uint32_t h2) {
+    auto beginOff = [&](VkFramebuffer fbo, std::uint32_t w2, std::uint32_t h2) {
         VkRenderPassBeginInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
         rp.renderPass = offscreenPass_; rp.framebuffer = fbo;
         rp.renderArea = {{0, 0}, {w2, h2}};
@@ -281,7 +294,7 @@ bool BackdropRenderer::draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas,
         vkCmdSetScissor(cb, 0, 1, &sc);
     };
     auto pushBlur = [&](VkPipeline pipe, VkDescriptorSet src,
-                        VkFramebuffer dstFbo, bool horizontal, uint32_t w2, uint32_t h2) {
+                        VkFramebuffer dstFbo, bool horizontal, std::uint32_t w2, std::uint32_t h2) {
         beginOff(dstFbo, w2, h2);
         vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe);
         vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, blurLayout_,
@@ -304,7 +317,7 @@ bool BackdropRenderer::draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas,
     };
 
     // ② blurH：capture → pingA（横向）
-    pushBlur(blurHPipeline_, capture_.descSet, pingAFbo_, true, (uint32_t)tw, (uint32_t)th);
+    pushBlur(blurHPipeline_, capture_.descSet, pingAFbo_, true, (std::uint32_t)tw, (std::uint32_t)th);
     vkCmdEndRenderPass(cb);
     // pingA SHADER_READ 依赖 barrier（finalLayout 已自动过渡 layout）
     {
@@ -322,7 +335,7 @@ bool BackdropRenderer::draw(VkCommandBuffer cb, VkExtent2D ctx, VkImage canvas,
     }
 
     // ③ blurV：pingA → pingB（纵向）
-    pushBlur(blurVPipeline_, pingA_.descSet, pingBFbo_, false, (uint32_t)tw, (uint32_t)th);
+    pushBlur(blurVPipeline_, pingA_.descSet, pingBFbo_, false, (std::uint32_t)tw, (std::uint32_t)th);
     vkCmdEndRenderPass(cb);
     // pingB SHADER_READ 依赖 barrier
     {

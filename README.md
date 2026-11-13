@@ -19,7 +19,7 @@
 - IDE: VSCODE
     - 插件： clangd, CMake, CMake Tools
 - 操作系统： Windows11
-- 编译器： llvm-mingw-20260421-ucrt-x86_64
+- 编译器： GCC 16.2.0（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1）
 - 构建系统： cmake 4.3.2
 - 构建工具： ninja 1.13.2
 
@@ -231,20 +231,14 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 |---|---|
 | CMake | 4.3.2 |
 | Ninja | 1.13 |
-| 编译器 | llvm-mingw-20260421-ucrt-x86_64 (或 Clang ≥ 18，需支持 C++ Modules) |
+| 编译器 | GCC 16.2（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1）为主工具链（兼容 Clang ≥ 18，需支持 C++ Modules） |
 | Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
 
 ## 4.2 工程编译
+工具链路径已固化在 `CMakePresets.json`（gcc 主 / clang 兼容两套；构建档 Debug/Release 经 `KWIK_BUILD_TYPE` 缓存变量切换）：
 ```
-cmake -DCMAKE_BUILD_TYPE:STRING=Debug 
--DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE 
--DCMAKE_C_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang.exe 
--DCMAKE_CXX_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang++.exe 
---no-warn-unused-cli 
--S C:/ws-code/ws-kwik/kwik-ui 
--B c:/ws-code/ws-kwik/kwik-ui/build 
--G Ninja 
-&& cmake --build build --config Debug --target all
+cmake --preset gcc
+cmake --build build --config Debug --target all
 ```
 ## 4.3 安装 SDK
 ```

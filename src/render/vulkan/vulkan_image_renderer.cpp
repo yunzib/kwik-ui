@@ -1,10 +1,24 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstring>
-#include <cmath>
-#include <cstddef>
 #include "image_shaders.h"
 #include "image_yuv_shaders.h"    // YUV 流纹理着色器（V1 推流批 2）
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.render.vulkan.image_renderer;
 import kwik.render.vulkan.context;
 import kwik.render.vulkan.pipeline_factory;    // 管线工厂（§四）
@@ -149,8 +163,8 @@ bool ImageRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysicalDev
 // ================================================================
 // createTexture — 上传 RGBA + mipmap 生成
 // ================================================================
-uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id, const uint8_t *rgba,
-                                            uint32_t width, uint32_t height) {
+std::uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, std::uint32_t id, const std::uint8_t *rgba,
+                                            std::uint32_t width, std::uint32_t height) {
     if (!rgba || width == 0 || height == 0) return 0;
     VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
     // ── Staging buffer ──
@@ -168,10 +182,10 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
             vkFreeMemory(dc.device, stagingMem, nullptr);
             return 0;
         }
-        std::memcpy(mapped, rgba, (size_t)imageSize);
+        memcpy(mapped, rgba, (std::size_t)imageSize);
         vkUnmapMemory(dc.device, stagingMem);
     }
-    uint32_t mipLevels = (uint32_t)std::floor(std::log2(std::max(width, height))) + 1;
+    std::uint32_t mipLevels = (std::uint32_t)std::floor(std::log2(std::max(width, height))) + 1;
     // ── Device-local VkImage ──
     VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imgInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -249,8 +263,8 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                                  nullptr, 1, &barrier);
-            int32_t mipW = (int32_t)width, mipH = (int32_t)height;
-            for (uint32_t i = 1; i < mipLevels; i++) {
+            std::int32_t mipW = (std::int32_t)width, mipH = (std::int32_t)height;
+            for (std::uint32_t i = 1; i < mipLevels; i++) {
                 VkImageBlit blit{};
                 blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 0, 1};
                 blit.srcOffsets[1] = {mipW, mipH, 1};
@@ -342,9 +356,9 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
         return vkAllocateDescriptorSets(dc.device, &sa, &tex.descSet);
     };
     VkResult dsr = tryAlloc(descPools_.back());
-    for (size_t i = 0; dsr != VK_SUCCESS && i + 1 < descPools_.size(); ++i) dsr = tryAlloc(descPools_[i]);
+    for (std::size_t i = 0; dsr != VK_SUCCESS && i + 1 < descPools_.size(); ++i) dsr = tryAlloc(descPools_[i]);
     if (dsr != VK_SUCCESS) {
-        uint32_t cap = std::min<uint32_t>(256u << (descPools_.size() - 1), 4096);
+        std::uint32_t cap = std::min<std::uint32_t>(256u << (descPools_.size() - 1), 4096);
         VkDescriptorPoolSize ps{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cap};
         VkDescriptorPoolCreateInfo pi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         pi.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -383,18 +397,18 @@ uint32_t ImageRenderer::createTextureWithId(const DeviceContext &dc, uint32_t id
 // ================================================================
 // 资源通道 — UI 线程入队 / 渲染线程帧首消费
 // ================================================================
-uint32_t ImageRenderer::enqueueTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
+std::uint32_t ImageRenderer::enqueueTexture(const std::uint8_t *rgba, std::uint32_t w, std::uint32_t h) {
     if (!rgba || w == 0 || h == 0) return 0;
-    uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
+    std::uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard<std::mutex> lock(jobsMutex_);
-        const size_t bytes = size_t(w) * h * 4;
+        const std::size_t bytes = std::size_t(w) * h * 4;
         pendingCreates_.push_back({{rgba, rgba + bytes}, id, w, h});
     }
     return id;
 }
 
-void ImageRenderer::enqueueDestroy(uint32_t id) {
+void ImageRenderer::enqueueDestroy(std::uint32_t id) {
     if (id == 0) return;
     std::lock_guard<std::mutex> lock(jobsMutex_);
     pendingDestroys_.push_back(id);
@@ -402,9 +416,9 @@ void ImageRenderer::enqueueDestroy(uint32_t id) {
 
 // 流绑定：id 同步返回（UI 线程立即可录绘制引用）；GPU 资源由渲染线程
 // 帧首按 VideoStream* 去重复用（refCount 计数）
-uint32_t ImageRenderer::enqueueStream(std::shared_ptr<VideoStream> stream) {
+std::uint32_t ImageRenderer::enqueueStream(std::shared_ptr<VideoStream> stream) {
     if (!stream) return 0;
-    uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
+    std::uint32_t id = nextId_.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard<std::mutex> lock(jobsMutex_);
         pendingStreams_.push_back({id, std::move(stream)});
@@ -414,7 +428,7 @@ uint32_t ImageRenderer::enqueueStream(std::shared_ptr<VideoStream> stream) {
 
 // 触碰：UI 线程录制该 id 的绘制命令时标记"本帧将绘制"——未被触碰的流
 // 帧首不上传新帧（滚出视口/被裁剪的显示端不占带宽）
-void ImageRenderer::enqueueTouch(uint32_t id) {
+void ImageRenderer::enqueueTouch(std::uint32_t id) {
     if (id == 0) return;
     std::lock_guard<std::mutex> lock(jobsMutex_);
     pendingTouches_.push_back(id);
@@ -423,7 +437,7 @@ void ImageRenderer::enqueueTouch(uint32_t id) {
 // ================================================================
 // queryUploadResult — 查询某 id 的异步上传结果（UI 线程；查询即摘除）
 // ================================================================
-int ImageRenderer::queryUploadResult(uint32_t id) {
+int ImageRenderer::queryUploadResult(std::uint32_t id) {
     std::lock_guard<std::mutex> lock(jobsMutex_);
     if (auto it = std::find(failedCreates_.begin(), failedCreates_.end(), id); it != failedCreates_.end()) {
         failedCreates_.erase(it);
@@ -440,17 +454,17 @@ int ImageRenderer::queryUploadResult(uint32_t id) {
 // textureDescSet — 查普通纹理 descSet（Mesh 贴图管线共用纹理注册表；
 // 与 drawImage 同线程域（渲染线程回放路径），免加锁直接查表）
 // ================================================================
-VkDescriptorSet ImageRenderer::textureDescSet(uint32_t id) const {
+VkDescriptorSet ImageRenderer::textureDescSet(std::uint32_t id) const {
     auto it = textures_.find(id);
     return it != textures_.end() ? it->second.descSet : VK_NULL_HANDLE;
 }
 
-void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
+void ImageRenderer::drainResources(const DeviceContext &dc, std::uint64_t frameNo) {
     // ① 交接挂起作业（锁内只做 swap，执行段无锁）
     std::vector<PendingCreate> creates;
-    std::vector<uint32_t> destroys;
+    std::vector<std::uint32_t> destroys;
     std::vector<PendingStream> streamBinds;
-    std::vector<uint32_t> touches;
+    std::vector<std::uint32_t> touches;
     {
         std::lock_guard<std::mutex> lock(jobsMutex_);
         creates.swap(pendingCreates_);
@@ -476,7 +490,7 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
         streamAliases_[b.id] = key;
     }
     // ①'' 触碰入账：本帧被录制绘制的流 → touchedFrame（帧首上传判据）
-    for (uint32_t id : touches) {
+    for (std::uint32_t id : touches) {
         auto sa = streamAliases_.find(id);
         if (sa == streamAliases_.end()) continue;
         auto it = streams_.find(sa->second);
@@ -486,7 +500,7 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     // 17 号：成败均录回执——成功 id 供调用方确认落地后释放源像素；
     // 失败 id 供调用方置 0 重试（此前失败 id 不入 textures_ 对上层不可见）
     {
-        std::vector<uint32_t> landed, failed;
+        std::vector<std::uint32_t> landed, failed;
         for (auto &c : creates) {
             if (createTextureWithId(dc, c.id, c.pixels.data(), c.width, c.height) != 0) {
                 landed.push_back(c.id);
@@ -498,7 +512,7 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
             std::lock_guard<std::mutex> lock(jobsMutex_);
             // 回执堆积上限：调用方永不领取的回执（上传途中图被销毁等）
             // 按 FIFO 截断，防长期运行无限增长
-            constexpr size_t kMaxReceipts = 4096;
+            constexpr std::size_t kMaxReceipts = 4096;
             if (landedIds_.size() + landed.size() > kMaxReceipts) {
                 landedIds_.erase(landedIds_.begin(), landedIds_.begin() + static_cast<long>(landedIds_.size() / 2));
             }
@@ -514,7 +528,7 @@ void ImageRenderer::drainResources(const DeviceContext &dc, uint64_t frameNo) {
     //    在飞帧（≤ frameNo-1）的命令缓冲引用，立即释放违规；退役纹理在
     //    frameNo+kMaxFramesInFlight 的 drain 回收（该帧 beginFrame 的 fence
     //    等待已保证 ≤ frameNo-1 帧全部完成，帧距 3 留一帧裕量）
-    for (uint32_t id : destroys) {
+    for (std::uint32_t id : destroys) {
         // 流别名 id：计数递减；归零挂起退役（延后一帧执行——同帧内被重新
         // 绑定即复活，避免列表重排时图像环销毁重建/闪占位）
         auto sa = streamAliases_.find(id);

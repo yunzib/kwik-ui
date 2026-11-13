@@ -7,6 +7,8 @@ module;
 #include "quickjs-libc.h"    // js_module_set_import_meta / js_std_dump_error
 #include "kwik/bytecode_module.h"
 #include <kwik/kwikui_exports.h> 
+// C 库函数全局名（std 模块不导出 C 函数 using 声明）；string.h 无 C++ 包装，直通纯 C
+#include <string.h>
 
 module kwik.engine.context;
 
@@ -108,10 +110,10 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     if (id.empty()) return {};
 
     static const char *const *knownExports = kwik_ui::exports;
-    static const size_t knownExportCount = kwik_ui::export_count;
+    static const std::size_t knownExportCount = kwik_ui::export_count;
 
     // 精确匹配
-    for (size_t i = 0; i < knownExportCount; ++i) {
+    for (std::size_t i = 0; i < knownExportCount; ++i) {
         const char *exp = knownExports[i];
         if (id == exp) {
             return std::format("未导入组件 '{}' — 请在文件开头添加: import {{ {} }} from 'kwikui'", id, id);
@@ -121,7 +123,7 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     // 大小写不敏感匹配
     std::string idLower = id;
     for (auto &c : idLower) c = (char)std::tolower((unsigned char)c);
-    for (size_t i = 0; i < knownExportCount; ++i) {
+    for (std::size_t i = 0; i < knownExportCount; ++i) {
         const char *exp = knownExports[i];
         std::string expLower(exp);
         for (auto &c : expLower) c = (char)std::tolower((unsigned char)c);
@@ -133,7 +135,7 @@ static std::string suggestKwikUISymbol(const char *errMsg) {
     // 编辑距离 ≤ 2 模糊匹配
     std::string_view best;
     int bestDist = 3;
-    for (size_t i = 0; i < knownExportCount; ++i) {
+    for (std::size_t i = 0; i < knownExportCount; ++i) {
         const char *exp = knownExports[i];
         int d = levenshtein(id, exp);
         if (d < bestDist) {
@@ -273,7 +275,7 @@ bool QuickJSContext::evalFile(const std::string &filename) {
     std::string code((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     // ② 记录基础目录（供 moduleLoader 拼接相对路径）
-    size_t pos = filename.find_last_of("/\\");
+    std::size_t pos = filename.find_last_of("/\\");
     baseDir_ = (pos != std::string::npos) ? filename.substr(0, pos) : ".";
     Log::info("JS file base directory: {}", baseDir_);
 
@@ -554,12 +556,12 @@ JSModuleDef *QuickJSContext::moduleLoader(JSContext *ctx, const char *module_nam
 // ═══════════════════════════════════════════════════════════════════════════
 // requestAnimationFrame — 每帧回调（KwikRuntime::tick 在 flush 后驱动）
 // ═══════════════════════════════════════════════════════════════════════════
-uint64_t QuickJSContext::scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb) {
+std::uint64_t QuickJSContext::scheduleAnimationFrame(std::shared_ptr<JSValueRef> cb) {
     rafQueue_.emplace_back(nextRafId_, std::move(cb));
     return nextRafId_++;
 }
 
-void QuickJSContext::cancelAnimationFrame(uint64_t id) {
+void QuickJSContext::cancelAnimationFrame(std::uint64_t id) {
     std::erase_if(rafQueue_, [id](const auto &p) { return p.first == id; });
 }
 

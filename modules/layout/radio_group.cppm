@@ -1,8 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-
 export module kwik.layout.radio_group;
 
 import kwik.element.view;

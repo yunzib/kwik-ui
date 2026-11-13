@@ -19,8 +19,10 @@ if(KWIK_ENABLE_VIDEO)
     if(KWIK_HAVE_FFMPEG)
         # FFmpeg 播放器单实现单元（会话线程/时钟/视频帧出口/音频预留同处）
         target_sources(kwik_ext_video PRIVATE extensions/video/impl/ffmpeg/player.cpp)
+        # GNU ld 归档单遍扫描：依赖者在前、被依赖者在后（lld-link 会重扫，
+        # 旧序在 Clang 下无感；avutil 是 swscale/avcodec 的被依赖方须殿后）
         target_link_libraries(kwik_ext_video PRIVATE
-            ff_avcodec ff_avformat ff_avutil ff_swscale ff_swresample)
+            ff_avformat ff_avcodec ff_swscale ff_swresample ff_avutil)
         add_dependencies(kwik_ext_video ffmpeg_ext)
         target_compile_definitions(kwik_ext_video PRIVATE KWIK_VIDEO_FFMPEG=1)
     endif()
@@ -31,6 +33,7 @@ if(KWIK_ENABLE_VIDEO)
             kwik_render
             kwik_bridge
             kwik_engine
+            kwik_utils   # kwik_snprintf（C printf 桥在 utils；GNU ld 归档单遍扫描要求定义库排在使用库之后）
             qjs
     )
     target_compile_definitions(kwik_ext_video PRIVATE KWIK_EXT_VIDEO_MODULE)
@@ -58,6 +61,7 @@ if(KWIK_ENABLE_CHART)
             kwik_render
             kwik_bridge
             kwik_engine
+            kwik_utils   # kwik_snprintf（C printf 桥在 utils；定义库须排在使用库之后）
             qjs
     )
     target_compile_definitions(kwik_ext_chart PRIVATE KWIK_EXT_CHART_MODULE)
@@ -89,6 +93,7 @@ if(KWIK_ENABLE_G3D)
                 kwik_render
                 kwik_bridge
                 kwik_engine
+                kwik_utils   # kwik_snprintf（C printf 桥在 utils；定义库须排在使用库之后）
                 qjs
                 kwik_stb      # stb_image.h 声明（材质贴图解码；实现符号来自 kwik_element）
                 TernMath

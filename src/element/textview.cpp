@@ -9,12 +9,8 @@
 //   - 斜体: 数据模型预留，渲染阶段暂不做
 // ============================================================================
 module;
-#include <algorithm>
-#include <cmath>
-#include <chrono>
-#include <cstdint>
-#include <string>
-#include <vector>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.element.textview;
 
@@ -79,10 +75,10 @@ TextView::TextView(ViewProps vp, TextViewProps tvp) : View(std::move(vp)), tvp_(
  * @param runIdx       [out] 所属 run 在 content_ 中的索引
  * @param runByteOff   [out] 在该 run text 中的段内偏移
  */
-void TextView::locateByte_(size_t pos, size_t &runIdx, size_t &runByteOff) const {
-    size_t acc = 0;
-    for (size_t i = 0; i < content_.size(); ++i) {
-        size_t n = content_[i].text.size();
+void TextView::locateByte_(std::size_t pos, std::size_t &runIdx, std::size_t &runByteOff) const {
+    std::size_t acc = 0;
+    for (std::size_t i = 0; i < content_.size(); ++i) {
+        std::size_t n = content_[i].text.size();
         if (pos <= acc + n) {
             runIdx = i;
             runByteOff = pos - acc;
@@ -165,10 +161,10 @@ static constexpr const char *kKinsokuTrail_ = "（〔［｛【《〈「『“‘
  * 直接以字节序列在集合串中查找——UTF-8 自同步特性保证多字节序列不会与
  * ASCII 或其他多字节序列误匹配（延续字节 ≥0x80 恒非 ASCII）。
  */
-static bool charInSet_(const std::string &text, size_t byte, const char *set) {
+static bool charInSet_(const std::string &text, std::size_t byte, const char *set) {
     if (byte >= text.size()) return false;
     unsigned char c = static_cast<unsigned char>(text[byte]);
-    size_t len = 1;
+    std::size_t len = 1;
     if ((c & 0xE0) == 0xC0)
         len = 2;
     else if ((c & 0xF0) == 0xE0)
@@ -198,9 +194,9 @@ void TextView::rebuildLines_(float availWidth) {
     LineInfo line;
     float lineX = 0;
     float lineH = lhMul_(16.0f);
-    size_t byteAcc = 0;    // 已累计的字节数
+    std::size_t byteAcc = 0;    // 已累计的字节数
 
-    for (size_t ri = 0; ri < runShapes_.size(); ++ri) {
+    for (std::size_t ri = 0; ri < runShapes_.size(); ++ri) {
         auto &rs = runShapes_[ri];
         if (!rs.layoutResult || rs.layoutResult->glyphs.empty()) {
             byteAcc += content_[ri].text.size();
@@ -212,21 +208,21 @@ void TextView::rebuildLines_(float availWidth) {
         float lh = lhMul_(fs);
         lineH = std::max(lineH, lh);
 
-        size_t runByteStart = byteAcc;
+        std::size_t runByteStart = byteAcc;
 
-        for (size_t gi = 0; gi < glyphs.size(); ++gi) {
+        for (std::size_t gi = 0; gi < glyphs.size(); ++gi) {
             auto &g = glyphs[gi];
 
             // ── 计算该 glyph 对应的字节偏移 ──
-            size_t gBytePos = runByteStart;
+            std::size_t gBytePos = runByteStart;
             {
-                size_t consumed = 0;
-                size_t gi2 = 0;
-                size_t bp = runByteStart;
+                std::size_t consumed = 0;
+                std::size_t gi2 = 0;
+                std::size_t bp = runByteStart;
                 auto &rt = content_[ri].text;
                 while (gi2 < gi && bp < plainText_.size() && consumed < rt.size()) {
                     unsigned char c = (unsigned char)rt[consumed];
-                    size_t cl = 1;
+                    std::size_t cl = 1;
                     if ((c & 0x80) == 0)
                         cl = 1;
                     else if ((c & 0xE0) == 0xC0)
@@ -268,7 +264,7 @@ void TextView::rebuildLines_(float availWidth) {
                 for (int j = (int)line.glyphs.size() - 1; j >= 0; --j) {
                     auto &plg = line.glyphs[j];
                     if (plg.byteOffset < plainText_.size() && plainText_[plg.byteOffset] == ' ') {
-                        size_t nextStart = plg.byteOffset + plg.byteLen;
+                        std::size_t nextStart = plg.byteOffset + plg.byteLen;
                         line.width = plg.x + plg.advance;
                         line.height = lineH;
                         line.endByte = nextStart;
@@ -305,20 +301,20 @@ void TextView::rebuildLines_(float availWidth) {
                 // 无空格可回退（纯 CJK 等）→ 按 glyph 断：溢出字形移入新行，
                 // 行宽不再无限溢出 availWidth（中日文此前永不折行）
                 // ── 禁则回退：行首/行尾禁则字符不落边界，断点前移 ──
-                size_t brk = line.glyphs.size();
-                auto headForbidden = [&](size_t idx) {
+                std::size_t brk = line.glyphs.size();
+                auto headForbidden = [&](std::size_t idx) {
                     // idx==glyphs.size() 表示即将新开的行首 = 溢出字形
-                    size_t hb = (idx < line.glyphs.size()) ? line.glyphs[idx].byteOffset : gBytePos;
+                    std::size_t hb = (idx < line.glyphs.size()) ? line.glyphs[idx].byteOffset : gBytePos;
                     return charInSet_(plainText_, hb, kKinsokuLead_);
                 };
-                auto tailForbidden = [&](size_t idx) {
+                auto tailForbidden = [&](std::size_t idx) {
                     // 留在本行行尾的 glyph
                     return charInSet_(plainText_, line.glyphs[idx].byteOffset, kKinsokuTrail_);
                 };
                 while (brk > 1 && (headForbidden(brk) || tailForbidden(brk - 1))) --brk;
 
                 std::vector<LineGlyph> tail(line.glyphs.begin() + brk, line.glyphs.end());
-                size_t nextStart = (brk < line.glyphs.size()) ? line.glyphs[brk].byteOffset : gBytePos;
+                std::size_t nextStart = (brk < line.glyphs.size()) ? line.glyphs[brk].byteOffset : gBytePos;
                 line.endByte = nextStart;
                 line.width = brk > 0 ? line.glyphs[brk - 1].x + line.glyphs[brk - 1].advance : 0.0f;
                 line.height = lineH;
@@ -485,8 +481,8 @@ void TextView::onDraw(Graphics &graphics) {
         // ── 查找高亮（第三态，垫底于选区与文字；跨折行命中按行内字节交集分段）──
         if (!highlights_.empty()) {
             for (auto &hl : highlights_) {
-                size_t s = std::max(hl.first, line.startByte);
-                size_t e = std::min(hl.second, line.endByte);
+                std::size_t s = std::max(hl.first, line.startByte);
+                std::size_t e = std::min(hl.second, line.endByte);
                 if (s < e) {
                     float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
                     float xe = (e >= line.endByte) ? line.width : xForByte_(e);
@@ -496,8 +492,8 @@ void TextView::onDraw(Graphics &graphics) {
         }
         // ── 当前命中（查找导航 第 k/N 处）：盖在琥珀命中之上、文字之下，深琥珀区分 ──
         if (activeStart_ < activeEnd_) {
-            size_t s = std::max(activeStart_, line.startByte);
-            size_t e = std::min(activeEnd_, line.endByte);
+            std::size_t s = std::max(activeStart_, line.startByte);
+            std::size_t e = std::min(activeEnd_, line.endByte);
             if (s < e) {
                 float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
                 float xe = (e >= line.endByte) ? line.width : xForByte_(e);
@@ -506,7 +502,7 @@ void TextView::onDraw(Graphics &graphics) {
         }
 
         // ── 按连续 run 分组绘制 ──
-        for (size_t gi = 0; gi < line.glyphs.size();) {
+        for (std::size_t gi = 0; gi < line.glyphs.size();) {
             auto &lg = line.glyphs[gi];
             auto &rs = runShapes_[lg.runIndex];
             if (!rs.layoutResult) {
@@ -529,7 +525,7 @@ void TextView::onDraw(Graphics &graphics) {
 
             // 收集同 run 连续 glyphs（此时 UV 已就绪）
             std::vector<ShapedGlyph> batch;
-            size_t gi0 = gi;    // batch 首字形（选区交集判定用）
+            std::size_t gi0 = gi;    // batch 首字形（选区交集判定用）
             float runStartX = inner.x + line.glyphs[gi].x;
             while (gi < line.glyphs.size() && line.glyphs[gi].runIndex == lg.runIndex) {
                 auto &lg2 = line.glyphs[gi];
@@ -545,12 +541,12 @@ void TextView::onDraw(Graphics &graphics) {
             // ── 选区高亮（run 字节区间与选区交集；带高贴合字形墨迹带——
             //    baseY 的居中偏移以字形实迹为准，整行带高亮会偏移失真）──
             if (selectionStart_ != cursorPos_ && gi > gi0) {
-                size_t selS = std::min(selectionStart_, cursorPos_);
-                size_t selE = std::max(selectionStart_, cursorPos_);
-                size_t runFirstByte = line.glyphs[gi0].byteOffset;
-                size_t runLastEnd = line.glyphs[gi - 1].byteOffset + line.glyphs[gi - 1].byteLen;
-                size_t s2 = std::max(selS, runFirstByte);
-                size_t e2 = std::min(selE, runLastEnd);
+                std::size_t selS = std::min(selectionStart_, cursorPos_);
+                std::size_t selE = std::max(selectionStart_, cursorPos_);
+                std::size_t runFirstByte = line.glyphs[gi0].byteOffset;
+                std::size_t runLastEnd = line.glyphs[gi - 1].byteOffset + line.glyphs[gi - 1].byteLen;
+                std::size_t s2 = std::max(selS, runFirstByte);
+                std::size_t e2 = std::min(selE, runLastEnd);
                 if (s2 < e2) {
                     float xs = (s2 == runFirstByte) ? runStartX : inner.x + xForByte_(s2);
                     float xe = (e2 == runLastEnd) ? runEndX : inner.x + xForByte_(e2);
@@ -595,9 +591,9 @@ void TextView::onDraw(Graphics &graphics) {
     if (focused_ && cursorVisible_) {
         if (updateCursorBlink_()) markDirty();
         float cx = inner.x + xForByte_(cursorPos_);
-        size_t cl = lineForByte_(cursorPos_);
+        std::size_t cl = lineForByte_(cursorPos_);
         float cy = inner.y;
-        for (size_t i = 0; i < cl && i < lines_.size(); ++i) cy += lines_[i].height;
+        for (std::size_t i = 0; i < cl && i < lines_.size(); ++i) cy += lines_[i].height;
         float ch = cl < lines_.size() ? lines_[cl].height : lhMul_(16.0f);
         graphics.drawRect({cx, cy, 1.5f, ch}, tvp_.cursorColor);
     }
@@ -651,7 +647,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
     // ── 鼠标交互（拖选/点击定位/双击选词；选区状态自持，服务只管全局互斥）──
     if (event.type == DispatchEvent::Type::PointerDown) {
         // 落锚 + 点击定位光标；不消费（Tap/聚焦链照常）
-        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        std::size_t off = hitByteForPoint_(event.globalX, event.globalY);
         cursorPos_ = selectionStart_ = off;
         draggingSelection_ = true;
         if (auto *svc = selectionOf(*this)) svc->begin(this, off);
@@ -661,7 +657,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::PanMove) {
         // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
         if (!draggingSelection_) return View::onEvent(event);
-        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        std::size_t off = hitByteForPoint_(event.globalX, event.globalY);
         if (off != cursorPos_) {
             cursorPos_ = off;
             markDirty();
@@ -678,13 +674,13 @@ bool TextView::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::Tap) {
         // 双击选词（连续 Tap 间隔 <400ms 且位移 <6px；事件层 DoubleTap 为
         // 预留类型无生成点，组件内自检同 Text）；单击已由 PointerDown 定位
-        size_t off = hitByteForPoint_(event.globalX, event.globalY);
+        std::size_t off = hitByteForPoint_(event.globalX, event.globalY);
         // ── 链接命中：readOnly 点击 / 编辑态 Ctrl+点击 → onLinkClick ──
         // 编辑态普通点击仍走光标定位（编辑优先）；命中即消费不冒泡，
         // 双击计时锚清零防链接上双击残留误判词选
         bool ctrlTap = (event.modifiers & 0x01) != 0;
         if ((tvp_.readOnly || ctrlTap) && off < plainText_.size()) {
-            size_t ri = 0, rb = 0;
+            std::size_t ri = 0, rb = 0;
             locateByte_(off, ri, rb);
             if (ri < content_.size() && !content_[ri].link.empty()) {
                 if (handlers.onLinkClick) handlers.onLinkClick(LinkArgs{content_[ri].link});
@@ -848,8 +844,8 @@ bool TextView::onEvent(const DispatchEvent &event) {
 
         // maxLength 检查
         if (tvp_.maxLength > 0) {
-            size_t cc = 0;
-            for (size_t i = 0; i < plainText_.size();) {
+            std::size_t cc = 0;
+            for (std::size_t i = 0; i < plainText_.size();) {
                 unsigned char c = (unsigned char)plainText_[i];
                 if ((c & 0x80) == 0)
                     i += 1;
@@ -863,7 +859,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
                     i++;
                 cc++;
             }
-            if (cc >= (size_t)tvp_.maxLength) return true;
+            if (cc >= (std::size_t)tvp_.maxLength) return true;
         }
 
         // Unicode codepoint → UTF-8
@@ -919,7 +915,7 @@ void TextView::focus() {
 void TextView::insertAtCursor_(const std::string &utf8) {
     if (selectionStart_ != cursorPos_) deleteSelection_();
 
-    size_t ri, off;
+    std::size_t ri, off;
     locateByte_(cursorPos_, ri, off);
 
     // 继承光标所在 run 的 style；链接身份不继承（新输入文本不是链接）
@@ -968,7 +964,7 @@ void TextView::insertRunsAtCursor_(const std::vector<TextRun> &runs) {
 
     if (selectionStart_ != cursorPos_) deleteSelection_();
 
-    size_t ri, off;
+    std::size_t ri, off;
     locateByte_(cursorPos_, ri, off);
 
     if (ri >= content_.size()) {
@@ -981,13 +977,13 @@ void TextView::insertRunsAtCursor_(const std::vector<TextRun> &runs) {
         std::string curLink = run.link;    // 切分段继承链接身份：与 insertAtCursor_ 同语义——
                                            // 在链接段内粘贴不撕断前后段链接
         content_.erase(content_.begin() + ri);
-        size_t at = ri;
+        std::size_t at = ri;
         if (!before.empty()) content_.insert(content_.begin() + at++, {before, cur, curLink});
         for (auto &r : items) content_.insert(content_.begin() + at++, r);
         if (!after.empty()) content_.insert(content_.begin() + at, {after, cur, curLink});
     }
 
-    size_t added = 0;
+    std::size_t added = 0;
     for (auto &r : items) added += r.text.size();
     cursorPos_ += added;
     selectionStart_ = cursorPos_;
@@ -1005,11 +1001,11 @@ void TextView::deleteBeforeCursor_() {
     }
     if (cursorPos_ == 0) return;
 
-    size_t prev = cursorPos_ - 1;
+    std::size_t prev = cursorPos_ - 1;
     while (prev > 0 && (plainText_[prev] & 0xC0) == 0x80) prev--;
-    size_t delLen = cursorPos_ - prev;
+    std::size_t delLen = cursorPos_ - prev;
 
-    size_t ri, off;
+    std::size_t ri, off;
     locateByte_(prev, ri, off);
     if (ri >= content_.size()) return;
 
@@ -1037,11 +1033,11 @@ void TextView::deleteAfterCursor_() {
     }
     if (cursorPos_ >= plainText_.size()) return;
 
-    size_t next = cursorPos_ + 1;
+    std::size_t next = cursorPos_ + 1;
     while (next < plainText_.size() && (plainText_[next] & 0xC0) == 0x80) next++;
-    size_t delLen = next - cursorPos_;
+    std::size_t delLen = next - cursorPos_;
 
-    size_t ri, off;
+    std::size_t ri, off;
     locateByte_(cursorPos_, ri, off);
     if (ri >= content_.size()) return;
 
@@ -1059,11 +1055,11 @@ void TextView::deleteAfterCursor_() {
  * 跨 run 时合并选区首尾 run。
  */
 void TextView::deleteSelection_() {
-    size_t s = std::min(selectionStart_, cursorPos_);
-    size_t e = std::max(selectionStart_, cursorPos_);
+    std::size_t s = std::min(selectionStart_, cursorPos_);
+    std::size_t e = std::max(selectionStart_, cursorPos_);
     if (s == e) return;
 
-    size_t riS, offS, riE, offE;
+    std::size_t riS, offS, riE, offE;
     locateByte_(s, riS, offS);
     locateByte_(e, riE, offE);
 
@@ -1101,15 +1097,15 @@ void TextView::moveCursorRight_() {
 void TextView::moveCursorUp_() {
     if (lines_.empty()) return;
     float cx = xForByte_(cursorPos_);
-    size_t cl = lineForByte_(cursorPos_);
+    std::size_t cl = lineForByte_(cursorPos_);
     if (cl == 0) {
         cursorPos_ = 0;
         selectionStart_ = 0;
         return;
     }
-    size_t pl = cl - 1;
+    std::size_t pl = cl - 1;
     float best = 1e9f;
-    size_t bestB = lines_[pl].startByte;
+    std::size_t bestB = lines_[pl].startByte;
     for (auto &lg : lines_[pl].glyphs) {
         float d = std::abs(lg.x + lg.advance * 0.5f - cx);
         if (d < best) {
@@ -1124,15 +1120,15 @@ void TextView::moveCursorUp_() {
 void TextView::moveCursorDown_() {
     if (lines_.empty()) return;
     float cx = xForByte_(cursorPos_);
-    size_t cl = lineForByte_(cursorPos_);
+    std::size_t cl = lineForByte_(cursorPos_);
     if (cl + 1 >= lines_.size()) {
         cursorPos_ = plainText_.size();
         selectionStart_ = cursorPos_;
         return;
     }
-    size_t nl = cl + 1;
+    std::size_t nl = cl + 1;
     float best = 1e9f;
-    size_t bestB = lines_[nl].startByte;
+    std::size_t bestB = lines_[nl].startByte;
     for (auto &lg : lines_[nl].glyphs) {
         float d = std::abs(lg.x + lg.advance * 0.5f - cx);
         if (d < best) {
@@ -1151,8 +1147,8 @@ void TextView::selectAll_() {
 
 std::string TextView::selectionString_() const {
     if (selectionStart_ == cursorPos_) return plainText_;    // 无选区 = 全文
-    size_t s = std::min(selectionStart_, cursorPos_);
-    size_t e = std::max(selectionStart_, cursorPos_);
+    std::size_t s = std::min(selectionStart_, cursorPos_);
+    std::size_t e = std::max(selectionStart_, cursorPos_);
     return plainText_.substr(s, e - s);    // 区间与选区字节模型同源
 }
 
@@ -1160,13 +1156,13 @@ std::vector<TextRun> TextView::selectionRuns_() const {
     std::vector<TextRun> out;
     if (content_.empty()) return out;    // 空文档（无参构造即此态）——不得索引 content_
     // 与 selectionString_ 同语义：无选区 = 全文（样式保留复制全文）
-    size_t s = 0, e = plainText_.size();
+    std::size_t s = 0, e = plainText_.size();
     if (selectionStart_ != cursorPos_) {
         s = std::min(selectionStart_, cursorPos_);
         e = std::max(selectionStart_, cursorPos_);
     }
     if (s >= e) return out;
-    size_t riS, offS, riE, offE;
+    std::size_t riS, offS, riE, offE;
     locateByte_(s, riS, offS);
     locateByte_(e, riE, offE);
     if (riS == riE) {
@@ -1176,7 +1172,7 @@ std::vector<TextRun> TextView::selectionRuns_() const {
     }
     std::string head = content_[riS].text.substr(offS);
     if (!head.empty()) out.push_back({std::move(head), content_[riS].style, content_[riS].link});
-    for (size_t i = riS + 1; i < riE; ++i)
+    for (std::size_t i = riS + 1; i < riE; ++i)
         if (!content_[i].text.empty()) out.push_back(content_[i]);
     std::string tail = content_[riE].text.substr(0, offE);
     if (!tail.empty()) out.push_back({std::move(tail), content_[riE].style, content_[riE].link});
@@ -1216,7 +1212,7 @@ void TextView::undo_() {
     redoStack_.push_back(std::move(content_));
     redoCursor_.push_back(cursorPos_);
     content_ = std::move(undoStack_.back());
-    size_t docBytes = 0;
+    std::size_t docBytes = 0;
     for (auto &r : content_) docBytes += r.text.size();
     cursorPos_ = std::min(undoCursor_.back(), docBytes);
     undoStack_.pop_back();
@@ -1232,7 +1228,7 @@ void TextView::redo_() {
     undoStack_.push_back(std::move(content_));
     undoCursor_.push_back(cursorPos_);
     content_ = std::move(redoStack_.back());
-    size_t docBytes = 0;
+    std::size_t docBytes = 0;
     for (auto &r : content_) docBytes += r.text.size();
     cursorPos_ = std::min(redoCursor_.back(), docBytes);
     redoStack_.pop_back();
@@ -1264,20 +1260,20 @@ void TextView::toggleUnderline_(TextStyle &s) {
 void TextView::toggleStyle_(void (*mod)(TextStyle &)) {
     if (content_.empty()) return;
 
-    size_t s = std::min(selectionStart_, cursorPos_);
-    size_t e = std::max(selectionStart_, cursorPos_);
+    std::size_t s = std::min(selectionStart_, cursorPos_);
+    std::size_t e = std::max(selectionStart_, cursorPos_);
 
     if (s == e) {
-        size_t ri, off;
+        std::size_t ri, off;
         locateByte_(s > 0 ? s - 1 : 0, ri, off);
         if (ri < content_.size()) mod(content_[ri].style);
         return;
     }
 
-    for (size_t ri = 0; ri < content_.size(); ++ri) {
-        size_t runS = 0;
-        for (size_t j = 0; j < ri; ++j) runS += content_[j].text.size();
-        size_t runE = runS + content_[ri].text.size();
+    for (std::size_t ri = 0; ri < content_.size(); ++ri) {
+        std::size_t runS = 0;
+        for (std::size_t j = 0; j < ri; ++j) runS += content_[j].text.size();
+        std::size_t runE = runS + content_[ri].text.size();
         if (runE > s && runS < e) { mod(content_[ri].style); }
     }
 }
@@ -1288,8 +1284,8 @@ void TextView::toggleStyle_(void (*mod)(TextStyle &)) {
 /**
  * @brief 根据字节偏移找到所在行
  */
-size_t TextView::lineForByte_(size_t pos) const {
-    for (size_t i = 0; i < lines_.size(); ++i)
+std::size_t TextView::lineForByte_(std::size_t pos) const {
+    for (std::size_t i = 0; i < lines_.size(); ++i)
         if (pos >= lines_[i].startByte && pos <= lines_[i].endByte) return i;
     if (!lines_.empty() && pos >= lines_.back().endByte) return lines_.size() - 1;
     return 0;
@@ -1301,14 +1297,14 @@ size_t TextView::lineForByte_(size_t pos) const {
  * 行盒逐行累加与 onDraw 的 drawY 推进同式（lh 兜底 lhMul_(16)），保证
  * 揭示矩形与绘制几何共源——查找定位/光标跟随不因两套行高口径漂移。
  */
-Rect TextView::offsetRect(size_t byteOffset) const {
+Rect TextView::offsetRect(std::size_t byteOffset) const {
     Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top,
                   frame.width - props.padding.horizontal(), frame.height - props.padding.vertical()};
     if (lines_.empty()) return inner;
-    size_t li = lineForByte_(byteOffset);
+    std::size_t li = lineForByte_(byteOffset);
     if (li >= lines_.size()) li = lines_.size() - 1;
     float y = inner.y;
-    for (size_t i = 0; i < li; ++i) y += lines_[i].height > 0 ? lines_[i].height : lhMul_(16.0f);
+    for (std::size_t i = 0; i < li; ++i) y += lines_[i].height > 0 ? lines_[i].height : lhMul_(16.0f);
     float h = lines_[li].height > 0 ? lines_[li].height : lhMul_(16.0f);
     return {inner.x, y, inner.width, h};
 }
@@ -1318,13 +1314,13 @@ Rect TextView::offsetRect(size_t byteOffset) const {
  * @param pos plainText_ 中的字节偏移
  * @return 相对于行首的 X 像素位置
  */
-float TextView::xForByte_(size_t pos) const {
+float TextView::xForByte_(std::size_t pos) const {
     if (lines_.empty()) return 0;
-    size_t li = lineForByte_(pos);
+    std::size_t li = lineForByte_(pos);
     if (li >= lines_.size()) return lines_.back().width;
     auto &line = lines_[li];
     for (auto &lg : line.glyphs) {
-        size_t end = lg.byteOffset + lg.byteLen;
+        std::size_t end = lg.byteOffset + lg.byteLen;
         if (pos <= lg.byteOffset) return lg.x;
         if (pos <= end) return lg.x + lg.advance;
     }
@@ -1336,13 +1332,13 @@ float TextView::xForByte_(size_t pos) const {
 // inner 内容原点 + 逐行高度步进；LineGlyph.x 为行内落笔、byteOffset 为
 // plainText_ 字节偏移，天然 UTF-8 边界）
 // ============================================================================
-size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
+std::size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
     if (lines_.empty() || plainText_.empty()) return 0;
     float innerX = frame.x + props.padding.left;
     float innerY = frame.y + props.padding.top;
     float localX = globalX - innerX;
     // y → 行：累加行高首个覆盖行（越界取首/末行，自然收敛）
-    size_t li = 0;
+    std::size_t li = 0;
     float y = innerY;
     for (li = 0; li < lines_.size(); ++li) {
         if (globalY < y + lines_[li].height) break;
@@ -1352,7 +1348,7 @@ size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
     const auto &line = lines_[li];
     if (line.glyphs.empty()) return line.startByte;
     // x → 最近边界扫描：各字形落笔 + 行尾末笔（宽度边界）
-    size_t bestOff = line.startByte;
+    std::size_t bestOff = line.startByte;
     float bestDist = std::numeric_limits<float>::max();
     for (const auto &lg : line.glyphs) {
         float d = std::abs(localX - lg.x);
@@ -1368,9 +1364,9 @@ size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
 }
 
 // ── Selectable 接口（选区状态自持；服务只做全局互斥登记）──
-size_t TextView::hitOffset(float globalX, float globalY) { return hitByteForPoint_(globalX, globalY); }
+std::size_t TextView::hitOffset(float globalX, float globalY) { return hitByteForPoint_(globalX, globalY); }
 
-std::vector<Rect> TextView::selectionRects(size_t startOff, size_t endOff) {
+std::vector<Rect> TextView::selectionRects(std::size_t startOff, std::size_t endOff) {
     std::vector<Rect> out;
     startOff = clampToUtf8Boundary(plainText_, startOff);
     endOff = clampToUtf8Boundary(plainText_, endOff);
@@ -1380,8 +1376,8 @@ std::vector<Rect> TextView::selectionRects(size_t startOff, size_t endOff) {
     float y = innerY;
     for (const auto &line : lines_) {
         // 本行与选区的字节交集（xForByte_ 返回行内坐标）
-        size_t s = std::max(startOff, line.startByte);
-        size_t e = std::min(endOff, line.endByte);
+        std::size_t s = std::max(startOff, line.startByte);
+        std::size_t e = std::min(endOff, line.endByte);
         if (s < e) {
             float xs = (s <= line.startByte) ? 0.0f : xForByte_(s);
             float xe = (e >= line.endByte) ? line.width : xForByte_(e);
@@ -1392,7 +1388,7 @@ std::vector<Rect> TextView::selectionRects(size_t startOff, size_t endOff) {
     return out;
 }
 
-std::string TextView::selectedBytes(size_t startOff, size_t endOff) {
+std::string TextView::selectedBytes(std::size_t startOff, std::size_t endOff) {
     startOff = clampToUtf8Boundary(plainText_, startOff);
     endOff = clampToUtf8Boundary(plainText_, endOff);
     if (startOff >= endOff) return {};
@@ -1437,7 +1433,7 @@ bool TextView::updateCursorBlink_() {
  * UTF-8 字节精确匹配（plainText_.find）；空关键词/无匹配返回 npos。
  * JS 侧经 findText(id, needle, from) 全局函数可达。
  */
-size_t TextView::find(const std::string &needle, size_t from) const {
+std::size_t TextView::find(const std::string &needle, std::size_t from) const {
     if (needle.empty() || from >= plainText_.size()) return std::string::npos;
     return plainText_.find(needle, from);
 }
@@ -1449,10 +1445,10 @@ size_t TextView::find(const std::string &needle, size_t from) const {
  * 文本尾（即整篇最后一个命中，供"从末尾回绕"直接调用）。与 find 对称，
  * 两者即 上一个/下一个 导航的完整原语；空关键词/无匹配返回 npos。
  */
-size_t TextView::findPrev(const std::string &needle, size_t before) const {
+std::size_t TextView::findPrev(const std::string &needle, std::size_t before) const {
     if (needle.empty() || plainText_.empty() || before == 0) return std::string::npos;
     // rfind 的 pos 为"命中起点允许的最大值"：before−1 保证严格左于 before
-    size_t from = (before == std::string::npos) ? std::string::npos : before - 1;
+    std::size_t from = (before == std::string::npos) ? std::string::npos : before - 1;
     return plainText_.rfind(needle, from);
 }
 
@@ -1462,7 +1458,7 @@ size_t TextView::findPrev(const std::string &needle, size_t before) const {
  * 记录关键词到 highlightNeedle_：后续编辑触发 rebuild_ 时按新文本重扫，
  * 高亮跨编辑存活且偏移自动自愈。返回命中数。
  */
-size_t TextView::highlightAll(const std::string &needle) {
+std::size_t TextView::highlightAll(const std::string &needle) {
     highlightNeedle_ = needle;
     refreshHighlights_();
     markDirty();
@@ -1484,7 +1480,7 @@ void TextView::clearHighlight() {
  * 绘制在琥珀高亮之上（深琥珀），跨组件导航时新旧组件各自清除/设置。
  * len==0 或起点越界 = 清除；终点夹到文档尾。
  */
-void TextView::setActiveMatch(size_t start, size_t len) {
+void TextView::setActiveMatch(std::size_t start, std::size_t len) {
     if (len == 0 || start >= plainText_.size()) {
         if (activeStart_ < activeEnd_) {
             activeStart_ = activeEnd_ = 0;
@@ -1500,7 +1496,7 @@ void TextView::setActiveMatch(size_t start, size_t len) {
 void TextView::refreshHighlights_() {
     highlights_.clear();
     if (highlightNeedle_.empty()) return;
-    size_t pos = 0;
+    std::size_t pos = 0;
     while ((pos = plainText_.find(highlightNeedle_, pos)) != std::string::npos) {
         highlights_.push_back({pos, pos + highlightNeedle_.size()});
         pos += highlightNeedle_.size();
@@ -1526,13 +1522,13 @@ void TextView::fireChange_() {
 // 属性 + 绑定
 // ============================================================================
 std::string TextView::getProperty(const char *name) const {
-    if (std::strcmp(name, "value") == 0) return plainText_;
+    if (strcmp(name, "value") == 0) return plainText_;
     return View::getProperty(name);
 }
 
 
 bool TextView::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "value") == 0) {
+    if (strcmp(name, "value") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             setValue(*s);
             markDirty();

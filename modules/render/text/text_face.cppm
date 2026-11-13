@@ -1,8 +1,20 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
-#include <string>
-#include <vector>
-#include <cstdint>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <hb.h>
@@ -29,18 +41,18 @@ export {
         virtual FontMetrics getMetrics(float size) = 0;
 
         /** @brief 加载字形轮廓 (FT_Load_Glyph) */
-        virtual bool loadGlyph(uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) = 0;
+        virtual bool loadGlyph(std::uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) = 0;
 
         /** @brief 获取字形水平步进 */
-        virtual float glyphAdvanceX(uint32_t gid) = 0;
+        virtual float glyphAdvanceX(std::uint32_t gid) = 0;
         /** @brief 获取字形左边距 */
-        virtual float glyphBearingX(uint32_t gid) = 0;
+        virtual float glyphBearingX(std::uint32_t gid) = 0;
         /** @brief 获取字形上边距 */
-        virtual float glyphBearingY(uint32_t gid) = 0;
+        virtual float glyphBearingY(std::uint32_t gid) = 0;
         /** @brief 获取字形轮廓宽度 (像素) */
-        virtual uint32_t glyphOutlineWidth() = 0;
+        virtual std::uint32_t glyphOutlineWidth() = 0;
         /** @brief 获取字形轮廓高度 (像素) */
-        virtual uint32_t glyphOutlineHeight() = 0;
+        virtual std::uint32_t glyphOutlineHeight() = 0;
 
         /** @brief 获取字形轮廓指针 (供 msdfgen 使用) */
         virtual void *outline() = 0;
@@ -52,7 +64,7 @@ export {
         virtual std::string_view familyName() const = 0;
 
         /** @brief 检查字体是否包含指定字符 */
-        virtual bool hasGlyph(uint32_t codepoint) const = 0;
+        virtual bool hasGlyph(std::uint32_t codepoint) const = 0;
     };
 
     /**
@@ -68,16 +80,16 @@ export {
         FreeTypeTextFace &operator=(const FreeTypeTextFace &) = delete;
 
         FontMetrics getMetrics(float size) override;
-        bool loadGlyph(uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) override;
-        float glyphAdvanceX(uint32_t gid) override;
-        float glyphBearingX(uint32_t gid) override;
-        float glyphBearingY(uint32_t gid) override;
-        uint32_t glyphOutlineWidth() override;
-        uint32_t glyphOutlineHeight() override;
+        bool loadGlyph(std::uint32_t gid, int loadFlags = FT_LOAD_TARGET_LCD) override;
+        float glyphAdvanceX(std::uint32_t gid) override;
+        float glyphBearingX(std::uint32_t gid) override;
+        float glyphBearingY(std::uint32_t gid) override;
+        std::uint32_t glyphOutlineWidth() override;
+        std::uint32_t glyphOutlineHeight() override;
         void *outline() override;
         hb_font_t *harfbuzzFont() override;
         std::string_view familyName() const override;
-        bool hasGlyph(uint32_t codepoint) const override;
+        bool hasGlyph(std::uint32_t codepoint) const override;
 
         /** @brief 获取原始 FT_Face (供 msdfgen 等需要直接访问的场景) */
         FT_Face ftFace() const { return ftFace_; }

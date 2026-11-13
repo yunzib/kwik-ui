@@ -1,6 +1,5 @@
 module;
 
-#include <algorithm>
 
 module kwik.element.layer_stack;
 

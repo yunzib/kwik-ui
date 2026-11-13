@@ -5,19 +5,17 @@
  * 包含 ShapedGlyph（字形）、TextLayoutLine（行元数据）、
  * TextLayoutResult（排版结果）及配套配置结构体。
  */
-module;
-#include <cstdint>
 export module kwik.render.text.types;
 import kwik.core.types;
 import std;
 export {
     // 排版版本号：DPI 等影响坐标准确性的输入变化时递增，
     // 所有 TextLayoutResult 缓存据其失效（matchesKey 内部比对）
-    inline uint64_t &textLayoutEpochRef() {    // 内部存储（单例，跨 TU 唯一）
-        static uint64_t epoch = 0;
+    inline std::uint64_t &textLayoutEpochRef() {    // 内部存储（单例，跨 TU 唯一）
+        static std::uint64_t epoch = 0;
         return epoch;
     }
-    inline uint64_t currentTextLayoutEpoch() {
+    inline std::uint64_t currentTextLayoutEpoch() {
         return textLayoutEpochRef();
     }
     inline void bumpTextLayoutEpoch() {
@@ -65,7 +63,7 @@ export {
      */
     struct ShapedGlyph {
         FontId fontId = kInvalidFontId;      ///< 所属字体
-        uint32_t glyphIndex = 0;             ///< 字形索引（FreeType glyph ID）
+        std::uint32_t glyphIndex = 0;             ///< 字形索引（FreeType glyph ID）
         float fontSize = 0;                  ///< 字号
         float x = 0, y = 0;                  ///< 绘制坐标（baseline 已烘焙）
         float bearingY = 0;                  ///< 墨迹顶到基线的逻辑距离（墨迹在基线上方为正）。
@@ -76,9 +74,9 @@ export {
         float width = 0, height = 0;         ///< 字形 ink 包围盒
         float uvLeft = 0, uvRight = 0;       ///< 图集 UV（x 方向）
         float uvTop = 0, uvBottom = 0;       ///< 图集 UV（y 方向）
-        uint32_t cluster = 0;                ///< 原始文本 UTF-8 字节偏移
-        uint32_t pageIndex = 0;
-        uint8_t numBytes = 1;      ///< cluster 处码点的 UTF-8 字节长（行尾 clusterEnd 码点安全用）
+        std::uint32_t cluster = 0;                ///< 原始文本 UTF-8 字节偏移
+        std::uint32_t pageIndex = 0;
+        std::uint8_t numBytes = 1;      ///< cluster 处码点的 UTF-8 字节长（行尾 clusterEnd 码点安全用）
         bool isNewline = false;    ///< 是否为 \n 标记字形（不渲染）
         bool isSpace = false;      ///< 是否为空格（U+0020 / U+3000），Justify 词间拉伸用
         bool noLineStart = false;  ///< 行首禁则（闭标点类，不可居行首），shaper 按码点表标记
@@ -95,13 +93,13 @@ export {
      * isHardBreak 标记由 \n 产生的强制断行。
      */
     struct TextLayoutLine {
-        uint32_t glyphStart = 0;      ///< result.glyphs[] 起始索引
-        uint32_t glyphCount = 0;      ///< 本行字形数
+        std::uint32_t glyphStart = 0;      ///< result.glyphs[] 起始索引
+        std::uint32_t glyphCount = 0;      ///< 本行字形数
         float width = 0;              ///< 行宽度（px）
         float height = 0;             ///< 行高度（px，= maxBottom - minY）
         float baseline = 0;           ///< baseline 偏移（已烘焙到 glyph.y）
-        uint32_t clusterStart = 0;    ///< 行首字符 cluster
-        uint32_t clusterEnd = 0;      ///< 行尾+1 cluster（不含）
+        std::uint32_t clusterStart = 0;    ///< 行首字符 cluster
+        std::uint32_t clusterEnd = 0;      ///< 行尾+1 cluster（不含）
         bool isHardBreak = false;     ///< 是否由 \n 断行
     };
 
@@ -120,7 +118,7 @@ export {
         bool truncated = false;    ///< 是否因 maxLines 截断（截断行 = lines.back()）
 
         // ── 缓存标识（pipeline 填充，element 用于跳过重排版） ──
-        size_t textHash = 0;
+        std::size_t textHash = 0;
         FontId fontId = kInvalidFontId;
         float fontSize = 0;
         float maxWidth = 0;
@@ -132,7 +130,7 @@ export {
         int maxLines = 0;
         int fontWeight = 3;
         int fontStyle = 0;
-        uint64_t layoutEpoch = 0;    // 排版时版本快照（pipeline.layoutText 回填）
+        std::uint64_t layoutEpoch = 0;    // 排版时版本快照（pipeline.layoutText 回填）
 
         bool matchesKey(const std::string &text, FontId fid, float fs, const TextLayoutConfig &cfg) const {
             return layoutEpoch == currentTextLayoutEpoch() && textHash == std::hash<std::string>{}(text)
@@ -150,18 +148,18 @@ export {
      * @brief 图集打包结果
      */
     struct PackResult {
-        uint32_t x = 0;
-        uint32_t y = 0;
+        std::uint32_t x = 0;
+        std::uint32_t y = 0;
     };
 
     /**
      * @brief 图集上传任务（每帧被后端消费）
      */
     struct UploadJob {
-        std::vector<uint8_t> pixels;    ///< RGBA 像素数据
-        uint32_t pageIndex = 0;         ///< 目标页索引
-        uint32_t dstX = 0, dstY = 0;    ///< 在图集中的位置
-        uint32_t w = 0, h = 0;          ///< 尺寸
+        std::vector<std::uint8_t> pixels;    ///< RGBA 像素数据
+        std::uint32_t pageIndex = 0;         ///< 目标页索引
+        std::uint32_t dstX = 0, dstY = 0;    ///< 在图集中的位置
+        std::uint32_t w = 0, h = 0;          ///< 尺寸
     };
 
     /**
@@ -170,7 +168,7 @@ export {
     struct GlyphInfo {
         float advanceX = 0;
         float width = 0, height = 0;
-        std::vector<uint8_t> pixelData;    ///< FreeType LCD 子像素 RGBA
+        std::vector<std::uint8_t> pixelData;    ///< FreeType LCD 子像素 RGBA
     };
 
     /**

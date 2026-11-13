@@ -4,8 +4,6 @@
 // 树相关流程全部在 KwikRuntime（kwik_runtime.cpp）。
 // ============================================================================
 module;
-#include <chrono>
-#include <memory>
 
 module kwik.app;
 

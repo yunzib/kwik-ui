@@ -11,8 +11,6 @@
 
 module;
 
-#include <algorithm>
-#include <cmath>
 
 module kwik.element.scroll_physics;
 

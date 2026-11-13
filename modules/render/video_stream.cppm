@@ -13,26 +13,13 @@
  * 槽内存为 MemoryBlock：64KiB 对齐、整块独占（满足 VK_EXT_external_memory_host
  * 导入的地址/尺寸对齐，且导入范围不与他人分配共页）；平面偏移/stride 256 对齐。
  */
-module;
-#include <array>
-#include <atomic>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <mutex>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-
 export module kwik.render.video_stream;
 
 import std;
 
 export {
 /** @brief 像素格式（批 1 起 RGBA8/BGRA8 直通；批 2 起 YUV 各格式经着色器转色）*/
-enum class PixelFormat : uint8_t {
+enum class PixelFormat : std::uint8_t {
     RGBA8,    // 4B/px 打包
     BGRA8,    // 4B/px 打包（Windows 采集原生序）
     I420,     // 3 平面 YUV 4:2:0（Y/U/V）
@@ -44,90 +31,90 @@ enum class PixelFormat : uint8_t {
 };
 
 /** @brief YUV→RGB 色彩矩阵（着色器转色；BT.2020 为非恒定亮度版本） */
-enum class YuvMatrix : uint8_t { BT601, BT709, BT2020 };
+enum class YuvMatrix : std::uint8_t { BT601, BT709, BT2020 };
 
 /** @brief 一帧的描述（格式 + 尺寸 + 色彩元数据 + 可选时间戳） */
 struct FrameDesc {
     PixelFormat format = PixelFormat::RGBA8;
-    uint32_t width = 0;
-    uint32_t height = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
     YuvMatrix matrix = YuvMatrix::BT709;
     bool fullRange = false;     // false=limited(16-235) true=full(0-255)
-    int64_t ptsUs = -1;         // 预留；显示端按最新帧，不按 pts 节奏
+    std::int64_t ptsUs = -1;         // 预留；显示端按最新帧，不按 pts 节奏
 };
 
 /** @brief 生产者可写的一块平面视图（data 指向池槽内，stride 为行字节数）*/
 struct PlaneView {
-    uint8_t *data = nullptr;
-    uint32_t stride = 0;    // 行字节数
-    uint32_t width = 0;     // 平面宽（texel）
-    uint32_t height = 0;    // 平面高（texel）
+    std::uint8_t *data = nullptr;
+    std::uint32_t stride = 0;    // 行字节数
+    std::uint32_t width = 0;     // 平面宽（texel）
+    std::uint32_t height = 0;    // 平面高（texel）
 };
 
 /** @brief 单平面在池槽内的布局 */
 struct PlaneLayout {
-    size_t offset = 0;          // 距槽基址偏移（256 对齐）
-    uint32_t stride = 0;        // 行字节数（256 对齐）
-    uint32_t width = 0;         // 平面宽（texel）
-    uint32_t height = 0;        // 平面高（texel）
-    uint32_t bytesPerTexel = 0;
+    std::size_t offset = 0;          // 距槽基址偏移（256 对齐）
+    std::uint32_t stride = 0;        // 行字节数（256 对齐）
+    std::uint32_t width = 0;         // 平面宽（texel）
+    std::uint32_t height = 0;        // 平面高（texel）
+    std::uint32_t bytesPerTexel = 0;
 };
 
 /** @brief 帧内存布局 — 纯函数，按格式推导各平面（含奇数尺寸；4:2:2 校验偶宽）*/
 struct FrameLayout {
     std::array<PlaneLayout, 3> planes{};
-    uint32_t planeCount = 0;
-    size_t totalBytes = 0;
+    std::uint32_t planeCount = 0;
+    std::size_t totalBytes = 0;
 
     /** @brief 按 FrameDesc 推导布局；4:2:2 宽度为奇数时返回 planeCount=0（非法） */
     static FrameLayout forDesc(const FrameDesc &d) {
         FrameLayout L;
-        auto align256 = [](size_t v) { return (v + 255) & ~size_t(255); };
+        auto align256 = [](std::size_t v) { return (v + 255) & ~std::size_t(255); };
         auto cw = (d.width + 1) / 2;     // ⌈w/2⌉（4:2:0 色度宽）
         auto ch = (d.height + 1) / 2;    // ⌈h/2⌉
         switch (d.format) {
         case PixelFormat::RGBA8:
         case PixelFormat::BGRA8:
-            L.planes[0] = {0, (uint32_t)align256(size_t(d.width) * 4), d.width, d.height, 4};
+            L.planes[0] = {0, (std::uint32_t)align256(std::size_t(d.width) * 4), d.width, d.height, 4};
             L.planeCount = 1;
             break;
         case PixelFormat::I420:
         case PixelFormat::YV12:
-            L.planes[0] = {0, (uint32_t)align256(d.width), d.width, d.height, 1};
-            L.planes[1] = {align256(L.planes[0].stride * d.height), (uint32_t)align256(cw), (uint32_t)cw, (uint32_t)ch, 1};
-            L.planes[2] = {align256(L.planes[1].offset + L.planes[1].stride * ch), (uint32_t)align256(cw), (uint32_t)cw, (uint32_t)ch, 1};
+            L.planes[0] = {0, (std::uint32_t)align256(d.width), d.width, d.height, 1};
+            L.planes[1] = {align256(L.planes[0].stride * d.height), (std::uint32_t)align256(cw), (std::uint32_t)cw, (std::uint32_t)ch, 1};
+            L.planes[2] = {align256(L.planes[1].offset + L.planes[1].stride * ch), (std::uint32_t)align256(cw), (std::uint32_t)cw, (std::uint32_t)ch, 1};
             L.planeCount = 3;
             break;
         case PixelFormat::NV12:
         case PixelFormat::NV21:
-            L.planes[0] = {0, (uint32_t)align256(d.width), d.width, d.height, 1};
-            L.planes[1] = {align256(L.planes[0].stride * d.height), (uint32_t)align256(size_t(cw) * 2), (uint32_t)cw, (uint32_t)ch, 2};
+            L.planes[0] = {0, (std::uint32_t)align256(d.width), d.width, d.height, 1};
+            L.planes[1] = {align256(L.planes[0].stride * d.height), (std::uint32_t)align256(std::size_t(cw) * 2), (std::uint32_t)cw, (std::uint32_t)ch, 2};
             L.planeCount = 2;
             break;
         case PixelFormat::YUYV:
         case PixelFormat::UYVY:
             if (d.width % 2 != 0) return {};    // 打包 4:2:2 宏像素要求偶宽
-            L.planes[0] = {0, (uint32_t)align256(size_t(d.width) * 2), d.width, d.height, 2};
+            L.planes[0] = {0, (std::uint32_t)align256(std::size_t(d.width) * 2), d.width, d.height, 2};
             L.planeCount = 1;
             break;
         }
         if (L.planeCount == 0) return {};
         const auto &last = L.planes[L.planeCount - 1];
-        L.totalBytes = align256(last.offset + size_t(last.stride) * last.height);
+        L.totalBytes = align256(last.offset + std::size_t(last.stride) * last.height);
         return L;
     }
 };
 
 /** @brief GPU 采样平面的纹素格式（后端中立；Vulkan 映射为同名 UNORM 格式） */
-enum class TexelFormat : uint8_t { R8, RG8, RGBA8, BGRA8 };
+enum class TexelFormat : std::uint8_t { R8, RG8, RGBA8, BGRA8 };
 
 /** @brief 一张 GPU 采样平面：取帧内存第 srcPlane 平面，按 texelBytes 字节/纹素重解释上传 */
 struct TexturePlane {
     TexelFormat format = TexelFormat::RGBA8;
-    uint32_t width = 0;         // 纹素宽
-    uint32_t height = 0;        // 纹素高
-    uint32_t srcPlane = 0;      // 来源 FrameLayout 平面下标
-    uint32_t texelBytes = 4;    // 每纹素字节（拷贝行长 = 源 stride / texelBytes）
+    std::uint32_t width = 0;         // 纹素宽
+    std::uint32_t height = 0;        // 纹素高
+    std::uint32_t srcPlane = 0;      // 来源 FrameLayout 平面下标
+    std::uint32_t texelBytes = 4;    // 每纹素字节（拷贝行长 = 源 stride / texelBytes）
 };
 
 /**
@@ -140,14 +127,14 @@ struct TexturePlane {
  */
 struct TexturePlan {
     std::array<TexturePlane, 3> planes{};
-    uint32_t count = 0;
+    std::uint32_t count = 0;
     bool yuv = false;    // true = 需 YUV 着色器转色；false = RGB 直采样
 
     static TexturePlan forDesc(const FrameDesc &d) {
         TexturePlan P;
         const FrameLayout L = FrameLayout::forDesc(d);
         if (L.planeCount == 0) return {};
-        auto plane = [&](TexelFormat f, uint32_t src, uint32_t texelBytes, uint32_t w) {
+        auto plane = [&](TexelFormat f, std::uint32_t src, std::uint32_t texelBytes, std::uint32_t w) {
             P.planes[P.count++] = TexturePlane{f, w, L.planes[src].height, src, texelBytes};
         };
         switch (d.format) {
@@ -155,7 +142,7 @@ struct TexturePlan {
         case PixelFormat::BGRA8: plane(TexelFormat::BGRA8, 0, 4, L.planes[0].width); break;
         case PixelFormat::I420:
         case PixelFormat::YV12:    // 平面序差异（U/V 互换）由着色器 mode 位处理
-            for (uint32_t p = 0; p < 3; ++p) plane(TexelFormat::R8, p, 1, L.planes[p].width);
+            for (std::uint32_t p = 0; p < 3; ++p) plane(TexelFormat::R8, p, 1, L.planes[p].width);
             P.yuv = true;
             break;
         case PixelFormat::NV12:
@@ -191,22 +178,22 @@ class VideoStream;
 class MemoryBlock {
 public:
     /** @brief 分配 bytes 字节（向上取整到 64KiB）；失败时 data()==nullptr */
-    explicit MemoryBlock(size_t bytes);
+    explicit MemoryBlock(std::size_t bytes);
     ~MemoryBlock();
     MemoryBlock(const MemoryBlock &) = delete;
     MemoryBlock &operator=(const MemoryBlock &) = delete;
 
-    static constexpr size_t kAlignment = 64 * 1024;    // 导入对齐（≥ 主流驱动最小导入对齐）
+    static constexpr std::size_t kAlignment = 64 * 1024;    // 导入对齐（≥ 主流驱动最小导入对齐）
 
-    uint8_t *data() const { return data_; }
-    size_t size() const { return size_; }
+    std::uint8_t *data() const { return data_; }
+    std::size_t size() const { return size_; }
     /** @brief 池已弃用本块（换块后标记）——导入缓存据此释放 GPU 侧导入对象 */
     bool retired() const { return retired_.load(std::memory_order_acquire); }
     void markRetired() { retired_.store(true, std::memory_order_release); }
 
 private:
-    uint8_t *data_ = nullptr;
-    size_t size_ = 0;
+    std::uint8_t *data_ = nullptr;
+    std::size_t size_ = 0;
     std::atomic<bool> retired_{false};
 };
 
@@ -236,9 +223,9 @@ public:
 
 private:
     friend class VideoStream;
-    FrameWriter(VideoStream *s, size_t idx) : stream_(s), idx_(idx) {}
+    FrameWriter(VideoStream *s, std::size_t idx) : stream_(s), idx_(idx) {}
     VideoStream *stream_ = nullptr;
-    size_t idx_ = 0;
+    std::size_t idx_ = 0;
     bool committed_ = false;
 };
 
@@ -264,16 +251,16 @@ public:
     /** @brief 被固定帧的描述 */
     const FrameDesc &desc() const;
     /** @brief 被固定帧的序号（== pin 时刻的 stream->seq()） */
-    uint64_t seq() const { return seq_; }
+    std::uint64_t seq() const { return seq_; }
     /** @brief 被固定帧所在的内存块（零拷贝导入源；平面地址均落在其内） */
     const std::shared_ptr<MemoryBlock> &block() const;
 
 private:
     friend class VideoStream;
-    PinGuard(std::shared_ptr<VideoStream> s, size_t idx, uint64_t seq) : stream_(std::move(s)), idx_(idx), seq_(seq) {}
+    PinGuard(std::shared_ptr<VideoStream> s, std::size_t idx, std::uint64_t seq) : stream_(std::move(s)), idx_(idx), seq_(seq) {}
     std::shared_ptr<VideoStream> stream_;
-    size_t idx_ = 0;
-    uint64_t seq_ = 0;
+    std::size_t idx_ = 0;
+    std::uint64_t seq_ = 0;
 };
 
 /**
@@ -287,14 +274,14 @@ private:
 class VideoStream : public std::enable_shared_from_this<VideoStream> {
 public:
     /** @brief 槽数上限（槽数组定长、建流即构造，扩容只启用不挪动——无锁读路径安全） */
-    static constexpr uint32_t kMaxSlots = 16;
+    static constexpr std::uint32_t kMaxSlots = 16;
 
     /**
      * @param poolSlots 池槽数（夹到 [2, kMaxSlots]）。拷贝路径每消费端仅瞬时
      *        固定；零拷贝路径每消费端最多持有约在飞帧数个槽到 GPU 读完——
      *        后端会经 reserveConsumerPins 自动补足，宿主无需按路径手调
      */
-    explicit VideoStream(uint32_t poolSlots = 4);
+    explicit VideoStream(std::uint32_t poolSlots = 4);
     ~VideoStream();
     VideoStream(const VideoStream &) = delete;
     VideoStream &operator=(const VideoStream &) = delete;
@@ -310,13 +297,13 @@ public:
     void push(const FrameDesc &d, std::span<const PlaneView> src);
 
     /** @brief 最新帧序号（commit 递增；UI 线程轮询判变） */
-    uint64_t seq() const noexcept { return seq_.load(std::memory_order_acquire); }
+    std::uint64_t seq() const noexcept { return seq_.load(std::memory_order_acquire); }
 
     /** @brief 最新帧描述（从未有帧时返回全默认值） */
     FrameDesc desc() const;
 
     /** @brief 累计丢帧数（池满丢弃） */
-    uint64_t droppedFrames() const noexcept { return dropped_.load(std::memory_order_relaxed); }
+    std::uint64_t droppedFrames() const noexcept { return dropped_.load(std::memory_order_relaxed); }
 
     /** @brief 近期提交帧率（最近 32 次提交的平均间隔；任意线程）——尚无两帧或
      *         超过 1 秒无新帧（生产者停推）时为 0 */
@@ -325,16 +312,16 @@ public:
     float fpsAt(std::chrono::steady_clock::time_point now) const;
 
     /** @brief 当前启用的池槽数 */
-    uint32_t slotCount() const;
+    std::uint32_t slotCount() const;
 
     /**
      * @brief 消费端登记长时持有需求（后端调用：零拷贝路径每窗口最多持有
      *        n 个槽到 GPU 读完）。按全部登记之和扩容池槽（不超过 kMaxSlots），
      *        保证生产者在消费端持有期间仍有槽可写。须与 releaseConsumerPins 配对
      */
-    void reserveConsumerPins(uint32_t n);
+    void reserveConsumerPins(std::uint32_t n);
     /** @brief 撤销 reserveConsumerPins 的登记（已启用的槽不回收） */
-    void releaseConsumerPins(uint32_t n);
+    void releaseConsumerPins(std::uint32_t n);
 
     /** @brief 固定最新帧（消费端；空 = 尚无任何帧） */
     PinGuard pinLatest();
@@ -343,42 +330,42 @@ private:
     friend class FrameWriter;
     friend class PinGuard;
     struct Slot {
-        enum class St : uint8_t { Free, Writing, Ready };
+        enum class St : std::uint8_t { Free, Writing, Ready };
         St st = St::Free;
-        uint32_t pins = 0;                    // 消费端固定计数（仅 Ready 态有意义）
+        std::uint32_t pins = 0;                    // 消费端固定计数（仅 Ready 态有意义）
         std::shared_ptr<MemoryBlock> block;   // 槽内存（换块时旧块标记退役、由持有者续命）
         FrameDesc desc;                       // 本槽帧描述（Writing 起有效）
         std::array<PlaneView, 3> views{};     // 按 FrameLayout 生成的可写视图
     };
 
-    void commitSlot(size_t idx);       // FrameWriter::commit 落点（锁内切态，锁外 seq++）
-    void abortWrite(size_t idx);       // 未 commit 的 writer 析构 → 槽归还
-    void unpin(size_t idx);            // PinGuard 析构落点
+    void commitSlot(std::size_t idx);       // FrameWriter::commit 落点（锁内切态，锁外 seq++）
+    void abortWrite(std::size_t idx);       // 未 commit 的 writer 析构 → 槽归还
+    void unpin(std::size_t idx);            // PinGuard 析构落点
     /** @brief 槽 idx 的平面视图（Writing/被固定期间稳定，无需加锁读） */
-    std::span<const PlaneView> planesFor(size_t idx) const;
+    std::span<const PlaneView> planesFor(std::size_t idx) const;
     /** @brief 槽 idx 的帧描述（同上） */
-    const FrameDesc &descFor(size_t idx) const;
+    const FrameDesc &descFor(std::size_t idx) const;
     /** @brief 槽 idx 的内存块（同上） */
-    const std::shared_ptr<MemoryBlock> &blockFor(size_t idx) const;
+    const std::shared_ptr<MemoryBlock> &blockFor(std::size_t idx) const;
 
     mutable std::mutex mtx_;
     std::array<Slot, kMaxSlots> slots_{};        // 定长：扩容只增 slotCount_，元素地址恒定
-    uint32_t slotCount_ = 0;                     // 当前启用槽数（mtx_ 护）
-    uint32_t basePoolSlots_ = 0;                 // 构造时请求的槽数（扩容基数）
-    uint32_t consumerPins_ = 0;                  // 消费端登记的长时持有总数（mtx_ 护）
+    std::uint32_t slotCount_ = 0;                     // 当前启用槽数（mtx_ 护）
+    std::uint32_t basePoolSlots_ = 0;                 // 构造时请求的槽数（扩容基数）
+    std::uint32_t consumerPins_ = 0;                  // 消费端登记的长时持有总数（mtx_ 护）
     int latest_ = -1;                            // 最新 Ready 槽下标（-1 = 无帧）
     bool hasFrame_ = false;                      // 曾 commit 过（desc 可读）
     FrameDesc latestDesc_{};                     // 最新帧描述（mtx_ 护）
-    std::atomic<uint64_t> seq_{0};               // 帧序号（release 发布/acquire 读取）
-    std::atomic<uint64_t> dropped_{0};
+    std::atomic<std::uint64_t> seq_{0};               // 帧序号（release 发布/acquire 读取）
+    std::atomic<std::uint64_t> dropped_{0};
     // 帧率：最近 kFpsRing 次提交时刻的环（mtx_ 护）
-    static constexpr uint32_t kFpsRing = 32;
+    static constexpr std::uint32_t kFpsRing = 32;
     std::array<std::chrono::steady_clock::time_point, kFpsRing> commitTimes_{};
-    uint64_t commitCount_ = 0;
+    std::uint64_t commitCount_ = 0;
 };
 
 /** @brief 创建命名流并注册（同名覆盖旧条目；旧流的已有消费者不受影响） */
-std::shared_ptr<VideoStream> createVideoStream(std::string name, uint32_t poolSlots = 4);
+std::shared_ptr<VideoStream> createVideoStream(std::string name, std::uint32_t poolSlots = 4);
 /** @brief 按名查找（未注册返回空指针；返回 shared_ptr 延长流寿命） */
 std::shared_ptr<VideoStream> findVideoStream(std::string_view name);
 /** @brief 除名（流对象由持有者续命；显示端持 shared_ptr 显示最后一帧不悬空） */

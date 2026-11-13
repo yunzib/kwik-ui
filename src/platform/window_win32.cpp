@@ -1,4 +1,19 @@
 module;    // 全局模块片段开始
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 // DPI 感知: 高 DPI 屏上使用物理像素，避免坐标空间错位导致模糊
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
@@ -6,9 +21,8 @@ module;    // 全局模块片段开始
 #endif
 
 #include <windows.h>
-#include <map>
-#include <cstdint>
-#include <cstring>
+// C 库函数全局名（std 模块不导出 C 函数 using 声明）；string.h 无 C++ 包装，直通纯 C
+#include <string.h>
 
 module kwik.platform.win32_window;
 
@@ -454,7 +468,7 @@ void PlatformWindowWin32::SetShape(const std::vector<std::pair<int, int>> &polyg
     SetWindowRgn(hwnd_, rgn, TRUE);    // 窗口获得区域所有权
 }
 
-void PlatformWindowWin32::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowWin32::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     if (!hwnd_ || !maskData) return;
 
     // 从遮罩创建区域
@@ -622,7 +636,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     case WM_CHAR:
     case WM_IME_CHAR:
         e.type = Event::Type::TextInput;
-        e.charCode = static_cast<uint32_t>(wParam);
+        e.charCode = static_cast<std::uint32_t>(wParam);
         // 回车归一化: TranslateMessage 把 VK_RETURN 翻成 '\r'(0x0D), 组件层
         // 过滤 cp<0x20 && cp!='\n'(input/textarea), 不归一化则 Input 回车提交
         // 与 TextArea 换行全路径失效
@@ -633,7 +647,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
     case WM_KEYDOWN:
     case WM_KEYUP:
         e.type = (msg == WM_KEYDOWN) ? Event::Type::KeyDown : Event::Type::KeyUp;
-        e.keyCode = static_cast<uint32_t>(wParam);
+        e.keyCode = static_cast<std::uint32_t>(wParam);
         e.modifiers = 0;
         if (GetKeyState(VK_CONTROL) & 0x8000) e.modifiers |= 1;
         if (GetKeyState(VK_SHIFT) & 0x8000) e.modifiers |= 2;
@@ -648,7 +662,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         // 状态翻转（最大化/还原/最小化）→ 独立 JS 事件（onWindowStateChange）；
         // 与尺寸事件解耦：布局重排归 WindowResize，UI 控件图标归状态事件
         {
-            uint8_t st = IsIconic(hwnd_) ? 2 : (IsZoomed(hwnd_) ? 1 : 0);
+            std::uint8_t st = IsIconic(hwnd_) ? 2 : (IsZoomed(hwnd_) ? 1 : 0);
             if (st != windowState_) {
                 windowState_ = st;
                 if (rawCallback_) {
@@ -885,21 +899,21 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
-        raw.button = static_cast<uint8_t>(e.button);
+        raw.button = static_cast<std::uint8_t>(e.button);
         break;
     case Event::Type::MouseDown:
         raw.action = RawEvent::Action::Down;
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
-        raw.button = static_cast<uint8_t>(e.button);
+        raw.button = static_cast<std::uint8_t>(e.button);
         break;
     case Event::Type::MouseUp:
         raw.action = RawEvent::Action::Up;
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
-        raw.button = static_cast<uint8_t>(e.button);
+        raw.button = static_cast<std::uint8_t>(e.button);
         break;
     case Event::Type::MouseWheel:
         raw.action = RawEvent::Action::Scroll;
@@ -912,7 +926,7 @@ LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lPara
         raw.x = static_cast<float>(e.x);
         raw.y = static_cast<float>(e.y);
         raw.pointerId = 0;
-        raw.button = static_cast<uint8_t>(e.button);
+        raw.button = static_cast<std::uint8_t>(e.button);
         break;
     case Event::Type::KeyDown:
         raw.device = RawEvent::Device::Keyboard;
@@ -1065,7 +1079,7 @@ bool PlatformWindowWin32::SetClipboardCustom(const char *fmtName, const std::str
     // 不 EmptyClipboard：向当前剪贴板追加格式（调用方先写 CF_UNICODETEXT 再追加本格式）
     if (HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, bytes.size())) {
         if (void *p = GlobalLock(h)) {
-            std::memcpy(p, bytes.data(), bytes.size());
+            memcpy(p, bytes.data(), bytes.size());
             GlobalUnlock(h);
             if (!SetClipboardData(f, h)) GlobalFree(h);    // 贴入失败：系统不接管，自行释放
             CloseClipboard();

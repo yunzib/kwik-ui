@@ -1,9 +1,3 @@
-module;
-
-#include <string>
-#include <memory>
-#include <vector>
-
 export module kwik.element.table;
 
 import kwik.element.view;
@@ -136,7 +130,7 @@ private:
 	bool dragging_ = false;          // 内容拖拽平移中（Pan 手势，子级未消费时接管）
 	float dragRawY_ = 0;             // 拖拽期原始偏移累加器（不夹紧；显示值经橡皮筋阻尼）
 	float dragLastPanY_ = 0;         // 上次 PanMove 的 panDy（位移差分 + 速度采样）
-	uint64_t dragLastT_ = 0;         // 上次 PanMove 时间戳（ms）
+	std::uint64_t dragLastT_ = 0;         // 上次 PanMove 时间戳（ms）
 	float dragVelY_ = 0;             // 指针速度采样（EMA，px/s；正 = 指针下移）
 	Rect vThumb_{};                  // 垂直滚动条滑块（全局坐标，onDraw 缓存）
 	bool draggingBar_ = false;       // 滚动条滑块拖拽中

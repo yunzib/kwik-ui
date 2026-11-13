@@ -8,7 +8,8 @@
 // ============================================================================
 
 module;
-#include <cstring>
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 module kwik.element.checkbox;
 
 import kwik.element.view;
@@ -66,7 +67,7 @@ void Checkbox::setChecked(bool val) {
 // getProperty — getProp("chkId", "checked") 支持
 // ============================================================================
 std::string Checkbox::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) { return check_.checked ? "true" : "false"; }
+    if (strcmp(name, "checked") == 0) { return check_.checked ? "true" : "false"; }
     return View::getProperty(name);
 }
 
@@ -165,7 +166,7 @@ void Checkbox::onDraw(Graphics &graphics) {
 // setPropertyTyped — 类型安全属性写入
 // ============================================================================
 bool Checkbox::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "checked") == 0) {
+	if (strcmp(name, "checked") == 0) {
 		auto b = typedToBool(value);      // 增量=bool；命令式="true"/"false"/"1"/"0"
 		if (!b) { return false; }
 		setChecked(*b);

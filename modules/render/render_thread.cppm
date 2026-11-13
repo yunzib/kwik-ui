@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
 #include <stdint.h>
 
@@ -116,10 +131,10 @@ public:
      * @brief 获取帧统计信息
      */
     struct FrameStats {
-        uint64_t totalFrames = 0;
-        uint64_t droppedFrames = 0;
+        std::uint64_t totalFrames = 0;
+        std::uint64_t droppedFrames = 0;
         float averageFrameTimeMs = 0.0f;
-        size_t maxQueueDepth = 0;
+        std::size_t maxQueueDepth = 0;
         float lastInputToFrameMs = 0.0f;    // 最近一次键入到渲染提交的间隔（性能打点，近似口径）
     };
 
@@ -198,6 +213,6 @@ private:
     // 错误处理
     std::string lastError_;
 
-    uint32_t retryCount_ = 0;
-    static constexpr uint32_t kMaxRetries = 240;    // ≈0.5s，兜底最小化等持久失败
+    std::uint32_t retryCount_ = 0;
+    static constexpr std::uint32_t kMaxRetries = 240;    // ≈0.5s，兜底最小化等持久失败
 };

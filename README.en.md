@@ -19,7 +19,7 @@
 - IDE: VSCode
     - Plugins: clangd, CMake, CMake Tools
 - OS: Windows 11
-- Compiler: llvm-mingw-20260421-ucrt-x86_64
+- Compiler: GCC 16.2.0 (niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1)
 - Build system: CMake 4.3.2
 - Build tool: Ninja 1.13.2
 
@@ -231,20 +231,14 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 |---|---|
 | CMake | 4.3.2 |
 | Ninja | 1.13 |
-| Toolchain | llvm-mingw-20260421-ucrt-x86_64 (or Clang ≥ 18, with C++ Modules support) |
+| Toolchain | GCC 16.2 (niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1) as primary (Clang ≥ 18 compatible, with C++ Modules support) |
 | Vulkan SDK | 1.3 (optional; a stub target is created if not found) |
 
 ## 4.2 Building the Project
+Toolchain paths are pinned in `CMakePresets.json` (gcc primary / clang compat; Debug/Release switched via the `KWIK_BUILD_TYPE` cache variable):
 ```
-cmake -DCMAKE_BUILD_TYPE:STRING=Debug 
--DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE 
--DCMAKE_C_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang.exe 
--DCMAKE_CXX_COMPILER:FILEPATH=C:\software\llvm-mingw\bin\clang++.exe 
---no-warn-unused-cli 
--S C:/ws-code/ws-kwik/kwik-ui 
--B c:/ws-code/ws-kwik/kwik-ui/build 
--G Ninja 
-&& cmake --build build --config Debug --target all
+cmake --preset gcc
+cmake --build build --config Debug --target all
 ```
 ## 4.3 Installing the SDK
 ```

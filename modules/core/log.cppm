@@ -1,11 +1,3 @@
-module;
-#include <source_location>
-#include <string_view>
-#include <format>
-#include <atomic>
-#include <tuple>
-#include <utility> // for index_sequence
-
 export module kwik.core.log;
 
 import std;
@@ -60,14 +52,14 @@ private:
         auto t = std::forward_as_tuple(std::forward<Args>(args)...);
 
         if constexpr (has_loc) {
-            constexpr size_t N = sizeof...(Args) - 1;
-            auto format_args = [&]<size_t... I>(std::index_sequence<I...>) {
+            constexpr std::size_t N = sizeof...(Args) - 1;
+            auto format_args = [&]<std::size_t... I>(std::index_sequence<I...>) {
                 return std::make_format_args(std::get<I>(t)...);
             }(std::make_index_sequence<N>{});
             const auto &loc = std::get<N>(t);
             log_impl(level, std::vformat(fmt, format_args), &loc);
         } else {
-            auto format_args = [&]<size_t... I>(std::index_sequence<I...>) {
+            auto format_args = [&]<std::size_t... I>(std::index_sequence<I...>) {
                 return std::make_format_args(std::get<I>(t)...);
             }(std::make_index_sequence<sizeof...(Args)>{});
             log_impl(level, std::vformat(fmt, format_args), nullptr);

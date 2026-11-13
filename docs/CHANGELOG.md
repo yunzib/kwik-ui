@@ -1,5 +1,40 @@
 # 更新日志
 
+# 0.1.1 — 2026-11-14
+### 新增
+- **主工具链切换 GCC 16.2**（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1），
+  Clang ≥18 降为兼容口径（`cmake --preset clang` 独立构建目录，全门禁复验通过）。
+  CMakePresets.json 固化双工具链路径（gcc/clang 两 preset，构建档经
+  `KWIK_BUILD_TYPE` 缓存变量切换，不再需要多目录）；FFmpeg configure 工具名随
+  主编译器自动分派（GCC→binutils 家族 / Clang→llvm-* 家族）。`import std` /
+  模块/CMake 4.3.2 全栈在 GCC 16 下可用，`-freflection`（C++26 P2996）验证通过，
+  为反射桥重写铺路
+- **C printf 桥**（include/kwik/c_bridge.h + src/utils/c_printf_bridge.cpp）：
+  GCC16 std 模块不导出 C 库函数 using 声明且文本 stdio.h 与模块收编声明语言
+  链接冲突——printf 族经 extern "C" 桥符号提供；fprintf 一类触发 binding 合并
+  校验的名字禁用于模块 TU（改经 Log）。模块边界守卫宏（C 头包装路径预包含 +
+  内在函数 guard）写入 windows.h/quickjs.h/FFmpeg 消费 TU，规则注释就位
+
+### 修复
+- **G3D staging 扩容等闲与释放顺序颠倒**（src/render/vulkan/vulkan_3d_renderer.cpp）：
+  11-13 引入的 growStaging 先 freeStaging 后 vkDeviceWaitIdle，在飞帧仍绑定旧
+  staging 时使用中释放（验证层报 vkFreeMemory in-use，驱动层面为 UB）——按注释
+  原意改为先等闲再释放。Clang 时序恰好未触发，属潜伏 bug 非迁移回归
+- **Constraints::constrain 约束倒置崩溃**（modules/core/constraints.cppm）：
+  flex 剩余空间为负时上游传入 maxWidth<minWidth，GCC 断言版 std::clamp 拒绝
+  lo>hi 直接 abort（car/ivi 演示必现；libc++ 无检查静默放行长期掩盖）——宽高界
+  归一化后 clamp，与 inset() 防御哲学对齐
+- **FFmpeg 归档链接序**（cmake/modules/Extension.cmake）：GNU ld 归档单遍扫描
+  要求依赖者在前——avutil 曾排在 swscale 之前（lld-link 重扫归档故 Clang 无感）；
+  三个扩展库补链 kwik_utils（kwik_snprintf 定义库须排在使用库之后）
+- **GCC 运行时全静态**（CMakeLists.txt）：仅 static-libgcc/libstdc++ 不够，
+  libwinpthread-1.dll 动态链接时运行期 PATH 撞旧版缺 clock_gettime64 入口点
+  （0xc0000139）——GNU 改 `-static` 三件全内嵌
+- **生成的 shader 头缺 cstddef**（shaders/spv_to_header.cmake）：用了 std::size_t
+  却只包含 cstdint，GCC 下经模块泄漏侥幸可见、Clang 下编译失败——生成头自足
+- **GNU Release 暂关 IPO**：全局 LTO 使 vendored 三方归档（harfbuzz 实测）混
+  COFF/LTO 对象时 lto1 报格式不匹配——Clang IPO 不受影响，挂任务清单跟踪
+
 # 0.1.0 — 2026-11-13
 ### 新增
 - **G3D 材质贴图最小支持**：glTF 加载器提取 TEXCOORD_0、材质

@@ -3,7 +3,6 @@
 // 接线路线见 .cppm 头注释。
 module;
 
-#include <cstdint>
 
 module kwik.platform.drm_window;
 
@@ -69,7 +68,7 @@ void PlatformWindowDRM::SetShape(const std::vector<std::pair<int, int>> &polygon
     (void)polygon;    // 无合成器，形状窗口不可表达
 }
 
-void PlatformWindowDRM::SetShapeMask(const uint8_t *maskData, int width, int height) {
+void PlatformWindowDRM::SetShapeMask(const std::uint8_t *maskData, int width, int height) {
     (void)maskData;
     (void)width;
     (void)height;

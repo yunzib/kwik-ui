@@ -7,7 +7,6 @@
 import std;
 import kwik.core.path;
 
-#include <cstddef>
 
 static int failures = 0;
 
@@ -74,7 +73,7 @@ static void probeSector(const char *name, float a0, float a1, float dilate) {
     auto tris = triangulateFill(p, dilate);
 
     // 剖分三角数恒等式：n 边形 → n-2
-    size_t contourPts = 0;
+    std::size_t contourPts = 0;
     for (auto &c : p.contours()) contourPts += c.points.size();
     expectTrue((std::string(name) + " 三角数 == n-2").c_str(),
                tris.size() == contourPts - 2);
@@ -129,15 +128,15 @@ int main() {
         }
         auto tris = triangulateFill(p, 0.0f);
         std::printf("绿扇形 tris=%zu，按面积降序前 8 个:\n", tris.size());
-        std::vector<std::pair<float, size_t>> order;
-        for (size_t i = 0; i < tris.size(); ++i) {
+        std::vector<std::pair<float, std::size_t>> order;
+        for (std::size_t i = 0; i < tris.size(); ++i) {
             auto &t = tris[i];
             float a = std::fabs((t.p1.x - t.p0.x) * (t.p2.y - t.p0.y) -
                                 (t.p1.y - t.p0.y) * (t.p2.x - t.p0.x)) * 0.5f;
             order.push_back({a, i});
         }
         std::sort(order.rbegin(), order.rend());
-        for (size_t k = 0; k < order.size() && k < 8; ++k) {
+        for (std::size_t k = 0; k < order.size() && k < 8; ++k) {
             auto &t = tris[order[k].second];
             std::printf("  area=%9.3f  mask=%d  (%.1f,%.1f)-(%.1f,%.1f)-(%.1f,%.1f)\n",
                         order[k].first, t.edgeMask,

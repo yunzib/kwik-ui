@@ -10,8 +10,6 @@
  * result 由元素自己持有（shared_ptr），无全局排版缓存。
  * 字形缓存（图集）由内部 TextCache 管理。
  */
-module;
-#include <memory>
 export module kwik.render.text.pipeline;
 
 import std;

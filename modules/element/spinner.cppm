@@ -1,8 +1,3 @@
-module;
-
-#include <string>
-#include <cmath>
-
 export module kwik.element.spinner;
 
 import kwik.element.view;
@@ -54,5 +49,5 @@ protected:
 
 private:
     SpinnerProps sp_;
-    uint64_t frameCounter_ = 0;    /**< 帧计数器，递增驱动旋转角度 */
+    std::uint64_t frameCounter_ = 0;    /**< 帧计数器，递增驱动旋转角度 */
 };

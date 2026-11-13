@@ -1,7 +1,19 @@
 module;
-#include <algorithm>
-#include <cmath>
-#include <cstring>
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <ft2build.h>
 #include FT_FREETYPE_H
 module kwik.render.text.cache;
@@ -58,7 +70,7 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
             g.height = 0;
             continue;
         }
-        g.pageIndex = static_cast<uint32_t>(entry.pageIndex);
+        g.pageIndex = static_cast<std::uint32_t>(entry.pageIndex);
         float atlasSize_f = static_cast<float>(atlasSize);
         // 消除 half-texel，UV 直接映射（与 EUI 一致）
         g.uvLeft = static_cast<float>(entry.atlasX + 1) / atlasSize_f;
@@ -73,8 +85,8 @@ void TextCache::ensureGlyphs(TextLayoutResult &result) {
 // ═══════════════════════════════════════════════════════════════════════════
 // 栅格化 — FreeType LCD 子像素位图 → RGBA
 // ═══════════════════════════════════════════════════════════════════════════
-void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
-                               uint32_t /*subpixelOffset*/, bool italic) {
+void TextCache::rasterizeGlyph(FontId font, std::uint32_t glyphIndex, float fontSize, CachedGlyph &entry,
+                               std::uint32_t /*subpixelOffset*/, bool italic) {
     auto *face = fontManager_.getFace(font);
     if (!face) return;
     auto *ftFace = static_cast<FreeTypeTextFace *>(face)->ftFace();
@@ -122,8 +134,8 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
     entry.info.width = static_cast<float>(ftFace->glyph->metrics.width) / 64.0f;
     entry.info.height = static_cast<float>(ftFace->glyph->metrics.height) / 64.0f;
 
-    uint32_t pixelW = bmp->width;
-    uint32_t rawH = bmp->rows;
+    std::uint32_t pixelW = bmp->width;
+    std::uint32_t rawH = bmp->rows;
 
     if (pixelW == 0 || rawH == 0) {    // 合法空位图（空格等）——同款空占位
         blankEntry();
@@ -132,18 +144,18 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
 
     entry.packedW = pixelW + 2;
     entry.packedH = rawH + 2;
-    entry.info.pixelData.assign((size_t)(pixelW + 2) * (rawH + 2), 0);
+    entry.info.pixelData.assign((std::size_t)(pixelW + 2) * (rawH + 2), 0);
 
-    uint32_t stride = pixelW + 2;
+    std::uint32_t stride = pixelW + 2;
     for (unsigned int r = 0; r < rawH; r++) {
-        const uint8_t *src = bmp->buffer + (size_t)r * bmp->pitch;
-        uint8_t *dst = entry.info.pixelData.data() + (size_t)(r + 1) * stride + 1;
+        const std::uint8_t *src = bmp->buffer + (std::size_t)r * bmp->pitch;
+        std::uint8_t *dst = entry.info.pixelData.data() + (std::size_t)(r + 1) * stride + 1;
         for (unsigned int x = 0; x < pixelW; x++) { dst[x] = src[x]; }
     }
 
     // 填充左右 padding 为最近的 content 列值
-    auto getPixel = [&](unsigned int r, unsigned int c) -> uint8_t & {
-        return entry.info.pixelData[(size_t)r * stride + c];
+    auto getPixel = [&](unsigned int r, unsigned int c) -> std::uint8_t & {
+        return entry.info.pixelData[(std::size_t)r * stride + c];
     };
     for (unsigned int r = 1; r <= rawH; r++) {
         getPixel(r, 0) = getPixel(r, 1);
@@ -160,9 +172,9 @@ void TextCache::rasterizeGlyph(FontId font, uint32_t glyphIndex, float fontSize,
 // Skyline 矩形 packing (原 GlyphRenderCache::tryPack)
 // ═══════════════════════════════════════════════════════════════════════════
 
-auto TextCache::tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optional<PackResult> {
+auto TextCache::tryPack(AtlasPage &page, std::uint32_t w, std::uint32_t h) -> std::optional<PackResult> {
     int bestX = -1;
-    int bestTop = INT32_MAX;
+    int bestTop = std::numeric_limits<std::int32_t>::max();
     int width = static_cast<int>(w);
     int height = static_cast<int>(h);
     int pageW = static_cast<int>(page.width);
@@ -186,7 +198,7 @@ auto TextCache::tryPack(AtlasPage &page, uint32_t w, uint32_t h) -> std::optiona
     for (int j = bestX; j < bestX + width; j++) { page.skyline[j] = newTop; }
 
     page.lastFrameUsed = frameCounter_.load(std::memory_order_relaxed);
-    return PackResult{.x = static_cast<uint32_t>(bestX), .y = static_cast<uint32_t>(bestTop)};
+    return PackResult{.x = static_cast<std::uint32_t>(bestX), .y = static_cast<std::uint32_t>(bestTop)};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -207,12 +219,12 @@ void TextCache::packGlyph(CachedGlyph &entry) {
         return;
     }
 
-    uint32_t padW = entry.packedW;
-    uint32_t padH = entry.packedH;
+    std::uint32_t padW = entry.packedW;
+    std::uint32_t padH = entry.packedH;
 
-    uint32_t foundPage = UINT32_MAX;
+    std::uint32_t foundPage = std::numeric_limits<std::uint32_t>::max();
     std::optional<PackResult> pr;
-    for (uint32_t pi = 0; pi < pageCount_; pi++) {
+    for (std::uint32_t pi = 0; pi < pageCount_; pi++) {
         pr = tryPack(pages_[pi], padW, padH);
         if (pr.has_value()) {
             foundPage = pi;
@@ -232,16 +244,16 @@ void TextCache::packGlyph(CachedGlyph &entry) {
         } else {
             // LRU 整页淘汰：选最久未用页 → 只作废本页（版本递增 + 清本页
             // 缓存条目），其余页条目版本依旧有效，不触发全缓存重打包
-            uint32_t lruPage = 0;
-            uint64_t oldest = UINT64_MAX;
-            for (uint32_t pi = 0; pi < pageCount_; pi++) {
+            std::uint32_t lruPage = 0;
+            std::uint64_t oldest = std::numeric_limits<std::uint64_t>::max();
+            for (std::uint32_t pi = 0; pi < pageCount_; pi++) {
                 if (pages_[pi].lastFrameUsed < oldest) {
                     oldest = pages_[pi].lastFrameUsed;
                     lruPage = pi;
                 }
             }
             pages_[lruPage].generation++;
-            uint32_t lruPageIdx = lruPage;
+            std::uint32_t lruPageIdx = lruPage;
             std::erase_if(glyphCache_, [lruPageIdx](const auto &pair) {
                 return pair.second.packed && pair.second.pageIndex == lruPageIdx;
             });

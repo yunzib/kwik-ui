@@ -3,7 +3,7 @@
 # FFmpeg 上游无 CMake 后端：本文件在构建期驱动 Git bash 运行 configure、
 # 修正路径风格、mingw32-make 编静态库，全部随 cmake --build 一次完成，
 # 产物缓存于 build/ffmpeg-build（增量构建跳过）。
-# 工具链要求：Git bash（configure 需 sh）+ mingw32-make（llvm-mingw/bin 自带）。
+# 工具链要求：Git bash（configure 需 sh）+ mingw32-make（主编译器 bin 目录自带）。
 # 任一工具缺失 → KWIK_HAVE_FFMPEG=OFF，video 扩展自动降级 Null 播放器。
 
 # ── 选项声明（video 相关开关统一在此，Extension.cmake 只消费）──
@@ -84,9 +84,16 @@ if(KWIK_ENABLE_VIDEO AND KWIK_VIDEO_FFMPEG AND EXISTS ${FFMPEG_SRC}/configure)
     file(WRITE \"\${DIR}/\${f}\" \"\${c}\")
 endforeach()
 ")
+        # FFmpeg 构建工具随主编译器走（configure 的 PATH 已含编译器 bin 目录）：
+        # Clang → llvm-* 家族（llvm-mingw）；GCC → binutils 家族（niXman mingw64）
+        if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+            set(FF_TOOLS --cc=clang --ar=llvm-ar --nm=llvm-nm --ranlib=llvm-ranlib)
+        else()
+            set(FF_TOOLS --cc=gcc --ar=ar --nm=nm --ranlib=ranlib)
+        endif()
         # 最小 LGPL 组件集（本地播放；网络协议后续按需追加）
         set(FFMPEG_FLAGS
-            --cc=clang --ar=llvm-ar --nm=llvm-nm --ranlib=llvm-ranlib
+            ${FF_TOOLS}
             --disable-everything --disable-programs --disable-doc --disable-avdevice
             --disable-avfilter --disable-network --disable-autodetect
             --disable-gpl --disable-x86asm --enable-static --disable-shared
@@ -107,7 +114,7 @@ endforeach()
             COMMAND ${FFMPEG_ENV} ${KWIK_FFMPEG_BASH} ${FFMPEG_SRC_MSYS}/configure ${FFMPEG_FLAGS}
             COMMAND ${CMAKE_COMMAND} -DDIR=${FFMPEG_BUILD} -P ${CMAKE_BINARY_DIR}/ffmpeg_fixpaths.cmake
             WORKING_DIRECTORY ${FFMPEG_BUILD}
-            COMMENT "Configuring FFmpeg (minimal LGPL set, llvm-mingw)"
+            COMMENT "Configuring FFmpeg (minimal LGPL set, ${CMAKE_C_COMPILER_ID})"
             VERBATIM)
         # ② 编静态库（直出构建目录，不跑 make install）
         add_custom_command(

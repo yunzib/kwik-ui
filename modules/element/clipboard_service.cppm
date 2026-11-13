@@ -7,10 +7,6 @@
 // 服务槽同语义，见 KwikRuntime::teardownJsBoundRuntime）；
 // 未接线（nullptr）或平台无实现时组件层安全跳过，无副作用。
 // ============================================================================
-module;
-#include <string>
-#include <vector>
-
 export module kwik.element.clipboard_service;
 
 import std;

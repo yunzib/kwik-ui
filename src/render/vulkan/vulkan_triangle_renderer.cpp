@@ -4,10 +4,25 @@
  */
 
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
-#include <cstddef>
-#include <cstring>
 #include "triangle_shaders.h"
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.render.vulkan.triangle_renderer;
 
@@ -130,7 +145,7 @@ bool TriangleRenderer::create(VkDevice device, VkPipelineCache cache, VkPhysical
  *                    null 时 gradMode=0，走纯色路径，与旧版完全一致
  */
 void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
-                                     const AAVertex *vertices, uint32_t vertexCount,
+                                     const AAVertex *vertices, std::uint32_t vertexCount,
                                      const Color &color, float alpha, const Transform2D &t,
                                      const SweepGrad *sweep) {
     static_assert(sizeof(PushConstants) == 128, "PushConstants size mismatch");
@@ -176,10 +191,10 @@ void TriangleRenderer::drawTriangles(VkCommandBuffer cmd, VkExtent2D extent,
 
      // ── 逐顶点展开：位置 + 重心坐标 + 三条边高 + edgeMask ──
     GpuVertex *dst = reinterpret_cast<GpuVertex *>(static_cast<char *>(mappedData_) + writeOffset_);
-    for (uint32_t i = 0; i < vertexCount; ++i) {
+    for (std::uint32_t i = 0; i < vertexCount; ++i) {
         dst[i].x = vertices[i].pos.x;
         dst[i].y = vertices[i].pos.y;
-        uint32_t k = i % 3;
+        std::uint32_t k = i % 3;
         dst[i].bu = (k == 0) ? 1.0f : 0.0f;
         dst[i].bv = (k == 1) ? 1.0f : 0.0f;
         dst[i].h0 = vertices[i].h0;
@@ -255,7 +270,7 @@ void TriangleRenderer::drawRing(VkCommandBuffer cmd, VkExtent2D extent, const Fi
             return;
         }
     }
-    std::memcpy(static_cast<char *>(mappedData_) + writeOffset_, v, dataSize);
+    memcpy(static_cast<char *>(mappedData_) + writeOffset_, v, dataSize);
 
     // ── Push constants：gradMode=2 走 SDF 圆环分支 ──
     PushConstants pc;
@@ -301,9 +316,9 @@ void TriangleRenderer::drawRing(VkCommandBuffer cmd, VkExtent2D extent, const Fi
 bool TriangleRenderer::growStagingBuffer(VkDeviceSize required) {
     // 需求按"本帧槽内用量"计：扩容后的单槽容量必须覆盖已写 + 本次需求，
     // 总容量 = 槽需求 × 分槽数（否则新槽容量不足会连续扩容）
-    size_t usedInSlot = writeOffset_ - curSlotBase_;
-    size_t slotNeed = usedInSlot + static_cast<size_t>(required);
-    size_t newCap = std::max(bufferCapacity_ * 2, slotNeed * kFrameSlots);
+    std::size_t usedInSlot = writeOffset_ - curSlotBase_;
+    std::size_t slotNeed = usedInSlot + static_cast<std::size_t>(required);
+    std::size_t newCap = std::max(bufferCapacity_ * 2, slotNeed * kFrameSlots);
     VkBuffer newBuf = VK_NULL_HANDLE;
     VkDeviceMemory newMem = VK_NULL_HANDLE;
     void *newMap = nullptr;
@@ -321,9 +336,9 @@ bool TriangleRenderer::growStagingBuffer(VkDeviceSize required) {
         return false;
     }
     // 保留本帧槽内已写入数据（迁移到新容量同名槽位），槽内偏移保持不变
-    size_t newBase = slotBase(curSlot_);
+    std::size_t newBase = slotBase(curSlot_);
     if (usedInSlot > 0 && mappedData_)
-        std::memcpy(static_cast<char *>(newMap) + newBase, static_cast<char *>(mappedData_) + curSlotBase_, usedInSlot);
+        memcpy(static_cast<char *>(newMap) + newBase, static_cast<char *>(mappedData_) + curSlotBase_, usedInSlot);
     // 旧缓冲入延迟销毁队列（倒计时 kFrameSlots 帧）：在飞近 2 帧的命令缓冲
     // 仍引用它，帧首 fence 只等 3 帧前提交——须等引用者全部执行完
     if (stagingBuffer_ != VK_NULL_HANDLE) pendingStaging_.emplace_back(stagingBuffer_, stagingMemory_, kFrameSlots);
@@ -341,7 +356,7 @@ bool TriangleRenderer::growStagingBuffer(VkDeviceSize required) {
 void TriangleRenderer::flushPendingDestroy() {
     // 倒计时归零 = 扩容后第 3 帧首：引用旧缓冲的在飞帧此刻必然已被
     // 对应 fence 等待覆盖（帧 M 首等待覆盖 M-3 提交），销毁安全
-    for (size_t i = 0; i < pendingStaging_.size();) {
+    for (std::size_t i = 0; i < pendingStaging_.size();) {
         if (--std::get<2>(pendingStaging_[i]) == 0) {
             if (std::get<1>(pendingStaging_[i]) != VK_NULL_HANDLE)
                 vkFreeMemory(device_, std::get<1>(pendingStaging_[i]), nullptr);

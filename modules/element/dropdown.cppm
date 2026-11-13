@@ -1,8 +1,3 @@
-module;
-#include <string>
-#include <memory>
-#include <vector>
-
 export module kwik.element.dropdown;
 import kwik.element.view;
 import kwik.core.props;

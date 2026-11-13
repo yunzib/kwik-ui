@@ -15,11 +15,6 @@
 // （对齐 chart.cpp 绘制外驱动先例，规避 Spinner 无门控常转的已知缺陷）。
 // ============================================================================
 
-module;
-
-#include <chrono>
-#include <functional>
-
 export module kwik.element.scroll_physics;
 
 import kwik.core.timer;

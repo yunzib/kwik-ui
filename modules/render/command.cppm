@@ -1,10 +1,3 @@
-module;
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <atomic>
-
 export module kwik.render.command;
 
 import kwik.core.types;
@@ -61,7 +54,7 @@ export struct DrawShadowCmd {
     Transform2D t;  
 };
 export struct DrawImageCmd {
-    uint32_t textureId;
+    std::uint32_t textureId;
     Rect rect;
     float opacity;
     float cornerRadius;
@@ -75,7 +68,7 @@ export struct DrawImageCmd {
 };
 export struct DrawGlyphCmd {
     FontId fontId;
-    uint32_t glyphIndex;
+    std::uint32_t glyphIndex;
     float x, y, width, height;
     float uvLeft, uvTop, uvRight, uvBottom;
     Color color;
@@ -83,15 +76,15 @@ export struct DrawGlyphCmd {
     Transform2D t;  
 };
 export struct FillTrianglesCmd {
-    size_t vertexOffset;
-    uint32_t vertexCount;
+    std::size_t vertexOffset;
+    std::uint32_t vertexCount;
     Color color;
     BlendMode mode = BlendMode::SrcOver;
     Transform2D t;  
 };
 export struct StrokeTrianglesCmd {
-    size_t vertexOffset;
-    uint32_t vertexCount;
+    std::size_t vertexOffset;
+    std::uint32_t vertexCount;
     Color color;
     Transform2D t;  
 };
@@ -116,8 +109,8 @@ export struct SweepGrad {
  * 实现"单命令 + 无缝 + GPU 平滑渐变"（替代 N 段短弧拼接）。
  */
 export struct StrokeArcCmd {
-    size_t vertexOffset;
-    uint32_t vertexCount;
+    std::size_t vertexOffset;
+    std::uint32_t vertexCount;
     Color  color0;          // 渐变起点色（透明度已烘焙）
     float  cx, cy;          // 圆心（本地逻辑坐标）
     float  a0, a1;          // 渐变起止角（弧度）
@@ -197,11 +190,11 @@ export struct Vertex3D {
  * textureId 非 0 = 贴图路径（后端查纹理注册表采样；查不到回退纯色管线）。
  */
 export struct DrawMeshCmd {
-    size_t vertexOffset;     // meshVertices_ 起始顶点索引
-    uint32_t vertexCount;    // 顶点数 (三角形列表, 3 的倍数)
+    std::size_t vertexOffset;     // meshVertices_ 起始顶点索引
+    std::uint32_t vertexCount;    // 顶点数 (三角形列表, 3 的倍数)
     float mvp[16];           // 模型-视图-投影矩阵 (列主序)
     Color color;             // 基础颜色
     float lightDir[3];       // 方向光方向 (对象空间, 归一化)
     Rect viewport;           // 元素屏幕矩形 (mesh 视口, 定位+裁剪)
-    uint32_t textureId = 0;  // 材质贴图纹理 id (0 = 纯色路径)
+    std::uint32_t textureId = 0;  // 材质贴图纹理 id (0 = 纯色路径)
 };

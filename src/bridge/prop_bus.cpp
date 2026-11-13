@@ -1,6 +1,5 @@
 module;
 #include "quickjs.h"
-#include <cstring>
 module kwik.bridge.prop_bus;
 import kwik.engine.context;
 import kwik.element.view;
@@ -48,7 +47,7 @@ static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
                 if (pm.reader) {
                     TypedProp expect = pm.reader(target->props);
                     if (std::get_if<double>(&expect)) { hint = PropType::Float; }
-                    else if (std::get_if<int64_t>(&expect)) { hint = PropType::Int; }
+                    else if (std::get_if<std::int64_t>(&expect)) { hint = PropType::Int; }
                     else if (std::get_if<bool>(&expect)) { hint = PropType::Bool; }
                 }
             } else if (PropType ro = target->readOnlyPropType(prop); ro != PropType::Unknown) {

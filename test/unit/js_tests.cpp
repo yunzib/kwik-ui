@@ -7,12 +7,6 @@
 // 运行：ctest -R js_tests 或直接执行 kwik_js_tests
 // ============================================================================
 #include "quickjs.h"    // JSContext / JSValueConst（IncrementalCallback 签名）
-#include <print>
-#include <cstdlib>
-#include <algorithm>
-#include <cmath>
-#include <filesystem>
-#include <fstream>
 
 import kwik.engine.context;        // QuickJSContext（默认构造，无需窗口）
 import kwik.engine.vm_callbacks;   // set_incremental_callback / set_render_callback
@@ -258,7 +252,7 @@ static void relayoutMirror_(View &root, Size sz) {
 // 布局后按钮 frame 体检：有限值、正尺寸、落在根 800x600 内
 static void checkButtonFrames_(const std::vector<View *> &btns, const char *tag) {
     CHECK(btns.size() == 4);
-    for (size_t i = 0; i < btns.size(); ++i) {
+    for (std::size_t i = 0; i < btns.size(); ++i) {
         Rect f = btns[i]->frame;
         bool sane = std::isfinite(f.x) && std::isfinite(f.y) && std::isfinite(f.width)
                     && std::isfinite(f.height) && f.width > 0 && f.height > 0 && f.x >= -0.5f && f.y >= -0.5f
@@ -292,7 +286,7 @@ static void checkButtonsDrawn_(View *root, const std::vector<View *> &btns, cons
     g.endFrame();
     std::vector<const FillRoundedRectCmd *> fills;
     collectFillsProbe_(dl, fills);
-    for (size_t i = 0; i < btns.size(); ++i) {
+    for (std::size_t i = 0; i < btns.size(); ++i) {
         Rect f = btns[i]->frame;
         bool hit = false;
         for (auto *cmd : fills) {
@@ -433,7 +427,7 @@ static void test_textview_state_update_reconcile() {
     std::vector<View *> btns2;
     collectButtonsProbe_(v2.get(), btns2);
     checkButtonFrames_(btns2, "phaseC");
-    for (size_t i = 0; i < btns2.size() && i < btns1.size(); ++i) {
+    for (std::size_t i = 0; i < btns2.size() && i < btns1.size(); ++i) {
         // 布局确定性与首建一致（内容未变，按钮不该挪位/变零尺寸）
         Rect a = btns1[i]->frame, b = btns2[i]->frame;
         CHECK(std::abs(a.x - b.x) < 0.5f && std::abs(a.y - b.y) < 0.5f && std::abs(a.width - b.width) < 0.5f
@@ -783,7 +777,7 @@ static JSValue js_expansion_toggle_stub(JSContext *ctx, JSValueConst this_val, i
     (void) this_val;
     if (argc >= 1) {
         JSValue o = JS_GetPropertyStr(ctx, argv[0], "open");
-        int32_t v = 0;
+        std::int32_t v = 0;
         JS_ToInt32(ctx, &v, o);
         JS_FreeValue(ctx, o);
         g_expToggleLast = v != 0;
@@ -1488,7 +1482,7 @@ public:
     void SetRawEventCallback(RawEventCallback) override {}
     void SetDecoration(WindowDecoration) override {}
     void SetShape(const std::vector<std::pair<int, int>> &) override {}
-    void SetShapeMask(const uint8_t *, int, int) override {}
+    void SetShapeMask(const std::uint8_t *, int, int) override {}
     void SetResizable(bool) override {}
 };
 
@@ -1728,7 +1722,7 @@ static void test_reconcile_token_resolve() {
         JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
         JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
         JSValue arr = JS_NewArray(c);
-        uint32_t i = 0;
+        std::uint32_t i = 0;
         for (auto ch : children) JS_SetPropertyUint32(c, arr, i++, ch);    // 逐个接管
         JS_SetPropertyStr(c, node, "children", arr);
         return node;
@@ -1744,7 +1738,7 @@ static void test_reconcile_token_resolve() {
         JS_SetPropertyStr(c, props, "theme", JS_DupValue(c, th));
         JS_SetPropertyStr(c, node, "props", props);
         JSValue arr = JS_NewArray(c);
-        uint32_t i = 0;
+        std::uint32_t i = 0;
         for (auto ch : children) JS_SetPropertyUint32(c, arr, i++, ch);
         JS_SetPropertyStr(c, node, "children", arr);
         return node;
@@ -1981,7 +1975,7 @@ static void test_video_explicit_id_reorder() {
         JS_SetPropertyStr(c, node, "type", JS_NewString(c, "View"));
         JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
         JSValue arr = JS_NewArray(c);
-        uint32_t i = 0;
+        std::uint32_t i = 0;
         for (int k : order) {
             const std::string id = "g" + std::to_string(k);
             const std::string src = "stream://" + id;
@@ -2003,7 +1997,7 @@ static void test_video_explicit_id_reorder() {
     JS_FreeValue(c, b);
     CHECK(merged && merged->children.size() == 3);
     bool ok = merged && merged->children.size() == 3;
-    for (size_t i = 0; ok && i < merged->children.size(); ++i) {
+    for (std::size_t i = 0; ok && i < merged->children.size(); ++i) {
         auto *v = dynamic_cast<Video *>(merged->children[i].get());
         const std::string &id = merged->children[i]->props.id;
         if (!v || byId[id] != v || v->videoProps().src != "stream://" + id) ok = false;

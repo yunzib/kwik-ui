@@ -1,8 +1,3 @@
-module;
-
-#include <cstdint>
-#include <string>
-
 export module kwik.core.color_parser;
 
 import kwik.core.types;
@@ -12,7 +7,7 @@ import std;
 /**
  * @brief 解析十六进制字符
  */
-export inline uint8_t parseHex(char c) {
+export inline std::uint8_t parseHex(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return 10 + c - 'a';
     if (c >= 'A' && c <= 'F') return 10 + c - 'A';

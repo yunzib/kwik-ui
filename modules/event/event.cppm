@@ -17,15 +17,6 @@
 //       仅依赖标准库和 kwik.core.types (Point 等基础类型)
 //       以及 kwik.core.input_session (TextInputTraits——publishedTraits 签名)
 // ============================================================================
-module;
-
-#include <cstdint>
-#include <vector>
-#include <unordered_map>
-#include <functional>
-#include <chrono>
-#include <atomic>
-
 export module kwik.event;
 
 import kwik.core.types;
@@ -44,7 +35,7 @@ import std;
  */
 export struct RawEvent {
     // ── 输入设备类型 ──
-    enum class Device : uint8_t {
+    enum class Device : std::uint8_t {
         Mouse,
         Touch,
         Pen,
@@ -53,7 +44,7 @@ export struct RawEvent {
     };
 
     // ── 动作类型 ──
-    enum class Action : uint8_t {
+    enum class Action : std::uint8_t {
         // Pointer 动作 (Mouse/Touch/Pen)
         Down,
         Move,
@@ -79,26 +70,26 @@ export struct RawEvent {
     Action action = Action::Down;
 
     // ── Pointer 字段 ──
-    int32_t pointerId = 0;    // 0=鼠标, 1+=触摸/笔
+    std::int32_t pointerId = 0;    // 0=鼠标, 1+=触摸/笔
     float x = 0.0f;           // 物理像素 X
     float y = 0.0f;           // 物理像素 Y
     float pressure = 0.0f;    // 触摸压力 [0, 1]
     float scrollX = 0.0f;     // 水平滚轮偏移
     float scrollY = 0.0f;     // 垂直滚轮偏移
-    uint8_t button = 0;       // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
+    std::uint8_t button = 0;       // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
 
     // ── 键盘字段 ──
-    uint32_t keyCode = 0;      // 虚拟键码 (平台无关, 由适配器映射)
-    uint32_t charCode = 0;     // Unicode 码点 (TextInput)
-    uint32_t modifiers = 0;    // 修饰键: bit0=Ctrl, bit1=Shift, bit2=Alt, bit3=Meta
+    std::uint32_t keyCode = 0;      // 虚拟键码 (平台无关, 由适配器映射)
+    std::uint32_t charCode = 0;     // Unicode 码点 (TextInput)
+    std::uint32_t modifiers = 0;    // 修饰键: bit0=Ctrl, bit1=Shift, bit2=Alt, bit3=Meta
 
     // ── 窗口字段 ──
     int width = 0;     // 窗口新宽度 (WindowResize)
     int height = 0;    // 窗口新高度 (WindowResize)
-    uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化 (WindowStateChanged)
+    std::uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化 (WindowStateChanged)
 
     // ── 元数据 ──
-    uint64_t timestamp = 0;    // 毫秒时间戳 (EventRouter 自动填充)
+    std::uint64_t timestamp = 0;    // 毫秒时间戳 (EventRouter 自动填充)
 };
 
 // ============================================================================
@@ -112,7 +103,7 @@ export struct RawEvent {
  */
 export struct DispatchEvent {
     // ── 事件类型枚举 ──
-    enum class Type : uint8_t {
+    enum class Type : std::uint8_t {
         // Gesture (手势识别)
         Tap,
         LongPress,
@@ -158,9 +149,9 @@ export struct DispatchEvent {
     Type type = Type::Tap;
 
     // ── 来源标识 ──
-    int32_t pointerId = 0;     // 关联的 Pointer (Pointer/Gesture 事件)
-    uint8_t button = 0;        // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
-    uint64_t timestamp = 0;    // 毫秒
+    std::int32_t pointerId = 0;     // 关联的 Pointer (Pointer/Gesture 事件)
+    std::uint8_t button = 0;        // 鼠标按钮: 0 无, 1 左, 2 右, 3 中 (与平台 MouseButton 枚举同序)
+    std::uint64_t timestamp = 0;    // 毫秒
 
     // ── 位置 (逻辑像素, 已 DPI 缩放) ──
     float globalX = 0.0f;
@@ -172,9 +163,9 @@ export struct DispatchEvent {
 
     // ── 事件负载 ──
     // 键盘
-    uint32_t keyCode = 0;      // KeyAction 的虚拟键码
-    uint32_t charCode = 0;     // CharInput 的 Unicode 码点
-    uint32_t modifiers = 0;    // 修饰键位掩码
+    std::uint32_t keyCode = 0;      // KeyAction 的虚拟键码
+    std::uint32_t charCode = 0;     // CharInput 的 Unicode 码点
+    std::uint32_t modifiers = 0;    // 修饰键位掩码
 
     // 滚轮
     float scrollX = 0.0f;
@@ -188,7 +179,7 @@ export struct DispatchEvent {
     // 窗口
     int resizeWidth = 0;
     int resizeHeight = 0;
-    uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化（WindowStateChanged 载荷）
+    std::uint8_t windowState = 0;    // 0=普通 1=最大化 2=最小化（WindowStateChanged 载荷）
 
     // ── 传播控制 (JS 侧可修改) ──
     mutable bool propagationStopped = false;
@@ -383,12 +374,12 @@ public:
     struct PointerState {
         float downX = 0.0f;    // 按下时位置 (逻辑像素)
         float downY = 0.0f;
-        uint64_t downTime = 0;    // 按下时时间戳
+        std::uint64_t downTime = 0;    // 按下时时间戳
         float lastX = 0.0f;       // 最新位置 (逻辑像素)
         float lastY = 0.0f;
         float pressure = 0.0f;                 // 最新压力
         bool active = false;                   // 是否仍按下
-        uint8_t button = 0;                    // 按下时按键 (点击类手势仅 0 无/1 左触发)
+        std::uint8_t button = 0;                    // 按下时按键 (点击类手势仅 0 无/1 左触发)
         EventTarget *pressTarget = nullptr;    // 按下时命中的目标
     };
 
@@ -401,7 +392,7 @@ public:
     /**
      * @brief 获取指定指针的状态
      */
-    const PointerState *get(int32_t pointerId) const;
+    const PointerState *get(std::int32_t pointerId) const;
 
     /**
      * @brief 清空所有状态
@@ -411,10 +402,10 @@ public:
     /**
      * @brief 遍历所有活跃指针
      */
-    const std::unordered_map<int32_t, PointerState> &pointers() const { return pointers_; }
+    const std::unordered_map<std::int32_t, PointerState> &pointers() const { return pointers_; }
 
 private:
-    std::unordered_map<int32_t, PointerState> pointers_;
+    std::unordered_map<std::int32_t, PointerState> pointers_;
 };
 
 // ============================================================================
@@ -469,11 +460,11 @@ public:
 
 private:
     EventTarget *lastHoverTarget_ = nullptr;
-    std::unordered_map<int32_t, bool> panStarted_;
+    std::unordered_map<std::int32_t, bool> panStarted_;
 
     static constexpr float kTapDistance = 10.0f;
-    static constexpr uint32_t kTapTimeout = 500;
-    static constexpr uint32_t kLongPressDelay = 600;
+    static constexpr std::uint32_t kTapTimeout = 500;
+    static constexpr std::uint32_t kLongPressDelay = 600;
     static constexpr float kPanThreshold = 5.0f;
 };
 
@@ -504,7 +495,7 @@ private:
     // 代理对重组寄存器: 平台每条 WM_CHAR 只携带一个 UTF-16 码元，增补平面
     // 字符（emoji）被拆成高/低代理两条事件送入；高代理先寄存，低代理到达
     // 时合并为完整码点一次下发（EventRouter 每树一份，多窗状态互不串扰）
-    uint32_t pendingHighSurrogate_ = 0;
+    std::uint32_t pendingHighSurrogate_ = 0;
 };
 
 // ============================================================================
@@ -758,7 +749,7 @@ public:
      * 到达时记录到达时刻；渲染提交方（KwikRuntime::renderFrame）取走
      * 计算延迟。非键入帧取走返回 0。无有效戳即无键入在途。
      */
-    int64_t consumeInputStampNs();
+    std::int64_t consumeInputStampNs();
 
     // ── 子模块访问 ──
     FocusManager &focusManager() { return focusManager_; }
@@ -769,7 +760,7 @@ private:
     float offsetY_ = 0.0f;
     EventTarget *rootTarget_ = nullptr;
 
-    std::atomic<int64_t> inputStampNs_{0};    // 最近键入到达时刻（ns；0=无）
+    std::atomic<std::int64_t> inputStampNs_{0};    // 最近键入到达时刻（ns；0=无）
 
     PointerTracker pointerTracker_;
     GestureRecognizer gestureRecognizer_;

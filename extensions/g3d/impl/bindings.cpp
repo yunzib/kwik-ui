@@ -1,8 +1,8 @@
 /** @brief G3D 扩展: JS 工厂 / 方法 / 插件式注册。 */
 module;
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）
+#include <kwik/c_bridge.h>
 #include "quickjs.h"
-#include <cstdio>
-#include <atomic>
 
 module kwik.ext.g3d;
 
@@ -28,7 +28,7 @@ import std;
             JS_ToFloat64(ctx, &_v, _ptr);                                                                              \
             JS_FreeValue(ctx, _ptr);                                                                                   \
             JS_FreeValue(ctx, _p);                                                                                     \
-            return reinterpret_cast<G3D *>(static_cast<uintptr_t>(_v));                                                \
+            return reinterpret_cast<G3D *>(static_cast<std::uintptr_t>(_v));                                                \
         }                                                                                                              \
         JS_FreeValue(ctx, _ptr);                                                                                       \
         JSValue _id = JS_GetPropertyStr(ctx, _p, "id");                                                                \
@@ -38,7 +38,7 @@ import std;
         auto *_r = dynamic_cast<G3D *>(_root ? _root->findById(_idStr) : nullptr);                                     \
         if (_r) {                                                                                                      \
             JS_SetPropertyStr(ctx, _p, "__g3d_ptr",                                                                    \
-                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(_r))));               \
+                              JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<std::uintptr_t>(_r))));               \
         }                                                                                                              \
         JS_FreeCString(ctx, _idStr);                                                                                   \
         JS_FreeValue(ctx, _id);                                                                                        \
@@ -188,9 +188,9 @@ static JSValue js_g3d(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
     if (JS_IsObject(props)) {
         JSValue idVal = JS_GetPropertyStr(ctx, props, "id");
         if (JS_IsUndefined(idVal)) {
-            static std::atomic<uint32_t> g3d_id_counter{0};
+            static std::atomic<std::uint32_t> g3d_id_counter{0};
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "__g3d_%u", g3d_id_counter++);
+            kwik_snprintf(buf, sizeof(buf), "__g3d_%u", g3d_id_counter++);
             JS_SetPropertyStr(ctx, props, "id", JS_NewString(ctx, buf));
         }
         JS_FreeValue(ctx, idVal);
@@ -201,7 +201,7 @@ static JSValue js_g3d(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
     // 立即创建 C++ G3D, 指针存到 props (方法调用直达)
     auto *g3d = new G3D();
     JS_SetPropertyStr(ctx, props, "__g3d_ptr",
-                      JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<uintptr_t>(g3d))));
+                      JS_NewFloat64(ctx, static_cast<double>(reinterpret_cast<std::uintptr_t>(g3d))));
     return obj;
 }
 
@@ -212,7 +212,7 @@ static std::unique_ptr<View> createG3D(const JSValueRef &pv) {
         JSContext *ctx = pv.context();
         double v;
         JS_ToFloat64(ctx, &v, ptrVal.raw());
-        auto *existing = reinterpret_cast<G3D *>(static_cast<uintptr_t>(v));
+        auto *existing = reinterpret_cast<G3D *>(static_cast<std::uintptr_t>(v));
         TypedPropMap meta;
         PropsExtractor ex(pv, &meta);
         existing->props = parseViewProps(ex);

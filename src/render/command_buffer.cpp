@@ -1,7 +1,7 @@
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstddef>
-#include <cstring>
 
 module kwik.render.command_buffer;
 
@@ -17,19 +17,19 @@ import std;
 // 顶点池 memcpy 追加 + 回放（叶子命令 dispatch + 子树按位合并 + 伤害带剔除）
 // ════════════════════════════════════════════
 
-size_t DisplayList::appendVertices(const AAVertex *v, size_t n) {
+std::size_t DisplayList::appendVertices(const AAVertex *v, std::size_t n) {
     if (n == 0) return 0;
-    size_t off = vertices_.size();
+    std::size_t off = vertices_.size();
     vertices_.resize(off + n);
-    std::memcpy(vertices_.data() + off, v, n * sizeof(AAVertex));
+    memcpy(vertices_.data() + off, v, n * sizeof(AAVertex));
     return off;
 }
 
-size_t DisplayList::appendMeshVertices(const Vertex3D *v, size_t n) {
+std::size_t DisplayList::appendMeshVertices(const Vertex3D *v, std::size_t n) {
     if (n == 0) return 0;
-    size_t off = meshVertices_.size();
+    std::size_t off = meshVertices_.size();
     meshVertices_.resize(off + n);
-    std::memcpy(meshVertices_.data() + off, v, n * sizeof(Vertex3D));
+    memcpy(meshVertices_.data() + off, v, n * sizeof(Vertex3D));
     return off;
 }
 
@@ -96,8 +96,8 @@ static void replayLeafCommand(const DrawCommand &cmd, RenderBackend &backend,
 
 void DisplayList::replay(RenderBackend &backend, const Rect &damageBand) const {
     bool cull = !damageBand.isEmpty();    // 空带 = 防御性全量回放
-    size_t sub = 0;    // subtrees_ 游标（按插入位置有序）
-    for (size_t i = 0; i <= commands_.size(); ++i) {
+    std::size_t sub = 0;    // subtrees_ 游标（按插入位置有序）
+    for (std::size_t i = 0; i <= commands_.size(); ++i) {
         // ① 先展开插入位置 == i 的子树（同一位置按追加顺序）。
         //    剔除：包含盒与伤害带不相交的子树整棵跳过（带外像素有效）
         while (sub < subtrees_.size() && subtrees_[sub].first == i) {

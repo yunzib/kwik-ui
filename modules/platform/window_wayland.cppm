@@ -1,7 +1,3 @@
-module;
-
-#include <cstdint>
-
 export module kwik.platform.wayland_window;
 
 import kwik.platform.window;
@@ -49,7 +45,7 @@ public:
     // 窗口定制
     void SetDecoration(WindowDecoration decoration) override;
     void SetShape(const std::vector<std::pair<int, int>> &polygon) override;
-    void SetShapeMask(const uint8_t *maskData, int width, int height) override;
+    void SetShapeMask(const std::uint8_t *maskData, int width, int height) override;
     void SetResizable(bool resizable) override;
 
 private:

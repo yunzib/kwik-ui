@@ -5,9 +5,6 @@
 // 文字: 通过 TextRenderPipeline 排版渲染
 // 事件: 通过 DispatchEvent 统一事件系统
 // ============================================================================
-module;
-#include <string>
-#include <memory>
 export module kwik.element.input;
 import kwik.element.view;
 import kwik.element.selection;    // Selectable / 选区服务（全局互斥登记）/ wordRangeAtText
@@ -92,9 +89,9 @@ public:
     // ── Selectable 接口（选区状态自持于 selectionStart_/cursorPos_；经服务
     //    只做全局互斥登记——他处开选区时 onSelectionEvicted 折叠本组件选区。
     //    密码模式不参与选区）──
-    size_t hitOffset(float globalX, float globalY) override;
-    std::vector<Rect> selectionRects(size_t startOff, size_t endOff) override;
-    std::string selectedBytes(size_t startOff, size_t endOff) override;
+    std::size_t hitOffset(float globalX, float globalY) override;
+    std::vector<Rect> selectionRects(std::size_t startOff, std::size_t endOff) override;
+    std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
     void onSelectionEvicted() override;
     bool alive() const override;
@@ -110,7 +107,7 @@ public:
      * @param x 相对文本原点的本地横坐标
      * @return UTF-8 字节偏移（对齐码点边界；文末 == text.size()）
      */
-    static size_t tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x);
+    static std::size_t tapByteOffsetForX(const std::vector<ShapedGlyph> &glyphs, const std::string &text, float x);
 
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
@@ -126,13 +123,13 @@ private:
     InputProps input_;
     std::string text_;    // 实际文本缓冲区 (与 input_.value 初始同步)
     bool focused_ = false;
-    size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
-    size_t selectionStart_ = 0;    // 选区锚点（= cursorPos_ 时无选区；密码模式恒折叠）
+    std::size_t cursorPos_ = 0;    // 光标在 text_ 中的字节偏移 (UTF-8)
+    std::size_t selectionStart_ = 0;    // 选区锚点（= cursorPos_ 时无选区；密码模式恒折叠）
     bool cursorVisible_ = true;
-    uint64_t lastBlinkTime_ = 0;
+    std::uint64_t lastBlinkTime_ = 0;
     bool draggingSelection_ = false;    // 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
     bool textDirty_ = false;    // 编辑后待回写标记：blur 时批量写回绑定 State（fireChange 置位）
-    uint64_t lastTapMs_ = 0;    // 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
+    std::uint64_t lastTapMs_ = 0;    // 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
     float lastTapX_ = 0;
     float lastTapY_ = 0;
 
@@ -152,12 +149,12 @@ private:
     void cursorToEnd();
     // ── 点击定位光标 ──
     /** Tap 坐标 → 光标字节位（与 onDraw 同口径排版；空文本恒 0，无字形退端点） */
-    size_t tapCursorByte(const DispatchEvent &event);
+    std::size_t tapCursorByte(const DispatchEvent &event);
     /** 聚焦并同时定位光标（Tap 用；focus() 保持"光标置文末"语义给键盘链） */
-    void focusWithCursor(size_t pos);
+    void focusWithCursor(std::size_t pos);
     // ── 渲染辅助 ──
     /** 字节偏移 → glyph 序号转换 */
-    size_t byteOffsetToGlyphIndex(size_t byteOffset) const;
+    std::size_t byteOffsetToGlyphIndex(std::size_t byteOffset) const;
     /** 更新光标闪烁计时器 */
     bool updateCursorBlink();
     /** 触发 onChange 回调 (引擎中立) */

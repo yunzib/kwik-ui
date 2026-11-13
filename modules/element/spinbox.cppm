@@ -16,10 +16,6 @@
 //   [Bug2] onDraw 加 graphics.save() 消除②透传 noop 抑制;
 //          箭头改用 TextRenderPipeline ▲/▼ 文字 (datepick 同款) → 消除 hover 消失
 // ============================================================================
-module;
-#include <string>
-#include <memory>
-#include <functional>
 export module kwik.element.spinbox;
 import kwik.element.view;
 import kwik.element.input;

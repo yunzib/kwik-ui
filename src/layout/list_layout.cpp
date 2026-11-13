@@ -1,5 +1,6 @@
 module;
-#include <cstddef> 
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
 module kwik.layout.list_layout;
 
@@ -97,7 +98,7 @@ void ListLayout::onLayout() {
 
     // 子项布局（可滚动区域）
     float xCursor = contentX, yCursor = contentY;
-    for (size_t i = 0; i < children.size(); ++i) {
+    for (std::size_t i = 0; i < children.size(); ++i) {
         auto &child = children[i];
         if (!child->props.visible) continue;
 
@@ -193,7 +194,7 @@ void ListLayout::onDraw(Graphics &g) {
     Rect visRect = {clipX + scrollOffset.x, clipY + scrollOffset.y, clipW, clipH};
 
     // 绘制子项 + 分割线
-    for (size_t i = 0; i < children.size(); ++i) {
+    for (std::size_t i = 0; i < children.size(); ++i) {
         if (!children[i]->frame.intersects(visRect)) continue;  // 容器自管剔除（滚动感知）
         children[i]->drawForced(g);                             // 跳过全局脏区剔除
 
@@ -295,7 +296,7 @@ EventTarget *ListLayout::hitTest(Point p) {
 // markAllDirty 对齐 applyScroll：命令式滚动同样必须重编行子树
 // ============================================================================
 bool ListLayout::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "scrollX") == 0 || std::strcmp(name, "scrollY") == 0) {
+    if (strcmp(name, "scrollX") == 0 || strcmp(name, "scrollY") == 0) {
         auto v = typedToFloat(value);
         if (!v) return false;
         if (name[6] == 'X') {

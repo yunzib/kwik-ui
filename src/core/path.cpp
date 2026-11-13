@@ -3,9 +3,22 @@
  * @brief Path 类 + 三角剖分实现
  */
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 
-#include <cmath>
-#include <numbers>
 #include <stdint.h>
 
 module kwik.core.path;
@@ -156,8 +169,8 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
         {
             std::vector<Vec2> filtered;
             filtered.reserve(pts.size());
-            const size_t m = pts.size();
-            for (size_t i = 0; i < m; ++i) {
+            const std::size_t m = pts.size();
+            for (std::size_t i = 0; i < m; ++i) {
                 const Vec2 &prev = pts[(i + m - 1) % m];
                 const Vec2 &cur = pts[i];
                 const Vec2 &next = pts[(i + 1) % m];
@@ -166,12 +179,12 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
             if (filtered.size() >= 3) pts = std::move(filtered);
         }
 
-        const size_t n = pts.size();
+        const std::size_t n = pts.size();
         if (n < 3) continue;
 
         // 统一逆时针（CCW）环绕：signed area
         float area2 = 0.0f;
-        for (size_t i = 0; i < n; ++i) {
+        for (std::size_t i = 0; i < n; ++i) {
             const Vec2 &a = pts[i];
             const Vec2 &b = pts[(i + 1) % n];
             area2 += a.x * b.y - b.x * a.y;
@@ -192,7 +205,7 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
                 if (l < 1e-9f) return Vec2{0.0f, 0.0f};
                 return Vec2{dy / l, -dx / l};    // CCW 多边形外侧
             };
-            for (size_t i = 0; i < n; ++i) {
+            for (std::size_t i = 0; i < n; ++i) {
                 const Vec2 &P = pts[(i + n - 1) % n];
                 const Vec2 &V = pts[i];
                 const Vec2 &N = pts[(i + 1) % n];
@@ -205,7 +218,7 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
                 float maxOff = dilate * 2.0f;
                 if (ol > maxOff) { off[i].x *= maxOff / ol; off[i].y *= maxOff / ol; }
             }
-            for (size_t i = 0; i < n; ++i) {
+            for (std::size_t i = 0; i < n; ++i) {
                 pts[i].x += off[i].x;
                 pts[i].y += off[i].y;
             }
@@ -222,29 +235,29 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
         };
         // 轮廓边掩码：两顶点在（预处理后）多边形中相邻 → 轮廓边需 AA；
         // 剖分对角线（索引距 > 1）→ 内部边不 AA
-        auto outlineBit = [&](size_t i, size_t j) -> uint8_t {
-            size_t d = i > j ? i - j : j - i;
+        auto outlineBit = [&](std::size_t i, std::size_t j) -> std::uint8_t {
+            std::size_t d = i > j ? i - j : j - i;
             return (d == 1 || d == n - 1) ? 1 : 0;
         };
-        auto emit = [&](size_t a, size_t b, size_t c) {
-            uint8_t m = outlineBit(a, b) | static_cast<uint8_t>(outlineBit(b, c) << 1) |
-                        static_cast<uint8_t>(outlineBit(c, a) << 2);
+        auto emit = [&](std::size_t a, std::size_t b, std::size_t c) {
+            std::uint8_t m = outlineBit(a, b) | static_cast<std::uint8_t>(outlineBit(b, c) << 1) |
+                        static_cast<std::uint8_t>(outlineBit(c, a) << 2);
             result.push_back({pts[a], pts[b], pts[c], m});
         };
 
-        std::vector<size_t> live;
+        std::vector<std::size_t> live;
         live.reserve(n);
-        for (size_t i = 0; i < n; ++i) live.push_back(i);
+        for (std::size_t i = 0; i < n; ++i) live.push_back(i);
 
         while (live.size() > 3) {
             bool clipped = false;
-            for (size_t k = 0; k < live.size(); ++k) {
-                size_t prev = live[(k + live.size() - 1) % live.size()];
-                size_t cur = live[k];
-                size_t next = live[(k + 1) % live.size()];
+            for (std::size_t k = 0; k < live.size(); ++k) {
+                std::size_t prev = live[(k + live.size() - 1) % live.size()];
+                std::size_t cur = live[k];
+                std::size_t next = live[(k + 1) % live.size()];
                 if (cross3(pts[prev], pts[cur], pts[next]) <= eps) continue;    // 反射/共线非耳
                 bool isEar = true;
-                for (size_t t : live) {
+                for (std::size_t t : live) {
                     if (t == prev || t == cur || t == next) continue;
                     if (inTri(pts[t], pts[prev], pts[cur], pts[next])) { isEar = false; break; }
                 }
@@ -258,10 +271,10 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
                 // 数值兜底（自交/退化多边形找不到严格耳）：忽略包含测试剪任意凸耳，
                 // 保证终止；全非凸（理论不可达）时从首点扇收尾
                 bool fallback = false;
-                for (size_t k = 0; k < live.size(); ++k) {
-                    size_t prev = live[(k + live.size() - 1) % live.size()];
-                    size_t cur = live[k];
-                    size_t next = live[(k + 1) % live.size()];
+                for (std::size_t k = 0; k < live.size(); ++k) {
+                    std::size_t prev = live[(k + live.size() - 1) % live.size()];
+                    std::size_t cur = live[k];
+                    std::size_t next = live[(k + 1) % live.size()];
                     if (cross3(pts[prev], pts[cur], pts[next]) > eps) {
                         emit(prev, cur, next);
                         live.erase(live.begin() + static_cast<long>(k));
@@ -270,7 +283,7 @@ std::vector<Triangle> triangulateFill(const Path &path, float dilate) {
                     }
                 }
                 if (!fallback) {
-                    for (size_t k = 1; k + 1 < live.size(); ++k) emit(live[0], live[k], live[k + 1]);
+                    for (std::size_t k = 1; k + 1 < live.size(); ++k) emit(live[0], live[k], live[k + 1]);
                     live.clear();
                     break;
                 }
@@ -289,7 +302,7 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
     float halfW = lineWidth * 0.5f;
     for (auto &contour : path.contours()) {
         auto &pts = contour.points;
-        size_t n = pts.size();
+        std::size_t n = pts.size();
         if (n < 2) continue;
 
         // 首尾相接 = 全圆弧/闭环：闭合点用 miter join 补角，端面由 join 覆盖（不加 cap）
@@ -297,7 +310,7 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
         bool ringClosed = gap < 1e-3f;
 
         // ── 每段主体条带（2 个三角形）──
-        for (size_t i = 0; i + 1 < n; ++i) {
+        for (std::size_t i = 0; i + 1 < n; ++i) {
             const Vec2 &a = pts[i];
             const Vec2 &b = pts[i + 1];
             float dx = b.x - a.x, dy = b.y - a.y;
@@ -307,7 +320,7 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
             float ny = dx / len * halfW;
             // Butt cap：开放轮廓的首/末段端面短边标记为轮廓边（bit0/bit1=1），
             // 使其获得与长边一致的抗锯齿（Skia 端帽同行为）；闭环段端面是内部边
-            uint8_t m0 = 0b100, m1 = 0b001;
+            std::uint8_t m0 = 0b100, m1 = 0b001;
             if (!ringClosed && i == 0) m0 = 0b101;           // 首段端面 (a-n→a+n)
             if (!ringClosed && i + 1 == n - 1) m1 = 0b011;   // 末段端面 (b+n→b-n)
             result.push_back({{a.x - nx, a.y - ny}, {a.x + nx, a.y + ny}, {b.x - nx, b.y - ny}, m0});
@@ -315,7 +328,7 @@ std::vector<Triangle> triangulateStroke(const Path &path, float lineWidth) {
         }
 
         // ── 内部拐点 miter join（不变）──
-        for (size_t j = 1; j + 1 < n; ++j) { /* 原样保留 */ }
+        for (std::size_t j = 1; j + 1 < n; ++j) { /* 原样保留 */ }
 
         // ── 闭合点（首尾相接处）miter join：消除闭环外边缘缺口 ──
         if (ringClosed && n >= 3) {

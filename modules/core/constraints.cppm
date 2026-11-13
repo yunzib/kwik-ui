@@ -1,8 +1,5 @@
-module;
-#include <limits>
-#include <algorithm>
-
 export module kwik.core.constraints;
+import std;
 
 import kwik.core.types;
 
@@ -89,9 +86,13 @@ public:
 
     /**
      * @brief 应用约束到尺寸
+     * 注：宽/高界可能被上游约束运算短暂倒置（如 flex 剩余空间为负时
+     * maxWidth < minWidth）——先归一化再 clamp。GCC 断言版 clamp 拒绝
+     * lo>hi（car/ivi 演示实测崩溃）；libc++ 无检查静默放行，行为不变
      */
     constexpr Size constrain(Size size) const {
-        return {std::clamp(size.width, minWidth, maxWidth), std::clamp(size.height, minHeight, maxHeight)};
+        return {std::clamp(size.width, std::min(minWidth, maxWidth), std::max(minWidth, maxWidth)),
+                std::clamp(size.height, std::min(minHeight, maxHeight), std::max(minHeight, maxHeight))};
     }
 
     /**

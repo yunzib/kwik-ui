@@ -1,7 +1,7 @@
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <algorithm>
-#include <cstring>
 
 module kwik.element.text;
 
@@ -109,7 +109,7 @@ void Text::ensureLayout(float maxW) {
                 full = std::move(relaid);
                 break;
             }
-            size_t pos = cut.size() - 1;    // 回退一个码点，给省略号腾位
+            std::size_t pos = cut.size() - 1;    // 回退一个码点，给省略号腾位
             while (pos > 0 && ((unsigned char)cut[pos] & 0xC0) == 0x80) --pos;
             cut.resize(pos);
         }
@@ -190,7 +190,7 @@ void Text::onDraw(Graphics &graphics) {
 // Text::setPropertyTyped — 处理 text_ 属性的增量更新
 // ═══════════════════════════════════════════════════════════════════════════
 bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
-    if (std::strcmp(name, "text") == 0) {
+    if (strcmp(name, "text") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (*s != text_.text) clearSelectionIfHosted();    // 选区偏移随旧文本失效
             text_.text = *s;
@@ -201,7 +201,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "textColor") == 0) {
+    if (strcmp(name, "textColor") == 0) {
         if (auto *c = std::get_if<Color>(&value)) {
             text_.textColor = *c;
             markDirty();
@@ -209,7 +209,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontSize") == 0) {
+    if (strcmp(name, "fontSize") == 0) {
         if (auto *d = std::get_if<double>(&value)) {
             text_.fontSize = static_cast<float>(*d);
             layoutResult_.reset();    // 字号影响行高 → 重排版 + re-layout
@@ -219,7 +219,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "wordWrap") == 0) {
+    if (strcmp(name, "wordWrap") == 0) {
         if (auto *b = std::get_if<bool>(&value)) {
             text_.wordWrap = *b;
             layoutResult_.reset();
@@ -229,7 +229,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "maxLines") == 0) {
+    if (strcmp(name, "maxLines") == 0) {
         if (auto *i = std::get_if<std::int64_t>(&value)) {
             text_.maxLines = static_cast<int>(*i);
             layoutResult_.reset();
@@ -239,7 +239,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "ellipsis") == 0) {
+    if (strcmp(name, "ellipsis") == 0) {
         if (auto *b = std::get_if<bool>(&value)) {
             text_.ellipsis = *b;
             layoutResult_.reset();
@@ -249,7 +249,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "lineHeight") == 0) {
+    if (strcmp(name, "lineHeight") == 0) {
         if (auto *d = std::get_if<double>(&value)) {
             text_.lineHeight = static_cast<float>(*d);
             layoutResult_.reset();
@@ -259,7 +259,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontFamily") == 0) {
+    if (strcmp(name, "fontFamily") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             text_.fontFamily = *s;
             layoutResult_.reset();
@@ -269,7 +269,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "textAlign") == 0) {
+    if (strcmp(name, "textAlign") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (s->find("center") != std::string::npos)
                 text_.textAlign = TextAlign::Center;
@@ -285,7 +285,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "verticalAlign") == 0) {
+    if (strcmp(name, "verticalAlign") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (s->find("center") != std::string::npos)
                 text_.verticalAlign = TextVerticalAlign::Center;
@@ -298,7 +298,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontWeight") == 0) {
+    if (strcmp(name, "fontWeight") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             if (s->find("bold") != std::string::npos)
                 text_.fontWeight = FontWeight::Bold;
@@ -315,7 +315,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "fontStyle") == 0) {
+    if (strcmp(name, "fontStyle") == 0) {
         if (auto *s = std::get_if<std::string>(&value)) {
             text_.fontStyle = (s->find("italic") != std::string::npos || s->find("oblique") != std::string::npos) ?
                                   FontStyle::Italic :
@@ -327,7 +327,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
         }
         return false;
     }
-    if (std::strcmp(name, "color") == 0) {
+    if (strcmp(name, "color") == 0) {
         TypedProp v = value;
         if (auto *s = std::get_if<std::string>(&v)) { v = parseColor(*s); }
         if (auto *c = std::get_if<Color>(&v)) {
@@ -451,7 +451,7 @@ bool Text::onEvent(const DispatchEvent &event) {
 }
 
 // ── Selectable 接口 — 几何映射（只读 layoutResult_ 缓存，零布局触发）──
-size_t Text::hitOffset(float globalX, float globalY) {
+std::size_t Text::hitOffset(float globalX, float globalY) {
     if (!layoutResult_ || layoutResult_->lines.empty()) return 0;
     // 事件 globalX/Y 是滚动视口域，行带/字形几何是未滚动 frame 域——
     // 上溯各滚动容器补回偏移（嵌套逐层累加；scroll=0 时恒 0，结果不变）
@@ -470,7 +470,7 @@ size_t Text::hitOffset(float globalX, float globalY) {
     return lineHitOffsetForX(layoutResult_->glyphs, *hitLine, globalX - origin.x);
 }
 
-std::vector<Rect> Text::selectionRects(size_t startOff, size_t endOff) {
+std::vector<Rect> Text::selectionRects(std::size_t startOff, std::size_t endOff) {
     std::vector<Rect> out;
     if (!layoutResult_ || startOff >= endOff) return out;
     // 双端钳制（UTF-8 边界 + 超界收拢——cluster 值天然合法，此处为外部
@@ -482,16 +482,16 @@ std::vector<Rect> Text::selectionRects(size_t startOff, size_t endOff) {
     float yTop = origin.y;
     for (auto &sl : layoutResult_->lines) {
         // 本行与选区的字节区间交集（[clusterStart, clusterEnd) 为行覆盖）
-        size_t s = std::max(startOff, static_cast<size_t>(sl.clusterStart));
-        size_t e = std::min(endOff, static_cast<size_t>(sl.clusterEnd));
+        std::size_t s = std::max(startOff, static_cast<std::size_t>(sl.clusterStart));
+        std::size_t e = std::min(endOff, static_cast<std::size_t>(sl.clusterEnd));
         if (s < e) {
             float xs = penOfBoundaryAt(layoutResult_->glyphs, sl, s);    // 边界落笔 = 选区起点
             float xe = penOfBoundaryAt(layoutResult_->glyphs, sl, e);    // 下一边界落笔 = 终点
             // 高度贴字形墨迹底（y 已烘焙 baseline，墨迹自 0 起）：行带
             // rowH=max(lineHeight, 墨迹) 时墨迹贴顶，整行带高亮会下坠
             float inkBottom = 0;
-            size_t gEnd = sl.glyphStart + sl.glyphCount;
-            for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+            std::size_t gEnd = sl.glyphStart + sl.glyphCount;
+            for (std::size_t i = sl.glyphStart; i < gEnd; ++i) {
                 auto &gph = layoutResult_->glyphs[i];
                 inkBottom = std::max(inkBottom, gph.y + gph.height);
             }
@@ -504,7 +504,7 @@ std::vector<Rect> Text::selectionRects(size_t startOff, size_t endOff) {
     return out;
 }
 
-std::string Text::selectedBytes(size_t startOff, size_t endOff) {
+std::string Text::selectedBytes(std::size_t startOff, std::size_t endOff) {
     startOff = clampToUtf8Boundary(displayedText_, startOff);
     endOff = clampToUtf8Boundary(displayedText_, endOff);
     if (startOff >= endOff) return {};
@@ -532,13 +532,13 @@ Point Text::contentOrigin() const {
 }
 
 // ── 纯几何函数（静态，行为锁单测入口；glyphs 为全排版扁平数组，行内索引自 sl）──
-size_t Text::lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, float localX) {
-    size_t gEnd = sl.glyphStart + sl.glyphCount;
+std::size_t Text::lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, float localX) {
+    std::size_t gEnd = sl.glyphStart + sl.glyphCount;
     if (gEnd <= sl.glyphStart) return sl.clusterStart;    // 空行（硬断行）
     // 最近边界扫描：各字形落笔位置（对齐偏移已烘焙进 x）+ 行尾末笔
-    size_t bestOff = sl.clusterStart;
+    std::size_t bestOff = sl.clusterStart;
     float bestDist = std::numeric_limits<float>::max();
-    for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+    for (std::size_t i = sl.glyphStart; i < gEnd; ++i) {
         if (glyphs[i].isNewline) continue;    // 换行标记不产生可视边界
         float d = std::abs(localX - glyphs[i].x);
         if (d < bestDist) {
@@ -552,9 +552,9 @@ size_t Text::lineHitOffsetForX(const std::vector<ShapedGlyph> &glyphs, const Tex
     return bestOff;
 }
 
-float Text::penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, size_t off) {
-    size_t gEnd = sl.glyphStart + sl.glyphCount;
-    for (size_t i = sl.glyphStart; i < gEnd; ++i) {
+float Text::penOfBoundaryAt(const std::vector<ShapedGlyph> &glyphs, const TextLayoutLine &sl, std::size_t off) {
+    std::size_t gEnd = sl.glyphStart + sl.glyphCount;
+    for (std::size_t i = sl.glyphStart; i < gEnd; ++i) {
         // 首个 cluster >= off 的字形落笔即边界位置（换行标记跳过）
         if (!glyphs[i].isNewline && glyphs[i].cluster >= off) return glyphs[i].x;
     }

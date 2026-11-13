@@ -3,7 +3,6 @@
  * @brief 主题系统核心实现 — ThemeData::of() 遍历 / Token 解析 / 默认值
  */
 module;
-#include <cstring>
 
 module kwik.core.theme;
 

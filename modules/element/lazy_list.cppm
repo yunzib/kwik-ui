@@ -17,10 +17,6 @@
 // 布局坐标不滚动化：行 frame 存内容坐标，滚动只改 translate + 窗口。
 // ============================================================================
 
-module;
-#include <memory>
-#include <vector>
-
 export module kwik.element.lazy_list;
 
 import kwik.core.types;

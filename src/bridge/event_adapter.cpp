@@ -10,8 +10,9 @@
 // ============================================================================
 
 module;
+// C printf 族桥声明（GCC16 std 模块边界，见头注释）
+#include <kwik/c_bridge.h>
 #include "quickjs.h"
-#include <cstdio>
 
 module kwik.bridge.event_adapter;
 
@@ -91,14 +92,14 @@ JSValue makePointerEvent(JSContext *ctx, const PointerArgs &a) {
 JSValue makeTextViewRunsEvent(JSContext *ctx, TextView &tv) {
     JSValue arr = JS_NewArray(ctx);
     const auto &runs = tv.runs();
-    for (size_t i = 0; i < runs.size(); ++i) {
+    for (std::size_t i = 0; i < runs.size(); ++i) {
         auto &run = runs[i];
         JSValue obj = JS_NewObject(ctx);
 
         JS_SetPropertyStr(ctx, obj, "text", JS_NewString(ctx, run.text.c_str()));
 
         char buf[32];
-        snprintf(buf, sizeof(buf), "%.1f", run.style.fontSize);
+        kwik_snprintf(buf, sizeof(buf), "%.1f", run.style.fontSize);
         JS_SetPropertyStr(ctx, obj, "fontSize", JS_NewString(ctx, buf));
 
         JS_SetPropertyStr(ctx, obj, "fontWeight",
@@ -112,7 +113,7 @@ JSValue makeTextViewRunsEvent(JSContext *ctx, TextView &tv) {
             std::format("#{:02X}{:02X}{:02X}", run.style.textColor.r, run.style.textColor.g, run.style.textColor.b);
         JS_SetPropertyStr(ctx, obj, "textColor", JS_NewString(ctx, cs.c_str()));
 
-        JS_SetPropertyUint32(ctx, arr, static_cast<uint32_t>(i), obj);
+        JS_SetPropertyUint32(ctx, arr, static_cast<std::uint32_t>(i), obj);
     }
     return arr;
 }
@@ -188,7 +189,7 @@ JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
         // a.value 为逗号连接的关键字串（TreeMenu::fireChange 拼接），此处切回数组
         std::string s = std::get<std::string>(a.value);
         JSValue arr = JS_NewArray(ctx);
-        uint32_t n = 0;
+        std::uint32_t n = 0;
         std::string cur;
         for (char ch : s) {
             if (ch == ',') {
@@ -226,7 +227,7 @@ JSValue makeChangeEvent(JSContext *ctx, View &view, const ChangeArgs &a) {
         } else if (auto *d = std::get_if<double>(&a.value)) {
             JS_SetPropertyStr(ctx, obj, "value", JS_NewFloat64(ctx, *d));
         } else if (auto *i = std::get_if<std::int64_t>(&a.value)) {
-            JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, static_cast<int32_t>(*i)));
+            JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, static_cast<std::int32_t>(*i)));
         }
         return obj;
     }

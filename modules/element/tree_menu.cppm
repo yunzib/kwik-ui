@@ -10,11 +10,6 @@
 //           （受控键存在即受控；同构重喂保留运行时态与行身份）
 // 注意：TreeMenu 不接受 JS children（数据走 nodes），reconcile 时行由内部重建。
 // ============================================================================
-module;
-#include <memory>
-#include <string>
-#include <vector>
-
 export module kwik.element.tree_menu;
 
 import kwik.core.types;

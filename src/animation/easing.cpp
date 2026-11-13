@@ -1,6 +1,4 @@
 module;
-#include <cmath>
-#include <charconv>
 
 module kwik.animation.easing;
 import kwik.core.log;

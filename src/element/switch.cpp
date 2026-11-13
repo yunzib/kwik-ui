@@ -7,9 +7,9 @@
 // ============================================================================
 
 module;
+// memcpy/strcmp 族 std 模块不导出（using 声明不可导出），文本 string.h 提供全局名（无 C++ 包装，与 std 模块无冲突）
+#include <string.h>
 
-#include <cstring>
-#include <algorithm>
 
 module kwik.element.switch_button;
 
@@ -136,7 +136,7 @@ bool Switch::onEvent(const DispatchEvent &event) {
 // getProperty — getProp("switchId", "checked") 支持
 // ============================================================================
 std::string Switch::getProperty(const char *name) const {
-    if (std::strcmp(name, "checked") == 0) { return sp_.checked ? "true" : "false"; }
+    if (strcmp(name, "checked") == 0) { return sp_.checked ? "true" : "false"; }
     return View::getProperty(name);
 }
 
@@ -146,7 +146,7 @@ std::string Switch::getProperty(const char *name) const {
 // setPropertyTyped — 类型安全增量更新
 // ============================================================================
 bool Switch::setPropertyTyped(const char *name, const TypedProp &value) {
-	if (std::strcmp(name, "checked") == 0) {
+	if (strcmp(name, "checked") == 0) {
 		auto b = typedToBool(value);      // 兼容 "1"/"0"（原字符串版语义）
 		if (!b) { return false; }
 		setChecked(*b);

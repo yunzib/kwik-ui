@@ -1,8 +1,6 @@
 /** @brief Chart 扩展: 属性解析 / JS 工厂 / ElementSpec 自注册。 */
 module;
 #include "quickjs.h"
-#include <cmath>
-#include <cstdio>
 
 module kwik.ext.chart;
 
@@ -27,10 +25,10 @@ import std;
 static Color jsColor(const JSValueRef &v) {
 	if (v.isString()) return parseColor(v.toString());
 	if (v.isArray() && v.getArrayLength() >= 3) {
-		uint8_t r = static_cast<uint8_t>(v.getArrayElement(0).toInt());
-		uint8_t g = static_cast<uint8_t>(v.getArrayElement(1).toInt());
-		uint8_t b = static_cast<uint8_t>(v.getArrayElement(2).toInt());
-		uint8_t a = v.getArrayLength() >= 4 ? static_cast<uint8_t>(v.getArrayElement(3).toInt()) : 255;
+		std::uint8_t r = static_cast<std::uint8_t>(v.getArrayElement(0).toInt());
+		std::uint8_t g = static_cast<std::uint8_t>(v.getArrayElement(1).toInt());
+		std::uint8_t b = static_cast<std::uint8_t>(v.getArrayElement(2).toInt());
+		std::uint8_t a = v.getArrayLength() >= 4 ? static_cast<std::uint8_t>(v.getArrayElement(3).toInt()) : 255;
 		return {r, g, b, a};
 	}
 	return Color::transparent();
@@ -293,11 +291,11 @@ static void extractNestedColorTokens(View *view, const JSValueRef &pv) {
 		auto subVal = pv.getProperty(sub);
 		if (!subVal.isObject() || subVal.isArray()) continue;
 		JSPropertyEnum *tab = nullptr;
-		uint32_t len = 0;
+		std::uint32_t len = 0;
 		if (JS_GetOwnPropertyNames(ctx, &tab, &len, subVal.raw(), JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0)
 			continue;
 		std::string prefix = std::string(sub) + ".";
-		for (uint32_t i = 0; i < len; ++i) {
+		for (std::uint32_t i = 0; i < len; ++i) {
 			const char *name = JS_AtomToCString(ctx, tab[i].atom);
 			if (name) {
 				JSValue val = JS_GetProperty(ctx, subVal.raw(), tab[i].atom);

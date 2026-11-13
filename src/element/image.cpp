@@ -5,15 +5,24 @@
 //          SVG                              (nanosvg, 通过 svg_decoder 封装)
 // ============================================================================
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 // import std 和 stb_image.h 中 new 重载冲突，使用传统头文件格式
 #include <stdint.h>
-#include <cstdint>
-#include <string>
-#include <vector>
-#include <cstddef>
 
-#include <fstream>
-#include <filesystem>
 
 #include "stb_image.h"   // 光栅图像解码 (PNG/JPEG/BMP/GIF/...)
 #include "svg_decoder.h" // SVG 解码封装 (nanosvg)
@@ -109,7 +118,7 @@ void Image::loadFromFile(const std::string &path) {
     }
     decodedWidth_ = w;
     decodedHeight_ = h;
-    size_t byteCount = static_cast<size_t>(w) * h * 4;
+    std::size_t byteCount = static_cast<std::size_t>(w) * h * 4;
     pixels_.assign(data, data + byteCount);
     stbi_image_free(data);
     loaded_ = true;
@@ -128,7 +137,7 @@ void Image::loadFromSvg(const std::string &path) {
     }
     auto fsize = file.tellg();
     file.seekg(0);
-    std::string content(static_cast<size_t>(fsize), '\0');
+    std::string content(static_cast<std::size_t>(fsize), '\0');
     file.read(content.data(), fsize);
     SvgImage svg = svgLoadFromMemory(content.data(), content.size(), targetW, targetH);
     if (!svg.error.empty()) {
@@ -155,7 +164,7 @@ void Image::loadFromBuffer() {
         errorMsg_ = "invalid buffer dimensions";
         return;
     }
-    size_t expected = static_cast<size_t>(w) * h * 4;
+    std::size_t expected = static_cast<std::size_t>(w) * h * 4;
     if (imageProps_.data.size() < expected) {
         errorMsg_ = "buffer size mismatch";
         return;
@@ -325,8 +334,8 @@ void Image::uploadTexture() {
     if (textureId_ != 0 || pixels_.empty()) return;
     textureId_ = TextureManager::instance().createTexture(
         static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend)),
-        pixels_.data(), static_cast<uint32_t>(decodedWidth_),
-                                                          static_cast<uint32_t>(decodedHeight_));
+        pixels_.data(), static_cast<std::uint32_t>(decodedWidth_),
+                                                          static_cast<std::uint32_t>(decodedHeight_));
     if (textureId_ == 0) {
         auto *backend = static_cast<RenderBackend *>(treeService(View::kSvcRenderBackend));
         if (!backend) return;    // 服务槽未接线（早于 runtime 接线的首帧）——留待后续帧重试

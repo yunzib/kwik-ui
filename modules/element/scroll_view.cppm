@@ -1,7 +1,3 @@
-module;
-
-#include <memory>
-
 export module kwik.element.scroll_view;
 
 import kwik.core.types;
@@ -110,7 +106,7 @@ private:
     bool contentDragging_ = false;   // 内容拖拽平移中（Pan 手势，子级未消费时接管）
     Point dragRaw_{};                // 拖拽期原始偏移累加器（不夹紧；显示值经橡皮筋阻尼）
     Point dragLastPan_{};            // 上次 PanMove 的 pan 累计位移（差分 + 速度采样）
-    uint64_t dragLastT_ = 0;         // 上次 PanMove 时间戳（ms）
+    std::uint64_t dragLastT_ = 0;         // 上次 PanMove 时间戳（ms）
     float dragVelX_ = 0;             // 指针速度采样（EMA，px/s；正 = 指针右移/下移）
     float dragVelY_ = 0;
 

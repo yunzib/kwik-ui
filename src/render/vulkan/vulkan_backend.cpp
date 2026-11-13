@@ -1,4 +1,19 @@
 module;
+// GCC16 模块边界守卫：C 标准头直取 mingw-w64 纯 C 版本（include_next），
+// 绕开 libstdc++ 的 C++ 包装头——否则 windows.h→stdlib.h→mm_malloc→xmmintrin
+// 的文本链与 import std 的同名声明产生语言链接冲突
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS 1
+// 内在函数头同因：mingw intrin.h 将 x86intrin 包进 extern "C"（文本侧 C 链接），
+// 与 std 模块内 C++ 链接的同名声明冲突——预置 guard 使文本路径落空（声明仍由
+// import std 提供，用户代码无感）
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #include <vulkan/vulkan.h>
 module kwik.render.vulkan_backend;
 import kwik.render.vulkan.context;
@@ -115,12 +130,12 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     if (!token) return false;
     currentToken_ = std::move(token);
 
-    int32_t sx = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.x)));
-    int32_t sy = std::max(0, static_cast<int32_t>(std::floor(dirtyRect.y)));
-    uint32_t sw =
-        std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.x + dirtyRect.width) - std::floor(dirtyRect.x)));
-    uint32_t sh =
-        std::max(1u, static_cast<uint32_t>(std::ceil(dirtyRect.y + dirtyRect.height) - std::floor(dirtyRect.y)));
+    std::int32_t sx = std::max(0, static_cast<std::int32_t>(std::floor(dirtyRect.x)));
+    std::int32_t sy = std::max(0, static_cast<std::int32_t>(std::floor(dirtyRect.y)));
+    std::uint32_t sw =
+        std::max(1u, static_cast<std::uint32_t>(std::ceil(dirtyRect.x + dirtyRect.width) - std::floor(dirtyRect.x)));
+    std::uint32_t sh =
+        std::max(1u, static_cast<std::uint32_t>(std::ceil(dirtyRect.y + dirtyRect.height) - std::floor(dirtyRect.y)));
 
     if (ctx_.consumeJustRecreated()) {
         Log::info("beginFrame: swapchain recreated -> force full redraw {}x{}", currentToken_->extent.width,
@@ -136,7 +151,7 @@ bool VulkanBackend::beginFrame(const Rect &dirtyRect) {
     clip_.beginFrame(currentToken_->extent, sc);
     // 以 ctx 帧槽分槽重置顶点写入（fence 等待周期与槽轮转同源，槽复用
     // 距 3 帧 = fence 距，CPU 重写不再与在飞帧 GPU 读竞争）
-    const uint32_t frameSlot = ctx_.frameIndex();
+    const std::uint32_t frameSlot = ctx_.frameIndex();
     triangle_.resetOffset(frameSlot);
     mesh_.resetOffset(frameSlot);
 
@@ -181,8 +196,8 @@ void VulkanBackend::fillRect(const Rect &r, const Color &c, BlendMode mode, cons
         att.clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
         att.colorAttachment = 0;
         VkClearRect cr{};
-        cr.rect = {{static_cast<int32_t>(area.x), static_cast<int32_t>(area.y)},
-                   {static_cast<uint32_t>(std::ceil(area.width)), static_cast<uint32_t>(std::ceil(area.height))}};
+        cr.rect = {{static_cast<std::int32_t>(area.x), static_cast<std::int32_t>(area.y)},
+                   {static_cast<std::uint32_t>(std::ceil(area.width)), static_cast<std::uint32_t>(std::ceil(area.height))}};
         cr.baseArrayLayer = 0;
         cr.layerCount = 1;
         vkCmdClearAttachments(currentToken_->commandBuffer, 1, &att, 1, &cr);
@@ -239,22 +254,22 @@ void VulkanBackend::drawImage(const DrawImageCmd &cmd) {
     }
 }
 
-uint32_t VulkanBackend::createImageTexture(const uint8_t *rgba, uint32_t w, uint32_t h) {
+std::uint32_t VulkanBackend::createImageTexture(const std::uint8_t *rgba, std::uint32_t w, std::uint32_t h) {
     return image_.enqueueTexture(rgba, w, h);    // 通道入队，渲染线程帧首上传
 }
 
 // 流纹理：通道入队（id 同步返回），渲染线程帧首注册并按流共享 GPU 资源
-uint32_t VulkanBackend::createStreamTexture(std::shared_ptr<VideoStream> stream) {
+std::uint32_t VulkanBackend::createStreamTexture(std::shared_ptr<VideoStream> stream) {
     return image_.enqueueStream(std::move(stream));
 }
 
 // 本帧将绘制该流纹理：入队触碰标记，帧首据此决定是否上传新帧
-void VulkanBackend::touchStreamTexture(uint32_t id) {
+void VulkanBackend::touchStreamTexture(std::uint32_t id) {
     image_.enqueueTouch(id);
 }
 
 // 17 号：异步上传回执查询（UI 线程轮询；查询即摘除该 id 回执，0=在途 1=落地 2=失败）
-RenderBackend::TextureUploadStatus VulkanBackend::imageTextureResult(uint32_t id) {
+RenderBackend::TextureUploadStatus VulkanBackend::imageTextureResult(std::uint32_t id) {
     switch (image_.queryUploadResult(id)) {
     case 1: return RenderBackend::TextureUploadStatus::Landed;
     case 2: return RenderBackend::TextureUploadStatus::Failed;
@@ -262,7 +277,7 @@ RenderBackend::TextureUploadStatus VulkanBackend::imageTextureResult(uint32_t id
     }
 }
 
-void VulkanBackend::destroyImageTexture(uint32_t id) {
+void VulkanBackend::destroyImageTexture(std::uint32_t id) {
     image_.enqueueDestroy(id);    // 通道入队，渲染线程延迟释放（不阻塞 UI 线程）
 }
 
