@@ -19,7 +19,7 @@
     },
     {
       "name": "clang",
-      "displayName": "Clang（llvm-mingw，兼容口径）",
+      "displayName": "Clang（llvm-mingw）——已退役：支持至 v0.1.1，反射桥（P2996）引入后不可用；仅供考古/bisect",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-clang",
       "cacheVariables": {

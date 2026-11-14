@@ -231,7 +231,7 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 |---|---|
 | CMake | 4.3.2 |
 | Ninja | 1.13 |
-| 编译器 | GCC 16.2（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1）为主工具链（兼容 Clang ≥ 18，需支持 C++ Modules） |
+| 编译器 | GCC 16.2（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1）。Clang 支持至 v0.1.1（llvm-mingw-20260421-ucrt-x86_64，Clang ≥ 18）——反射桥（C++26 P2996）引入后退役，不再提供 Clang 构建口径 |
 | Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
 
 ## 4.2 工程编译

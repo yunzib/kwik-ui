@@ -231,7 +231,7 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 |---|---|
 | CMake | 4.3.2 |
 | Ninja | 1.13 |
-| Toolchain | GCC 16.2 (niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1) as primary (Clang ≥ 18 compatible, with C++ Modules support) |
+| Toolchain | GCC 16.2 (niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1). Clang supported through v0.1.1 (llvm-mingw-20260421-ucrt-x86_64, Clang ≥ 18) — retired with the reflection bridge (C++26 P2996); no Clang build support going forward |
 | Vulkan SDK | 1.3 (optional; a stub target is created if not found) |
 
 ## 4.2 Building the Project

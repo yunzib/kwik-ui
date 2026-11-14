@@ -8,7 +8,10 @@
   `KWIK_BUILD_TYPE` 缓存变量切换，不再需要多目录）；FFmpeg configure 工具名随
   主编译器自动分派（GCC→binutils 家族 / Clang→llvm-* 家族）。`import std` /
   模块/CMake 4.3.2 全栈在 GCC 16 下可用，`-freflection`（C++26 P2996）验证通过，
-  为反射桥重写铺路
+  为反射桥重写铺路。**Clang 构建口径就此退役**：支持至 v0.1.1
+  （llvm-mingw-20260421-ucrt-x86_64，Clang ≥ 18，全门禁最后一次复验通过）；
+  反射桥（C++26 P2996，Clang 主线未实现）引入后不再提供 Clang 构建，
+  clang preset 保留仅供考古/bisect
 - **C printf 桥**（include/kwik/c_bridge.h + src/utils/c_printf_bridge.cpp）：
   GCC16 std 模块不导出 C 库函数 using 声明且文本 stdio.h 与模块收编声明语言
   链接冲突——printf 族经 extern "C" 桥符号提供；fprintf 一类触发 binding 合并
