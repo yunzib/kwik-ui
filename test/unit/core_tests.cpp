@@ -579,7 +579,7 @@ static void test_image_fit_resolution() {
 // 自带字体（NotoSansSC）合成 1200px .notdef 字形直接驱动 TextCache。
 static void test_text_cache_unfittable_glyph_no_storm() {
     FontManager fm;    // 独立实例，与 TextRenderPipeline 单例的字体表互不影响
-    FontId fid = fm.loadFont("../../resources/fonts/NotoSansSC-Regular.otf");
+    FontId fid = fm.loadFont("../../resources/fonts/NotoSansSC-Regular");
     if (fid == kInvalidFontId) {
         // 非常规工作目录（字体文件找不到）：本锁无法驱动栅格化，显式跳过
         std::println("[tests] skip unfittable-glyph lock: font not found");

@@ -1,5 +1,23 @@
 # 更新日志
 
+# 0.2.1 — 2026-11-14
+### 新增
+- **混合字体策略（Flutter/Qt 式）**：主字体优先平台系统默认——
+  FontManager::loadSystemDefaultFont()（src/render/text/text_font_manager.cpp，
+  平台分支沿用既有 systemDefaultFont()：Win=微软雅黑 msyh.ttc / macOS=苹方 /
+  Linux=Noto CJK ttc）；KwikRuntime 启动改为系统默认优先、失败回退仓库自带
+  （src/app/kwik_runtime.cpp）。观感与系统一致；系统字体可用时自带字体文件
+  不进内存、发行包可裁剪；fontFamily 属性可命中系统字体名。字体资产
+  OTF→TTF：NotoSansSC[wght].ttf（glyf 轮廓，FreeType 按字形按需读取）；
+  loadFont 请求名去扩展化（resolveFontPath 扩展序 .ttf 优先 .otf，
+  js_tests/core_tests 同步），旧 OTF 保留可回退
+### 修复
+- **可变字体默认实例非 Regular 时整屏文字变细**：FreeTypeTextFace 构造对
+  VF 归一化（src/render/text/text_face_ft.cpp）——FT_Get_MM_Var 遍历轴取
+  文件默认值、wght 轴固定 400（F2Dot14），且须在 hb_ft 建立前完成使
+  HarfBuzz 度量/轮廓同源；对任何 VF 文件免疫"默认实例非 Regular"
+  （GF NotoSansSC[wght].ttf fvar default=100 Thin 实测触发全屏细体）
+
 # 0.2.0 — 2026-11-14
 ### 新增
 - **ElementType 名字表反射化**：src/element/element_type.cpp 重写——内置

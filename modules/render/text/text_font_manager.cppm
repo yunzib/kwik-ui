@@ -49,6 +49,12 @@ export {
         // ═══════════════════════════════════════════════════════════
 
         FontId loadFont(const std::string& path, int faceIndex = 0);
+        /** @brief 加载平台系统默认字体（Win=微软雅黑 / macOS=苹方 /
+         *         Linux=Noto CJK）。混合字体策略（Flutter 式）：主字体优先
+         *         系统默认——观感与系统一致且零捆绑驻留
+         *  @return FontId；平台无该字体文件时 kInvalidFontId（由调用方
+         *          回退自带字体） */
+        FontId loadSystemDefaultFont();
         FontId findFont(const std::string& familyName) const;
         TextFace* getFace(FontId fid) const;
 

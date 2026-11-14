@@ -10,6 +10,7 @@ docs/当前优化任务清单.md
 .dsh-research/
 .workbuddy/
 build-clang/
+build-release/
 
 # KwiK Serial 示例工程：本地独立 git 仓库管理（不提交到框架仓库）
 examples/serial-assistant/

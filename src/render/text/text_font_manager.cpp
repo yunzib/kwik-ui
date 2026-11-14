@@ -87,6 +87,13 @@ void FontManager::addFontDir(const std::string &dir) {
     if (!dir.empty()) fontDirs_.push_back(dir);
 }
 
+FontId FontManager::loadSystemDefaultFont() {
+    // 主字体 = 平台系统默认（systemDefaultFont() 按平台分支给出路径，见文件头）。
+    // 文件缺失时 loadFont→resolveFontPath 返回无效 id：嵌入式 drm/fbdev 等
+    // 无系统字体环境由调用方回退仓库自带字体
+    return loadFont(systemDefaultFont());
+}
+
 std::string FontManager::resolveFontPath(const std::string &name) const {
     if (name.empty()) return {};
     std::ifstream test(name, std::ios::binary);

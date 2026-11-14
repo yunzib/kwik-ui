@@ -40,6 +40,12 @@ public:
     FontId loadFont(const std::string &path, int faceIndex = 0);
 
     /**
+     * @brief 加载平台系统默认字体（Win=微软雅黑 / macOS=苹方 /
+     *        Linux=Noto CJK）；文件缺失时返回 kInvalidFontId
+     */
+    FontId loadSystemDefaultFont() { return fontManager_.loadSystemDefaultFont(); }
+
+    /**
      * @brief 注册系统级字体回退链（emoji → 系统默认），主字体缺字形时
      *        塑形按码点回退选字体；候选缺失时静默跳过
      */

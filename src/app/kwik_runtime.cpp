@@ -198,10 +198,15 @@ bool KwikRuntime::init() {
     auto &pipe = TextRenderPipeline::instance();
     for (auto &dir : config_.fontDirs) pipe.addFontDir(dir);
     auto tFont = std::chrono::steady_clock::now();
-    FontId mainFont = pipe.loadFont("NotoSansSC-Regular.otf");
+    // 混合字体策略（Flutter/Qt 式）：主字体优先平台系统默认（Win=微软雅黑 /
+    // macOS=苹方 / Linux=Noto CJK）——观感与系统一致、零捆绑驻留、自带文件
+    // 不进内存；仅无系统字体环境（嵌入式 drm/fbdev）回退仓库自带 NotoSansSC
+    // （TTF glyf 按需读取；请求名不带扩展名，resolveFontPath 扩展序 .ttf 优先）
+    FontId mainFont = pipe.loadSystemDefaultFont();
+    if (mainFont == kInvalidFontId) mainFont = pipe.loadFont("NotoSansSC-Regular");
     Log::info("[startup] font_load = {} ms",
               std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tFont).count());
-    if (mainFont == kInvalidFontId) { Log::error("字体加载失败: NotoSansSC-Regular.otf"); }
+    if (mainFont == kInvalidFontId) { Log::error("字体加载失败: 系统默认与自带 NotoSansSC 均不可用"); }
     // 系统回退链：主字体缺字形（emoji 等）时塑形按码点逐级回退，
     // 激活 FontManager 的回退查找（此前 setFallback 全仓零调用 = 死代码）
     TextRenderPipeline::instance().registerSystemFallbacks(mainFont);

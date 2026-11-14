@@ -16,6 +16,7 @@ module;
 #define _CPUID_H_INCLUDED
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H    // VF 轴查询/设值（FT_Get_MM_Var / FT_Set_Var_Design_Coordinates）
 #include <hb.h>
 #include <hb-ft.h>
 
@@ -30,6 +31,23 @@ FreeTypeTextFace::FreeTypeTextFace(FT_Library lib, const std::string& path, int 
     if (FT_New_Face(lib, path.c_str(), faceIndex, &ftFace_) != 0) {
         ftFace_ = nullptr;
         return;
+    }
+    // VF 归一化：可变字体一律固定 wght=400（Regular）。框架不映射 VF 字重，
+    // 沿用文件默认实例时，默认非 400 的 VF（如 GF 的 NotoSansSC[wght].ttf
+    // 默认 100 Thin）会让整屏文字变细。归一化须在 hb_ft 建立前完成，HarfBuzz
+    // 才能取到 400 字重的度量与轮廓；设值失败则保持文件默认（尽力而为）
+    if (FT_HAS_MULTIPLE_MASTERS(ftFace_)) {
+        FT_MM_Var *mm = nullptr;
+        if (FT_Get_MM_Var(ftFace_, &mm) == 0 && mm) {
+            // 各轴取文件默认值，仅把 wght 轴改写为 400（Fixed 16.16 = 400<<16）
+            std::vector<FT_Fixed> coords(mm->num_axis);
+            for (unsigned i = 0; i < mm->num_axis; ++i) {
+                coords[i] = mm->axis[i].def;
+                if (mm->axis[i].tag == FT_MAKE_TAG('w', 'g', 'h', 't')) coords[i] = 400 << 16;
+            }
+            FT_Set_Var_Design_Coordinates(ftFace_, mm->num_axis, coords.data());
+            FT_Done_MM_Var(lib, mm);
+        }
     }
     hbFont_ = hb_ft_font_create_referenced(ftFace_);
 }

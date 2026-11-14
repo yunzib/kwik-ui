@@ -470,7 +470,7 @@ static void test_textview_state_update_reconcile() {
 static void test_reveal_text_scroll_lock() {
     auto &pipe_ = TextRenderPipeline::instance();
     pipe_.addFontDir("resources/fonts");
-    FontId fid = pipe_.loadFont("NotoSansSC-Regular.otf");
+    FontId fid = pipe_.loadFont("NotoSansSC-Regular");
     CHECK(fid != kInvalidFontId);
 
     // 视口 300x100；内容 20 行（明显超高）
@@ -639,7 +639,7 @@ static void test_textview_draw_ink_in_box() {
     // 真字体（本锁置于测试末段：加载后不再有依赖旧度量预期的文本测试）
     auto &pipe_ = TextRenderPipeline::instance();
     pipe_.addFontDir("resources/fonts");
-    FontId fid = pipe_.loadFont("NotoSansSC-Regular.otf");
+    FontId fid = pipe_.loadFont("NotoSansSC-Regular");
     CHECK(fid != kInvalidFontId);
 
     TextViewProps tvp;
