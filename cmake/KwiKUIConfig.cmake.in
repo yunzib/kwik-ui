@@ -29,17 +29,10 @@ set(KWIK_INC
 find_package(Threads REQUIRED)
 target_link_libraries(kwik-ui::kwik INTERFACE Threads::Threads)
 
-find_package(Vulkan QUIET)
-if(Vulkan_FOUND)
-  list(APPEND KWIK_INC "${Vulkan_INCLUDE_DIRS}")
-  target_link_libraries(kwik-ui::kwik INTERFACE Vulkan::Vulkan)
-else()
-  kwik_stub_tgt(Vulkan::Vulkan)
-endif()
-
-target_include_directories(kwik-ui::kwik INTERFACE ${KWIK_INC})
-unset(KWIK_INC)
-
+# SDK 静态库先挂接（必须在 Vulkan 之前）——顺序纪律：GNU ld 单遍处理归档，
+# vulkan-1.lib 若在前，读到它时 vk* 尚无未定义引用，其成员不会被拉取，
+# 随后 libkwik_render.a 产生的 vk* 引用将落空。主构建 CMake 能按静态库
+# 依赖重排（INTERFACE 目标挂到静态库之后），此处无重排待遇，靠调用序保序
 file(GLOB _kwik_libs "${PACKAGE_PREFIX_DIR}/lib/libkwik_*.a")
 list(SORT _kwik_libs)
 # 三方依赖按库族 glob：Debug 构建会带 d 后缀（如 libfreetyped.a），
@@ -56,7 +49,42 @@ unset(_ft_libs)
 unset(_hb_libs)
 unset(_svg_libs)
 
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+  list(APPEND KWIK_INC "${Vulkan_INCLUDE_DIRS}")
+  target_link_libraries(kwik-ui::kwik INTERFACE Vulkan::Vulkan)
+else()
+  kwik_stub_tgt(Vulkan::Vulkan)
+endif()
+
+target_include_directories(kwik-ui::kwik INTERFACE ${KWIK_INC})
+unset(KWIK_INC)
+
 target_compile_features(kwik-ui::kwik INTERFACE cxx_std_26)
+
+# ── GCC 链接口径（主构建 add_link_options 同款，消费者无法继承目录属性）──
+# -static：GCC 运行时三件套内嵌（libstdc++-6/libgcc_s_seh/libwinpthread-1），
+#          单 exe 分发；系统 DLL 与 vulkan-1 等导入库不受影响
+# --allow-multiple-definition：GCC16 模块+PE：模块接口的 inline 函数局部
+#          静态（shared_ptr __tag / textLayoutEpochRef 等）在消费者重编译的
+#          .cppm.obj 与 SDK 库成员中重复实例化为强符号。同一实体语义安全，
+#          先放行（根因跟踪挂主构建任务清单）
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_link_options(-static -Wl,--allow-multiple-definition)
+endif()
+
+# ── C++26 静态反射（P2996，GCC16）──
+# SDK 安装的模块（prop_meta.cppm 等）用 std::meta 反射：主构建在顶层
+# add_compile_options(-freflection) + link_libraries(stdc++exp)，install 树
+# 不继承目录属性——在此对消费者重放。必须用目录级 add_compile_options 而
+# 非 target_compile_options：std 模块 BMI（__cmake_cxx_std_26，generate 期
+# 挂顶层目录属性）自身也须带旗标构建，否则 std::meta 整体缺席 std BMI，
+# 消费侧 import std 拿不到反射类型。find_package 在 add_executable 前调用，
+# 目录属性对全部目标生效。Clang 无 P2996 实现，仅 GNU
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-freflection)
+    link_libraries(stdc++exp)
+endif()
 
 set(kwik-ui_MODULES_DIR "${PACKAGE_PREFIX_DIR}/share/kwik-ui/modules")
 file(GLOB_RECURSE kwik-ui_MODULE_FILES "${kwik-ui_MODULES_DIR}/**/*.cppm")

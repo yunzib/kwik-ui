@@ -1,5 +1,17 @@
 # 更新日志
 
+# 0.2.2 — 2026-11-14
+### 修复
+- **外部工程（find_package 消费者）无法编译 SDK 模块**：KwiKUIConfig.cmake.in
+  此前只传 cxx_std_26——SDK 模块用 std::meta 反射，消费者三缺口逐级踩坑：
+  ① GNU 无 -freflection 旗标 → 按目录级 add_compile_options 注入（须让 std
+  模块 BMI 也带旗标构建，否则 std::meta 整体缺席 std BMI）+ link_libraries
+  (stdc++exp)；② vulkan-1.lib 挂在 SDK 静态库之前，GNU ld 单遍归档处理时
+  vk* 未定义引用尚未产生、导入库成员不拉取 → SDK 静态库 glob 提前挂接保序；
+  ③ 消费者重编译 .cppm.obj 与 SDK 库成员的 inline 局部静态多定义 → 补
+  -static + -Wl,--allow-multiple-definition（主构建 add_link_options 同款，
+  同实体语义安全）
+
 # 0.2.1 — 2026-11-14
 ### 新增
 - **混合字体策略（Flutter/Qt 式）**：主字体优先平台系统默认——
