@@ -1,5 +1,17 @@
 # 更新日志
 
+# 0.1.2 — 2026-11-14
+### 变更（破坏性）
+- **PropBus 属性别名退役**：删除 PropMeta aliases 字段与 matchAlias——
+  bg/backgroundColor、radius、bw、bc、tx、ty、w、h、top、left、right、bottom、
+  flex 共 13 个短别名不再被 getProp/setProp/State 绑定/animate 识别，一律
+  使用规范属性名（≡ViewProps 成员名）。定性依据：别名仅在 PropBus 路径
+  生效而组件创建（parse）从不识别，同属性两套名两套行为；反射桥
+  （C++26 P2996，已验证）"名即标识"哲学下命名空间必须唯一。行为锁改造为
+  "短名不识别 + 规范名命中"双向锁；仓内 demo 与 docsite 实测零别名依赖，
+  smoke 44/44 双模式不受影响。LayerView "open" 为组件层别名（parse 期
+  同样生效），保留
+
 # 0.1.1 — 2026-11-14
 ### 新增
 - **主工具链切换 GCC 16.2**（niXman x86_64-16.2.0-release-posix-seh-ucrt-rt_v14-rev1），

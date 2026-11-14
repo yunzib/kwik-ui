@@ -119,12 +119,12 @@ static void test_rect() {
 }
 
 static void test_prop_meta_consistency() {
-    // ① 名字反查关键属性（含液态玻璃三件套与别名）
+    // ① 名字反查关键属性（含液态玻璃三件套；别名已退役 0.1.1——短名不再命中）
     CHECK(propIdFromName("backdropBlur") == PropId::backdropBlur);
     CHECK(propIdFromName("backdropRefraction") == PropId::backdropRefraction);
     CHECK(propIdFromName("backdropSpecular") == PropId::backdropSpecular);
-    CHECK(propIdFromName("bg") == PropId::background);
-    CHECK(propIdFromName("w") == PropId::width);
+    CHECK(propIdFromName("bg") == PropId::COUNT);
+    CHECK(propIdFromName("w") == PropId::COUNT);
     CHECK(propIdFromName("__nonexistent__") == PropId::COUNT);
 
     // ② 布局属性行为锁：Layout 标志必须恰好钉在这 14 个属性上
@@ -165,9 +165,9 @@ static void test_prop_meta_consistency() {
         }
         ++g_total;
     }
-    // 别名不与任何正名冲突（正名优先级高，冲突别名永远不可达 = 登记错误）
-    CHECK(propIdFromName("background") == PropId::background);    // "background" 不是别的属性的别名
-    CHECK(propIdFromName("radius") == PropId::borderRadius);
+    // 别名机制已退役（0.1.1）：正名反查命中、短别名一律不识别
+    CHECK(propIdFromName("background") == PropId::background);
+    CHECK(propIdFromName("radius") == PropId::COUNT);
 }
 
 static void test_display_list() {
@@ -661,12 +661,13 @@ static void test_b2_width_pct_and_aliases() {
     getPropMeta(PropId::height).writer(hp, TypedProp{200.0});
     CHECK(hp.height == 200.0f && !hp.heightPct.has_value());
 
-    // ② 四个位置短名总线反查（与 parse 期映射同目标；flex 别名→flexGrow
-    //    亦在总线）
-    CHECK(propIdFromName("top") == PropId::absTop);
-    CHECK(propIdFromName("left") == PropId::absLeft);
-    CHECK(propIdFromName("right") == PropId::absRight);
-    CHECK(propIdFromName("bottom") == PropId::absBottom);
+    // ② 别名机制已退役（0.1.1）：短名一律不再反查命中——锁住"不识别"防
+    //    回归；规范名反查仍然有效
+    CHECK(propIdFromName("top") == PropId::COUNT);
+    CHECK(propIdFromName("left") == PropId::COUNT);
+    CHECK(propIdFromName("flex") == PropId::COUNT);
+    CHECK(propIdFromName("absTop") == PropId::absTop);
+    CHECK(propIdFromName("flexGrow") == PropId::flexGrow);
 }
 
 // ── 行为锁: 数字类条目入总线 ──
@@ -676,7 +677,6 @@ static void test_b2_width_pct_and_aliases() {
 // registry）。rowGap/columnGap 在 ContainerProps（容器私有）——PropMeta
 // writer 写不到，需容器路由（同 TextContent 模式），未入本批。
 static void test_b2b_numeric_entries() {
-    CHECK(propIdFromName("flex") == PropId::flexGrow);
     ViewProps p;
     getPropMeta(PropId::flexGrow).writer(p, TypedProp{2.0});
     getPropMeta(PropId::flexShrink).writer(p, TypedProp{1.0});

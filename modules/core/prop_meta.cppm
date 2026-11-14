@@ -10,9 +10,9 @@ import std;
 /**
  * @brief 属性元数据描述符 — 属性知识的唯一居所
  *
- *  每条描述符 = 一个属性的全部知识：身份（name/aliases）、语义
- *  （unit/flags）、读写（reader/writer）。所有消费端（名字解析/布局联动/
- *  动画/命令式写入/回显）一律查表，不得各抄一份名单。
+ *  每条描述符 = 一个属性的全部知识：身份（name）、语义（unit/flags）、
+ *  读写（reader/writer）。所有消费端（名字解析/布局联动/动画/命令式写入/
+ *  回显）一律查表，不得各抄一份名单。
  *
  *  边界：本表是"能力登记表"——只有需要运行时按名读写/动画的属性进表；
  *  仅声明式解析一次的字段（borderStyle/gradient 等）与组件专有属性
@@ -22,8 +22,9 @@ import std;
  *  因此本模块仅依赖 kwik.element.props，不依赖 kwik.element.view。
  *
  *  反射预留（C++26 静态反射可用后）：条目中的 name 与 reader/writer
- *  可由 nonstatic_data_members_of(^^ViewProps) 自动生成，仅 unit/flags/
- *  aliases 语义行保留——消费端零改动。
+ *  可由 nonstatic_data_members_of(^^ViewProps) 自动生成，仅 unit/flags
+ *  语义行保留——消费端零改动。别名机制已退役（0.1.1）：JS 属性名一律
+ *  等于成员规范名，单一命名空间。
  */
 
 // 属性单位（文档/校验用）
@@ -54,11 +55,8 @@ export struct PropMeta {
     // 属性标识
     PropId id;
 
-    // 规范 JS 属性名（吸收原 kPropNameMap 正名段）
+    // 规范 JS 属性名（≡ViewProps 成员名；别名机制已退役 0.1.1）
     const char *name;
-
-    // 逗号分隔别名（吸收原 kPropNameMap 别名段），可空
-    const char *aliases;
 
     // 单位（文档/校验）
     PropUnit unit;
@@ -85,16 +83,11 @@ export const PropMeta& getPropMeta(PropId id);
 
 /**
  * @brief JS 属性名字符串 → PropId
- * @param name  如 "opacity", "width", "background"
+ * @param name  规范属性名，如 "opacity", "width", "background"
  * @return PropId 枚举值，无法识别时返回 PropId::COUNT
  *
- * 支持常用别名：
- *   "bg" / "backgroundColor" → background
- *   "radius"                 → borderRadius
- *   "bw"                     → borderWidth
- *   "bc"                     → borderColor
- *   "w"                      → width
- *   "h"                      → height
+ * 别名机制已退役（0.1.1）：仅接受规范名（≡成员名），不再支持
+ * bg/radius/bw/bc/w/h 等短别名
  */
 export PropId propIdFromName(std::string_view name);
 

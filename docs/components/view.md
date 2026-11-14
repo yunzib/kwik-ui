@@ -63,7 +63,6 @@ ViewProps 是 View 的基础属性， 所有组件继承以下属性：
 
     // ── Flex 子项 ──
     "flexGrow": "number",              // Flex 放大因子 (默认 0)
-    "flex": "number",                  // flexGrow 的别名
     "flexBasis": "number",             // Flex 基准尺寸 (默认 -1)
 
     // ── Grid 子项 ──

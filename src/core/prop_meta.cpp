@@ -19,7 +19,7 @@ import std;
 static const PropMeta kPropMetas[] = {
     // ── 显示属性 ──
     [static_cast<int>(PropId::opacity)] = {
-        PropId::opacity, "opacity", nullptr, PropUnit::Ratio, PropFlags::Anim, false,
+        PropId::opacity, "opacity", PropUnit::Ratio, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.opacity);
         },
@@ -28,7 +28,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::scale)] = {
-        PropId::scale, "scale", nullptr, PropUnit::Ratio, PropFlags::Anim, false,
+        PropId::scale, "scale", PropUnit::Ratio, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.transform ? p.transform->scale : 1.0f);
         },
@@ -40,7 +40,7 @@ static const PropMeta kPropMetas[] = {
     [static_cast<int>(PropId::visible)] = {
         // Layout 标志：显隐切换必须触发重排——隐藏子级不占流式位（跳过
         // 镜像），否则表现为永久空洞
-        PropId::visible, "visible", nullptr, PropUnit::None, PropFlags::Layout, false,
+        PropId::visible, "visible", PropUnit::None, PropFlags::Layout, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.visible;
         },
@@ -49,7 +49,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::background)] = {
-        PropId::background, "background", "bg,backgroundColor", PropUnit::None, PropFlags::Anim, true,
+        PropId::background, "background", PropUnit::None, PropFlags::Anim, true,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.background;
         },
@@ -58,7 +58,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::borderRadius)] = {
-        PropId::borderRadius, "borderRadius", "radius", PropUnit::Px, PropFlags::Anim, false,
+        PropId::borderRadius, "borderRadius", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.borderRadius);
         },
@@ -67,7 +67,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::borderWidth)] = {
-        PropId::borderWidth, "borderWidth", "bw", PropUnit::Px, PropFlags::Anim, false,
+        PropId::borderWidth, "borderWidth", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.borderWidth);
         },
@@ -76,7 +76,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::borderColor)] = {
-        PropId::borderColor, "borderColor", "bc", PropUnit::None, PropFlags::Anim, true,
+        PropId::borderColor, "borderColor", PropUnit::None, PropFlags::Anim, true,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.borderColor;
         },
@@ -85,7 +85,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::shadow)] = {
-        PropId::shadow, "shadow", nullptr, PropUnit::Px, PropFlags::None, false,
+        PropId::shadow, "shadow", PropUnit::Px, PropFlags::None, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             // Shadow 不在 TypedProp variant 内——读回不可表达，恒 monostate
             return std::monostate{};
@@ -99,7 +99,7 @@ static const PropMeta kPropMetas[] = {
 
     // ── 变换 ──
     [static_cast<int>(PropId::transform)] = {
-        PropId::transform, "transform", nullptr, PropUnit::None, PropFlags::None, false,
+        PropId::transform, "transform", PropUnit::None, PropFlags::None, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.transform.value_or(Transform{});
         },
@@ -108,7 +108,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::translateX)] = {
-        PropId::translateX, "translateX", "tx", PropUnit::Px, PropFlags::Anim, false,
+        PropId::translateX, "translateX", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(
                 p.transform ? p.transform->translateX : 0.0f);
@@ -119,7 +119,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::translateY)] = {
-        PropId::translateY, "translateY", "ty", PropUnit::Px, PropFlags::Anim, false,
+        PropId::translateY, "translateY", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(
                 p.transform ? p.transform->translateY : 0.0f);
@@ -130,7 +130,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::rotate)] = {
-        PropId::rotate, "rotate", nullptr, PropUnit::Deg, PropFlags::Anim, false,
+        PropId::rotate, "rotate", PropUnit::Deg, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.transform ? p.transform->rotate : 0.0f);
         },
@@ -142,7 +142,7 @@ static const PropMeta kPropMetas[] = {
 
     // ── 尺寸（变化后触发 re-layout）──
     [static_cast<int>(PropId::width)] = {
-        PropId::width, "width", "w", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::width, "width", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.width.value_or(0.0f));
         },
@@ -154,7 +154,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::height)] = {
-        PropId::height, "height", "h", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::height, "height", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.height.value_or(0.0f));
         },
@@ -166,7 +166,7 @@ static const PropMeta kPropMetas[] = {
 
     // ── 间距（变化后触发 re-layout）──
     [static_cast<int>(PropId::padding)] = {
-        PropId::padding, "padding", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::padding, "padding", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.padding;
         },
@@ -175,7 +175,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::margin)] = {
-        PropId::margin, "margin", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::margin, "margin", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return p.margin;
         },
@@ -188,7 +188,7 @@ static const PropMeta kPropMetas[] = {
     // Layout 标志：setProperty/动画改 x/y 须 requestLayout 重排，
     // 否则仅改 props.x 而 frame 不更新（视图不动）
     [static_cast<int>(PropId::x)] = {
-        PropId::x, "x", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::x, "x", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.x);
         },
@@ -199,7 +199,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::y)] = {
-        PropId::y, "y", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::y, "y", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.y);
         },
@@ -209,7 +209,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absTop)] = {
-        PropId::absTop, "absTop", "top", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absTop, "absTop", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absTop);
         },
@@ -218,7 +218,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absLeft)] = {
-        PropId::absLeft, "absLeft", "left", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absLeft, "absLeft", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absLeft);
         },
@@ -227,7 +227,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absRight)] = {
-        PropId::absRight, "absRight", "right", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absRight, "absRight", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absRight);
         },
@@ -236,7 +236,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::absBottom)] = {
-        PropId::absBottom, "absBottom", "bottom", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::absBottom, "absBottom", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.absBottom);
         },
@@ -249,7 +249,7 @@ static const PropMeta kPropMetas[] = {
     // textColor/fontSize 属 TextContent（Text 组件持有），基类条目为桩——
     // 动画路径经子类覆写处理（后续修复件中归位 Text 覆写）
     [static_cast<int>(PropId::textColor)] = {
-        PropId::textColor, "textColor", nullptr, PropUnit::None, PropFlags::Anim, true,
+        PropId::textColor, "textColor", PropUnit::None, PropFlags::Anim, true,
         /*reader*/ [](const ViewProps&) -> TypedProp {
             return Color{0, 0, 0, 255};
         },
@@ -258,7 +258,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::fontSize)] = {
-        PropId::fontSize, "fontSize", nullptr, PropUnit::Px, PropFlags::Anim, false,
+        PropId::fontSize, "fontSize", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps&) -> TypedProp {
             return 0.0; // 子类覆盖
         },
@@ -267,7 +267,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::backdropBlur)] = {
-        PropId::backdropBlur, "backdropBlur", nullptr, PropUnit::Px, PropFlags::Anim, false,
+        PropId::backdropBlur, "backdropBlur", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.backdropBlur);
         },
@@ -276,7 +276,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::backdropRefraction)] = {
-        PropId::backdropRefraction, "backdropRefraction", nullptr, PropUnit::Px, PropFlags::Anim, false,
+        PropId::backdropRefraction, "backdropRefraction", PropUnit::Px, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.backdropRefraction);
         },
@@ -285,7 +285,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::backdropSpecular)] = {
-        PropId::backdropSpecular, "backdropSpecular", nullptr, PropUnit::Ratio, PropFlags::Anim, false,
+        PropId::backdropSpecular, "backdropSpecular", PropUnit::Ratio, PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.backdropSpecular);
         },
@@ -296,7 +296,7 @@ static const PropMeta kPropMetas[] = {
 
     // ── flex 布局参数（FlexLayout 消费；Layout 标志触发 re-layout）──
     [static_cast<int>(PropId::flexGrow)] = {
-        PropId::flexGrow, "flexGrow", "flex", PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::flexGrow, "flexGrow", PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.flexGrow);
         },
@@ -305,7 +305,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::flexShrink)] = {
-        PropId::flexShrink, "flexShrink", nullptr, PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::flexShrink, "flexShrink", PropUnit::Ratio, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.flexShrink);
         },
@@ -314,7 +314,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::flexBasis)] = {
-        PropId::flexBasis, "flexBasis", nullptr, PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
+        PropId::flexBasis, "flexBasis", PropUnit::Px, PropFlags::Layout | PropFlags::Anim, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.flexBasis);
         },
@@ -324,7 +324,7 @@ static const PropMeta kPropMetas[] = {
     },
     // ── 交互（binding_registry 隐式过渡读取；不参与布局/插值故无标志）──
     [static_cast<int>(PropId::transitionDuration)] = {
-        PropId::transitionDuration, "transitionDuration", nullptr, PropUnit::None, PropFlags::None, false,
+        PropId::transitionDuration, "transitionDuration", PropUnit::None, PropFlags::None, false,
         /*reader*/ [](const ViewProps& p) -> TypedProp {
             return static_cast<double>(p.transitionDuration);
         },
@@ -336,7 +336,7 @@ static const PropMeta kPropMetas[] = {
     // ── 布局枚举/装饰：值类型不在 TypedProp 内——reader 恒 monostate，
     //    总线字符串形态原样透传给 writer，经 core 同源 parse 函数解析 ──
     [static_cast<int>(PropId::align)] = {
-        PropId::align, "align", nullptr, PropUnit::None, PropFlags::Layout, false,
+        PropId::align, "align", PropUnit::None, PropFlags::Layout, false,
         /*reader*/ [](const ViewProps&) -> TypedProp {
             return std::monostate{};
         },
@@ -345,7 +345,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::borderStyle)] = {
-        PropId::borderStyle, "borderStyle", nullptr, PropUnit::None, PropFlags::None, false,
+        PropId::borderStyle, "borderStyle", PropUnit::None, PropFlags::None, false,
         /*reader*/ [](const ViewProps&) -> TypedProp {
             return std::monostate{};
         },
@@ -354,7 +354,7 @@ static const PropMeta kPropMetas[] = {
         },
     },
     [static_cast<int>(PropId::gradient)] = {
-        PropId::gradient, "gradient", nullptr, PropUnit::None, PropFlags::None, false,
+        PropId::gradient, "gradient", PropUnit::None, PropFlags::None, false,
         /*reader*/ [](const ViewProps&) -> TypedProp {
             return std::monostate{};
         },
@@ -373,8 +373,8 @@ static_assert(
 const PropMeta& getPropMeta(PropId id) {
     auto idx = static_cast<int>(id);
     if (idx < 0 || idx >= static_cast<int>(PropId::COUNT)) {
-        // 返回一个空元数据作为安全 fallback
-        static const PropMeta empty{PropId::COUNT, nullptr, nullptr, PropUnit::None,
+        // 返回一个空元数据作为安全 fallback（别名槽已随 0.1.1 退役移除）
+        static const PropMeta empty{PropId::COUNT, nullptr, PropUnit::None,
                                     PropFlags::None, false, nullptr, nullptr};
         return empty;
     }
@@ -382,29 +382,13 @@ const PropMeta& getPropMeta(PropId id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 属性名 ↔ PropId 双向转换（查 kPropMetas，名字/别名已并入条目，无独立名单）
+// 属性名 ↔ PropId 双向转换（查 kPropMetas；别名机制已退役——JS 属性名一律
+// 等于成员规范名，单一命名空间，见 CHANGELOG 0.1.1）
 // ═══════════════════════════════════════════════════════════════════════════
 
-// 逗号分隔别名表匹配："bg,backgroundColor" 含 name 即命中
-static bool matchAlias(const char *aliases, std::string_view name) {
-    if (!aliases) return false;
-    std::string_view csv{aliases};
-    auto pos = std::string_view::size_type{0};
-    while (pos <= csv.size()) {
-        auto comma = csv.find(',', pos);
-        if (comma == std::string_view::npos) comma = csv.size();
-        if (csv.substr(pos, comma - pos) == name) return true;
-        pos = comma + 1;
-    }
-    return false;
-}
-
 PropId propIdFromName(std::string_view name) {
-    for (const auto &m : kPropMetas) {                 // 正名优先（规范名不含歧义）
+    for (const auto &m : kPropMetas) {
         if (name == m.name) return m.id;
-    }
-    for (const auto &m : kPropMetas) {                 // 别名兜底
-        if (matchAlias(m.aliases, name)) return m.id;
     }
     return PropId::COUNT;
 }
