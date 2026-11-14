@@ -1,23 +1,22 @@
 # 更新日志
 
+# 0.2.0 — 2026-11-14
+### 新增
+- **ElementType 名字表反射化**：src/element/element_type.cpp 重写——内置
+  规范名（36 个）由 enumerator_of + identifier_of 编译期生成（枚举加成员
+  自动进表，结构上零漂移），替代 36 行手写注册 + 静态 Init 块（顺带消灭
+  一类静态初始化顺序依赖）；JS 别名（Root/Flex/Grid/Stack/List/Layer）
+  为语义决策保留 constexpr 小表（目标枚举字面量编译器天然校验）。扩展
+  类型（Video/G3D 等，id ≥ kFirstExtensionType）运行时动态注册原样保留。
+  幂等口径行为不变：registerExtensionType 先查内置/别名表——Chart 等
+  扩展名与内置枚举名重叠时复用枚举 id（js_tests Chart 幂等复用锁 +
+  Layer 别名锁为回归网）。P2996 实现注记：enumerators_of 为单参签名
+  （无 access_context），返回的 vector<info> 须在求值期内联消费
+  （constexpr 变量持有堆结果 = 非常量错误）
+- **版本语义**：0.2.0 起反射化改造收官（props 反射桥/parse 泛化/PropId
+  语义表/dumpTree/ElementType 名字表，见 0.1.2）；主工具链 GCC 16.2
+  （0.1.1 切换，Clang 支持止于 0.1.1）
 
-# 0.2.0 — 2026-11-14
-### 新增
-- **ElementType 名字表反射化**：src/element/element_type.cpp 重写——内置
-  规范名（36 个）由 enumerator_of + identifier_of 编译期生成（枚举加成员
-  自动进表，结构上零漂移），替代 36 行手写注册 + 静态 Init 块（顺带消灭
-  一类静态初始化顺序依赖）；JS 别名（Root/Flex/Grid/Stack/List/Layer）
-  为语义决策保留 constexpr 小表（目标枚举字面量编译器天然校验）。扩展
-  类型（Video/G3D 等，id ≥ kFirstExtensionType）运行时动态注册原样保留。
-  幂等口径行为不变：registerExtensionType 先查内置/别名表——Chart 等
-  扩展名与内置枚举名重叠时复用枚举 id（js_tests Chart 幂等复用锁 +
-  Layer 别名锁为回归网）。P2996 实现注记：enumerators_of 为单参签名
-  （无 access_context），返回的 vector<info> 须在求值期内联消费
-  （constexpr 变量持有堆结果 = 非常量错误）
-- **版本语义**：0.2.0 起反射化改造收官（props 反射桥/parse 泛化/PropId
-  语义表/dumpTree/ElementType 名字表，见 0.1.2）；主工具链 GCC 16.2
-  （0.1.1 切换，Clang 支持止于 0.1.1）
-
 # 0.1.2 — 2026-11-14
 ### 新增
 - **C++26 反射桥基建（P2996）+ Slider 试点**：新增 kwik.bridge.props_reflect
