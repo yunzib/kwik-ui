@@ -2,6 +2,15 @@
 
 # 0.2.2 — 2026-11-14
 ### 修复
+- **SDK 安装不完整——扩展产物缺失**：Extension.cmake 此前无任何 install
+  规则，install 树缺三样——扩展归档（libkwik_ext_video/g3d/chart.a）、
+  扩展模块接口（modules/ext/*/interface/*.cppm，消费者 glob 不到即无法
+  import kwik.ext.*）、扩展三方归档（ffmpeg 五件套 ~42MB、fastgltf+simdjson
+  ~15MB，均随对应扩展条件安装，GNU ld 按符号拉取故不用扩展零成本）；
+  另 libTernMath.a 归档已装但 KwiKUIConfig.cmake.in 的链接 glob 未含——
+  装 Chart/G3D 后消费者链接必炸，补入 glob 并保序（fastgltf 在 simdjson 前、
+  ffmpeg 五件套显式 avformat→avcodec→swscale→swresample→avutil 字母序会
+  倒置）；顺手补 kwik-uiConfigVersion.cmake（find_package 版本管理）
 - **外部工程（find_package 消费者）无法编译 SDK 模块**：KwiKUIConfig.cmake.in
   此前只传 cxx_std_26——SDK 模块用 std::meta 反射，消费者三缺口逐级踩坑：
   ① GNU 无 -freflection 旗标 → 按目录级 add_compile_options 注入（须让 std
@@ -9,8 +18,8 @@
   (stdc++exp)；② vulkan-1.lib 挂在 SDK 静态库之前，GNU ld 单遍归档处理时
   vk* 未定义引用尚未产生、导入库成员不拉取 → SDK 静态库 glob 提前挂接保序；
   ③ 消费者重编译 .cppm.obj 与 SDK 库成员的 inline 局部静态多定义 → 补
-  -static + -Wl,--allow-multiple-definition（主构建 add_link_options 同款，
-  同实体语义安全）
+  -static + -Wl,--allow-multiple-definition，Release 加 -Wl,--gc-sections
+  （均为主构建 add_link_options 同款，同实体语义安全）
 
 # 0.2.1 — 2026-11-14
 ### 新增

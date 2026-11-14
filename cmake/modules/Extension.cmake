@@ -37,6 +37,25 @@ if(KWIK_ENABLE_VIDEO)
             qjs
     )
     target_compile_definitions(kwik_ext_video PRIVATE KWIK_EXT_VIDEO_MODULE)
+    # SDK 安装：归档 + 模块接口（消费侧 kwik-ui_MODULE_FILES glob 递归，
+    # 落到 modules/ext/video/ 即可 import kwik.ext.video）
+    install(TARGETS kwik_ext_video
+        EXPORT KwiKUITargets
+        FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/ext/video
+        ARCHIVE DESTINATION lib
+    )
+    if(KWIK_HAVE_FFMPEG)
+        # FFmpeg 五件套随扩展入库（归档 ~42MB；GNU ld 按符号拉取，
+        # 不用 Video 的消费者零成本）
+        install(FILES
+            "$<TARGET_FILE:ff_avformat>"
+            "$<TARGET_FILE:ff_avcodec>"
+            "$<TARGET_FILE:ff_swscale>"
+            "$<TARGET_FILE:ff_swresample>"
+            "$<TARGET_FILE:ff_avutil>"
+            DESTINATION lib
+        )
+    endif()
 endif()
 
 # ── 图表扩展（零第三方依赖；OFF = 不编译图表子系统 —— 框架裁剪）──
@@ -65,6 +84,12 @@ if(KWIK_ENABLE_CHART)
             qjs
     )
     target_compile_definitions(kwik_ext_chart PRIVATE KWIK_EXT_CHART_MODULE)
+    # SDK 安装：零三方依赖，归档 + 模块接口即可消费
+    install(TARGETS kwik_ext_chart
+        EXPORT KwiKUITargets
+        FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/ext/chart
+        ARCHIVE DESTINATION lib
+    )
 endif()
 
 # ── G3D 3D 扩展 ──
@@ -101,5 +126,17 @@ if(KWIK_ENABLE_G3D)
         )
         target_include_directories(kwik_ext_g3d PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_compile_definitions(kwik_ext_g3d PRIVATE KWIK_EXT_G3D_MODULE)
+        # SDK 安装：归档 + 模块接口 + glTF 三方（fastgltf/simdjson 归档 ~15MB，
+        # 同样按符号拉取）
+        install(TARGETS kwik_ext_g3d
+            EXPORT KwiKUITargets
+            FILE_SET cxx_modules DESTINATION share/kwik-ui/modules/ext/g3d
+            ARCHIVE DESTINATION lib
+        )
+        install(FILES
+            "$<TARGET_FILE:fastgltf>"
+            "$<TARGET_FILE:simdjson>"
+            DESTINATION lib
+        )
     endif()
 endif()

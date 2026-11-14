@@ -18,8 +18,14 @@ set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 # 版本语义自 v0.1.0 启动（定版锚点，回滚/分界用）
 project(KwiKUI VERSION 0.2.0 LANGUAGES C CXX)
 
-# ── 安装前缀（默认 build/install）──
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix")
+# ── 安装前缀（默认 <构建树>/install：哪里构建，就安装哪里）──
+# 必须在 project() 之后用 INITIALIZED_TO_DEFAULT 门控：GNUInstallDirs
+# （三方 add_subdirectory 引入）会把 project 前的非 FORCE CACHE 值重写为
+# 系统默认（Program Files (x86)），cmake --install 不带 --prefix 即撞权限墙。
+# 用户命令行 -DCMAKE_INSTALL_PREFIX 显式传值不受影响
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix" FORCE)
+endif()
 
 # ============================================================================
 # 构建类型配置
@@ -234,9 +240,16 @@ configure_package_config_file(
     ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
     INSTALL_DESTINATION share/cmake/kwik-ui
 )
-install(FILES 
+# 版本文件：find_package(kwik-ui 0.2.2) 可用；版本号随 CHANGELOG 同步
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfigVersion.cmake
+    VERSION 0.2.2
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
-    cmake/modules/Bytecode.cmake         
+    ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfigVersion.cmake
+    cmake/modules/Bytecode.cmake
     DESTINATION share/cmake/kwik-ui
 )
 install(FILES

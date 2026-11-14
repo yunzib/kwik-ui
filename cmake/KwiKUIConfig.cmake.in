@@ -41,7 +41,28 @@ file(GLOB _qjs_libs "${PACKAGE_PREFIX_DIR}/lib/libqjs*.a")
 file(GLOB _ft_libs "${PACKAGE_PREFIX_DIR}/lib/libfreetype*.a")
 file(GLOB _hb_libs "${PACKAGE_PREFIX_DIR}/lib/libharfbuzz*.a")
 file(GLOB _svg_libs "${PACKAGE_PREFIX_DIR}/lib/libnanosvg*.a")
-list(APPEND _kwik_libs ${_qjs_libs} ${_ft_libs} ${_hb_libs} ${_svg_libs})
+# 扩展三方（Extension.cmake 随扩展安装；TernMath 为 Chart/G3D 数学依赖，
+# 归档已装但此前不进链接行——装扩展后消费者必炸）
+file(GLOB _tern_libs "${PACKAGE_PREFIX_DIR}/lib/libTernMath*.a")
+# fastgltf 在前、simdjson 殿后（fastgltf 用 simdjson 符号，单遍序依赖者在后）
+file(GLOB _gltf_libs "${PACKAGE_PREFIX_DIR}/lib/libfastgltf*.a"
+                     "${PACKAGE_PREFIX_DIR}/lib/libsimdjson*.a")
+# FFmpeg 五件套显式保序（字母序 = avcodec 在 avformat 前 = 倒置）：
+# avformat → avcodec → swscale → swresample → avutil（Extension.cmake:16 同款注释）
+set(_ff_libs "")
+foreach(_ff IN ITEMS avformat avcodec swscale swresample avutil)
+    if(EXISTS "${PACKAGE_PREFIX_DIR}/lib/lib${_ff}.a")
+        list(APPEND _ff_libs "${PACKAGE_PREFIX_DIR}/lib/lib${_ff}.a")
+    endif()
+endforeach()
+list(APPEND _kwik_libs ${_qjs_libs} ${_ft_libs} ${_hb_libs} ${_svg_libs}
+     ${_tern_libs} ${_gltf_libs} ${_ff_libs})
+# 顺序纪律：SDK 静态库先挂接（必须在 Vulkan 之前）——GNU ld 单遍处理归档，
+# vulkan-1.lib 若在前，读到它时 vk* 尚无未定义引用，其成员不会被拉取，
+# 随后 libkwik_render.a 产生的 vk* 引用将落空。主构建 CMake 能按静态库
+# 依赖重排（INTERFACE 目标挂到静态库之后），此处无重排待遇，靠调用序保序。
+# 追加序同为"依赖者在后"：扩展归档在 libkwik_* glob 内（SORT 后 ext_ 排在
+# 核心层之后），TernMath/fastgltf/simdjson/ffmpeg 均为其被依赖方殿后
 target_link_libraries(kwik-ui::kwik INTERFACE ${_kwik_libs})
 unset(_kwik_libs)
 unset(_qjs_libs)
@@ -70,7 +91,8 @@ target_compile_features(kwik-ui::kwik INTERFACE cxx_std_26)
 #          .cppm.obj 与 SDK 库成员中重复实例化为强符号。同一实体语义安全，
 #          先放行（根因跟踪挂主构建任务清单）
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_link_options(-static -Wl,--allow-multiple-definition)
+    add_link_options(-static -Wl,--allow-multiple-definition
+                     "$<$<CONFIG:Release>:-Wl,--gc-sections>")
 endif()
 
 # ── C++26 静态反射（P2996，GCC16）──
