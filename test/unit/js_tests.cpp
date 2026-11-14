@@ -15,6 +15,7 @@ import kwik.engine.js_value;       // JSValueRef
 import kwik.core.types;            // TypedProp
 import kwik.bridge.bindings;       // register_kwikui_module（KwikRuntime 平时替做）
 import kwik.bridge.binding_registry;
+import kwik.bridge.props_parser;    // PropsExtractor / parseSliderProps（反射桥试点锁直驱）
 import kwik.bridge.element_parser;
 import kwik.element.view;
 import kwik.element.element_type;
@@ -2189,6 +2190,39 @@ static void test_chart_extension_parse() {
     CHECK(chart->props.themeTokens.count("style.indicatorColor") == 0);    // 嵌套 token 清旧
 }
 
+// ── 行为锁: dumpTree 观测出口（F16 地基）──
+// 反射批 3 落地后的白送产物锁：①根挂 userPointer 后 dumpTree() 可调用
+// 不崩（先序遍历 + kPropKeys 全行 readProperty 走通）；②子树作用域 id
+// 未命中时安全跳过。dump 文本输出到 stdout（headless 不做内容断言——
+// 属性值格式化由 dumpTypedValue 分派，漂移由编译期断言兜底）
+static void test_dump_tree_observability() {
+    reset_callbacks();
+    JSContext *c = g_ctx->getPtr();
+    CHECK(eval_module("dump_tree_a.mjs",
+                      "import { Root, View } from 'kwikui';\n"
+                      "globalThis.__node = Root({ width: 200, background: '#FF0000' }, View({ id: 'leaf' }));\n"
+                      "export default null;\n"));
+    {
+        JSValue gv = JS_GetGlobalObject(c);
+        JSValue n = JS_GetPropertyStr(c, gv, "__node");
+        JSValueRef nv(c, n);
+        auto root = ElementParser::parseNode(nv);
+        CHECK(root && root->children.size() == 1);
+        // 根挂 userPointer（KwikRuntime 平时替做）→ dumpTree 根获取生效
+        g_ctx->setUserPointer(root.get());
+        std::println("── dumpTree 行为锁输出（内容人工目检）──");
+        // dumpTree 是 kwikui 模块导出（非全局）——经模块文件调用
+        CHECK(eval_module("dump_tree_call.mjs",
+                          "import { dumpTree } from 'kwikui';\n"
+                          "dumpTree();\n"                 // 全树先序 + kPropKeys 全行读取
+                          "dumpTree('no-such-id');\n"     // 子树作用域：id 未命中安全跳过
+                          "export default null;\n"));
+        g_ctx->setUserPointer(nullptr);    // 摘根：防残留影响后续测试
+        JS_FreeValue(c, gv);               // n 已由 nv 接管
+    }
+    teardown_callbacks();
+}
+
 // ── 行为锁: chartFormatValue 白名单 ──
 // 误配规格（如 "%s"）回退调用点历史格式，防 printf 未定义行为
 static void test_chart_format_value() {
@@ -2199,6 +2233,65 @@ static void test_chart_format_value() {
 }
 #endif
 
+// ── 行为锁: 反射桥 parse 等价（Slider 试点）──
+// parseSliderProps 已由手写 12 行 get 换为 parseStructProps（C++26 反射
+// 逐成员）。锁四件事：①数值/bool/Color 串解析等价；②未提供成员保持
+// 结构体默认值（防反射路径误清零）；③绑定标记沿 TypedPropMap 正确记录
+// （tryRecordBinding 继承：value 带 __bind_valueKey → hasBinding，min 无
+// 键仅类型标注 Float）；④NaN 拒绝回退默认（get<T> float 分支语义继承）。
+// 附带 reconcile 判型复用锁：反射解析不破坏 element_parser 复用链。
+static void test_slider_reflect_parse() {
+    JSContext *c = g_ctx->getPtr();
+    {    // ①②③ 正例：解析等价 / 默认保留 / 绑定元数据
+         // 注意 JSValueRef 接管对象所有权（析构释放）——每个块独立建对象
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "value", JS_NewFloat64(c, 0.5));
+        JS_SetPropertyStr(c, props, "min", JS_NewFloat64(c, -10));
+        JS_SetPropertyStr(c, props, "max", JS_NewFloat64(c, 10));
+        JS_SetPropertyStr(c, props, "step", JS_NewFloat64(c, 0.25));
+        JS_SetPropertyStr(c, props, "color", JS_NewString(c, "#FF0000"));
+        JS_SetPropertyStr(c, props, "vertical", JS_NewBool(c, true));
+        JS_SetPropertyStr(c, props, "showThumb", JS_NewBool(c, false));
+        JS_SetPropertyStr(c, props, "__bind_valueKey", JS_NewString(c, "k"));
+        JSValueRef ref(c, props);
+        TypedPropMap meta;
+        PropsExtractor ex(ref, &meta);
+        SliderProps sp = parseSliderProps(ex);
+        CHECK(sp.value == 0.5f && sp.min == -10.0f && sp.max == 10.0f && sp.step == 0.25f);
+        CHECK(sp.color == Color(255, 0, 0, 255));
+        CHECK(sp.vertical == true && sp.showThumb == false);
+        // ② 未提供成员保持结构体默认值（Grey300 轨道 / thumbSize 20）
+        CHECK(sp.trackColor == Color(224, 224, 224, 255) && sp.thumbSize == 20.0f);
+        // ③ 绑定元数据：value 有键 hasBinding=true；min 无键仅类型标注
+        if (auto *e = meta.find("value")) {
+            CHECK(e->hasBinding == true);
+        } else { ++g_failed; std::println("FAIL 元数据缺失: value"); ++g_total; }
+        if (auto *e = meta.find("min")) {
+            CHECK(e->hasBinding == false && e->typeHint == PropType::Float);
+        } else { ++g_failed; std::println("FAIL 元数据缺失: min"); ++g_total; }
+    }
+    {    // ④ NaN 拒绝 → 字段保持默认 0（get<float> 有限性拒绝的反射继承）
+        JSValue props = JS_NewObject(c);
+        JS_SetPropertyStr(c, props, "value", JS_NewFloat64(c, std::numeric_limits<double>::quiet_NaN()));
+        JSValueRef ref(c, props);
+        PropsExtractor ex(ref);
+        SliderProps sp = parseSliderProps(ex);
+        CHECK(sp.value == 0.0f);
+    }
+    {    // ⑤ reconcile 判型复用：反射解析不破坏 element_parser 复用链
+        JSValue node = JS_NewObject(c);
+        JS_SetPropertyStr(c, node, "type", JS_NewString(c, "Slider"));
+        JS_SetPropertyStr(c, node, "props", JS_NewObject(c));
+        JS_SetPropertyStr(c, node, "children", JS_NewArray(c));
+        JSValueRef ref(c, node);
+        auto v1 = ElementParser::parseNode(ref);
+        CHECK(v1 && v1->type() == ElementType::Slider);
+        View *raw = v1.get();
+        auto v2 = ElementParser::reconcile(c, node, std::move(v1));
+        CHECK(v2.get() == raw);    // 同一实例 = 判型命中复用
+    }
+}
+
 int main() {
     g_ctx = std::make_unique<QuickJSContext>();
     // kwikui 模块注册通常由 KwikRuntime::init 完成；headless 夹具自行注册
@@ -2206,6 +2299,8 @@ int main() {
     CHECK(register_kwikui_module(*g_ctx));
 
     test_t06_data_driven();
+    test_slider_reflect_parse();         // 反射桥首批试点（Slider parse 等价/元数据/复用）
+    test_dump_tree_observability();      // dumpTree 观测出口（F16 地基；须在 storm 前保纯净 VM）
     test_state_update_enumerates_string_keys();
     test_l1_illegal_input_no_crash();
     test_console_and_rejection_observability();

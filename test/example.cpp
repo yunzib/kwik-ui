@@ -353,7 +353,13 @@ int main(int argc, char *argv[]) {
     winOpts.iconPath = "../../resources/icons/kwik.ico";
     if (argc >= 2 && std::string(argv[1]) == "frameless") winOpts.decoration = WindowDecoration::Borderless;
     if (!window || !window->Create("KwiK UI Demo", 1280, 800, winOpts)) return -1;
-    window->Show();
+    // 冒烟免弹窗：KWIK_SMOKE_OFFSCREEN=1（smoke.py --offscreen 注入）→ 窗口保持
+    // 创建期隐藏态（CreateWindowExW 无 WS_VISIBLE，不调 Show 即不出现）；
+    // 渲染循环自驱动与窗口可见性无关，Vulkan present 对隐藏窗口照常工作。
+    // 手动运行（无 env）照常显示
+    const bool smokeNoShow =
+        std::getenv("KWIK_SMOKE_FRAMES") && std::getenv("KWIK_SMOKE_OFFSCREEN");
+    if (!smokeNoShow) window->Show();
 
 #ifdef KWIK_HAVE_VIDEO
     registerVideoElement();    // 必须在 Application 构造 (register_kwikui_module + evalFile) 之前注册

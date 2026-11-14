@@ -72,6 +72,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     link_libraries(stdc++exp)
 endif()
 
+# ── C++26 静态反射（P2996）──
+# GCC16 需显式 -freflection（-std=c++26 不自动开启）；std 模块已收编 <meta>
+# （stdc++.h:238）故 import std 即得 std::meta。-freflection 按目标注入
+# （Bridge.cmake 起，后续随反射面扩展），不放全局——三方目标（harfbuzz
+# 自设低标准）会被全局旗标打崩。Clang 主线无实现——Clang 口径已随反射
+# 引入退役（见 CHANGELOG 0.1.1）
+
 # ── 死代码裁剪（Release/MinSizeRel 配合 -ffunction-sections）──
 add_link_options(
     "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:Clang,GNU>>:LINKER:--gc-sections>"
@@ -115,6 +122,18 @@ add_subdirectory(tools)
 # ==================== 三方依赖（统一入口）====================
 # 快照内嵌：全部三方源码随主仓分发，克隆即编译（提取规则见 third_party/README.md）
 include(cmake/modules/Dependencies.cmake)
+
+# ── C++26 静态反射（P2996，GCC16）──
+# 位置纪律：必须在三方依赖 include 之后——目录 COMPILE_OPTIONS 向后继承，
+# 前置会把 -freflection 泄给三方（harfbuzz 自设低标准 → "only supported
+# with -std=c++26" 编译崩）。此后创建的第一方目标（含 std 模块目标
+# __cmake_cxx_std_26，generate 期挂顶层目录属性）全部携带该旗标：
+# <meta> 头以 __cpp_impl_reflection（核心语言宏，仅 -freflection 定义）
+# 门控（meta:40）——std 模块自身也须带旗标构建，否则 std::meta 整体缺席
+# std BMI。Clang 主线无实现——Clang 口径已随反射引入退役（CHANGELOG 0.1.1）
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-freflection)
+endif()
 
 
 ################################## 项目配置 ######################################

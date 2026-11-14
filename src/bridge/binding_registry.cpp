@@ -176,7 +176,7 @@ static bool tryStartTransition(View *view, const std::string &name, const TypedP
     if (view->props.transitionDuration <= 0.0f) return false;
 
     PropId prop = propIdFromName(name);
-    if (prop == PropId::COUNT) return false;
+    if (prop == kPropInvalid) return false;
 
     const PropMeta &meta = getPropMeta(prop);
     if (meta.flags & PropFlags::Layout) return false;             // 布局属性直接跳变

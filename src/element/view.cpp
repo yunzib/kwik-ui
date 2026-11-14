@@ -746,7 +746,7 @@ std::string View::getProperty(const char *name) const {
     if (strcmp(name, "height") == 0) return std::to_string(frame.height);
     if (strcmp(name, "id") == 0) return props.id;
     PropId pid = propIdFromName(name);
-    if (pid == PropId::COUNT) return "";
+    if (pid == kPropInvalid) return "";
     return formatPropValue(getPropMeta(pid).reader(props));
 }
 
@@ -799,7 +799,7 @@ void View::clearBinding() {
 // ============================================================================
 bool View::setPropertyTyped(const char *name, const TypedProp &value) {
 	PropId prop = propIdFromName(name);
-	if (prop == PropId::COUNT) {
+	if (prop == kPropInvalid) {
 		// 未知名或组件未实现运行时写入（parse-only 键）：dev 告警替代静默
 		Log::warn("属性 '{}' 未被 {} 接受（未知名或未实现运行时写入）", name, to_string(type()));
 		return false;

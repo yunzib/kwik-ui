@@ -349,7 +349,7 @@ bool Text::setPropertyTyped(const char *name, const TypedProp &value) {
 // re-layout（字号动画逐帧重排）。其余属性走基类。
 // ════════════════════════════════════════════════════════════════════════
 void Text::applyAnimationFrame(PropId prop, const TypedProp &value) {
-    if (prop == PropId::textColor || prop == PropId::fontSize) {
+    if (prop == propKeyOf("textColor") || prop == propKeyOf("fontSize")) {
         setPropertyTyped(propName(prop), value);
         return;
     }

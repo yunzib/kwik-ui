@@ -42,7 +42,7 @@ static JSValue js_getProp(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         PropType hint = e ? e->typeHint : PropType::String;
         if (!e) {
             PropId pid = propIdFromName(prop);
-            if (pid != PropId::COUNT) {
+            if (pid != kPropInvalid) {
                 const PropMeta &pm = getPropMeta(pid);
                 if (pm.reader) {
                     TypedProp expect = pm.reader(target->props);

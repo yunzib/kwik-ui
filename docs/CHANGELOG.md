@@ -1,6 +1,63 @@
 # 更新日志
 
+
 # 0.1.2 — 2026-11-14
+### 新增
+- **C++26 反射桥基建（P2996）+ Slider 试点**：新增 kwik.bridge.props_reflect
+  模块（纯模板）——编译期枚举 Props 结构体非静态数据成员
+  （nonstatic_data_members_of/identifier_of），运行时经 index_sequence 展开 +
+  [:r:] splice 逐成员转发 PropsExtractor::get（类型分派/绑定检测/@token
+  拦截/NaN 拒绝全机制自动继承）。parseSliderProps 由手写 12 行 get 换为
+  parseStructProps 通用路径，行为等价由 js_tests::test_slider_reflect_parse
+  五锁锁定（数值/Color 串解析等价、未提供成员保留默认值、绑定元数据
+  hasBinding/typeHint 正确记录、NaN 拒绝、reconcile 判型复用）。std 模块
+  经 -freflection 构建（<meta> 以 __cpp_impl_reflection 门控，缺旗标时
+  std::meta 整体缺席 std BMI——CMakeLists 在三方依赖 include 之后挂目录
+  旗标：向后继承覆盖第一方与 std 模块目标、不泄三方）；kwik_bridge 目标
+  PUBLIC 注入（import 本模块者的模板实例化同样需要）。
+  PropsTraits<P>::overrides 语义例外名单机制就位（ViewProps 批 2 使用）
+- **反射 parse 泛化铺开**：12 个纯机械 parse 函数（RadioButton/RadioGroup/
+  Checkbox/TextArea/ProgressBar/Switch/Spinner/StackIndex/LazyList/
+  DateTimePicker/ProgressRing + 试点 Slider）统一为 parseStructProps
+  3 行泛化体——逐成员校验（存在性/null 拒绝/绑定检测/@token/NaN）经
+  get<T> 全量继承；带语义段的 14 个 parse 保持手写（columns clamp/
+  rowHeight 回退/Keyboard 规范化/optional 三件套等零改动）。顺带补全：
+  RadioButton 的 textSpacing 此前手写漏 get 成死属性，泛化后生效
+- **dumpTree 观测出口（F16 地基）**：JS 导出 dumpTree(rootId?)——先序
+  遍历 View 树打印 type#id/frame + kPropKeys 全行属性值（readProperty
+  直读，monostate 桩跳过；TypedProp 六类格式化）。反射语义表落地后的
+  零额外内省成本产物；行为锁 js_tests::test_dump_tree_observability
+  （全树 dump 可调用 + 子树 id 未命中安全跳过）
+- **C++26 反射桥基建（P2996）+ Slider 试点**：新增 kwik.bridge.props_reflect
+  模块（纯模板）——编译期枚举 Props 结构体非静态数据成员
+  （nonstatic_data_members_of/identifier_of），运行时经 index_sequence 展开 +
+  [:r:] splice 逐成员转发 PropsExtractor::get（类型分派/绑定检测/@token
+  拦截/NaN 拒绝全机制自动继承）。parseSliderProps 由手写 12 行 get 换为
+  parseStructProps 通用路径，行为等价由 js_tests::test_slider_reflect_parse
+  五锁锁定（数值/Color 串解析等价、未提供成员保留默认值、绑定元数据
+  hasBinding/typeHint 正确记录、NaN 拒绝、reconcile 判型复用）。std 模块
+  经 -freflection 构建（<meta> 以 __cpp_impl_reflection 门控，缺旗标时
+  std::meta 整体缺席 std BMI——CMakeLists 在三方依赖 include 之后挂目录
+  旗标：向后继承覆盖第一方与 std 模块目标、不泄三方）；kwik_bridge 目标
+  PUBLIC 注入（import 本模块者的模板实例化同样需要）。
+  PropsTraits<P>::overrides 语义例外名单机制就位（ViewProps 批 2 使用）
+### 修复
+- **PropId 枚举退役为语义表行号**：删除手写 enum class PropId（35 值）与
+  kPropMetas 的 35 组手写 reader/writer lambda（~430 行）——单一事实源改为
+  ViewProps 成员（反射）+ kPropKeys 34 行纯数据语义表（unit/flags/colorType
+  是语义决策，人工保留；20 行 reader/writer 反射生成、14 行手写平移：
+  transform 子结构族/width·height 清 widthPct/x·y 置 hasExplicit/shadow 与
+  align·borderStyle·gradient 字符串透传/textColor·fontSize 组件侧桩）。
+  **漂移编译期拦截**：生成行名字必须命中 ViewProps 成员（consteval 匹配，
+  拼错/漏登/成员改名 = 编译错）。PropId 类型名保留（= std::uint8_t 行号，
+  动画引擎/PropBus 签名零变化），哨兵 kPropInvalid/上界 kPropCount 替代
+  COUNT；PropId:: 成员直引（13 处）迁移 propKeyOf()/kPropInvalid；
+  core_tests 39 处断言同步改写。prop_meta.cpp 变空壳删除（全自足 cppm）
+- **get<float> 的 NaN 拒绝未保默认值**（modules/bridge/props_parser.cppm）：
+  此前实现先赋值后检查——out 已被写坏为 NaN 才返回 false，注释承诺的
+  "拒绝后走字段默认值"从未兑现（NaN 沿 measure/layout 传播，std::clamp
+  对 NaN 直通致子树消失）。改为先验后写：非有限数值拒绝时 out 未触碰。
+  反射桥试点行为锁抓出
 ### 变更（破坏性）
 - **PropBus 属性别名退役**：删除 PropMeta aliases 字段与 matchAlias——
   bg/backgroundColor、radius、bw、bc、tx、ty、w、h、top、left、right、bottom、

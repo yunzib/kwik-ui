@@ -39,7 +39,7 @@ export struct ActiveAnimation {
     std::string viewId;
 
     /// 属性标识
-    PropId prop = PropId::COUNT;
+    PropId prop = kPropInvalid;
 
     /// ── 关键帧数据 ──
     /// 单段模式: keyframes.size() == 2, keyframes[0] 为 from, keyframes[1] 为 to

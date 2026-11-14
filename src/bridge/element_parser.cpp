@@ -109,7 +109,7 @@ static void batchRecordBindings(View *view, const JSValueRef &pv) {
         if (meta.find(propName)) continue;    // get 期已记录，不覆盖更精确的本地类型
 
         PropId prop = propIdFromName(propName);
-        if (prop == PropId::COUNT) {
+        if (prop == kPropInvalid) {
             // 数据面键（src/items/nodes 等）：非运行时可写属性，不参与增量
             Log::debug("绑定属性 '{}' 非运行时可写，跳过增量注册", propName);
             continue;

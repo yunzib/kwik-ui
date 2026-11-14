@@ -333,60 +333,15 @@ export inline std::optional<bool> typedToBool(const TypedProp &v) {
 /**
  * @brief 可动画属性标识符枚举
  *
- *  每个可动画属性在此枚举中有一个条目。
- *  索引直接对应 kPropMetas[] 数组偏移，O(1) 查找。
- *  "可动画" 指该属性可以用 animate() 命令式驱动
+ *  属性键已退役为"语义表行号"（kwik.core.prop_meta 的 kPropKeys 索引，
+ *  uint8）：手写枚举（曾 35 值）与成员名两份并行清单靠人工同步，漂移
+ *  只能运行期现形——现单一事实源 = ViewProps 成员（反射）+ kPropKeys
+ *  名列，漂移编译期拦截。类型名保留，动画引擎/PropBus 签名零变化。
+ *  行数常量 kPropCount 与查询（propIdFromName/propKeyOf/getPropMeta）
+ *  见 kwik.core.prop_meta（表的家）。
  */
-export enum class PropId : std::uint8_t {
-    // ── 显示属性 ──
-    opacity,          // double → float
-    scale,            // double → float
-    visible,          // bool
-    background,       // Color
-    borderRadius,     // double → float
-    borderWidth,      // double → float
-    borderColor,      // Color
-    shadow,           // (暂不支持 tween，仅 flip)
-    // ── 变换 ──
-    transform,        // Transform（暂仅 flip）
-    translateX,       // double → float（Transform.translateX）
-    translateY,       // double → float（Transform.translateY）
-    rotate,           // double → float（Transform.rotate，单位：度）
-    // ── 尺寸 — 变化后触发 re-layout ──
-    width,            // double → std::optional<float>
-    height,           // double → std::optional<float>
-    // ── 间距 — 变化后触发 re-layout ──
-    padding,          // EdgeInsets
-    margin,           // EdgeInsets
-    // ── 位置（绝对定位）──
-    x,                // double → float
-    y,                // double → float
-    absTop,           // double → float
-    absLeft,          // double → float
-    absRight,         // double → float
-    absBottom,        // double → float
-    // ── 文字 ──
-    textColor,        // Color
-    fontSize,         // double → float
-
-    backdropBlur,           // double → float
-    backdropRefraction,     // double → float
-    backdropSpecular,       // double → float
-
-    // ── flex 布局参数 — 变化后触发 re-layout（FlexLayout 消费）──
-    flexGrow,               // double → float（别名 "flex"）
-    flexShrink,             // double → float
-    flexBasis,              // double → float（-1 = 自动）
-    // ── 交互 ──
-    transitionDuration,     // double → float（隐式过渡时长，秒，binding_registry 消费）
-    // ── 布局枚举/装饰（字符串形——writer 自解析，parse 同源函数在 core）──
-    align,                  // string → Align（"center" 等 9 值）
-    borderStyle,            // string → BorderStyle（solid/dashed）
-    gradient,               // string → Gradient（"linear 90 #a #b" / "radial #a #b"）
-
-    /// sentinel — 用作数组长度，不可作为实际属性值
-    COUNT,
-};
+export using PropId = std::uint8_t;
+export inline constexpr PropId kPropInvalid = 0xFF;    // 哨兵（替代原 COUNT）
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 动画系统 — 方向 / 关键帧 / 完成结果
@@ -428,7 +383,7 @@ export struct AnimationResult {
  */
 export struct AnimationDesc {
     std::string              viewId;                        ///< 目标控件 ID（通过 root->findById 查找）
-    PropId                   prop         = PropId::COUNT;
+    PropId                   prop         = kPropInvalid;
     TypedProp                from;                          ///< 起始值
     TypedProp                to;                            ///< 结束值（单段模式）
     std::vector<Keyframe>    keyframes;                     ///< 多段模式（空 = 单段）

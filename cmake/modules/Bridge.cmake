@@ -5,6 +5,7 @@ target_sources(kwik_bridge
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules/bridge
         FILES
             modules/bridge/props_parser.cppm
+            modules/bridge/props_reflect.cppm    # C++26 反射桥（纯模板，无 .cpp；-freflection 随 GNU）
             modules/bridge/element_parser.cppm
             modules/bridge/prop_bus.cppm
             modules/bridge/binding_registry.cppm
@@ -38,6 +39,11 @@ target_link_libraries(kwik_bridge
         kwik_engine     # JSValueRef
         qjs
 )
+# C++26 静态反射（P2996）仅 GCC16 支持，且需 -freflection 显式开启；
+# PUBLIC——import 本模块者（模板实例化含 splice）也需要该旗标。
+# 不放全局：三方目标（harfbuzz 自设低标准）会被全局旗标打崩
+target_compile_options(kwik_bridge
+    PUBLIC "$<$<CXX_COMPILER_ID:GNU>:-freflection>")
 
 # 6. 添加编译定义（COMPILE_DEFINITIONS）
 target_compile_definitions(kwik_bridge

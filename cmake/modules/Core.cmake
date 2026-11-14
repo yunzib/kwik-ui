@@ -29,7 +29,6 @@ target_sources(kwik_core
     PRIVATE
         src/core/log.cpp
         src/core/scheduler.cpp
-        src/core/prop_meta.cpp
         src/core/path.cpp
         src/core/color_parser.cpp
         src/core/theme.cpp

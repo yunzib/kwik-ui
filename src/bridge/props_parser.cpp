@@ -8,10 +8,8 @@ import kwik.core.color_parser;
 import kwik.core.types;
 import kwik.core.props;
 import kwik.engine.js_value;
-import kwik.core.types;
-import kwik.core.props;
-import kwik.engine.js_value;
 import kwik.core.theme; // ThemeData::resolveToken — "@primary" token 解析
+import kwik.bridge.props_reflect;    // parseStructProps（C++26 反射通用解析）
 
 // ═══════════════════════════════════════════════════════════════════════════
 // parseEdgeInsets — 多重形态解析（数值/数组/对象）
@@ -366,16 +364,9 @@ InputProps parseInputProps(PropsExtractor &ex) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 RadioButtonProps parseRadioButtonProps(PropsExtractor &ex) {
+    // 反射桥通用路径（成员名≡JS 属性名，零语义例外）；本批机械函数同此
     RadioButtonProps result;
-    ex.get("checked", result.checked);
-    ex.get("group", result.group);
-    ex.get("checkedColor", result.checkedColor);
-    ex.get("uncheckedColor", result.uncheckedColor);
-    ex.get("dotColor", result.dotColor);
-    ex.get("radioSize", result.radioSize);
-    ex.get("dotSize", result.dotSize);
-    ex.get("ringWidth", result.ringWidth);
-    ex.get("value", result.value);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -385,8 +376,7 @@ RadioButtonProps parseRadioButtonProps(PropsExtractor &ex) {
 
 RadioGroupProps parseRadioGroupProps(PropsExtractor &ex) {
     RadioGroupProps result;
-    ex.get("name", result.name);
-    ex.get("selected", result.selected);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -396,15 +386,7 @@ RadioGroupProps parseRadioGroupProps(PropsExtractor &ex) {
 
 CheckboxProps parseCheckboxProps(PropsExtractor &ex) {
     CheckboxProps result;
-    ex.get("checked", result.checked);
-    ex.get("checkedColor", result.checkedColor);
-    ex.get("uncheckedColor", result.uncheckedColor);
-    ex.get("checkedFillColor", result.checkedFillColor);
-    ex.get("checkMarkColor", result.checkMarkColor);
-    ex.get("boxSize", result.boxSize);
-    ex.get("borderRadius", result.borderRadius);
-    ex.get("ringWidth", result.ringWidth);
-    ex.get("textSpacing", result.textSpacing);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -414,16 +396,7 @@ CheckboxProps parseCheckboxProps(PropsExtractor &ex) {
 
 TextAreaProps parseTextAreaProps(PropsExtractor &ex) {
     TextAreaProps result;
-    ex.get("value", result.value);
-    ex.get("placeholder", result.placeholder);
-    ex.get("fontSize", result.fontSize);
-    ex.get("rows", result.rows);
-    ex.get("textColor", result.textColor);
-    ex.get("placeholderColor", result.placeholderColor);
-    ex.get("cursorColor", result.cursorColor);
-    ex.get("focusedBorderColor", result.focusedBorderColor);
-    ex.get("maxLength", result.maxLength);
-    ex.get("readOnly", result.readOnly);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -475,19 +448,11 @@ Color convertTo<Color>(const JSValueRef &v) {
 // parseSliderProps
 // ════════════════════════════════════════════════════════
 SliderProps parseSliderProps(PropsExtractor &ex) {
+    // 反射桥首批试点：SliderProps 全成员为纯数据（float/bool/Color），零语义
+    // 例外（PropsTraits<SliderProps> 缺省空 overrides）——逐成员通用路径。
+    // 行为等价性由 js_tests::test_slider_reflect_parse 锁定
     SliderProps result;
-    ex.get("value", result.value);
-    ex.get("min", result.min);
-    ex.get("max", result.max);
-    ex.get("step", result.step);
-    ex.get("color", result.color);
-    ex.get("trackColor", result.trackColor);
-    ex.get("thumbSize", result.thumbSize);
-    ex.get("trackHeight", result.trackHeight);
-    ex.get("vertical", result.vertical);
-    ex.get("thumbColor", result.thumbColor);
-    ex.get("thumbBorderColor", result.thumbBorderColor);
-    ex.get("showThumb", result.showThumb);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -496,12 +461,7 @@ SliderProps parseSliderProps(PropsExtractor &ex) {
 // ════════════════════════════════════════════════════════
 ProgressBarProps parseProgressBarProps(PropsExtractor &ex) {
     ProgressBarProps result;
-    ex.get("value", result.value);
-    ex.get("min", result.min);
-    ex.get("max", result.max);
-    ex.get("color", result.color);
-    ex.get("trackColor", result.trackColor);
-    ex.get("trackHeight", result.trackHeight);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -510,12 +470,7 @@ ProgressBarProps parseProgressBarProps(PropsExtractor &ex) {
 // ════════════════════════════════════════════════════════
 SwitchProps parseSwitchProps(PropsExtractor &ex) {
     SwitchProps result;
-    ex.get("checked", result.checked);
-    ex.get("checkedColor", result.checkedColor);
-    ex.get("uncheckedColor", result.uncheckedColor);
-    ex.get("thumbColor", result.thumbColor);
-    ex.get("trackHeight", result.trackHeight);
-    ex.get("thumbSize", result.thumbSize);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -532,11 +487,7 @@ LineProps parseLineProps(PropsExtractor &ex) {
 
 SpinnerProps parseSpinnerProps(PropsExtractor &ex) {
     SpinnerProps result;
-    ex.get("color", result.color);
-    ex.get("trackColor", result.trackColor);
-    ex.get("size", result.size);
-    ex.get("strokeWidth", result.strokeWidth);
-    ex.get("arcLength", result.arcLength);
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -697,7 +648,7 @@ TabsProps parseTabsProps(PropsExtractor &ex) {
 // ============================================================================
 StackIndexProps parseStackIndexProps(PropsExtractor &ex) {
     StackIndexProps sp;
-    ex.get<int>("index", sp.index);
+    parseStructProps(ex, sp);
     return sp;
 }
 
@@ -813,15 +764,8 @@ TreeMenuProps parseTreeMenuProps(PropsExtractor &ex) {
 
 LazyListProps parseLazyListProps(PropsExtractor &ex) {
     LazyListProps result;
-    // 固定模式：itemHeight(纵)/itemWidth(横) > 0 触发
-    ex.get("itemHeight", result.itemHeight);
-    ex.get("itemWidth", result.itemWidth);
-    // 可变模式：estimatedItemSize 兜底
-    ex.get("estimatedItemSize", result.estimatedItemSize);
-    ex.get("overscan", result.overscan);
-    // 分割线
-    ex.get("dividerHeight", result.dividerHeight);
-    ex.get("dividerColor", result.dividerColor);
+    // 固定/可变模式语义在消费端（LazyList 按值分派），解析层纯机械
+    parseStructProps(ex, result);
     return result;
 }
 
@@ -868,28 +812,7 @@ KeyboardProps parseKeyboardProps(PropsExtractor &ex) {
 // ═══════════════════════════════════════════════════════════════════════════
 DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
     DateTimePickerProps result;
-    ex.get("placeholder", result.placeholder);
-    ex.get("value", result.value);    // 触发 tryRecordBinding → 激活 propMeta 绑定标记
-    ex.get("mode", result.mode);
-    ex.get("fontSize", result.fontSize);
-    ex.get("cellSize", result.cellSize);
-    ex.get("wheelItemHeight", result.wheelItemHeight);
-    ex.get("wheelColWidth", result.wheelColWidth);
-    ex.get("wheelVisibleRows", result.wheelVisibleRows);
-    ex.get("textColor", result.textColor);
-    ex.get("placeholderColor", result.placeholderColor);
-    ex.get("arrowColor", result.arrowColor);
-    ex.get("panelBackground", result.panelBackground);
-    ex.get("headerColor", result.headerColor);
-    ex.get("weekdayColor", result.weekdayColor);
-    ex.get("todayColor", result.todayColor);
-    ex.get("selectedBackground", result.selectedBackground);
-    ex.get("selectedTextColor", result.selectedTextColor);
-    ex.get("hoverBackground", result.hoverBackground);
-    ex.get("outOfMonthColor", result.outOfMonthColor);
-    ex.get("navArrowColor", result.navArrowColor);
-    ex.get("wheelDimColor", result.wheelDimColor);
-    ex.get("separatorColor", result.separatorColor);
+    parseStructProps(ex, result);    // value 的 tryRecordBinding 经 get<T> 自动继承
     return result;
 }
 
@@ -900,17 +823,7 @@ DateTimePickerProps parseDateTimePickerProps(PropsExtractor &ex) {
 // ════════════════════════════════════════════════════════
 ProgressRingProps parseProgressRingProps(PropsExtractor &ex) {
     ProgressRingProps result;
-    ex.get("value", result.value);    // ref 绑定自动注册（binding_registry 增量链路）
-    ex.get("min", result.min);
-    ex.get("max", result.max);
-    ex.get("trackColor", result.trackColor);
-    ex.get("trackThickness", result.trackThickness);
-    ex.get("thickness", result.thickness);
-    ex.get("startColor", result.startColor);
-    ex.get("endColor", result.endColor);
-    ex.get("startAngle", result.startAngle);
-    ex.get("sweep", result.sweep);
-    ex.get("roundCap", result.roundCap);
+    parseStructProps(ex, result);    // value 的 ref 绑定自动注册经 get<T> 继承
     return result;
 }
 

@@ -120,12 +120,12 @@ static void test_rect() {
 
 static void test_prop_meta_consistency() {
     // ① 名字反查关键属性（含液态玻璃三件套；别名已退役 0.1.1——短名不再命中）
-    CHECK(propIdFromName("backdropBlur") == PropId::backdropBlur);
-    CHECK(propIdFromName("backdropRefraction") == PropId::backdropRefraction);
-    CHECK(propIdFromName("backdropSpecular") == PropId::backdropSpecular);
-    CHECK(propIdFromName("bg") == PropId::COUNT);
-    CHECK(propIdFromName("w") == PropId::COUNT);
-    CHECK(propIdFromName("__nonexistent__") == PropId::COUNT);
+    CHECK(propIdFromName("backdropBlur") == propKeyOf("backdropBlur"));
+    CHECK(propIdFromName("backdropRefraction") == propKeyOf("backdropRefraction"));
+    CHECK(propIdFromName("backdropSpecular") == propKeyOf("backdropSpecular"));
+    CHECK(propIdFromName("bg") == kPropInvalid);
+    CHECK(propIdFromName("w") == kPropInvalid);
+    CHECK(propIdFromName("__nonexistent__") == kPropInvalid);
 
     // ② 布局属性行为锁：Layout 标志必须恰好钉在这 14 个属性上
     //    （防误改标志改变 relayout 行为；x/y/absTop 双源事故的回归防线；
@@ -134,7 +134,7 @@ static void test_prop_meta_consistency() {
     const char *kLayoutNames[] = {"width", "height", "padding", "margin",
                                   "x", "y", "absTop", "absLeft", "absRight", "absBottom",
                                   "flexGrow", "flexShrink", "flexBasis", "align", "visible"};
-    for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
+    for (int pi = 0; pi < static_cast<int>(kPropInvalid); ++pi) {
         auto id = static_cast<PropId>(pi);
         bool isLayout = getPropMeta(id).flags & PropFlags::Layout;
         bool inLock = false;
@@ -146,11 +146,11 @@ static void test_prop_meta_consistency() {
         }
         ++g_total;
     }
-    CHECK(animationPropAffectsLayout(PropId::x));        // 导出函数与 meta 同源可用
-    CHECK(!animationPropAffectsLayout(PropId::opacity));
+    CHECK(animationPropAffectsLayout(propKeyOf("x")));        // 导出函数与 meta 同源可用
+    CHECK(!animationPropAffectsLayout(propKeyOf("opacity")));
 
     // ③ 全表巡检：正名可反查、名字/别名全表无冲突、reader 有值（shadow 桩除外）
-    for (int pi = 0; pi < static_cast<int>(PropId::COUNT); ++pi) {
+    for (int pi = 0; pi < kPropCount; ++pi) {
         auto id = static_cast<PropId>(pi);
         const auto &m = getPropMeta(id);
         CHECK(m.name != nullptr && *m.name != '\0');
@@ -159,15 +159,15 @@ static void test_prop_meta_consistency() {
             std::println("FAIL 正名反查失败: {} -> PropId({})", m.name, static_cast<int>(propIdFromName(m.name)));
         }
         ++g_total;
-        if (id != PropId::shadow && !m.reader) {
+        if (id != propKeyOf("shadow") && !m.reader) {
             ++g_failed;
             std::println("FAIL reader 缺失: {}", m.name);
         }
         ++g_total;
     }
     // 别名机制已退役（0.1.1）：正名反查命中、短别名一律不识别
-    CHECK(propIdFromName("background") == PropId::background);
-    CHECK(propIdFromName("radius") == PropId::COUNT);
+    CHECK(propIdFromName("background") == propKeyOf("background"));
+    CHECK(propIdFromName("radius") == kPropInvalid);
 }
 
 static void test_display_list() {
@@ -309,16 +309,16 @@ static void test_focus_process_append() {
 // x 的子级静默无效。锁住 writer 镜像 parse 语义（含按轴独立置位）。
 static void test_xy_writer_sets_explicit_flag() {
     ViewProps p;
-    getPropMeta(PropId::x).writer(p, TypedProp{50.0});
+    getPropMeta(propKeyOf("x")).writer(p, TypedProp{50.0});
     CHECK(p.x == 50.0f && p.hasExplicitX);
-    getPropMeta(PropId::y).writer(p, TypedProp{30.0});
+    getPropMeta(propKeyOf("y")).writer(p, TypedProp{30.0});
     CHECK(p.y == 30.0f && p.hasExplicitY);
 
     // 轴不牵连：写 x 不得置 hasExplicitY（镜像 parse 期按轴独立置位）
     ViewProps q;
-    getPropMeta(PropId::x).writer(q, TypedProp{10.0});
+    getPropMeta(propKeyOf("x")).writer(q, TypedProp{10.0});
     CHECK(q.hasExplicitX && !q.hasExplicitY);
-    getPropMeta(PropId::y).writer(q, TypedProp{20.0});
+    getPropMeta(propKeyOf("y")).writer(q, TypedProp{20.0});
     CHECK(q.hasExplicitY);
 }
 
@@ -624,24 +624,24 @@ static void test_text_cache_unfittable_glyph_no_storm() {
 static void test_animation_frame_and_shadow_write() {
     // ① shadow 字符串形写入（PropMeta 层，与 parse 期同源解析）
     ViewProps sp;
-    getPropMeta(PropId::shadow).writer(sp, TypedProp{std::string("0 6px 18px rgba(0,0,0,0.5)")});
+    getPropMeta(propKeyOf("shadow")).writer(sp, TypedProp{std::string("0 6px 18px rgba(0,0,0,0.5)")});
     CHECK(sp.shadow.has_value() && sp.shadow->blurRadius == 18.0f && sp.shadow->offsetX == 0.0f);
 
     // ①' spread 第 4 数值（CSS 兼容）：负值收缩轮廓（单边阴影），颜色顺延
     //     第 5 token；旧三值 + 颜色形态不受影响（spread 默认 0）
     ViewProps sp2;
-    getPropMeta(PropId::shadow).writer(sp2, TypedProp{std::string("0 14 6 -7 #33415599")});
+    getPropMeta(propKeyOf("shadow")).writer(sp2, TypedProp{std::string("0 14 6 -7 #33415599")});
     CHECK(sp2.shadow.has_value() && sp2.shadow->offsetY == 14.0f && sp2.shadow->blurRadius == 6.0f
           && sp2.shadow->spread == -7.0f && sp2.shadow->color.r == 0x33);
     ViewProps sp3;
-    getPropMeta(PropId::shadow).writer(sp3, TypedProp{std::string("0 8 20 #2563EB88")});
+    getPropMeta(propKeyOf("shadow")).writer(sp3, TypedProp{std::string("0 8 20 #2563EB88")});
     CHECK(sp3.shadow.has_value() && sp3.shadow->spread == 0.0f && sp3.shadow->color.b == 0xEB);
 
     // ② Text 动画帧：textColor 变色、fontSize 变号（排版缓存由路由分支废止）
     Text t;
-    t.applyAnimationFrame(PropId::textColor, TypedProp{Color{255, 0, 0, 255}});
+    t.applyAnimationFrame(propKeyOf("textColor"), TypedProp{Color{255, 0, 0, 255}});
     CHECK(t.text_.textColor.r == 255 && t.text_.textColor.g == 0);
-    t.applyAnimationFrame(PropId::fontSize, TypedProp{30.0});
+    t.applyAnimationFrame(propKeyOf("fontSize"), TypedProp{30.0});
     CHECK(t.text_.fontSize == 30.0f);
 }
 
@@ -654,20 +654,20 @@ static void test_b2_width_pct_and_aliases() {
     // ① px 写入清除遗留 pct（width/height 同修）
     ViewProps wp;
     wp.widthPct = 0.5f;
-    getPropMeta(PropId::width).writer(wp, TypedProp{300.0});
+    getPropMeta(propKeyOf("width")).writer(wp, TypedProp{300.0});
     CHECK(wp.width == 300.0f && !wp.widthPct.has_value());
     ViewProps hp;
     hp.heightPct = 0.5f;
-    getPropMeta(PropId::height).writer(hp, TypedProp{200.0});
+    getPropMeta(propKeyOf("height")).writer(hp, TypedProp{200.0});
     CHECK(hp.height == 200.0f && !hp.heightPct.has_value());
 
     // ② 别名机制已退役（0.1.1）：短名一律不再反查命中——锁住"不识别"防
     //    回归；规范名反查仍然有效
-    CHECK(propIdFromName("top") == PropId::COUNT);
-    CHECK(propIdFromName("left") == PropId::COUNT);
-    CHECK(propIdFromName("flex") == PropId::COUNT);
-    CHECK(propIdFromName("absTop") == PropId::absTop);
-    CHECK(propIdFromName("flexGrow") == PropId::flexGrow);
+    CHECK(propIdFromName("top") == kPropInvalid);
+    CHECK(propIdFromName("left") == kPropInvalid);
+    CHECK(propIdFromName("flex") == kPropInvalid);
+    CHECK(propIdFromName("absTop") == propKeyOf("absTop"));
+    CHECK(propIdFromName("flexGrow") == propKeyOf("flexGrow"));
 }
 
 // ── 行为锁: 数字类条目入总线 ──
@@ -678,10 +678,10 @@ static void test_b2_width_pct_and_aliases() {
 // writer 写不到，需容器路由（同 TextContent 模式），未入本批。
 static void test_b2b_numeric_entries() {
     ViewProps p;
-    getPropMeta(PropId::flexGrow).writer(p, TypedProp{2.0});
-    getPropMeta(PropId::flexShrink).writer(p, TypedProp{1.0});
-    getPropMeta(PropId::flexBasis).writer(p, TypedProp{120.0});
-    getPropMeta(PropId::transitionDuration).writer(p, TypedProp{0.3});
+    getPropMeta(propKeyOf("flexGrow")).writer(p, TypedProp{2.0});
+    getPropMeta(propKeyOf("flexShrink")).writer(p, TypedProp{1.0});
+    getPropMeta(propKeyOf("flexBasis")).writer(p, TypedProp{120.0});
+    getPropMeta(propKeyOf("transitionDuration")).writer(p, TypedProp{0.3});
     CHECK(p.flexGrow == 2.0f && p.flexShrink == 1.0f && p.flexBasis == 120.0f);
     CHECK(p.transitionDuration == 0.3f);
 }
@@ -1115,9 +1115,9 @@ static void test_l1_isfinite_rejection() {
     CHECK(v.setPropertyTyped("width", TypedProp{std::string("120")}));
     CHECK(v.props.width.has_value() && *v.props.width == 120.0f);    // 合法值不受影响
 
-    v.applyAnimationFrame(PropId::width, TypedProp{std::numeric_limits<double>::quiet_NaN()});
+    v.applyAnimationFrame(propKeyOf("width"), TypedProp{std::numeric_limits<double>::quiet_NaN()});
     CHECK(v.props.width.has_value() && *v.props.width == 120.0f);    // NaN 帧跳过
-    v.applyAnimationFrame(PropId::width, TypedProp{200.0});
+    v.applyAnimationFrame(propKeyOf("width"), TypedProp{200.0});
     CHECK(v.props.width.has_value() && *v.props.width == 200.0f);    // 正常帧仍生效
 }
 

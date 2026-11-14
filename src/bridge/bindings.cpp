@@ -556,6 +556,64 @@ static JSValue js_textViewIds(JSContext *ctx, JSValueConst this_val, int argc, J
     return arr;
 }
 
+// ── dumpTree(rootId?)：View 树 + ViewProps 属性值 dump（F16 观测面地基）──
+// 反射批 3 落地后的白送产物：kPropKeys 语义表逐行 readProperty，无需任何
+// 额外内省代码。输出 stdout 树形文本（type#id [frame] + 属性名 = 值）。
+static void dumpTypedValue(const TypedProp &v, std::string &out) {
+    if (auto *d = std::get_if<double>(&v)) {
+        out += std::format("{:.6g}", *d);
+    } else if (auto *b = std::get_if<bool>(&v)) {
+        out += *b ? "true" : "false";
+    } else if (auto *c = std::get_if<Color>(&v)) {
+        out += std::format("#{:02X}{:02X}{:02X}{:02X}", c->r, c->g, c->b, c->a);
+    } else if (auto *s = std::get_if<std::string>(&v)) {
+        out += std::format("\"{}\"", *s);
+    } else if (auto *t = std::get_if<Transform>(&v)) {
+        out += std::format("tx={},ty={},rot={},scale={}", t->translateX, t->translateY,
+                           t->rotate, t->scale);
+    } else if (auto *e = std::get_if<EdgeInsets>(&v)) {
+        out += std::format("l={},t={},r={},b={}", e->left, e->top, e->right, e->bottom);
+    }
+}
+
+static void dumpViewProps(const View &view, const std::string &indent) {
+    for (PropId id = 0; id < kPropCount; ++id) {
+        const auto &m = getPropMeta(id);
+        TypedProp v = view.readProperty(id);
+        if (std::holds_alternative<std::monostate>(v)) continue;    // 桩/不可读行跳过
+        std::string val;
+        dumpTypedValue(v, val);
+        std::println("{}  {} = {}", indent, m.name, val);
+    }
+}
+
+static void dumpViewTree(const View &view, int depth) {
+    std::string indent(static_cast<std::size_t>(depth) * 2, ' ');
+    std::println("{}- {}{} [x={} y={} w={} h={}]", indent, to_string(view.type()),
+                 view.props.id.empty() ? "" : std::format("#{}", view.props.id),
+                 view.props.x, view.props.y, view.frame.width, view.frame.height);
+    dumpViewProps(view, indent);
+    for (const auto &child : view.children) dumpViewTree(*child, depth + 1);
+}
+
+static JSValue js_dumpTree(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    QuickJSContext *qctx = static_cast<QuickJSContext *>(JS_GetContextOpaque(ctx));
+    View *root = qctx ? static_cast<View *>(qctx->getUserPointer()) : nullptr;
+    if (argc >= 1 && JS_IsString(argv[0]) && root) {
+        const char *id = JS_ToCString(ctx, argv[0]);
+        if (!id) return JS_UNDEFINED;
+        root = root->findById(id);    // 子树作用域（不存在 → 整树跳过）
+        JS_FreeCString(ctx, id);
+    }
+    if (!root) {
+        Log::warn("dumpTree: 无根视图（用户指针未挂）或 id 未命中——忽略");
+        return JS_UNDEFINED;
+    }
+    std::println("── View 树 dump（属性语义表 {} 行）──", kPropCount);
+    dumpViewTree(*root, 0);
+    return JS_UNDEFINED;
+}
+
 static JSValue js_highlightAll(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) {
         Log::warn("highlightAll: 需要 (id, needle) 参数——忽略");
@@ -879,7 +937,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         std::vector<TypedProp> values;
     };
     std::vector<AnimProp> animProps;
-    std::vector<char> propSeen(static_cast<std::size_t>(PropId::COUNT), 0);
+    std::vector<char> propSeen(kPropCount, 0);
 
     // 值解析三路共用（数组关键帧/单值/别名键）：E3——ToFloat64 失败或
     // NaN（非数字字符串）→ 字符串路径（颜色/文本关键帧）。数组路径原实现
@@ -921,7 +979,7 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
     };
 
     // 规范键扫描（先到先得）
-    for (int pid = 0; pid < static_cast<int>(PropId::COUNT); ++pid) {
+    for (int pid = 0; pid < kPropCount; ++pid) {
         PropId prop = static_cast<PropId>(pid);
         JSValue jsVal = JS_GetPropertyStr(ctx, argv[1], propName(prop));
         if (!JS_IsUndefined(jsVal)) { collectAnimProp(prop, jsVal); }
@@ -936,8 +994,8 @@ static JSValue js_animate(JSContext *ctx, JSValueConst this_val, int argc, JSVal
         if (!JS_GetOwnPropertyNames(ctx, &tab, &tabLen, argv[1], JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY)) {
             for (std::uint32_t k = 0; k < tabLen; ++k) {
                 const char *key = JS_AtomToCString(ctx, tab[k].atom);
-                PropId prop = key ? propIdFromName(key) : PropId::COUNT;
-                if (prop != PropId::COUNT && !propSeen[static_cast<std::size_t>(prop)]) {
+                PropId prop = key ? propIdFromName(key) : kPropInvalid;
+                if (prop != kPropInvalid && !propSeen[static_cast<std::size_t>(prop)]) {
                     JSValue v = JS_GetProperty(ctx, argv[1], tab[k].atom);
                     collectAnimProp(prop, v);
                     JS_FreeValue(ctx, v);
@@ -1236,7 +1294,7 @@ static JSValue js_isAnimating(JSContext *ctx, JSValueConst this_val, int argc, J
         const char *prop = JS_ToCString(ctx, argv[1]);
         PropId pid = propIdFromName(prop);
         JS_FreeCString(ctx, prop);
-        if (pid != PropId::COUNT) { animating = engine->hasActiveAnimation(id, pid); }
+        if (pid != kPropInvalid) { animating = engine->hasActiveAnimation(id, pid); }
     } else {
         animating = engine->hasActiveAnimation(id);
     }
@@ -1796,6 +1854,7 @@ bool register_kwikui_module(QuickJSContext &qctx) {
         JS_CFUNC_DEF("findText", 3, js_findText),
         JS_CFUNC_DEF("findPrev", 3, js_findPrev),
         JS_CFUNC_DEF("textViewIds", 1, js_textViewIds),
+        JS_CFUNC_DEF("dumpTree", 1, js_dumpTree),
         JS_CFUNC_DEF("highlightAll", 2, js_highlightAll),
         JS_CFUNC_DEF("setActiveMatch", 3, js_setActiveMatch),
         JS_CFUNC_DEF("revealText", 2, js_revealText),

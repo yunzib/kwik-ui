@@ -31,10 +31,12 @@ ERROR_PAT = re.compile(r"\[Error\]|failed: -4|Assertion|DEVICE_LOST")
 ANSI_PAT = re.compile(r"\[[0-9;]*m")
 
 
-def run_demo(demo: str, frames: int, validation: bool, exe: str):
+def run_demo(demo: str, frames: int, validation: bool, exe: str, offscreen: bool = False):
     env = dict(os.environ)
     env["KWIK_SMOKE_FRAMES"] = str(frames)
     env["KWIK_VALIDATION"] = "1" if validation else "0"
+    if offscreen:
+        env["KWIK_SMOKE_OFFSCREEN"] = "1"    # example 冒烟路径跳过 Show（窗口不弹出）
     t0 = time.time()
     try:
         p = subprocess.run([exe, demo], capture_output=True, text=True,
@@ -57,13 +59,14 @@ def main():
         frames = int(argv[i + 1])
         del argv[i:i + 2]
     validation = "--validation" in argv
+    offscreen = "--offscreen" in argv    # 窗口不弹出（渲染照常；手动运行不受影响）
     args = [a for a in argv if not a.startswith("--")]
     demos = args if args else DEMOS
 
     exe = "./example.exe" if os.name == "nt" else "./example"
     results, failed = [], 0
     for demo in demos:
-        status, detail, secs = run_demo(demo, frames, validation, exe)
+        status, detail, secs = run_demo(demo, frames, validation, exe, offscreen)
         if status != "PASS":
             failed += 1
         results.append((demo, status, secs, detail))

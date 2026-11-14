@@ -180,16 +180,21 @@ public:
                 return true;
             }
         }
-        out = convertTo<T>(val);
         // 非有限数值（NaN/±Inf）拒绝：JS 侧 0/0、动画残留等注入源——
-        // 拒绝后走字段默认值，防 NaN 沿 measure/layout 传播（std::clamp 对
-        // NaN 直通，最终子树消失）
+        // 先验后写（拒绝时 out 未触碰 → 字段默认值保留，防 NaN 沿
+        // measure/layout 传播；std::clamp 对 NaN 直通，最终子树消失）。
+        // 此前实现先赋值后检查，out 已被写坏为 NaN——注释承诺的默认值
+        // 保留从未兑现（反射桥试点锁 test_slider_reflect_parse 抓出）
         if constexpr (std::is_same_v<T, float>) {
-            if (!std::isfinite(out)) {
+            float f = convertTo<T>(val);
+            if (!std::isfinite(f)) {
                 Log::warn("属性 '{}' 非有限数值已拒绝: {}", name, val.toString());
                 return false;
             }
+            out = f;
+            return true;
         }
+        out = convertTo<T>(val);
         return true;
     }
 
