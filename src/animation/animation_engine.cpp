@@ -46,7 +46,7 @@ void stopAnim(ActiveAnimation &anim, bool writeFinal) {
 
 /// 通知组完成（如果组内所有动画都已完成）
 void notifyGroupComplete(AnimationEngine &engine, std::uint64_t groupId,
-                         const std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> &groups,
+                         std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> &groups,
                          std::unordered_map<std::uint64_t, AnimationCallback> &callbacks,
                          const std::vector<std::unique_ptr<ActiveAnimation>> &anims) {
     auto git = groups.find(groupId);
@@ -59,12 +59,19 @@ void notifyGroupComplete(AnimationEngine &engine, std::uint64_t groupId,
         if (it != anims.end()) return;    // 还有未完成的
     }
 
-    // 所有完成 → 触发回调
-    auto cit = callbacks.find(groupId);
-    if (cit != callbacks.end()) {
-        if (cit->second) { cit->second(AnimationResult{/*completed*/ true}); }
+    // 所有完成 → 先摘除组条目与回调，最后触发回调。原版只清 callbacks，
+    // groups_ 条目永久残留 = 每次 startMulti 泄漏一个 map 节点 + vector；
+    // 且"先触发回调再 erase"在回调内 startMulti（带 onComplete）重入时，
+    // 插入会使 erase 所持迭代器因 rehash 失效（UB）——摘除提前、回调殿后。
+    // 组条目擦除对外零行为差：完成后成员动画本就被 erase_if 删除，组操作
+    // （pause/seek/stop 等）对陈旧条目本就是 findAnim 落空的 no-op
+    groups.erase(git);
+    AnimationCallback cb;
+    if (auto cit = callbacks.find(groupId); cit != callbacks.end()) {
+        cb = std::move(cit->second);
         callbacks.erase(cit);
     }
+    if (cb) { cb(AnimationResult{/*completed*/ true}); }
 }
 
 }    // anonymous namespace

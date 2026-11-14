@@ -17,6 +17,16 @@
   文件默认值、wght 轴固定 400（F2Dot14），且须在 hb_ft 建立前完成使
   HarfBuzz 度量/轮廓同源；对任何 VF 文件免疫"默认实例非 Regular"
   （GF NotoSansSC[wght].ttf fvar default=100 Thin 实测触发全屏细体）
+- **AnimationEngine::groups_ 泄漏**：startMulti 插入的组条目无任何清理
+  路径（notifyGroupComplete 只清回调表）——每次 startMulti 残留一个
+  map 节点 + vector，隐式 transition/组合动画逐次积累；改为组完成即
+  摘除，顺修回调内 startMulti 重入时 erase 迭代器 rehash 失效（UB）
+  隐患——摘除提前、回调殿后。组操作对完成组本为 no-op（成员动画已
+  删除），对外零行为差
+- **channel.handle 同函数重复注册叠加**：jsHandle 无去重直接 push_back，
+  dup 闭包随重复注册累积（捕获链钉死 JS 堆）——对齐 jsOn 惯用法按
+  JS 值身份去重；跨 rebuild 新建闭包由 JS 侧约定规避（注册写在模块
+  顶层，cppm 声明处文档化）
 
 # 0.2.0 — 2026-11-14
 ### 新增

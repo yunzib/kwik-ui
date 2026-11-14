@@ -446,7 +446,13 @@ JSValue Channel::jsCall(JSContext *ctx, const char *topic, JSValueConst data) {
 }
 
 void Channel::jsHandle(JSContext *ctx, const char *topic, JSValue handler) {
-    inst().jsCallHandlers_[topic].push_back(JS_DupValue(ctx, handler));
+    auto &v = inst().jsCallHandlers_[topic];
+    // 同函数同 topic 去重（与 jsOn 同惯用法）：同一函数对象重复注册只保留
+    // 一份 dup，防叠加。跨 rebuild 新建的闭包指针不同、无法由此识别——
+    // JS 侧约定：handle 注册写在模块顶层/组件工厂外
+    for (auto &h : v)
+        if (JS_VALUE_GET_PTR(h) == JS_VALUE_GET_PTR(handler)) return;
+    v.push_back(JS_DupValue(ctx, handler));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

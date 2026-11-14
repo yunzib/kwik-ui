@@ -232,6 +232,8 @@ public:
     static void jsSend(JSContext *ctx, const char *topic, JSValueConst data);
     static void jsOn(JSContext *ctx, const char *topic, JSValue handler);
     static JSValue jsCall(JSContext *ctx, const char *topic, JSValueConst data);
+    /// 注册 C++→JS 调用处理器（同函数同 topic 去重）。跨 rebuild 新建的
+    /// 闭包指针不同、不去重——注册应写在模块顶层/组件工厂外（JS 侧约定）
     static void jsHandle(JSContext *ctx, const char *topic, JSValue handler);
     /// 注销 on 注册的 JS handler（按 JS 值身份匹配首个命中项）
     static void jsOff(JSContext *ctx, const char *topic, JSValue handler);
