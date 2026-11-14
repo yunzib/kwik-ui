@@ -16,7 +16,7 @@ set(CMAKE_EXPERIMENTAL_MAPPED_PACKAGE_INFO "ababa1b5-7099-495f-a9cd-e22d38f274f2
 set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 
 # 版本语义自 v0.1.0 启动（定版锚点，回滚/分界用）
-project(KwiKUI VERSION 0.1.0 LANGUAGES C CXX)
+project(KwiKUI VERSION 0.2.0 LANGUAGES C CXX)
 
 # ── 安装前缀（默认 build/install）──
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix")
