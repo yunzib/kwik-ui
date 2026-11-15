@@ -12,10 +12,11 @@ docsite: image（四节：fit / SVG / 透明度 / 圆角裁剪）
 
 ```json
 {
-    "src": "string",                   // 图片路径 (默认 "")
-    "data": "ArrayBuffer",             // 内存像素数据源（与 src 二选一）
-    "width": "number",                 // 像素数据宽度（data 模式必需）
-    "height": "number",                // 像素数据高度（data 模式必需）
+    "src": "string",                   // 图片路径 (默认 ""；.svg 扩展名走 nanosvg 矢量解码)
+    "svg": "string",                   // 内联 SVG 文本源（与 src/data 三选一；非空时优先于 src）
+    "data": "ArrayBuffer",             // 内存像素数据源（与 src/svg 三选一）
+    "width": "number",                 // 像素数据宽度（data 模式必需）/ SVG 光栅化目标宽
+    "height": "number",                // 像素数据高度（data 模式必需）/ SVG 光栅化目标高
     "fit": "\"contain\" | \"cover\" | \"fill\" | \"none\"",  // 缩放策略 (默认 "cover")
     "opacity": "0.0-1.0",              // 透明度 (默认 1.0，乘在最终合成上)
     "borderRadius": "number"           // 圆角裁剪 (默认 0；超过短边一半取胶囊)
@@ -28,6 +29,13 @@ docsite: image（四节：fit / SVG / 透明度 / 圆角裁剪）
   用于图片淡出、禁用态压暗等；
 - **圆角裁剪**：`borderRadius` 裁剪的是**图片自身像素**（stencil 蒙版），不是容器背景——
   需要给占位容器上色时，容器自己设 `background` + `borderRadius` 即可；
+- **内联 SVG（图标首选）**：`svg` 传 SVG 文本，nanosvg 按 `width`/`height` 显式尺寸
+  光栅化（未显式给则按 SVG 声明尺寸出图）。矢量随 DPI/缩放清晰；颜色可经 JS
+  模板插值注入（占位色 + `replaceAll`），一份图标模板适配深浅主题/hover 态；
+  文本随 JS 字节码进 exe（Release 嵌入），零外部资产文件。`svg` 字符串变更
+  （reconcile 判据）自动重光栅化；运行时改颜色请走重建树（换 props），svg
+  非 PropBus 运行时字段。图标按钮配套用法：透明 `Button` + 居中 `Image`
+  子级（`align: "center"`）
 
 ## 关联
 

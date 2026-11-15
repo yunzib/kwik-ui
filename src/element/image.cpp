@@ -52,6 +52,7 @@ void Image::loadImage() {
     switch (imageProps_.source) {
     case ImageSource::File: loadFromFile(imageProps_.src); break;
     case ImageSource::Buffer: loadFromBuffer(); break;
+    case ImageSource::SvgInline: loadFromSvgString(imageProps_.svg); break;
     case ImageSource::Url: errorMsg_ = "URL image source not yet implemented"; break;
     }
     if (!errorMsg_.empty()) fireError();    // 17 并批②：装载失败 → onError 出口
@@ -80,6 +81,7 @@ void Image::applyImageProps(ImageProps ip) {
             reload = ip.bufferWidth != imageProps_.bufferWidth || ip.bufferHeight != imageProps_.bufferHeight
                      || ip.data != imageProps_.data;
             break;
+        case ImageSource::SvgInline: reload = ip.svg != imageProps_.svg; break;
         case ImageSource::Url: reload = ip.src != imageProps_.src; break;
         default: reload = false; break;
         }
@@ -124,11 +126,9 @@ void Image::loadFromFile(const std::string &path) {
     loaded_ = true;
 }
 // ============================================================================
-// loadFromSvg — nanosvg 矢量解码 → RGBA 光栅化
+// loadFromSvg — SVG 文件解码：读文件后走与内联版共用的光栅化段
 // ============================================================================
 void Image::loadFromSvg(const std::string &path) {
-    int targetW = props.width.has_value() ? static_cast<int>(*props.width) : 0;
-    int targetH = props.height.has_value() ? static_cast<int>(*props.height) : 0;
     // 用 std::filesystem::u8path 读取文件 (解决 Windows 下中文路径问题)
     std::ifstream file(std::filesystem::path(path), std::ios::binary | std::ios::ate);
     if (!file) {
@@ -139,6 +139,17 @@ void Image::loadFromSvg(const std::string &path) {
     file.seekg(0);
     std::string content(static_cast<std::size_t>(fsize), '\0');
     file.read(content.data(), fsize);
+    loadFromSvgString(content);
+}
+
+// ============================================================================
+// loadFromSvgString — 内联 SVG 文本 → nanosvg 按显式尺寸光栅化
+// （文件版与内联版共用光栅化段；targetW/H 取显式 width/height，0 交由
+//   nanosvg 按 SVG 声明尺寸出图）
+// ============================================================================
+void Image::loadFromSvgString(const std::string &content) {
+    int targetW = props.width.has_value() ? static_cast<int>(*props.width) : 0;
+    int targetH = props.height.has_value() ? static_cast<int>(*props.height) : 0;
     SvgImage svg = svgLoadFromMemory(content.data(), content.size(), targetW, targetH);
     if (!svg.error.empty()) {
         errorMsg_ = std::move(svg.error);

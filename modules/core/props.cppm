@@ -175,6 +175,7 @@ export enum class ImageFit {
 export enum class ImageSource {
     File,      // 本地文件路径 (通过 src 字段指定)
     Buffer,    // JS ArrayBuffer 像素数据 (通过 data 字段 + width/height 指定)
+    SvgInline, // 内联 SVG 文本 (通过 svg 字段指定, nanosvg 按显式尺寸光栅化)
     Url,       // 远程 URL (预留, 暂未实现)
 };
 /**
@@ -182,6 +183,7 @@ export enum class ImageSource {
  */
 export struct ImageProps {
     std::string src;              // 文件路径 (source == File/Url 时使用)
+    std::string svg;              // 内联 SVG 文本 (source == SvgInline 时使用)
     std::vector<std::uint8_t> data;    // 像素缓冲区 (source == Buffer 时使用)
     int bufferWidth = 0;          // 缓冲区位图宽度 (source == Buffer)
     int bufferHeight = 0;         // 缓冲区位图高度 (source == Buffer)

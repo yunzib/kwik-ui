@@ -75,7 +75,8 @@ private:
     void loadImage();
     void loadFromFile(const std::string &path);
     void loadFromBuffer();
-    void loadFromSvg(const std::string &path);    // SVG 矢量解码 (nanosvg)
+    void loadFromSvg(const std::string &path);    // SVG 文件解码 (nanosvg)
+    void loadFromSvgString(const std::string &content);    // 内联 SVG 文本解码 (光栅化段与文件版共用)
     void confirmUpload();    // 17 号：拉取异步上传回执（落地释放像素 / 失败重试或弃传）
     void failUpload(const std::string &msg);    // 17 号：上传终态失败收场（弃传 + 置白 + onError）
     void fireError();    // 17 号：onError 出口（槽未接线时转挂起，接线后首帧补发一次）

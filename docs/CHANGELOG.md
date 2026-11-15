@@ -1,6 +1,13 @@
 # 更新日志
 
 # 0.2.3 — 2026-11-15
+### 新增
+- **Image 内联 SVG 源（`svg` 字段）**：`Image({ svg: "<svg…/>", width, height })`
+  直接接受 SVG 文本，nanosvg 按显式尺寸光栅化（与 .svg 文件版共用光栅化段，
+  ImageSource 新增 SvgInline）；矢量随 DPI/缩放清晰、文本随 JS 字节码进 exe
+  零外部资产文件，颜色可经 JS 模板插值一份模板适配深浅/hover 多态；`svg`
+  字符串变更（reconcile 判据）自动重光栅化。图标按钮配套：透明 Button +
+  align center 的 Image 子级
 ### 构建
 - **编译档 preset 化 + README 无效 `--config` 用法修正**：新增 `gcc-release`
   configure/build preset（build-release 树 + `KWIK_BUILD_TYPE=Release`），编译档

@@ -301,6 +301,14 @@ ImageProps parseImageProps(PropsExtractor &ex) {
         result.src = ex.raw().getProperty("src").toString();
         result.source = ImageSource::File;
     }
+    if (ex.has("svg")) {
+        // 内联 SVG 文本源：非空即优先生效（同 props 同时给 src/svg 时 svg 赢）
+        std::string svg = ex.raw().getProperty("svg").toString();
+        if (!svg.empty()) {
+            result.svg = std::move(svg);
+            result.source = ImageSource::SvgInline;
+        }
+    }
     ex.getEnum("fit", result.fit,
                {
                    {"fill", ImageFit::Fill},
