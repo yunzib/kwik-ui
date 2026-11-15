@@ -95,7 +95,9 @@ void View::layout(Rect bounds) {
 // 优先级：显式 px > 百分比 > 约束上限。
 // 百分比基准 = 父容器 content 尺寸（约束 maxWidth/maxHeight）：
 //   有界才解析（CSS 同款：父为自适应时百分比无基准 → 回退自适应，不报错）。
-// 注意：返回未含 padding，调用点自行叠加（与 onMeasure 现有语义一致）。
+// 尺寸口径 border-box：显式值即"含 padding 的总尺寸"，调用点不再叠加
+// padding（与 FlexLayout/GridLayout/Text/Checkbox 等全库统一；base View/
+// Button 旧"显式值另加 padding"的 content-box 口径已废弃）。
 // ═══════════════════════════════════════════════════════════════════════════
 Size View::resolveEffectiveSize(const ViewProps &p, const Constraints &c) {
     float w = p.width.value_or(c.maxWidth);    // 显式 px 优先，否则约束上限
@@ -113,11 +115,10 @@ Size View::resolveEffectiveSize(const ViewProps &p, const Constraints &c) {
 // View 布局实现
 // ============================================================================
 Size View::onMeasure(Constraints constraints) {
-    // 显式 px / 百分比统一换算（百分比基准 = 父 content，约束有界才解析）
+    // 显式 px / 百分比统一换算（百分比基准 = 父 content，约束有界才解析）。
+    // 尺寸口径 border-box：显式 width/height = 含 padding 的总尺寸（与
+    // FlexLayout 等全库统一）；无显式尺寸时走内容自适应 = 内容 + padding
     auto [w, h] = View::resolveEffectiveSize(props, constraints);
-    w += props.padding.horizontal();
-    h += props.padding.vertical();
-    Size contentSize = {w, h};
     if (!children.empty()) {
         Constraints childConstraints = constraints.inset(props.padding);
         // 父有显式尺寸（px/百分比）时，子约束上限收敛到自身有效内容尺寸——

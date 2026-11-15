@@ -24,7 +24,7 @@ docsite: 无（待同步）
     "maxLines": "number",                // 最大行数 (默认 0=不限; 超出截断)
     "ellipsis": "boolean",               // 超 maxLines 时行尾补省略号 "…" (默认 true)
     "lineHeight": "number",              // 固定行高 px (默认 0=自动 fontSize*1.4)
-    "verticalAlign": "\"top\" | \"center\" | \"bottom\"",   // 垂直对齐 (默认 "top")
+    "verticalAlign": "\"top\" | \"center\" | \"bottom\"",   // 垂直对齐 (默认 "center"，frame 高于内容时墨迹块居中)
     "selectable": "boolean"              // 文字可选中 (默认 false)
 }
 ```
@@ -43,6 +43,9 @@ docsite: 无（待同步）
 ## 垂直对齐（verticalAlign）
 
 文本总高 < 容器高（需显式 height）时，在 padding 内内容区整体顶/中/底对齐。
+默认 **center**：容器 `alignItems: center` 居中的是 frame，墨迹不居中会整体
+偏高（half-leading 行盒已保证墨迹在行带内居中，二者配合即视觉居中）；
+Button/Checkbox/Radio 等自绘居中组件不读本字段。
 
 ## 两端对齐（textAlign: "justify"）
 

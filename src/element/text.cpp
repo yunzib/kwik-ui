@@ -121,7 +121,7 @@ void Text::ensureLayout(float maxW) {
 
 Size Text::onMeasure(Constraints constraints) {
     // 基础宽高统一换算（显式 px / 百分比 widthPct "100%" / 约束上限）
-    // resolveEffectiveSize 返回不含 padding（调用点自行叠加）
+    // 尺寸口径 border-box：resolveEffectiveSize 显式值 = 含 padding 总尺寸
     auto eff = View::resolveEffectiveSize(props, constraints);
     float availW = eff.width - props.padding.horizontal();
     ensureLayout(std::max(availW, 1.0f));
@@ -487,16 +487,19 @@ std::vector<Rect> Text::selectionRects(std::size_t startOff, std::size_t endOff)
         if (s < e) {
             float xs = penOfBoundaryAt(layoutResult_->glyphs, sl, s);    // 边界落笔 = 选区起点
             float xe = penOfBoundaryAt(layoutResult_->glyphs, sl, e);    // 下一边界落笔 = 终点
-            // 高度贴字形墨迹底（y 已烘焙 baseline，墨迹自 0 起）：行带
-            // rowH=max(lineHeight, 墨迹) 时墨迹贴顶，整行带高亮会下坠
+            // 高度贴本行墨迹上下沿（y 已烘焙 baseline + half-leading，墨迹自
+            // leading/2 起而非行带顶——行带 rowH=max(lineHeight, 墨迹) 时高
+            // 亮贴墨迹，不留行距空带）
+            float inkTop = std::numeric_limits<float>::max();    // 墨迹顶 = 各字形 y 最小值（half-leading 后 ≥ 0）
             float inkBottom = 0;
             std::size_t gEnd = sl.glyphStart + sl.glyphCount;
             for (std::size_t i = sl.glyphStart; i < gEnd; ++i) {
                 auto &gph = layoutResult_->glyphs[i];
+                inkTop = std::min(inkTop, gph.y);
                 inkBottom = std::max(inkBottom, gph.y + gph.height);
             }
-            if (xe > xs && inkBottom > 0) {
-                out.push_back({origin.x + xs, yTop, xe - xs, inkBottom});
+            if (xe > xs && inkBottom > inkTop) {
+                out.push_back({origin.x + xs, yTop + inkTop, xe - xs, inkBottom - inkTop});
             }
         }
         yTop += sl.height;

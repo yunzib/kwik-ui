@@ -33,14 +33,16 @@ Size Button::onMeasure(Constraints constraints) {
     // 字形缺席（无字体/塑形失败/字体未就绪）：显式 width/height 仍须兑现，
     // 文本贡献回退估算——此前直接 constrain({0,0}) 把显式尺寸一并吞掉，
     // 按钮量成零尺寸即从页面消失（布局/命中/绘制全线失效）
+    // 尺寸口径 border-box：显式 width/height = 含 padding 的总尺寸（与
+    // base View/FlexLayout 统一）；自适应路径仍为 内容 + padding
     Size out;
     if (!textResult_ || textResult_->glyphs.empty()) {
         float w = props.width.has_value()
-                      ? *props.width + props.padding.horizontal()
+                      ? *props.width
                       : (static_cast<float>(text_.text.size()) * text_.fontSize * 0.6f
                          + props.padding.horizontal());
         float h = props.height.has_value()
-                      ? *props.height + props.padding.vertical()
+                      ? *props.height
                       : (std::max(text_.fontSize * 1.4f, 16.0f) + props.padding.vertical());
         out = constraints.constrain({w, h});
         return out;
@@ -48,8 +50,8 @@ Size Button::onMeasure(Constraints constraints) {
 
     float w = textResult_->totalWidth + props.padding.horizontal();
     float h = std::max(textResult_->totalHeight, 16.0f) + props.padding.vertical();
-    if (props.width.has_value()) w = *props.width + props.padding.horizontal();
-    if (props.height.has_value()) h = *props.height + props.padding.vertical();
+    if (props.width.has_value()) w = *props.width;
+    if (props.height.has_value()) h = *props.height;
     return constraints.constrain({w, h});
 }
 

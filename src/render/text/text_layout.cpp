@@ -203,8 +203,17 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                   || cfg.align == LayoutTextAlign::End)
                 alignOff = cfg.maxWidth - cursorX;
 
-            /* baseline 烘焙 + x 归一化到行起点 */
-            float baseline = -minY;
+            // 统一行高：cfg.lineHeight > 0 用固定值；否则自动 = fontSize*1.4
+            // （与 TextArea::lineHeight() 一致，逐行渲染的 y 步进与 totalHeight 对齐）
+            float lh = maxBottom - minY;
+            float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : glyphs[lineStart].fontSize * 1.4f;
+            rowH = std::max(rowH, lh);
+
+            /* baseline 烘焙 + x 归一化到行起点。half-leading：行带高于墨迹时
+             * 行距上下对半分（CSS 口径），墨迹在行带内垂直居中——原先墨迹贴
+             * 顶、空白全沉行带底部，容器 alignItems center 居中行盒时文字整
+             * 体偏高（标题栏 tab 文字不居中的根因） */
+            float baseline = -minY + (rowH - lh) * 0.5f;
             float lineBaseX = glyphs[lineStart].x;
             bool isTextEnd = (lineEnd >= glyphs.size());
             // 两端对齐：非文本末行 / 非硬断行才拉伸
@@ -232,11 +241,6 @@ void TextLayout::layoutWordWrap(const std::vector<ShapedGlyph>& glyphs,
                 }
             }
 
-            float lh = maxBottom - minY;
-            // 统一行高：cfg.lineHeight > 0 用固定值；否则自动 = fontSize*1.4
-            // （与 TextArea::lineHeight() 一致，逐行渲染的 y 步进与 totalHeight 对齐）
-            float rowH = (cfg.lineHeight > 0) ? cfg.lineHeight : glyphs[lineStart].fontSize * 1.4f;
-            rowH = std::max(rowH, lh);
             result.lines.push_back({
                 .glyphStart  = flatStart,
                 .glyphCount  = lineEnd - lineStart,

@@ -25,7 +25,7 @@ ViewProps 是 View 的基础属性， 所有组件继承以下属性：
 
 ```json
 {
-    // ── 尺寸 ──
+    // ── 尺寸（border-box：显式值 = 含 padding 的总尺寸；null/缺省 = 自适应 = 内容 + padding）──
     "width": "number | \"50%\" | null",    // 固定宽 px / 百分比(基准=父 content) / null=自动
     "height": "number | \"50%\" | null",   // 固定高 px / 百分比(基准=父 content) / null=自动
 

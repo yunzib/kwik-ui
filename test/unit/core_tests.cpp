@@ -2955,8 +2955,8 @@ static void test_explicit_parent_converges_child_constraints() {
         }
     };
 
-    // ① 显式宽 500（未含 padding 基准，总宽 520）+ 水平 20 → 子 maxWidth
-    //    收敛到内容宽 500（= 520 − 20；显式宽即内容基准，不二次扣减）
+    // ① 显式宽 500 = 含 padding 总宽（border-box）+ 水平 20 → 子 maxWidth
+    //    收敛到内容宽 480（= 500 − 20；显式值即总尺寸，内容 = 总 − padding）
     {
         ViewProps vp;
         vp.width = 500.0f;
@@ -2966,9 +2966,9 @@ static void test_explicit_parent_converges_child_constraints() {
         Probe *p = probe.get();
         parent.addChild(std::move(probe));
         parent.measure(Constraints{0, 2000, 0, 2000});    // 上游宽松 2000
-        CHECK(nearf(p->got.maxWidth, 500.0f));            // 修前 = 1980（上游直透）
+        CHECK(nearf(p->got.maxWidth, 480.0f));            // 修前 = 1980（上游直透）
     }
-    // ② 显式高 300（总高 340）− 垂直 40 → 子 maxHeight 收敛到 300
+    // ② 显式高 300 = 含 padding 总高 − 垂直 40 → 子 maxHeight 收敛到 260
     {
         ViewProps vp;
         vp.height = 300.0f;
@@ -2978,7 +2978,7 @@ static void test_explicit_parent_converges_child_constraints() {
         Probe *p = probe.get();
         parent.addChild(std::move(probe));
         parent.measure(Constraints{0, 2000, 0, 2000});
-        CHECK(nearf(p->got.maxHeight, 300.0f));
+        CHECK(nearf(p->got.maxHeight, 260.0f));
     }
     // ③ 对照：无显式尺寸 → 子约束保持上游（2000 − 水平 20），不误伤自适应父
     {

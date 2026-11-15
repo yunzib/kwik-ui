@@ -28,7 +28,7 @@ alignItems 控制交叉轴对齐、flexWrap 换行；子项 flexGrow / flexShrin
     "flexGrow": "number",       // 行内剩余空间按权重分配 (默认 0 = 不生长)
     "flexShrink": "number",     // 行内溢出按权重收缩, 下限 0 (默认 1)
     "flexBasis": "number",      // grow 项的主轴起步尺寸 / 最小值 (默认 0)
-    "width / height": "number | 百分比",  // 显式尺寸 (百分比基准 = 父 content)
+    "width / height": "number | 百分比",  // 显式尺寸 = 含 padding 总尺寸（border-box）；百分比基准 = 父 content
     "margin": "number | [四向]"           // 参与主轴占位与交叉轴定位
 }
 ```

@@ -52,7 +52,7 @@ export enum class Align {
  */
 export struct ViewProps {
     std::string id;    // 组件标识符 (全局查找 / getProp / setProp)
-    // ── 尺寸 ──
+    // ── 尺寸（border-box：显式值 = 含 padding 的总尺寸；缺省则内容自适应 = 内容 + padding）──
     std::optional<float> width;
     std::optional<float> height;
     // 百分比尺寸（"50%" → 0.5；0-1 比例）。不动 width/height 本体 → 现有消费点零回归。
@@ -118,7 +118,10 @@ export struct TextContent {
     int maxLines = 0;                       ///< 最大行数（0=不限）
     bool ellipsis = true;                   ///< 超 maxLines 时行尾补省略号
     float lineHeight = 0;                   ///< 固定行高 px（0=自动 = fontSize*1.4）
-    TextVerticalAlign verticalAlign = TextVerticalAlign::Top;  ///< 容器内垂直对齐
+    // 默认居中：frame 高于内容时墨迹块在 frame 内垂直居中（行盒 16px 下限 /
+    // 显式高度场景）——容器 alignItems center 居中的是 frame，墨迹不居中会
+    // 整体偏高；Button/Checkbox/Radio 自绘居中不读本字段，仅 Text 消费
+    TextVerticalAlign verticalAlign = TextVerticalAlign::Center;  ///< 容器内垂直对齐
     bool selectable = false;                ///< 文字可选中（拖选/双击选词/Ctrl+C 复制，经选区服务）
 };
 
