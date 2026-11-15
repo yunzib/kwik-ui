@@ -527,6 +527,28 @@ LRESULT CALLBACK PlatformWindowWin32::WndProc(HWND hwnd, UINT msg, WPARAM wParam
 LRESULT PlatformWindowWin32::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     // ── 无边框几何消息：必须在事件回调守卫之前处理 ──
     // （Create/Show 早于 SetRawEventCallback 接线，回调为空时同样要生效）
+    if (msg == WM_GETMINMAXINFO) {
+        // 无边框窗口 SW_MAXIMIZE 默认窗口矩形铺满整个显示器——客户区虽经
+        // WM_NCCALCSIZE 夹到工作区，但客户区外的窗口区域（任务栏带）成为
+        // 无人绘制的非客户区，视觉上一条空白带盖住任务栏。夹最大化矩形 =
+        // 工作区 + 不可见厚边框补偿（WS_THICKFRAME 的 resize border 在
+        // 最大化时仍外扩，负偏移抵消后客户区经 NCCALCSIZE 归零恰 = rcWork）
+        if (decoration_ != WindowDecoration::Normal) {
+            auto *mmi = reinterpret_cast<MINMAXINFO *>(lParam);
+            HMONITOR mon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi{sizeof(mi)};
+            if (GetMonitorInfoW(mon, &mi)) {
+                const int dx = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                const int dy = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                mmi->ptMaxPosition.x = mi.rcWork.left - dx;
+                mmi->ptMaxPosition.y = mi.rcWork.top - dy;
+                mmi->ptMaxSize.x = (mi.rcWork.right - mi.rcWork.left) + dx * 2;
+                mmi->ptMaxSize.y = (mi.rcWork.bottom - mi.rcWork.top) + dy * 2;
+                return 0;
+            }
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
     if (msg == WM_NCCALCSIZE) {
         if (decoration_ != WindowDecoration::Normal && wParam) {
             auto *p = reinterpret_cast<NCCALCSIZE_PARAMS *>(lParam);

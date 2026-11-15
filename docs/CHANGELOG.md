@@ -2,6 +2,12 @@
 
 # 0.2.3 — 2026-11-15
 ### 修复
+- **无边框窗口最大化盖住任务栏**：SW_MAXIMIZE 默认窗口矩形铺满整个显示器——
+  客户区虽经 WM_NCCALCSIZE 夹到工作区，但客户区外的窗口区域（任务栏带）成
+  为无人绘制的非客户区，视觉上一条空白带盖住任务栏（应用状态栏"消失"）。
+  HandleMessage 新增 WM_GETMINMAXINFO：无边框最大化矩形 = 工作区 + 不可见
+  厚边框补偿（负偏移抵消 WS_THICKFRAME 的 resize border 外扩，客户区经
+  NCCALCSIZE 归零恰 = rcWork），窗口不再覆盖任务栏区域
 - **文本选区服务宿主悬空段错误**：TextSelectionService::host_ 持 Selectable
   裸指针，防悬空的 alive() 为**虚调用**——宿主 Text 析构后内存释放，虚调用
   读 vtable 本身即段错误（查表机会都没等到；触发面：点击文本后列表/日志
