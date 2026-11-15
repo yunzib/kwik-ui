@@ -153,7 +153,14 @@ export default () => Root(
 <table>
   <tr>
     <td><img src="docs/image/scop.png" alt="图片描述1" width="100%"></td>
-    <td><img src="" alt="图表组件" width="100%"></td>
+    
+  </tr>
+</table>
+
+- 新增串口助手示例，地址： [https://gitcode.com/metarealm/kwik-serial](https://gitcode.com/metarealm/kwik-serial)
+<table>
+  <tr>
+    <td><img src="docs/image/serial.png" alt="图片描述1" width="100%"></td>
   </tr>
 </table>
 
@@ -286,3 +293,27 @@ python ../../test/tools/smoke.py --validation       # 开 Vulkan 验证层抓规
 
 - 通过判定：退出码 0（冒烟模式下等于 Log 错误计数）且输出无 `[Error]` / `Assertion` / `DEVICE_LOST`
 - 环境变量 `KWIK_VALIDATION=1/0` 可强制开/关验证层（`--validation` 即封装此项）
+
+# 5. 第三方组件与致谢
+
+本仓库以快照方式内嵌以下第三方库（版本 / 提取规则 / 补丁登记见 [third_party/README.md](third_party/README.md)）：
+
+| 组件 | 许可 | 上游 |
+|---|---|---|
+| QuickJS-ng | MIT | [quickjs-ng/quickjs](https://github.com/quickjs-ng/quickjs) |
+| FreeType | FTL + GPLv2 | [freetype/freetype](https://github.com/freetype/freetype) |
+| HarfBuzz | MIT | [harfbuzz/harfbuzz](https://github.com/harfbuzz/harfbuzz) |
+| stb | Public Domain / MIT | [nothings/stb](https://github.com/nothings/stb) |
+| nanosvg | zlib | [memononen/nanosvg](https://github.com/memononen/nanosvg) |
+| simdjson | Apache-2.0 | [simdjson/simdjson](https://github.com/simdjson/simdjson) |
+| FFmpeg | LGPL-2.1+（configure `--disable-gpl`） | [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) |
+| fastgltf | MIT | [spnda/fastgltf](https://github.com/spnda/fastgltf) |
+| msdfgen | MIT | [Chlumsky/msdfgen](https://github.com/Chlumsky/msdfgen) |
+
+感谢这些优秀的开源项目；各库的许可文本随快照内嵌于对应目录。
+
+# 6. 许可
+
+本仓库代码采用 [MIT License](LICENSE) 发布。
+
+第三方组件各自遵循上表所列许可。其中 FFmpeg 按 LGPL-2.1+（已禁用 GPL 组件）静态链接，依据 LGPL 义务，可按 [third_party/README.md](third_party/README.md) 的快照登记自行重链接目标文件。

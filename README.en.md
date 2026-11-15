@@ -154,7 +154,13 @@ export default () => Root(
 <table>
   <tr>
     <td><img src="docs/image/scop.png" alt="Oscilloscope / spectrum analyzer benchmark" width="100%"></td>
-    <td><img src="" alt="Chart components" width="100%"></td>
+  </tr>
+</table>
+
+- New serial assistant demo: [https://gitcode.com/metarealm/kwik-serial](https://gitcode.com/metarealm/kwik-serial)
+<table>
+  <tr>
+    <td><img src="docs/image/serial.png" alt="Serial assistant demo" width="100%"></td>
   </tr>
 </table>
 
@@ -271,3 +277,27 @@ python ../../test/tools/smoke.py --validation       # enable Vulkan validation l
 
 - Pass criteria: exit code 0 (in smoke mode this equals the Log error count) and no `[Error]` / `Assertion` / `DEVICE_LOST` in the output
 - The environment variable `KWIK_VALIDATION=1/0` force-enables/disables the validation layers (`--validation` is a wrapper around this)
+
+# 5. Third-Party Components & Acknowledgements
+
+The following third-party libraries are vendored as snapshots in this repository (versions / extraction rules / patches: see [third_party/README.md](third_party/README.md)):
+
+| Component | License | Upstream |
+|---|---|---|
+| QuickJS-ng | MIT | [quickjs-ng/quickjs](https://github.com/quickjs-ng/quickjs) |
+| FreeType | FTL + GPLv2 | [freetype/freetype](https://github.com/freetype/freetype) |
+| HarfBuzz | MIT | [harfbuzz/harfbuzz](https://github.com/harfbuzz/harfbuzz) |
+| stb | Public Domain / MIT | [nothings/stb](https://github.com/nothings/stb) |
+| nanosvg | zlib | [memononen/nanosvg](https://github.com/memononen/nanosvg) |
+| simdjson | Apache-2.0 | [simdjson/simdjson](https://github.com/simdjson/simdjson) |
+| FFmpeg | LGPL-2.1+ (configure `--disable-gpl`) | [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) |
+| fastgltf | MIT | [spnda/fastgltf](https://github.com/spnda/fastgltf) |
+| msdfgen | MIT | [Chlumsky/msdfgen](https://github.com/Chlumsky/msdfgen) |
+
+Many thanks to these excellent open-source projects; each library's license text is vendored alongside its snapshot.
+
+# 6. License
+
+This repository is released under the [MIT License](LICENSE).
+
+Third-party components are governed by the licenses listed above. FFmpeg is statically linked under LGPL-2.1+ (GPL components disabled); per LGPL obligations, its object files can be re-linked following the snapshot registration in [third_party/README.md](third_party/README.md).
