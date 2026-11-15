@@ -1,5 +1,31 @@
 # 更新日志
 
+# 0.2.3 — 2026-11-15
+### 构建
+- **编译档 preset 化 + README 无效 `--config` 用法修正**：新增 `gcc-release`
+  configure/build preset（build-release 树 + `KWIK_BUILD_TYPE=Release`），编译档
+  入口统一为 preset / `KWIK_BUILD_TYPE`（`CMAKE_BUILD_TYPE` 被 FORCE 绑定直传
+  无效；单配置生成器 `--build --config` 静默忽略）；README 安装节去冗余
+  `--prefix`（前缀默认落构建树）、新建工程节补 find_package + kwik_js 三行
+  接入（样板 examples/external）；依赖管理.md 补 SDK 消费一节；版本三处
+  对齐 0.2.3（project VERSION / ConfigVersion / CHANGELOG）
+### 修复
+- **View/Button 显式尺寸 content-box 孤岛——与全库 border-box 口径分叉**：
+  base View::onMeasure 与 Button::onMeasure 此前把显式 width/height 当
+  "内容尺寸"另加 padding（实际总尺寸 = 显式值 + padding×2），而 FlexLayout/
+  GridLayout/Text/Checkbox/ScrollView 等均按"含 padding 总尺寸"直读——
+  同一份 JS 里 `View({height:28, padding:[4,6]})` 实际渲染 36px、子内容
+  顶部锚定（标题栏会话标签文字/关闭图标整体偏上 4px 的根因）。统一为
+  border-box：显式值即总尺寸（resolveEffectiveSize 返回值直读，自适应
+  路径仍 = 内容 + padding 不变）
+- **Text 在 alignItems:center 容器内整体偏上**：TextLayout 行盒烘焙
+  baseline = -minY 把墨迹贴行盒顶、行距空白全沉行盒底（自动行高
+  fontSize×1.4 下 12px 字约 3.4px 空白全在下侧），行盒被居中时文字视觉
+  偏高；改 half-leading 口径（baseline = -minY + (rowH−lh)×0.5，行距
+  上下对分，墨迹在行带内居中），Text.verticalAlign 默认 Top→Center
+  （frame 高于内容时墨迹块居中，Button/Checkbox 等自绘居中不读此字段），
+  选区高亮矩形同步改为贴合本行墨迹上下沿
+
 # 0.2.2 — 2026-11-14
 ### 修复
 - **SDK 安装不完整——扩展产物缺失**：Extension.cmake 此前无任何 install

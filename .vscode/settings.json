@@ -1,5 +1,8 @@
 {
     "cmake.generator": "Ninja",
+    // CMake Tools 固定走 preset 体系（状态栏 preset 选择器切 gcc=Debug /
+    // gcc-release=Release 档；Select Variant 的变体面板不参与）
+    "cmake.useCMakePresets": "always",
     "clangd.path": "C:/software/llvm-mingw/bin/clangd.exe",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",

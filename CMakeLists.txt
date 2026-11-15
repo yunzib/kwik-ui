@@ -16,7 +16,7 @@ set(CMAKE_EXPERIMENTAL_MAPPED_PACKAGE_INFO "ababa1b5-7099-495f-a9cd-e22d38f274f2
 set(CMAKE_EXPERIMENTAL_GENERATE_SBOM "ca494ed3-b261-4205-a01f-603c95e4cae0")
 
 # 版本语义自 v0.1.0 启动（定版锚点，回滚/分界用）
-project(KwiKUI VERSION 0.2.0 LANGUAGES C CXX)
+project(KwiKUI VERSION 0.2.3 LANGUAGES C CXX)
 
 # ── 安装前缀（默认 <构建树>/install：哪里构建，就安装哪里）──
 # 必须在 project() 之后用 INITIALIZED_TO_DEFAULT 门控：GNUInstallDirs
@@ -240,10 +240,10 @@ configure_package_config_file(
     ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfig.cmake
     INSTALL_DESTINATION share/cmake/kwik-ui
 )
-# 版本文件：find_package(kwik-ui 0.2.2) 可用；版本号随 CHANGELOG 同步
+# 版本文件：find_package(kwik-ui 0.2.3) 可用；版本号随 CHANGELOG 同步
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/kwik-uiConfigVersion.cmake
-    VERSION 0.2.2
+    VERSION 0.2.3
     COMPATIBILITY SameMajorVersion
 )
 install(FILES

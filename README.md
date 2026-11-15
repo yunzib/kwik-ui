@@ -235,21 +235,37 @@ Channel::handle("process_file", [](const Channel::Data &d) -> Channel::CoroTask 
 | Vulkan SDK | 1.3 (可选，找不到则创建 stub target) |
 
 ## 4.2 工程编译
-工具链路径已固化在 `CMakePresets.json`（gcc 主 / clang 兼容两套；构建档 Debug/Release 经 `KWIK_BUILD_TYPE` 缓存变量切换）：
+工具链路径已固化在 `CMakePresets.json`（gcc 主链 Debug/Release 两档 + clang 考古档）。
+本仓为**单配置生成器**（Ninja）：编译档在 configure 阶段定死到构建树缓存，
+`cmake --build` 时无需（也无法）再传 `--config`——档位跟树走，按档分树互不踩
+（`build`=Debug、`build-release`=Release）：
 ```
-cmake --preset gcc
-cmake --build build --config Debug --target all
+cmake --preset gcc                  # configure Debug 树（KWIK_BUILD_TYPE 默认 Debug）
+cmake --build build -j              # 构建 Debug
+cmake --preset gcc-release          # configure Release 树（等价 -DKWIK_BUILD_TYPE=Release）
+cmake --build build-release -j      # 构建 Release
 ```
-## 4.3 安装 SDK
-```
-cmake --install build --prefix build/install
-```
-## 4.4 新建工程
+`KWIK_BUILD_TYPE` 为编译档总入口（Debug / Release / MinSizeRel；`CMAKE_BUILD_TYPE`
+被其 FORCE 绑定，直传无效）。
 
-```bash
-工程参考：examples\external\
-构建： examples\external\build.bat
+## 4.3 安装 SDK
+安装前缀默认落构建树（哪里构建就安装哪里）：
 ```
+cmake --install build               # → build/install（Debug SDK）
+cmake --install build-release       # → build-release/install（Release SDK）
+```
+要装到别处：configure 时 `-DCMAKE_INSTALL_PREFIX=<路径>` 一次定死。
+
+## 4.4 新建工程（SDK 消费）
+样板：`examples\external\`（入库；构建 `examples\external\build.bat`）。三行接入：
+```bash
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=<本仓库>/build-release/install \
+      -DCMAKE_BUILD_TYPE=Release
+# CMakeLists.txt 内：
+find_package(kwik-ui REQUIRED)
+kwik_js(<target> ENTRY js/main.js)   # Debug=文件系统热重载 / Release=嵌入字节码
+```
+反射旗标与链接保序由包配置自动注入，消费者零额外设置。
 
 ## 4.5 测试
 
@@ -259,7 +275,7 @@ cmake --install build --prefix build/install
 
 # 冒烟测试（在 build/test 目录运行）：遍历示例逐个跑 N 帧自动退出 + 扫描错误输出
 cd build/test
-python ../../test/tools/smoke.py                    # 全部 38 示例，默认 40 帧
+python ../../test/tools/smoke.py                    # 全部 44 示例，默认 40 帧
 python ../../test/tools/smoke.py glass layer car    # 只跑指定示例
 python ../../test/tools/smoke.py --frames 400       # 加长帧数（动画路径压测）
 python ../../test/tools/smoke.py --validation       # 开 Vulkan 验证层抓规格违规

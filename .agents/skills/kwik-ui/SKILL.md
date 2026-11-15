@@ -36,6 +36,9 @@ compatibility: opencode
 - 模块文件: .cppm (C++ module interface), .cpp (implementation)
 - 命名空间: 不用 namespace，通过 C++20 module 分区隔离
 - 所有权: std::unique_ptr<View> 管理 View 树
+- 显式尺寸一律 border-box: width/height = 含 padding 的总尺寸（自适应 = 内容 +
+  padding）；自定义组件覆写 onMeasure 必须同口径（resolveEffectiveSize 显式值
+  直读，勿再叠加 padding——View/Button 曾因 content-box 孤岛致容器内容整体偏上）
 - 引擎解耦: element/layout 层禁止出现 JSValue/JSContext、禁止 import kwik.engine.*（无例外）
 - JS 事件适配: 一律经 kwik.bridge.event_adapter (attachJsHandlers);
   组件 fire* 只调用 handlers 的 std::function 槽位 (ChangeArgs/PointerArgs)
@@ -130,8 +133,8 @@ compatibility: opencode
 
 1. `cmake --build build -j`——零新增警告
 2. `ctest --test-dir build`——秒级纯逻辑单测
-3. `cd build/test && python ../../test/tools/smoke.py`——38 示例自动退出 +
-   错误扫描；再跑 `--validation`（Vulkan 验证层）——两模式均须 38/38
+3. `cd build/test && python ../../test/tools/smoke.py`——44 示例自动退出 +
+   错误扫描；再跑 `--validation`（Vulkan 验证层）——两模式均须 44/44
 4. 视觉相关改动：`cd build/test && ./example.exe <demo>` 目视复验
    （glass/car/animation 等，JS 示例在 test/ui/*.js）
 - 文档纪律：完成任务勾选 docs/当前优化任务清单.md 对应项（含完成日期与
@@ -169,6 +172,12 @@ compatibility: opencode
 - G2D 内置桥: modules/element/g2d.cppm + src/element/g2d.cpp（元素）,
              modules/bridge/g2d.cppm + src/bridge/g2d.cpp（registerG2DElement）
 - CMake:      cmake/modules/Element.cmake（内置）/ Bridge.cmake / Extension.cmake（扩展）
+- SDK 消费:   安装树默认落构建树（build/install、build-release/install）；
+             编译档入口 KWIK_BUILD_TYPE（preset：gcc=Debug 树 / gcc-release=
+             Release 树），单配置生成器 --build 不带 --config；外部工程
+             find_package(kwik-ui) + kwik_js() 即用——-freflection/stdc++exp
+             注入与链接保序由包配置自动完成（入库样板 examples/external；
+             examples/serial-assistant 为本地验证工程，gitignore 不入库）
 - 测试入口:   test/example.cpp（registerVideoElement/registerG3DElement + resolveDemo）
 - 独立示例:   examples/external
 - 数据源:     modules/element/table_data_source.cppm（抽象）+ src/bridge/js_table_data_source.cpp
@@ -187,7 +196,11 @@ compatibility: opencode
 1. 在 modules/core/props.cppm 定义专有 Props 结构体（POD，带默认值）
 2. 创建 modules/element/xxx.cppm (export module kwik.element.xxx)
 3. 创建 src/element/xxx.cpp (实现，继承 View)；在 Element.cmake 的 PUBLIC/PRIVATE 两处登记
-4. 在 modules/bridge/props_parser.cppm 声明 parseXxxProps，src/bridge/props_parser.cpp 实现
+4. 在 modules/bridge/props_parser.cppm 声明 parseXxxProps，src/bridge/props_parser.cpp 实现——
+   反射桥口径：专有 Props 为 POD（成员名 ≡ JS 属性名），函数体一行
+   `parseStructProps(ex, result)`（kwik.bridge.props_reflect，自动继承
+   类型分派/绑定检测/@token/NaN 拒绝）；真语义成员（如百分比三路）在
+   PropsTraits<P>::overrides 列名跳过反射、交手写片段
 5. src/bridge/bindings.cpp 添加 js_xxx 工厂 + 注册到 ui_exports[]，并在 bindings.cppm 声明
 6. src/bridge/element_parser.cpp 的 InitBuiltinTypes 调 registerType(name, creator)+applyBindings
 7. element_type.cppm 加枚举值 + element_type.cpp registerElementType（含 to_string/别名）
@@ -274,4 +287,7 @@ compatibility: opencode
 - C++ 日志: `Log::info("var = {}", val);` (import kwik.core.log;)
 - JS 日志: console.log() 输出到 stdout
 - JS 异常: JS_Call 后检查 JS_IsException(ret) → JS_GetException
+- 树观测: JS 侧 `dumpTree(rootId?)`（bindings.cpp 反射出口）——stdout 打印
+  View 树 type#id [frame] + ViewProps 全属性值（反射逐成员 readProperty），
+  传 id 只 dump 子树；布局/属性实际值排查首选
 - 示例切换: example.cpp 的 resolveDemo 映射或传参
