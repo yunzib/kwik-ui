@@ -87,7 +87,8 @@ public:
     std::vector<Rect> selectionRects(std::size_t startOff, std::size_t endOff) override;
     std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
-    bool alive() const override;
+    /** @brief TargetLiveness 登记键（EventTarget 首基地址）——悬空检测非虚查表用 */
+    const void *livenessKey() const override;
 
     /**
      * @brief 行内最近边界扫描（纯函数，行为锁单测入口）

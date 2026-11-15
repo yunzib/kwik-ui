@@ -1,6 +1,15 @@
 # 更新日志
 
 # 0.2.3 — 2026-11-15
+### 修复
+- **文本选区服务宿主悬空段错误**：TextSelectionService::host_ 持 Selectable
+  裸指针，防悬空的 alive() 为**虚调用**——宿主 Text 析构后内存释放，虚调用
+  读 vtable 本身即段错误（查表机会都没等到；触发面：点击文本后列表/日志
+  重建析构宿主，快捷面板列表重建实测必崩）。接口 alive() 替换为
+  livenessKey()（返回 TargetLiveness 登记键 = EventTarget 首基地址），服务
+  begin 时缓存键、pruneIfDead 改**非虚查表**（宿主死后表项已被析构注销
+  移除，纯哈希查询不触碰已释放内存）；Text/Input/TextArea/TextView 与
+  测试替身同步（"宿主死亡"用例改为模拟析构注销）
 ### 新增
 - **Image 内联 SVG 源（`svg` 字段）**：`Image({ svg: "<svg…/>", width, height })`
   直接接受 SVG 文本，nanosvg 按显式尺寸光栅化（与 .svg 文件版共用光栅化段，

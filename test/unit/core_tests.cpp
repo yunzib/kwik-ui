@@ -3600,11 +3600,14 @@ static void test_horizontal_scroll_dispatch() {
 // ═══════════════════════════════════════════════════════════════════════════
 // 文本选区 — 纯模型 / UTF-8 钳制 / 服务状态机（互斥·判死自愈）/ Text 纯几何
 // ═══════════════════════════════════════════════════════════════════════════
-// 测试替身：几何实现为线性串（服务只认 Selectable 接口，不依赖真实排版）
+// 测试替身：几何实现为线性串（服务只认 Selectable 接口，不依赖真实排版）。
+// 存活接入 TargetLiveness（构造登记/析构注销，与真实 View 同生命周期契约）；
+// "宿主死亡"用例 = 手动注销（模拟析构），服务的判死走非虚查表
 struct FakeSelectable : Selectable {
     std::string content = "hello 中文 world";
     int redraws = 0;
-    bool live = true;
+    FakeSelectable() { TargetLiveness::instance().add(this); }
+    ~FakeSelectable() { TargetLiveness::instance().remove(this); }
     std::size_t hitOffset(float, float) override { return 0; }
     std::vector<Rect> selectionRects(std::size_t, std::size_t) override { return {}; }
     std::string selectedBytes(std::size_t s, std::size_t e) override {
@@ -3613,7 +3616,7 @@ struct FakeSelectable : Selectable {
         return s < e ? content.substr(s, e - s) : std::string{};
     }
     void requestRedraw() override { ++redraws; }
-    bool alive() const override { return live; }
+    const void *livenessKey() const override { return this; }
 };
 
 static void test_text_selection() {
@@ -3652,7 +3655,7 @@ static void test_text_selection() {
     CHECK(a.redraws > redrawsBefore);    // 旧宿主收到重绘（擦高亮）
     svc.extend(&a, 5);                   // 非宿主扩展被忽略
     CHECK(svc.modelFor(&b)->empty());
-    b.live = false;                      // 宿主死亡 → 判死自愈
+    TargetLiveness::instance().remove(&b);    // 宿主死亡（模拟析构注销）→ 判死自愈
     CHECK(!svc.activeOn(&b) && !svc.activeOn(&a));
     svc.begin(&a, 0);                    // 清空后可重新开（死节点无残留）
     CHECK(svc.activeOn(&a) && svc.modelFor(&a)->empty());

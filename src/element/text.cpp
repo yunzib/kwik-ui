@@ -516,10 +516,10 @@ std::string Text::selectedBytes(std::size_t startOff, std::size_t endOff) {
 
 void Text::requestRedraw() { markDirty(); }
 
-bool Text::alive() const {
-    // View 为首基类——static_cast 唯一解析到 EventTarget 子对象
-    // （TargetLiveness 构造登记/析构注销，地址即登记键）
-    return TargetLiveness::instance().isAlive(static_cast<const EventTarget *>(this));
+const void *Text::livenessKey() const {
+    // TargetLiveness 登记键：View 为首基类——static_cast 唯一解析到 EventTarget
+    // 子对象（构造登记/析构注销的地址即此键；selection 服务悬空检测非虚查表用）
+    return static_cast<const EventTarget *>(this);
 }
 
 // ── 私有几何辅助 ──

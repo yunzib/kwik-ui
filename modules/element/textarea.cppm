@@ -100,7 +100,8 @@ public:
     std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
     void onSelectionEvicted() override;
-    bool alive() const override;
+    /** @brief TargetLiveness 登记键（EventTarget 首基地址）——悬空检测非虚查表用 */
+    const void *livenessKey() const override;
 
 protected:
     Size onMeasure(Constraints constraints) override;

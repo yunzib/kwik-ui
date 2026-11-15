@@ -2,6 +2,7 @@ export module kwik.element.selection;
 
 import kwik.core.types;
 import kwik.element.view;
+import kwik.event;    // TargetLiveness（存活登记表：构造登记/析构注销）
 
 import std;
 
@@ -83,8 +84,14 @@ public:
 	 */
 	virtual void onSelectionEvicted() {}
 
-	/** @brief 节点是否存活（TargetLiveness 查询——服务持裸指针防悬空） */
-	virtual bool alive() const = 0;
+	/**
+	 * @brief TargetLiveness 登记键（EventTarget 首基地址，与构造登记同键）
+	 *
+	 * 服务的悬空检测走此键**非虚查表**——不能虚调用 alive()：宿主析构后
+	 * 内存释放，虚调用读 vtable 本身即段错误（快捷面板列表重建实测），
+	 * 查表在宿主死后仍安全。
+	 */
+	virtual const void *livenessKey() const = 0;
 };
 
 /**
@@ -112,6 +119,7 @@ public:
 		} else {
 			clear();                    // 互斥：旧节点高亮随 clear 重绘擦除
 			host_ = node;
+			hostKey_ = node->livenessKey();
 			model_.reset(anchorOff);
 		}
 		dragging_ = true;
@@ -139,6 +147,7 @@ public:
 			host_->requestRedraw();
 		}
 		host_ = nullptr;
+		hostKey_ = nullptr;
 		model_ = {};
 		dragging_ = false;
 	}
@@ -156,12 +165,20 @@ public:
 	}
 
 private:
-	/** 宿主判死即清（TargetLiveness——析构自动注销，见 event.cppm） */
+	/**
+	 * 宿主判死即清——**非虚查表**（TargetLiveness 登记键）
+	 *
+	 * 旧实现 `host_->alive()` 虚调用有前提缺陷：宿主析构后内存释放，虚调用
+	 * 读 vtable 本身即段错误（查表机会都没等到）。现 begin 时缓存登记键
+	 * （EventTarget 首基地址），判死 = 键是否仍在存活表——宿主死后表项
+	 * 已被析构注销移除，纯哈希查询不触碰任何已释放内存。
+	 */
 	void pruneIfDead() {
-		if (host_ && !host_->alive()) clear();
+		if (host_ && !TargetLiveness::instance().isAlive(hostKey_)) clear();
 	}
 
 	Selectable *host_ = nullptr;    // 选区宿主（裸指针，pruneIfDead 防悬空）
+	const void *hostKey_ = nullptr;    // 宿主存活登记键（begin 时取 livenessKey）
 	SelectionModel model_;          // 当前选区（displayedText 字节空间）
 	bool dragging_ = false;         // 拖选进行中（PointerUp 前）
 };

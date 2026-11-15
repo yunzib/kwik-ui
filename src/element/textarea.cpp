@@ -750,7 +750,7 @@ void TextArea::onSelectionEvicted() {
     selectionStart_ = cursorBytePos_;
 }
 
-bool TextArea::alive() const {
-    // View 为首基类——static_cast 唯一解析到 EventTarget 子对象
-    return TargetLiveness::instance().isAlive(static_cast<const EventTarget *>(this));
+const void *TextArea::livenessKey() const {
+    // TargetLiveness 登记键：View 为首基类——static_cast 唯一解析到 EventTarget 子对象
+    return static_cast<const EventTarget *>(this);
 }

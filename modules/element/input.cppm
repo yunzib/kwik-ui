@@ -94,7 +94,8 @@ public:
     std::string selectedBytes(std::size_t startOff, std::size_t endOff) override;
     void requestRedraw() override;
     void onSelectionEvicted() override;
-    bool alive() const override;
+    /** @brief TargetLiveness 登记键（EventTarget 首基地址）——悬空检测非虚查表用 */
+    const void *livenessKey() const override;
 
     /** @brief 点击定位光标（纯函数，合成字形可直测）：单行字形 + 本地 x → 光标字节位
      *
