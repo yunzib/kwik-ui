@@ -83,6 +83,11 @@ private:
     LRESULT HandleFramelessHitTest(LPARAM lParam);
     /// 加载 .ico 并应用为窗口/类图标（失败返回 false，保留旧图标）
     bool ApplyIconPath(const std::string &path);
+    /// 从 exe 资源段按 ID 加载图标并应用（app.rc 的 ICON；失败返回 false）
+    bool ApplyIconResource(int id);
+    /// 应用图标句柄对（替换成员 + WM_SETICON + 类图标 + 释放旧句柄）——
+    /// 文件/资源两条加载路径共用
+    bool ApplyIconHandles(HICON big, HICON small);
     /// 当前显示器 S₀（工作区 ÷ 基准屏，与 GetSize 同源）
     float CurrentS0() const;
     HWND hwnd_ = nullptr;           // 窗口句柄

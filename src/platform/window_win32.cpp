@@ -168,7 +168,11 @@ bool PlatformWindowWin32::Create(const std::string &title, int width, int height
     windowState_ = 0;
 
     // ── 图标（窗口/任务栏/Alt-Tab）+ 无边框 Win11 圆角 ──
-    if (!options.iconPath.empty()) ApplyIconPath(options.iconPath);
+    // 资源图标签优先（exe 嵌入，发布单 exe 不依赖外部文件）；失败回退
+    // iconPath（Debug 构建不嵌 RC 时仍用外部 assets 图标）
+    if (options.iconResourceId <= 0 || !ApplyIconResource(options.iconResourceId)) {
+        if (!options.iconPath.empty()) ApplyIconPath(options.iconPath);
+    }
     if (options.decoration == WindowDecoration::Borderless) {
         // Win11 圆角（动态加载 dwmapi，Win10 无此属性自动降级为直角）；
         // 阴影由 WS_THICKFRAME 的 DWM 系统阴影提供
@@ -388,7 +392,30 @@ bool PlatformWindowWin32::ApplyIconPath(const std::string &path) {
         Log::warn("[win32] 图标加载失败: {}", path);
         return false;
     }
-    // 应用新图标后再释放旧句柄（窗口/类不能指向已销毁图标）
+    return ApplyIconHandles(big, small);
+}
+
+// 从 exe 资源段按 ID 加载图标（app.rc 的 ICON 资源）——发布单 exe 时
+// 窗口/任务栏图标不依赖外部 .ico 文件。不带 LR_SHARED 返回独立副本，
+// 生命周期与文件路径同口径（替换/析构时 DestroyIcon 安全）
+bool PlatformWindowWin32::ApplyIconResource(int id) {
+    if (!hwnd_ || id <= 0) return false;
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    HICON big = (HICON)LoadImageW(inst, MAKEINTRESOURCEW(id), IMAGE_ICON,
+                                  GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+    HICON small = (HICON)LoadImageW(inst, MAKEINTRESOURCEW(id), IMAGE_ICON,
+                                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+    if (!big && !small) {
+        Log::warn("[win32] 资源图标加载失败: id={}", id);
+        return false;
+    }
+    return ApplyIconHandles(big, small);
+}
+
+// 应用图标句柄对：替换成员 → WM_SETICON + 类图标 → 释放旧句柄
+// （窗口/类不能指向已销毁图标，先应用后释放；文件/资源两路径共用）
+bool PlatformWindowWin32::ApplyIconHandles(HICON big, HICON small) {
+    if (!big && !small) return false;
     HICON oldBig = hIconLarge_, oldSmall = hIconSmall_;
     hIconLarge_ = big;
     hIconSmall_ = small;

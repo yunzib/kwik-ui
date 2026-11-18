@@ -62,6 +62,7 @@ export struct WindowOptions {
     WindowDecoration decoration = WindowDecoration::Normal;    ///< 装饰风格
     bool resizable = true;                                     ///< 是否允许缩放（无边框下仍保留原生边缘）
     std::string iconPath;                                      ///< 窗口/任务栏图标路径（.ico；空 = 系统默认）
+    int iconResourceId = 0;    ///< exe 资源段图标 ID（>0 优先于 iconPath；发布单 exe 不依赖外部 .ico）
     bool showInTaskbar = true;                                 ///< 是否出现在任务栏
 };
 

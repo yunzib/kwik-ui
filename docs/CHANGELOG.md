@@ -7,6 +7,7 @@
 - Dropdown 暗色主题不适配：五色默认值改透明哨兵（对齐 Button/Tabs 惯例），resolveThemeDefaults 按 ThemeProvider 的 onSurface/onSurfaceVariant/surface/surfaceVariant 回填——此前默认硬编码黑字/白菜单/浅蓝悬停堵死回填路径
 ### 新增
 - TextView selectionPadY 属性：选区高亮上下扩展像素（默认 0=贴字形墨迹带，钳制在行带内，调大趋近整行带）
+- WindowOptions.iconResourceId：窗口/任务栏图标可直接取 exe 内嵌资源（>0 优先于 iconPath，资源缺失回退文件路径），发布单 exe 不再依赖外部 .ico
 
 # 0.2.3 — 2026-11-15
 ### 修复
