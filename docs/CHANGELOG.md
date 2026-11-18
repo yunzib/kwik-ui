@@ -4,6 +4,7 @@
 ### 修复
 - TextView 滚动容器内拖选/点击定位错位：hitByteForPoint_ 补 scrollCompensationOf 上溯累加，滚动域坐标先回未滚动域再逐行映射（scroll=0 零变化）
 - 拖选超出滚动视口边缘无自动滚动：ScrollView 新增 dragAutoScroll（40px 边缘带按带深步进、到边界返 false），TextView 用 CoreTimer 16ms 周期驱动滚动并重投命中扩展选区，拖选结束/失焦/到界/出带/析构即停
+- Dropdown 暗色主题不适配：五色默认值改透明哨兵（对齐 Button/Tabs 惯例），resolveThemeDefaults 按 ThemeProvider 的 onSurface/onSurfaceVariant/surface/surfaceVariant 回填——此前默认硬编码黑字/白菜单/浅蓝悬停堵死回填路径
 ### 新增
 - TextView selectionPadY 属性：选区高亮上下扩展像素（默认 0=贴字形墨迹带，钳制在行带内，调大趋近整行带）
 

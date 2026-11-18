@@ -34,10 +34,10 @@ export const meta = {
         { title: { zh: '外观与菜单', en: 'Style & Menu' }, rows: [
             ['fontSize', 'number', '14', { zh: '字号 px', en: 'Font size' }],
             ['itemHeight / maxVisibleItems', 'number', '20 / 5', { zh: '选项高 / 可见项数（超出菜单内滚动 + 滚动条）', en: 'Item height / visible items (in-menu scroll beyond)' }],
-            ['textColor / placeholderColor', '#rrggbb | @token', '#000000 / #999999', { zh: '文字 / 占位色', en: 'Text / placeholder color' }],
-            ['arrowColor', '#rrggbb | @token', '#999999', { zh: '箭头 ▼ 颜色', en: 'Arrow color' }],
-            ['menuBackground / hoverBackground', '#rrggbb | @token', '#FFFFFF / #E3F2FD', { zh: '菜单底 / 悬停高亮', en: 'Menu / hover background' }],
-            ['selectedBackground', '#rrggbb | @token', '#E3F2FD', { zh: '选中项背景', en: 'Selected background' }],
+            ['textColor / placeholderColor', '#rrggbb | @token', 'transparent→onSurface / onSurfaceVariant', { zh: '文字 / 占位色', en: 'Text / placeholder color' }],
+            ['arrowColor', '#rrggbb | @token', 'transparent→onSurfaceVariant', { zh: '箭头 ▼ 颜色', en: 'Arrow color' }],
+            ['menuBackground / hoverBackground', '#rrggbb | @token', 'transparent→surface / surfaceVariant', { zh: '菜单底 / 悬停高亮', en: 'Menu / hover background' }],
+            ['selectedBackground', '#rrggbb | @token', 'transparent→surfaceVariant', { zh: '选中项背景', en: 'Selected background' }],
         ] },
         { title: { zh: '命令式读写', en: 'Imperative access' }, rows: [
             ['getProp(id, "value") / getProp(id, "index")', 'string / "n"', '-', { zh: '读取当前选中值 / 索引（未选 index="-1"）', en: 'Read selection value / index ("-1" when none)' }],

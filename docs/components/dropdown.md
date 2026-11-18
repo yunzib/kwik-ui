@@ -21,12 +21,12 @@ docsite: dropdown（五节：ref 绑定 / 长列表与菜单行为 / 外观定�
     "fontSize": "number",              // 文字字号 px (默认 14)
     "itemHeight": "number",            // 每个选项高度 px (默认 20)
     "maxVisibleItems": "number",       // 同时可见最大选项数 (默认 5)
-    "textColor": "#rrggbb | @token",           // 文字颜色 (默认 "#000000")
-    "placeholderColor": "#rrggbb | @token",    // 占位符颜色 (默认 "#999999")
-    "arrowColor": "#rrggbb | @token",          // 箭头 ▼ 颜色 (默认 "#999999")
-    "menuBackground": "#rrggbb | @token",      // 菜单背景色 (默认 "#ffffff")
-    "hoverBackground": "#rrggbb | @token",     // 悬停高亮色 (默认 "#E3F2FD")
-    "selectedBackground": "#rrggbb | @token",  // 选中项背景色 (默认 "#E3F2FD")
+    "textColor": "#rrggbb | @token",           // 文字颜色 (默认透明 → 主题 onSurface 回填)
+    "placeholderColor": "#rrggbb | @token",    // 占位符颜色 (默认透明 → onSurfaceVariant 回填)
+    "arrowColor": "#rrggbb | @token",          // 箭头 ▼ 颜色 (默认透明 → onSurfaceVariant 回填)
+    "menuBackground": "#rrggbb | @token",      // 菜单背景色 (默认透明 → surface 回填)
+    "hoverBackground": "#rrggbb | @token",     // 悬停高亮色 (默认透明 → surfaceVariant 回填)
+    "selectedBackground": "#rrggbb | @token",  // 选中项背景色 (默认透明 → surfaceVariant 回填)
     "onChange": "(e) => {}"            // 选中回调 e={value, index}
 }
 ```

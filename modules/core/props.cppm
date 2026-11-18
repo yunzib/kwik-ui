@@ -276,12 +276,16 @@ export struct DropdownProps {
     float fontSize = 14.0f;                          // 文字字号
     float itemHeight = 20.0f;                        // 每个选项高度 px
     int maxVisibleItems = 5;                         // 同时可见最大选项数
-    Color textColor{0, 0, 0, 255};                   // 文字颜色
-    Color placeholderColor{153, 153, 153, 255};      // 占位符颜色
-    Color arrowColor{153, 153, 153, 255};            // 箭头 ▼ 颜色
-    Color menuBackground{255, 255, 255, 255};        // 菜单背景色
-    Color hoverBackground{227, 242, 253, 255};       // 悬停高亮 (Material Blue 50)
-    Color selectedBackground{227, 242, 253, 255};    // 选中项背景
+    // 颜色默认透明哨兵（对齐 Button/Tabs 惯例）：resolveThemeDefaults 在树构建/
+    // reconcile 时按 ThemeProvider 回填（无 Provider 兜底 defaultTheme 浅色）——
+    // 此前默认硬编码浅色（黑字/白菜单/浅蓝悬停）堵死哨兵路径，暗色主题下
+    // 文字/弹层不随主题
+    Color textColor{0, 0, 0, 0};                     // 文字颜色（透明 = 主题 onSurface 回填）
+    Color placeholderColor{0, 0, 0, 0};              // 占位符颜色（透明 = onSurfaceVariant 回填）
+    Color arrowColor{0, 0, 0, 0};                    // 箭头 ▼ 颜色（透明 = onSurfaceVariant 回填）
+    Color menuBackground{0, 0, 0, 0};                // 菜单背景色（透明 = surface 回填）
+    Color hoverBackground{0, 0, 0, 0};               // 悬停高亮（透明 = surfaceVariant 回填）
+    Color selectedBackground{0, 0, 0, 0};            // 选中项背景（透明 = surfaceVariant 回填）
 };
 
 // ════════════════════════════════════════════════════════
