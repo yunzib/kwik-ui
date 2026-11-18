@@ -66,6 +66,15 @@ TextView::TextView(ViewProps vp, TextViewProps tvp) : View(std::move(vp)), tvp_(
     rebuild_();
 }
 
+/**
+ * @brief 析构 — 清拖选边缘滚动定时器
+ *
+ * CoreTimer 是进程级全局单例（仅 ~Application 退出时 stopAll），若漏清，
+ * 析构后周期回调 [this] 悬空 → 段错误。拖选中组件被析构的场景：树重建
+ * 结构切换（日志清空瞬间 ScrollView↔View 互换）。
+ */
+TextView::~TextView() { stopEdgeScrollTicker_(); }
+
 // ============================================================================
 // 定位工具
 // ============================================================================
@@ -555,6 +564,11 @@ void TextView::onDraw(Graphics &graphics) {
                         inkTop = std::min(inkTop, sg.y);
                         inkBottom = std::max(inkBottom, sg.y + sg.height);
                     }
+                    // selectionPadY 上下扩展（墨迹带较窄时视觉不明显）——钳制在
+                    // 行带 [drawY, drawY+lh) 内：与查找高亮（:498 同款行带矩形）
+                    // 口径一致，不越行避免与相邻行高亮叠色；调大即趋近整行带
+                    inkTop = std::max(drawY, inkTop - tvp_.selectionPadY);
+                    inkBottom = std::min(drawY + lh, inkBottom + tvp_.selectionPadY);
                     if (xe > xs && inkBottom > inkTop) {
                         graphics.drawRect({xs, inkTop, xe - xs, inkBottom - inkTop}, tvp_.selectionColor);
                     }
@@ -640,6 +654,7 @@ bool TextView::onEvent(const DispatchEvent &event) {
             focused_ = false;
             cursorVisible_ = false;
             draggingSelection_ = false;    // 拖选中失焦（弹层抢焦点等）即止
+            stopEdgeScrollTicker_();       // 拖选被打断，边缘滚动一并停（自续环须与拖选同生命周期）
             markDirty();
         }
         return View::onEvent(event);    // 透传触发 JS onBlur 槽
@@ -657,17 +672,20 @@ bool TextView::onEvent(const DispatchEvent &event) {
     if (event.type == DispatchEvent::Type::PanMove) {
         // 拖选扩展并消费（presetTarget 直投，消费即止 → 祖先拖动滚动抑制）
         if (!draggingSelection_) return View::onEvent(event);
+        dragPointer_ = {event.globalX, event.globalY};    // 记录最后指针位：边缘滚动每步用它重投命中（滚后 scrollCompensation 变化 → 命中字节随内容移动）
         std::size_t off = hitByteForPoint_(event.globalX, event.globalY);
         if (off != cursorPos_) {
             cursorPos_ = off;
             markDirty();
         }
         if (auto *svc = selectionOf(*this)) svc->extend(this, off);
+        updateEdgeScroll_();    // 指针压视口边缘带 → 自续定时器滚动+续扩展；出带即停（幂等）
         return true;
     }
     if (event.type == DispatchEvent::Type::PointerUp || event.type == DispatchEvent::Type::PointerCancel
         || event.type == DispatchEvent::Type::PanEnd) {
         draggingSelection_ = false;
+        stopEdgeScrollTicker_();    // 拖选结束，边缘自动滚动随即停（正常链路主出口）
         if (auto *svc = selectionOf(*this)) svc->end();
         return View::onEvent(event);
     }
@@ -1328,12 +1346,76 @@ float TextView::xForByte_(std::size_t pos) const {
 }
 
 // ============================================================================
+// 拖选边缘自动滚动 — 指针压在滚动视口边缘带内时继续滚动+扩展选区
+//
+// 分工：ScrollView::dragAutoScroll 只负责"滚一步 + 报告是否仍在驱动"；
+// 选区状态自持于本组件（PointerUp 不冒泡，ScrollView 看不到拖选何时
+// 结束，自持滚动会成孤儿），故驱动环在本侧：
+//   启动  PanMove 落入边缘带且仍有滚动空间（updateEdgeScroll_ 探测）
+//   每步  滚一步 → 用最后指针位置重新 hitByteForPoint_ 扩展选区——
+//         滚动后 scrollCompensation 变化，同一指针位置命中的字节随
+//         内容移动（选区端点跟着指针"看到的"内容走）
+//   停止  拖选结束（PointerUp/Cancel/PanEnd）、失焦、到内容边界（本步
+//         无位移）、出带（PanMove 探测）、析构（防悬空 this）
+// 指针静止压在边缘带时没有任何事件到达，故用 CoreTimer 16ms 周期定时
+// 器驱动（Application::run() 每帧 tick，帧驱动）——Chart::scheduleNext
+// Frame（chart.cpp:208-220）同款范式：setInterval + 条件自停 + 析构兜
+// 底。stopAll() 仅进程退出调用（application.cpp:38），25Hz 树重建不影响。
+// ============================================================================
+ScrollView *TextView::scrollHost_() {
+    // 上溯找第一个滚动容器（type() 比对——项目惯例，避免跨模块 dynamic_cast）
+    for (View *p = parent(); p; p = p->parent())
+        if (p->type() == ElementType::ScrollView) return static_cast<ScrollView *>(p);
+    return nullptr;
+}
+
+void TextView::startEdgeScrollTicker_() {
+    if (dragScrollTimerId_ != 0) return;    // 已在跑（幂等，同 Chart::scheduleNextFrame 守卫）
+    dragScrollTimerId_ = CoreTimer::setInterval(16, [this] {
+        // 条件自停（CoreTimer::clear 惰性删除，tick 内标记跳过，迭代安全）：
+        // 拖选已结束 / 无滚动容器 / 到内容边界（本步无位移）均停表
+        if (!draggingSelection_) { stopEdgeScrollTicker_(); return; }
+        ScrollView *sv = scrollHost_();
+        if (!sv || !sv->dragAutoScroll(dragPointer_, 16.0f)) {
+            stopEdgeScrollTicker_();        // 无滚容器/到边界/出带 → 停
+            return;
+        }
+        if (auto *svc = selectionOf(*this))
+            svc->extend(this, hitByteForPoint_(dragPointer_.x, dragPointer_.y));
+        // 周期定时器自动续跑：指针停带内无事件到达，靠本环持续驱动
+    });
+}
+
+void TextView::stopEdgeScrollTicker_() {
+    if (dragScrollTimerId_ == 0) return;    // 未启动，幂等
+    CoreTimer::clear(dragScrollTimerId_);   // 惰性删除——stale id 调用无害
+    dragScrollTimerId_ = 0;
+}
+
+void TextView::updateEdgeScroll_() {
+    ScrollView *sv = scrollHost_();
+    if (!sv) return;
+    // dtMs=0 = 探测模式：在带内且有滚动空间 → 启动；否则停（两者皆幂等）
+    if (sv->dragAutoScroll(dragPointer_, 0.0f)) startEdgeScrollTicker_();
+    else stopEdgeScrollTicker_();
+}
+
+// ============================================================================
 // 鼠标命中 — 点 → 最近字形边界的字节偏移（拖选/点击定位，与 onDraw 同几何：
 // inner 内容原点 + 逐行高度步进；LineGlyph.x 为行内落笔、byteOffset 为
-// plainText_ 字节偏移，天然 UTF-8 边界）
+// plainText_ 字节偏移，天然 UTF-8 边界。滚动容器内入参先补 scrollCompensationOf
+// 回未滚动域——见函数体首部注释）
 // ============================================================================
 std::size_t TextView::hitByteForPoint_(float globalX, float globalY) const {
     if (lines_.empty() || plainText_.empty()) return 0;
+    // 事件 globalX/Y 是滚动视口域，frame/排版行带是未滚动域——上溯各滚动
+    // 容器补回偏移（嵌套逐层累加；scroll=0 恒 {0,0}，映射零变化）。对齐
+    // Text::hitOffset（text.cpp:456-460）与 EventTarget::scrollCompensation
+    // 约定（event.cppm:298-305）——此前漏接：日志区滚动后拖选/点击定位
+    // 整体错位一个滚差，越界点被行扫描钳回首/末行
+    const Point comp = scrollCompensationOf(*this);
+    globalX += comp.x;
+    globalY += comp.y;
     float innerX = frame.x + props.padding.left;
     float innerY = frame.y + props.padding.top;
     float localX = globalX - innerX;

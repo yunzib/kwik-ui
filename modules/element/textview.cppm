@@ -15,6 +15,7 @@ export module kwik.element.textview;
 
 import kwik.element.view;
 import kwik.element.selection;    // Selectable / 选区服务（全局互斥登记）
+import kwik.element.scroll_view;  // ScrollView（拖选边缘自动滚动：scrollHost_ 上溯消费 dragAutoScroll）
 import kwik.core.props;
 import kwik.core.types;
 import kwik.core.constraints;
@@ -22,6 +23,7 @@ import kwik.render.graphics;
 import kwik.render.text.types;    // TextLayoutResult, ShapedGlyph, FontId, FontMetrics, WrapMode
 import kwik.render.text.pipeline; // TextRenderPipeline
 import kwik.event;                // DispatchEvent
+import kwik.core.timer;           // CoreTimer::setInterval/clear（拖选边缘自动滚动逐帧驱动——Chart::scheduleNextFrame 同款范式，element→core 既有依赖）
 import kwik.element.typed_prop;
 import kwik.core.binding;
 import kwik.core.log;
@@ -89,7 +91,7 @@ export class TextView : public View, public Selectable {
 public:
     TextView();
     explicit TextView(ViewProps vp, TextViewProps tvp);
-    ~TextView() override = default;
+    ~TextView() override;    // 显式析构：清拖选边缘滚动定时器（Channel 单例永生，漏清则回调触悬空 this）
 
     /** @brief reconcile 属性覆盖（rich 文本属性整体重解析，渲染期活读取）
      *
@@ -242,6 +244,9 @@ private:
     bool cursorVisible_ = true;     ///< 光标闪烁可见
     std::uint64_t lastBlinkTime_ = 0;    ///< 上次光标闪烁切换时间戳
     bool draggingSelection_ = false;    ///< 鼠标拖选进行中（PanMove 消费 + 抑制祖先滚动）
+    // ── 拖选边缘自动滚动（指针压视口边缘带时无事件到达，须周期定时器驱动）──
+    Point dragPointer_{0.0f, 0.0f};         ///< 拖选中最后指针位置（事件域，PanMove 更新、每步重投）
+    CoreTimer::Id dragScrollTimerId_ = 0;   ///< 边缘滚动周期定时器（0=未启动；CoreTimer id 从 1 起）
     std::uint64_t lastTapMs_ = 0;        ///< 双击检测：上次 Tap 时间戳 ms（<400ms 且 <6px 判双击）
     float lastTapX_ = 0;
     float lastTapY_ = 0;
@@ -312,6 +317,12 @@ private:
 
     void fireChange_();
     bool updateCursorBlink_();
+
+    // ── 拖选边缘自动滚动（CoreTimer 周期定时器驱动；设计说明见 textview.cpp 实现区）──
+    ScrollView *scrollHost_();           ///< 上溯祖先链找滚动容器（type() 比对，无则 nullptr）
+    void startEdgeScrollTicker_();       ///< 启动 16ms 周期定时器（已在跑则幂等跳过；CoreTimer::setInterval）
+    void stopEdgeScrollTicker_();        ///< CoreTimer::clear + id 清零（幂等；拖选结束/出带/析构收尾）
+    void updateEdgeScroll_();            ///< 按最后指针位置启停 ticker（PanMove 每步调用）
 };
 // ── 整篇查找支持：子树内可查文本组件枚举 ──
 /** @brief 先序收集子树内带 id 的 TextView 的 id（文档序；隐藏子树跳过）

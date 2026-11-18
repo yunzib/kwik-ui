@@ -32,6 +32,7 @@ export const meta = {
         ] },
         { title: { zh: '编辑与外观', en: 'Editing & Style' }, rows: [
             ['cursorColor / selectionColor', '#rrggbb', '#4285F4 / #90CAF9', { zh: '光标 / 选区颜色', en: 'Cursor / selection color' }],
+            ['selectionPadY', 'number', '0', { zh: '选区高亮上下扩展像素（钳制行带内，大值趋近整行带）', en: 'Selection highlight vertical pad (px, clamped to line band)' }],
             ['focusedBorderColor', '#rrggbb', '#4285F4', { zh: '聚焦边框色', en: 'Focused border color' }],
             ['onchange', '(content) => {}', '-', { zh: '内容变更回调（返回 TextRun[]）', en: 'Content change callback' }],
         ] },

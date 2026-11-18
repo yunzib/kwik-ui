@@ -559,6 +559,7 @@ TextViewProps parseTextViewProps(PropsExtractor &ex) {
     ex.get("value", r.value);
     ex.get("cursorColor", r.cursorColor);
     ex.get("selectionColor", r.selectionColor);
+    ex.get("selectionPadY", r.selectionPadY);
     ex.get("focusedBorderColor", r.focusedBorderColor);
     ex.get("maxLength", r.maxLength);
     ex.get("readOnly", r.readOnly);

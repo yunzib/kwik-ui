@@ -452,6 +452,7 @@ export struct TextViewProps {
     Color placeholderColor{153, 153, 153, 255};     ///< 占位符颜色
     Color cursorColor{66, 133, 244, 255};           ///< 光标颜色（Material Blue 500）
     Color selectionColor{173, 216, 230, 120};       ///< 选区高亮（浅蓝半透明）
+    float selectionPadY = 0.0f;                     ///< 选区高亮上下扩展像素（0=贴字形墨迹带；扩展钳制在行带内不越行，调大趋近整行带）
     Color focusedBorderColor{66, 133, 244, 255};    ///< 聚焦边框色
     int maxLength = 0;                              ///< 最大字符数（0 = 不限）
     bool readOnly = false;                          ///< 只读

@@ -75,6 +75,25 @@ public:
      */
     void ensureVisible(Rect rect);
 
+    /**
+     * @brief 拖选边缘自动滚动 — 单步滚动（TextView 侧自续定时器逐帧调用）
+     *
+     * 拖选（TextView 拖选扩展）指针压到视口上下边缘带内时继续滚动，让选区
+     * 能扩展到视口外内容。速度按带深线性比例（越靠边越快），到内容边界
+     * （clamp 后无位移）或指针出带时返回 false，调用方据此停止驱动。
+     *
+     * @param global 指针位置（事件域坐标，与 onEvent 的 globalX/Y 同域——
+     *               祖先 scrollCompensation 由调用方在 hitByteForPoint_ 内
+     *               消费；本函数与 hitTest 同口径直接比 frame/viewport）
+     * @param dtMs   步进时长 ms；传 0 = 仅探测（不滚动，返回"在带内且仍有
+     *               滚动空间"，供调用方决定启停定时器）
+     * @return 在边缘带内且（本步有实际位移 | 探测模式仍有滚动空间）
+     *
+     * 由 TextView 驱动而非 ScrollView 自持的原因：PointerUp 不冒泡，
+     * ScrollView 看不到拖选何时结束，自持速度滚动会成孤儿。
+     */
+    bool dragAutoScroll(const Point &global, float dtMs);
+
     /// @brief 子孙坐标域补偿：本容器滚动时，叶子组件把 global 换算到未滚动 frame 域用
     Point scrollCompensation() const override { return scrollOffset_; }
 

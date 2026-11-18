@@ -444,6 +444,41 @@ void ScrollView::ensureVisible(Rect rect) {
     setScroll(tx, ty);    // 内部 clamp 到内容边界
 }
 
+/**
+ * @brief 拖选边缘自动滚动 — 单步滚动（scroll_view.cppm 声明处有完整契约）
+ *
+ * 仅纵向（横向拖选场景日志/文档类容器不存在横滚需求，保持最小面）：
+ * 指针与视口上下边缘的距离落入边缘带时，按带深线性比例向上/下滚一步。
+ * dtMs=0 为探测模式（不滚动，仅报告"在带内且仍有滚动空间"）。
+ */
+bool ScrollView::dragAutoScroll(const Point &global, float dtMs) {
+    Rect vp = viewport();
+    // 边缘带/满速常量：40px 带、满速 720px/s（16ms 步 ≈ 11.5px，行高 ~22px
+    // 时约每 2 步走 1 行起，带底加速到 32 行/秒——慢速可控又不失效率）
+    constexpr float kBand = 40.0f;
+    constexpr float kFullSpeed = 720.0f;
+    // global 是事件域坐标（与 onEvent globalX/Y 同域），与 viewport（frame
+    // 域投影）直接比——同 hitTest（:177-186）口径，不做祖先补偿
+    const float dTop = global.y - vp.y;                  // 距视口顶
+    const float dBottom = vp.y + vp.height - global.y;   // 距视口底
+    float dir = 0.0f;       // -1 = 向上滚（露下行），0 = 不在带内，+1 = 向下滚
+    float depth = 0.0f;     // 带深 [0,1)：0=刚入带 1=贴边（速度线性比例）
+    if (!canScrollY()) return false;                     // 横向容器不参与
+    if (dTop < kBand && dTop >= 0.0f) { dir = -1.0f; depth = 1.0f - dTop / kBand; }
+    else if (dBottom < kBand && dBottom >= 0.0f) { dir = +1.0f; depth = 1.0f - dBottom / kBand; }
+    if (dir == 0.0f) return false;                       // 指针不在边缘带
+    if (dtMs > 0.0f) {
+        // 步进模式：滚一步并报"本步有位移"——clamp 到内容边界后无位移
+        // （已到顶/底）即返回 false，调用方停止驱动，避免空转
+        const float before = scrollOffset_.y;
+        setScroll(scrollOffset_.x, before + dir * kFullSpeed * depth * dtMs / 1000.0f);
+        return scrollOffset_.y != before;
+    }
+    // 探测模式：不滚动，只报告"在带内且仍有滚动空间"（决定是否启动定时器）
+    const float maxY = std::max(0.0f, contentSize_.height - vp.height);
+    return dir < 0.0f ? scrollOffset_.y > 0.5f : scrollOffset_.y < maxY - 0.5f;
+}
+
 /// @brief 设置偏移（不夹紧）+ markDirty——拖拽橡皮筋/物理回弹写回通路
 /// （物理自身维护边界语义：fling 越界转 spring 收敛，界外值只在此两途出现）
 void ScrollView::setScrollRaw(float x, float y) {

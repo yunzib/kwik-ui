@@ -32,7 +32,9 @@ docsite: 无（待同步）
 
     // ── 外观 ──
     "cursorColor": "#rrggbb",               // 光标颜色 (默认 "#4285F4")
-    "selectionColor": "#rrggbb",            // 选中背景色 (默认 "#90CAF9")
+    "selectionColor": "#rrggbb",            // 选中背景色 (默认 "#90CAF9"；支持 #RRGGBBAA 半透明)
+    "selectionPadY": "number",              // 选区高亮上下扩展像素 (默认 0=贴字形墨迹带；
+                                             // 钳制在行带内不越行，调大趋近整行带)
     "focusedBorderColor": "#rrggbb",        // 聚焦边框色 (默认 "#4285F4")
     "linkColor": "#rrggbb",                 // 链接文字色 (默认 "#1976D2"，强制下划线)
     "highlightColor": "#rrggbb",            // 查找高亮色 (默认琥珀半透明 #FFC107/90)
