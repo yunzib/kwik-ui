@@ -88,5 +88,5 @@ Write-Host @"
 >> 完成。请人工完成:
    1. third_party/README.md 中 $Lib 的 Version 行更新为: $Ref
    2. docs/CHANGELOG.md 顶部加升级条目
-   3. 跑验证门禁: cmake --build build -j && ctest --test-dir build && smoke 38/38
+   3. 跑验证门禁: cmake --build build -j && ctest --test-dir build && smoke 44/44
 "@ -ForegroundColor Yellow

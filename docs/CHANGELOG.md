@@ -1,5 +1,25 @@
 # 更新日志
 
+# 0.2.5 — 2026-11-19
+### 构建
+- **quickjs-ng 0.13.0 → v0.18.0 升级**：vendored 快照换源至 tag v0.18.0
+  （d7215b0，2026-11-01）；interrupt handler 回调首参 JSRuntime* → JSContext*
+  （QuickJSRuntime 适配）；Clang/Windows CRT 宏与 MSVC-ABI 栈旗标 0.14.0 起
+  已上游化，patches/quickjs 清空；0.17 起字节码线格式变更，Release 嵌入式
+  字节码随 compile_js_bundle 重生成
+
+### 修复
+- **quickjs 0.18 重复导出名校验更严**（`src/bridge/bindings.cpp`）：
+  `theme` 在 `ui_exports[]` 与 `JS_AddModuleExport` 重复声明，0.13 容忍；
+  0.18 在 `import { theme }` 时报 duplicate exported name，car/docs 示例
+  加载失败——删除重复声明
+- **外部宿主样板 GCC16 模块边界冲突**（`examples/external/main.cpp`）：
+  `Windows.h` 文本包含链生成第二份 c++config 实例，与 `import std` 的模块
+  收编声明冲突；补 `test/example.cpp` 同款守卫宏并统一经 std 模块导入
+- **400 帧冒烟不退出**（`src/app/application.cpp`）：FPS 统计每 2s 清零
+  `frameCount`，冒烟上限复用同一计数导致 >120 帧永不退出；分离单调
+  `totalFrames` 作为退出判定
+
 # 0.2.4 — 2026-11-18
 ### 修复
 - TextView 滚动容器内拖选/点击定位错位：hitByteForPoint_ 补 scrollCompensationOf 上溯累加，滚动域坐标先回未滚动域再逐行映射（scroll=0 零变化）

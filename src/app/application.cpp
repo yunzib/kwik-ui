@@ -102,7 +102,8 @@ int Application::run() {
 
     // ── 主循环 ──
     auto startTime = std::chrono::high_resolution_clock::now();
-    int frameCount = 0;
+    int frameCount = 0;       // FPS 统计窗口计数（每 2s 清零）
+    int totalFrames = 0;      // 单调总帧数（冒烟退出判定专用，勿随 FPS 清零）
     Log::info("渲染循环已启动（{} 个运行时）", runtimes_.size());
 
     // 模态循环泵接线：win32 拖动/缩放进系统模态循环吞主循环，平台侧
@@ -132,10 +133,13 @@ int Application::run() {
         }
 
         frameCount++;
+        totalFrames++;
 
         // 冒烟模式：达到帧数上限自动退出（example.cpp 以 Log::errorCount 为退出码）
-        if (smokeMaxFrames_ > 0 && frameCount >= smokeMaxFrames_) {
-            Log::info("[smoke] reached {} frames, exiting (errors={})", frameCount, Log::errorCount());
+        // 用单调 totalFrames 判定：frameCount 每 2s 被 FPS 统计清零，>~120
+        // 的帧数上限会永远等不到（400 帧冒烟曾因此挂住不退出）
+        if (smokeMaxFrames_ > 0 && totalFrames >= smokeMaxFrames_) {
+            Log::info("[smoke] reached {} frames, exiting (errors={})", totalFrames, Log::errorCount());
             running_ = false;
         }
 

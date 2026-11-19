@@ -10,12 +10,12 @@
 
 ## quickjs
 - Upstream: https://github.com/quickjs-ng/quickjs
-- Version: git (130081a, 2026-03-22)
+- Version: v0.18.0 (d7215b0, 2026-11-01)
 - License: MIT
-- Files extracted: 根源码 *.c/*.h（含 quickjs.h）+ cmake/ + CMakeLists.txt；
-  排除 tests/ examples/ docs/ benchmarks/ .github/
-- Patches: 0001-llvm-mingw-msvc-compat.patch
-  （Clang+Win 非 MSVC 命令行关 CRT 安全告警；Clang+MSVC-ABI 补 -Xlinker /STACK:8388608）
+- Files extracted: 全量保留（Keep=*），含 docs/ examples/ tests/ 与 docs 点
+  文件；排除 .github/（CI 配置）；上游 test262 为空目录（git 不跟踪）
+- Patches: 无（Clang/Windows CRT 宏与 Clang+MSVC-ABI 栈旗标 0.14.0 起已上游化，
+  见 quickjs-ng#981 / #1380）
 
 ## freetype
 - Upstream: https://github.com/freetype/freetype

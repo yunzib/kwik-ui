@@ -1908,7 +1908,8 @@ bool register_kwikui_module(QuickJSContext &qctx) {
     JS_AddModuleExport(ctx, m, "State");
     // JS_AddModuleExport(ctx, m, "Channel");
     JS_AddModuleExport(ctx, m, "channel");    // 导出 channel 单例对象， 原有预留Channel类接口后续可废弃
-    JS_AddModuleExport(ctx, m, "theme");
+    // theme 已在 ui_exports[] 声明，勿重复 AddModuleExport：0.18 对重复导出名
+    // 校验更严，模块 import { theme } 时会报 duplicate exported name（0.13 容忍）
 
     qctx.setKwikuiModule(m);
     Log::info("Registering kwikui module done");

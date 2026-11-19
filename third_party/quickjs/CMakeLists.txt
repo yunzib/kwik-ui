@@ -40,6 +40,7 @@ xoption(QJS_ENABLE_ASAN "Enable AddressSanitizer (ASan)" OFF)
 xoption(QJS_ENABLE_MSAN "Enable MemorySanitizer (MSan)" OFF)
 xoption(QJS_ENABLE_TSAN "Enable ThreadSanitizer (TSan)" OFF)
 xoption(QJS_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (UBSan)" OFF)
+xoption(QJS_ENABLE_GC_STRESS "Force a full GC before every allocation (GC stress test)" OFF)
 
 # Used to properly define JS_LIBC_EXTERN.
 add_compile_definitions(QUICKJS_NG_BUILD)
@@ -108,7 +109,7 @@ if(NOT SUNOS)
 xcheck_add_c_compiler_flag(-funsigned-char)
 endif()
 
-# Clang on Windows without MSVC command line fails because the codebase uses 
+# Clang on Windows without MSVC command line fails because the codebase uses
 # functions like strcpy over strcpy_s
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND WIN32 AND NOT MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
@@ -172,6 +173,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
         _WASI_EMULATED_SIGNAL
     )
     add_link_options(
+        -Wl,-z,stack-size=2097152
         -lwasi-emulated-process-clocks
         -lwasi-emulated-signal
     )
@@ -244,6 +246,11 @@ add_link_options(
 )
 endif()
 
+if(QJS_ENABLE_GC_STRESS)
+message(STATUS "Building with GC stress (FORCE_GC_AT_MALLOC)")
+add_compile_definitions(FORCE_GC_AT_MALLOC)
+endif()
+
 
 # QuickJS library
 #
@@ -279,6 +286,9 @@ list(APPEND qjs_defines _GNU_SOURCE)
 if(WIN32)
     # NB: Windows 7 is EOL and we are only supporting in so far as it doesn't interfere with progress.
     list(APPEND qjs_defines WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0601)
+else()
+    # UNIX-y platforms.
+    list(APPEND qjs_libs m)
 endif()
 if(TVOS)
     list(APPEND qjs_defines _TVOS)
@@ -290,12 +300,6 @@ list(APPEND qjs_libs ${CMAKE_DL_LIBS})
 find_package(Threads)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "WASI")
     list(APPEND qjs_libs ${CMAKE_THREAD_LIBS_INIT})
-endif()
-
-# try to find libm
-find_library(M_LIBRARIES m)
-if(M_LIBRARIES OR CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
-    list(APPEND qjs_libs m)
 endif()
 
 add_library(qjs ${qjs_sources})
@@ -381,6 +385,8 @@ add_qjs_libc_if_needed(qjs_exe)
 add_static_if_needed(qjs_exe)
 set_target_properties(qjs_exe PROPERTIES
     OUTPUT_NAME "qjs"
+    PDB_NAME "qjs_cli"
+    COMPILE_PDB_NAME "qjs_cli"
 )
 target_compile_definitions(qjs_exe PRIVATE ${qjs_defines})
 target_link_libraries(qjs_exe PRIVATE qjs)
@@ -402,7 +408,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
             OUTPUT_NAME "qjs"
             SUFFIX ".wasm"
         )
-        target_compile_definitions(qjs_wasi PRIVATE ${qjs_defines})
+        target_compile_definitions(qjs PRIVATE BUILDING_QJS_SHARED)
+        target_compile_definitions(qjs_wasi PRIVATE ${qjs_defines} BUILDING_QJS_SHARED)
         target_link_libraries(qjs_wasi qjs)
         target_link_options(qjs_wasi PRIVATE
             -mexec-model=reactor
@@ -413,12 +420,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
             -Wl,--export=free
             -Wl,--export=realloc
             -Wl,--export=calloc
+            # Enable hosts to pass callbacks to JS_SetInterruptHandler,
+            # JS_SetModuleLoaderFunc2, etc.
+            -Wl,--export-table
+            -Wl,--growable-table
         )
     endif()
 endif()
 
 if(QJS_BUILD_CLI_WITH_MIMALLOC OR QJS_BUILD_CLI_WITH_STATIC_MIMALLOC)
     find_package(mimalloc REQUIRED)
+    target_compile_definitions(qjs_exe PRIVATE QJS_USE_MIMALLOC)
     # Upstream mimalloc doesn't provide a way to know if both libraries are supported.
     if(QJS_BUILD_CLI_WITH_STATIC_MIMALLOC)
         target_link_libraries(qjs_exe PRIVATE mimalloc-static)
@@ -439,7 +451,7 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(run-test262 PRIVATE qjs)
 endif()
 
-# Interrupt test
+# C API tests
 #
 
 add_executable(api-test
@@ -447,6 +459,7 @@ add_executable(api-test
 )
 target_compile_definitions(api-test PRIVATE ${qjs_defines})
 target_link_libraries(api-test PRIVATE qjs)
+add_qjs_libc_if_needed(api-test)
 
 add_executable(lre-test
     lre-test.c
@@ -458,8 +471,9 @@ target_compile_definitions(lre-test PRIVATE ${qjs_defines})
 # Unicode generator
 #
 
+# Note: do not link libunicode.c here, it needs the generated libunicode-table.h,
+# which would make it impossible to regenerate the table from scratch.
 add_executable(unicode_gen EXCLUDE_FROM_ALL
-    libunicode.c
     unicode_gen.c
 )
 target_compile_definitions(unicode_gen PRIVATE ${qjs_defines})
@@ -552,12 +566,14 @@ if (QJS_ENABLE_INSTALL)
     if(NOT IOS AND NOT TVOS AND NOT WATCHOS)
         install(TARGETS qjs_exe RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
         install(TARGETS qjsc RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        install(FILES qjs.man DESTINATION ${CMAKE_INSTALL_DATADIR}/man/man1 RENAME qjs.1)
+        install(FILES qjsc.man DESTINATION ${CMAKE_INSTALL_DATADIR}/man/man1 RENAME qjsc.1)
     endif()
     install(TARGETS qjs EXPORT qjsConfig
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    install(EXPORT qjsConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/quickjs)
+    install(EXPORT qjsConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/qjs)
     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(DIRECTORY examples DESTINATION ${CMAKE_INSTALL_DOCDIR})
 endif()

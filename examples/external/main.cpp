@@ -1,12 +1,18 @@
+// GCC16 模块边界守卫（与 test/example.cpp 同款）：Windows.h→malloc.h→
+// mm_malloc→xmmintrin→stdlib.h 文本包装链会生成第二份 c++config 实例，
+// 与 import std 的模块收编版声明冲突；标准设施统一走 std 模块
+#define _MM_MALLOC_H_INCLUDED
+#define _X86INTRIN_H_INCLUDED
+#define _IMMINTRIN_H_INCLUDED
+#define _XMMINTRIN_H_INCLUDED
+#define _EMMINTRIN_H_INCLUDED
+#define _MMINTRIN_H_INCLUDED
+#define _PMMINTRIN_H_INCLUDED
+#define _CPUID_H_INCLUDED
 #if defined(_WIN32)
 #include <Windows.h>
 #endif
-#include <iostream>
-#include <string>
-#include <cstdlib>
-#include <ctime>
-#include <thread>
-#include <coroutine>
+import std;
 
 import kwik.platform.window;
 import kwik.platform.win32_window;

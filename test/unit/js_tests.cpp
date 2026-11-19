@@ -1111,12 +1111,22 @@ static void test_root_props_wired() {
 // 预算时本调用永不返回（修复前）。预算生效 = 调用有界返回，宿主存活。
 static void test_microtask_budget() {
     CHECK(eval_module("microtask_requeue_fixture.mjs",
-                      "globalThis.__loop = () => Promise.resolve().then(globalThis.__loop);\n"
+                      "globalThis.__stop = false;\n"
+                      "globalThis.__loop = () => { if (!globalThis.__stop) Promise.resolve().then(globalThis.__loop); };\n"
                       "globalThis.__loop();\n"
                       "export default null;\n"));
     g_ctx->processMicrotasks();    // 修复前：此调用永不返回
     g_ctx->processMicrotasks();    // 二次消费仍有界
     CHECK(true);    // 抵达此处即锁生效（回归时本测试会以超时失败）
+
+    // 预算只截断单次消费，剩余 job 会继续占用内存并饿死后续用例
+    // （64MB 硬顶下 channel_e4 模块加载曾因此 OOM）。置停止位后把积压
+    // job 排空：每个 job 不再 requeue，最多再消费一轮预算即清空
+    JSContext *c = g_ctx->getPtr();
+    JSValue gv = JS_GetGlobalObject(c);
+    JS_SetPropertyStr(c, gv, "__stop", JS_TRUE);
+    JS_FreeValue(c, gv);
+    g_ctx->processMicrotasks();
 }
 
 // ── 行为锁: 静态 default export + 重建（双 Free 回归防线）──

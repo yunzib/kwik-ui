@@ -66,6 +66,10 @@
 #include <grp.h>
 #endif
 
+#if defined(__COSMOPOLITAN__)
+#include <cosmo.h>
+#endif
+
 #if defined(__APPLE__)
 typedef sig_t sighandler_t;
 #include <crt_externs.h>
@@ -197,6 +201,8 @@ typedef struct JSThreadState {
 #endif // USE_WORKER
     JSClassID std_file_class_id;
     JSClassID worker_class_id;
+    JSInterruptHandler *prev_interrupt_handler;
+    void *prev_interrupt_opaque;
 } JSThreadState;
 
 static uint64_t os_pending_signals;
@@ -227,10 +233,11 @@ static void js_set_thread_state(JSRuntime *rt, JSThreadState *ts)
     js_std_cmd(/*SetOpaque*/1, rt, ts);
 }
 
-#ifdef __GNUC__
+// Non-CL Clang on Windows does not define __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#endif // __GNUC__
+#endif // __GNUC__ || __clang__
 static JSValue js_printf_internal(JSContext *ctx,
                                   int argc, JSValueConst *argv, FILE *fp)
 {
@@ -446,9 +453,9 @@ fail:
     dbuf_free(&dbuf);
     return JS_EXCEPTION;
 }
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop // ignored "-Wformat-nonliteral"
-#endif // __GNUC__
+#endif // __GNUC__ || __clang__
 
 uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename)
 {
@@ -527,8 +534,12 @@ static int get_bool_option(JSContext *ctx, bool *pbool,
     return 0;
 }
 
-static void free_buf(JSRuntime *rt, void *opaque, void *ptr) {
-    js_free_rt(rt, ptr);
+// js_realloc_array_buffer to avoid a name conflict with
+// js_array_buffer_realloc from quickjs.c in the amalgamation build
+static void *js_realloc_array_buffer(JSRuntime *rt, void *opaque, void *ptr,
+                                     size_t size)
+{
+    return js_realloc_rt(rt, ptr, size);
 }
 
 /* load a file as a UTF-8 encoded string or Uint8Array */
@@ -557,7 +568,8 @@ static JSValue js_std_loadFile(JSContext *ctx, JSValueConst this_val,
     if (!buf)
         return JS_NULL;
     if (binary) {
-        ret = JS_NewUint8Array(ctx, buf, buf_len, free_buf, NULL, false);
+        ret = JS_NewUint8Array(ctx, buf, buf_len, js_realloc_array_buffer,
+                               NULL, false);
     } else {
         ret = JS_NewStringLen(ctx, (char *)buf, buf_len);
         js_free(ctx, buf);
@@ -832,6 +844,7 @@ enum {
     JS_IMPORT_TYPE_JS,
     JS_IMPORT_TYPE_JSON,
     JS_IMPORT_TYPE_TEXT,
+    JS_IMPORT_TYPE_BYTES,
 };
 
 /* return > 0 if the attributes indicate a JSON module, 0 otherwise, -1 on error */
@@ -859,6 +872,8 @@ static int js_module_import_type(JSContext *ctx, JSValueConst attributes)
         res = JS_IMPORT_TYPE_JSON;
     } else if (len == 4 && !memcmp(cstr, "text", len)) {
         res = JS_IMPORT_TYPE_TEXT;
+    } else if (len == 5 && !memcmp(cstr, "bytes", len)) {
+        res = JS_IMPORT_TYPE_BYTES;
     } else {
         /* unknown type - throw error */
         JS_ThrowTypeError(ctx, "unsupported module type: '%s'", cstr);
@@ -881,8 +896,11 @@ JSModuleDef *js_module_load(JSContext *ctx, const char *module_name,
     type = js_module_import_type(ctx, attributes);
     if (type < 0)
         return NULL;
-    if (js__has_suffix(module_name, ".json"))
-        type = JS_IMPORT_TYPE_JSON;
+    /* the .json suffix only selects the JSON type when no type attribute
+       was given, so that e.g. 'with { type: "text" }' is honored */
+    if (type == JS_IMPORT_TYPE_JS)
+        if (js__has_suffix(module_name, ".json"))
+            type = JS_IMPORT_TYPE_JSON;
     buf = (char *)load_file(ctx, &buf_len, module_name);
     if (!buf) {
         JS_ThrowReferenceError(ctx, "could not load module filename '%s'",
@@ -899,6 +917,17 @@ JSModuleDef *js_module_load(JSContext *ctx, const char *module_name,
         break;
     case JS_IMPORT_TYPE_TEXT:
         val = JS_NewStringLen(ctx, buf, buf_len);
+        break;
+    case JS_IMPORT_TYPE_BYTES:
+        val = JS_NewUint8Array(ctx, (uint8_t *)buf, buf_len,
+                               js_realloc_array_buffer, NULL,
+                               /*is_shared*/false);
+        if (!JS_IsException(val)) {
+            JSValue abuf = JS_GetTypedArrayBuffer(ctx, val, NULL, NULL, NULL);
+            JS_SetImmutableArrayBuffer(abuf, /*immutable*/true);
+            JS_FreeValue(ctx, abuf);
+            buf = NULL;
+        }
         break;
     default:
         val = JS_ThrowInternalError(ctx, "unhandled import type");
@@ -1060,9 +1089,15 @@ static JSValue js_std_gc(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-static int interrupt_handler(JSRuntime *rt, void *opaque)
+static int interrupt_handler(JSContext *ctx, void *opaque)
 {
-    return (os_pending_signals >> SIGINT) & 1;
+    JSThreadState *ts = opaque;
+
+    if (1 & (os_pending_signals >> SIGINT))
+        return 1;
+    if (ts->prev_interrupt_handler)
+        return ts->prev_interrupt_handler(ctx, ts->prev_interrupt_opaque);
+    return 0;
 }
 
 static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
@@ -1125,7 +1160,14 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
     }
     if (!ts->recv_pipe && ++ts->eval_script_recurse == 1) {
         /* install the interrupt handler */
-        JS_SetInterruptHandler(JS_GetRuntime(ctx), interrupt_handler, NULL);
+        ts->prev_interrupt_handler =
+            (JSInterruptHandler *)js_std_cmd(/*GetInterruptHandler*/5, rt);
+        ts->prev_interrupt_opaque =
+            (void *)js_std_cmd(/*GetInterruptOpaque*/6, rt);
+        // FIXME(bnoordhuis) Questionable hack to make the REPL interruptible.
+        // Ideally qjs installs a signal handler + interrupt handler but then
+        // scripts can intercept it with os.signal(SIGINT).
+        JS_SetInterruptHandler(JS_GetRuntime(ctx), interrupt_handler, ts);
     }
     flags = compile_module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
     if (backtrace_barrier)
@@ -1143,7 +1185,11 @@ static JSValue js_evalScript(JSContext *ctx, JSValueConst this_val,
     JS_FreeCString(ctx, str);
     if (!ts->recv_pipe && --ts->eval_script_recurse == 0) {
         /* remove the interrupt handler */
-        JS_SetInterruptHandler(JS_GetRuntime(ctx), NULL, NULL);
+        JS_SetInterruptHandler(JS_GetRuntime(ctx),
+                               ts->prev_interrupt_handler,
+                               ts->prev_interrupt_opaque);
+        ts->prev_interrupt_handler = NULL;
+        ts->prev_interrupt_opaque = NULL;
         os_pending_signals &= ~((uint64_t)1 << SIGINT);
         /* convert the uncatchable "interrupted" error into a normal error
            so that it can be caught by the REPL */
@@ -1897,7 +1943,7 @@ static const JSCFunctionListEntry js_std_funcs[] = {
     JS_CFUNC_DEF("evalScript", 1, js_evalScript ),
     JS_CFUNC_DEF("loadScript", 1, js_loadScript ),
     JS_CFUNC_DEF("getenv", 1, js_std_getenv ),
-    JS_CFUNC_DEF("setenv", 1, js_std_setenv ),
+    JS_CFUNC_DEF("setenv", 2, js_std_setenv ),
     JS_CFUNC_DEF("unsetenv", 1, js_std_unsetenv ),
     JS_CFUNC_DEF("getenviron", 1, js_std_getenviron ),
 #if !defined(__wasi__)
@@ -2618,7 +2664,7 @@ static void js_waker_signal(JSWaker *w)
         ret = write(w->write_fd, "", 1);
         if (ret == 1)
             break;
-        if (ret < 0 && (errno != EAGAIN || errno != EINTR))
+        if (ret < 0 && errno != EAGAIN && errno != EINTR)
             break;
     }
 }
@@ -2811,7 +2857,7 @@ static int js_os_poll_internal(JSContext *ctx, int timeout_ms, int flags)
 {
     JSRuntime *rt = JS_GetRuntime(ctx);
     JSThreadState *ts = js_get_thread_state(rt);
-    int r, w, ret, nfds, min_delay;
+    int r, w, ret, nfds, min_delay, poll_nfds;
     JSOSRWHandler *rh;
     struct list_head *el;
     struct pollfd *pfd, *pfds, pfds_local[64];
@@ -2905,12 +2951,14 @@ static int js_os_poll_internal(JSContext *ctx, int timeout_ms, int flags)
     // linear-ish in practice because we bail out on the first hit,
     // i.e., it's probably good enough for now
     ret = 0;
+    /* poll() returns the number of ready descriptors, not the array length. */
+    poll_nfds = nfds;
     nfds = poll(pfds, nfds, min_delay);
     if (nfds < 0) {
         ret = -1;
         goto done;
     }
-    for (pfd = pfds; nfds-- > 0; pfd++) {
+    for (pfd = pfds; poll_nfds-- > 0; pfd++) {
         rh = find_rh(ts, pfd->fd);
         if (rh) {
             r = (POLLERR|POLLHUP|POLLNVAL|POLLIN) * !JS_IsNull(rh->rw_func[0]);
@@ -4075,7 +4123,7 @@ static void worker_func(void *opaque)
 
     js_std_add_helpers(ctx, -1, NULL);
 
-    val = JS_LoadModule(ctx, args->basename, args->filename);
+    val = JS_LoadModule(ctx, args->basename, args->filename, JS_UNDEFINED);
     free(args->filename);
     free(args->basename);
     free(args);
@@ -4426,7 +4474,7 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     JS_CFUNC_DEF("sleepAsync", 1, js_os_sleepAsync ),
     JS_PROP_STRING_DEF("platform", OS_PLATFORM, 0 ),
     JS_CFUNC_DEF("getcwd", 0, js_os_getcwd ),
-    JS_CFUNC_DEF("chdir", 0, js_os_chdir ),
+    JS_CFUNC_DEF("chdir", 1, js_os_chdir ),
     JS_CFUNC_DEF("mkdir", 1, js_os_mkdir ),
     JS_CFUNC_DEF("readdir", 1, js_os_readdir ),
 #if !defined(_WIN32) && !defined(__wasi__)
@@ -4500,7 +4548,29 @@ static int js_os_init(JSContext *ctx, JSModuleDef *m)
     }
 #endif /* USE_WORKER */
 
-    return JS_SetModuleExportList(ctx, m, js_os_funcs, countof(js_os_funcs));
+    if (JS_SetModuleExportList(ctx, m, js_os_funcs, countof(js_os_funcs)))
+        return -1;
+
+#ifdef __COSMOPOLITAN__
+    const char *platform;
+    if (IsLinux()) {
+        platform = "linux";
+    } else if (IsNetbsd()) {
+        platform = "netbsd";
+    } else if (IsOpenbsd()) {
+        platform = "openbsd";
+    } else if (IsWindows()) {
+        platform = "win32";
+    } else if (IsXnu()) {
+        platform = "darwin";
+    } else {
+        platform = "unknown";
+    }
+    if (JS_SetModuleExport(ctx, m, "platform", JS_NewString(ctx, platform)))
+        return -1;
+#endif /* __COSMOPOLITAN__ */
+
+    return 0;
 }
 
 JSModuleDef *js_init_module_os(JSContext *ctx, const char *module_name)
@@ -4698,22 +4768,41 @@ static void js_dump_obj(JSContext *ctx, FILE *f, JSValueConst val)
     }
 }
 
+#define JS_DUMP_ERROR_MAX_CAUSE_DEPTH 10
+
 static void js_std_dump_error1(JSContext *ctx, JSValueConst exception_val)
 {
-    JSValue val;
+    JSValue val, current;
     bool is_error;
+    int depth;
 
-    is_error = JS_IsError(exception_val);
-    js_dump_obj(ctx, stderr, exception_val);
-    if (is_error) {
-        val = JS_GetPropertyStr(ctx, exception_val, "stack");
-    } else {
-        js_std_cmd(/*ErrorBackTrace*/2, ctx, &val);
+    current = JS_DupValue(ctx, exception_val);
+    for (depth = 0; ; depth++) {
+        is_error = JS_IsError(current);
+        js_dump_obj(ctx, stderr, current);
+        if (is_error) {
+            val = JS_GetPropertyStr(ctx, current, "stack");
+        } else if (depth == 0) {
+            js_std_cmd(/*ErrorBackTrace*/2, ctx, &val);
+        } else {
+            val = JS_UNDEFINED;
+        }
+        if (!JS_IsUndefined(val)) {
+            js_dump_obj(ctx, stderr, val);
+            JS_FreeValue(ctx, val);
+        }
+        if (!is_error || depth >= JS_DUMP_ERROR_MAX_CAUSE_DEPTH)
+            break;
+        val = JS_GetPropertyStr(ctx, current, "cause");
+        if (JS_IsUndefined(val)) {
+            JS_FreeValue(ctx, val);
+            break;
+        }
+        fputs("Caused by: ", stderr);
+        JS_FreeValue(ctx, current);
+        current = val;
     }
-    if (!JS_IsUndefined(val)) {
-        js_dump_obj(ctx, stderr, val);
-        JS_FreeValue(ctx, val);
-    }
+    JS_FreeValue(ctx, current);
 }
 
 void js_std_dump_error(JSContext *ctx)

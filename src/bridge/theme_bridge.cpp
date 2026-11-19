@@ -161,7 +161,7 @@ static JSClassID g_themeDataClassId = 0;
 
 JSValue wrapThemeData(JSContext* ctx, const ThemeData& data) {
     if (!g_themeDataClassId) {
-        // vendored quickjs 为新版签名：JS_NewClassID 需传 runtime（quickjs.h:706）
+        // vendored quickjs：JS_NewClassID 需传 runtime（签名见 quickjs.h）
         JS_NewClassID(JS_GetRuntime(ctx), &g_themeDataClassId);
         static JSClassDef def = {};
         def.class_name = "ThemeData";

@@ -27,6 +27,10 @@ JavaScript runtime for Nintendo Switch homebrew applications.
 
 Rust wrapper focus on embedding-ready and no-pain type conversion and interoperability. 
 
+## [CSPro](https://github.com/csprousers/cspro)
+
+CSPro incorporates the QuickJS-NG engine as its embedded JavaScript runtime for executing logic, complementing its own domain-specific language, CSPro Logic.
+
 ## [GodotJS](https://github.com/godotjs/GodotJS)
 
 This project adds TypeScript/JavaScript support for Godot 4.x. It supports multiple javascript runtimes, including QuickJS-NG.
@@ -64,4 +68,49 @@ Python bindings for quickjs-ng based on https://github.com/PetterS/quickjs.
 Proxy server using quickjs-ng for PAC file processing.
 
 ## [std::slop](https://github.com/hsaliak/std_slop)
+
 A C++/SQL based Coding agent. It exposes a QuickJS-ng environment to the LLM. The Agent accomplishes all it's work through this QuickJS-NG based "control plane".
+
+## [QuickBEAM](https://github.com/elixir-volt/quickbeam)
+
+JavaScript runtime for the BEAM - Web APIs backed by OTP, native DOM, and a built-in TypeScript toolchain.
+
+## [quickjs-go](https://github.com/buke/quickjs-go)
+
+Golang bindings for QuickJS-NG using cgo
+
+## [Nordstjernen](https://github.com/nordstjernen-web/nordstjernen)
+
+Nordstjernen web browser.
+
+## [quickjs-cpp](https://github.com/qr243vbi/quickjs-cpp)
+
+Header only library for quickjs-ng with modern C++ interface (Archived).
+
+## [NekoBox](https://github.com/qr243vbi/nekobox)
+
+A lightweight proxy client, empowered by sing-box and thrift.
+
+## [RongJS](https://github.com/LingXia-Dev/Rong)
+
+A multi-engine JavaScript runtime and Rust embedding API with first-class QuickJS-NG support.
+
+## [scriptc](https://github.com/vercel-labs/scriptc)
+
+TypeScript-to-Native Compiler
+
+## [Qbs](https://github.com/qbs/qbs)
+
+Cross-platform build system. Uses QuickJS-NG as its JavaScript backend for evaluating project files.
+
+## [Vayu](https://github.com/athrvk/vayu)
+
+Open-source API client with a native C++ load-testing engine. Embeds QuickJS-NG to enable in-app scripting: pre-request and test scripts with a Postman-compatible `pm.*` API.
+
+## [react-native-quickjs](https://github.com/react-native-quickjs/quickjs)
+
+JSI runtime for React Native using QuickJS-NG. Replaces Hermes / JSC.
+
+## [DuckDB QuickJS Extension](https://query.farm/products/extensions/quickjs/)
+
+DuckDB extension by Query.Farm that embeds QuickJS-NG, allowing JavaScript to be executed directly inside SQL queries as scalar and table functions.

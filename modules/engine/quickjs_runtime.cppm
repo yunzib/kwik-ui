@@ -30,5 +30,6 @@ export class QuickJSRuntime {
         bool watchdogArmed_ = false;                  // 当前 JS 段计时中
         int watchdogOverruns_ = 0;                    // 本入口内超时中断次数（宿主入口重置）
         std::chrono::steady_clock::time_point watchdogStart_{};
-        static int watchdogCb(JSRuntime *rt, void *opaque);
+        // 0.18 起 QuickJS 中断回调首参由 JSRuntime* 改为 JSContext*
+        static int watchdogCb(JSContext *ctx, void *opaque);
 };
