@@ -7,6 +7,9 @@
   （QuickJSRuntime 适配）；Clang/Windows CRT 宏与 MSVC-ABI 栈旗标 0.14.0 起
   已上游化，patches/quickjs 清空；0.17 起字节码线格式变更，Release 嵌入式
   字节码随 compile_js_bundle 重生成
+- **JS 内存硬顶 256MB → 64MB**：0.18 低内存路径重写后 16MB 金丝雀
+  kwik_js_tests 20 连绿；表格示例的 10 万行 JS 数据单脚本峰值约 30.6MB，
+  32MB 无工程侧余量，取 64MB 保留大数据页能力（不改变进程 RSS）
 
 ### 修复
 - **quickjs 0.18 重复导出名校验更严**（`src/bridge/bindings.cpp`）：
