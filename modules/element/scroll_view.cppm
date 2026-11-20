@@ -97,6 +97,10 @@ public:
     /// @brief 子孙坐标域补偿：本容器滚动时，叶子组件把 global 换算到未滚动 frame 域用
     Point scrollCompensation() const override { return scrollOffset_; }
 
+    /// @brief 内容视口（frame 内减 padding、减滚动条占位）——公开给后代组件
+    /// 做可见带剔除（TextView::onDraw 按视口逐行裁剪，防大内容全量进清单）
+    Rect viewport() const;
+
     // ── 属性读写（getProp/setProp 支持 scrollX/scrollY/direction）──
     std::string getProperty(const char *name) const override;
     bool setPropertyTyped(const char *name, const TypedProp &value) override;
@@ -135,11 +139,9 @@ private:
     bool hasHBar() const { return sp_.showScrollbar && sp_.direction != ScrollDirection::Vertical; }
     /// @brief 方向允许水平滚动（direction != Vertical）
     bool canScrollX() const { return sp_.direction != ScrollDirection::Vertical; }
-    /// @brief 方向允许垂直滚动（direction != Horizontal）
+    /// @brief 方向允许垂直滚动（direction != Vertical）
     bool canScrollY() const { return sp_.direction != ScrollDirection::Horizontal; }
 
-    /// @brief 内容视口（frame 内减 padding、减滚动条占位）
-    Rect viewport() const;
     /// @brief 垂直滚动条轨道（全局坐标）
     Rect vTrack() const;
     /// @brief 水平滚动条轨道（全局坐标）

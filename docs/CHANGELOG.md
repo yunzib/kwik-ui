@@ -1,5 +1,23 @@
 # 更新日志
 
+# 0.2.6 — 2026-11-20
+### 修复
+- **TextView 大内容滚动场景内存线性增长 + FPS 随行数崩塌**（流式日志类应用的
+  双杀手，examples/serial-assistant 持续收发实测 420KB/s 无界增长、1464 行时
+  60fps→3）：
+  - 可见带剔除失效：onDraw 行剔除判据用自身 frame.height，自适应高度组件
+    （无显式 height）该值 = 全内容高，永不剔除——全部行×全部字形逐条进
+    ScrollView 烘焙清单（drawTextCached 一字形一命令），叠加清单双拷贝
+    （pending 草稿 + published 快照）每行常驻 ~40KB；改用最近滚动宿主的
+    视口可见带（viewport 公开 + scrollCompensation，与 ScrollView::onDraw
+    的 visRect 同口径），无滚动容器退化为原全量行为。清单命令数从随行数
+    无界（实测 9 万+）降为恒定 ~2.7 千
+  - rebuild_ 全量重排：每批内容变更对全部 run 重跑 harfbuzz 塑形（O(总字形)，
+    稳态每批 4200 次调用），既拖垮帧率又以大批量分配/释放加剧堆碎片（稳态
+    WS 仍缓涨）；改哈希索引旧 RunShape、matchesKey 终判（含 layoutEpoch，
+    字体/DPI 变更自动失效）复用未变 run 的 layoutResult——稳态每批塑形
+    4200 → ~3 次。1464 行稳态实测 FPS 3 → 30+、WS 147 秒 -3.8MB（平稳）
+
 # 0.2.5 — 2026-11-19
 ### 构建
 - **quickjs-ng 0.13.0 → v0.18.0 升级**：vendored 快照换源至 tag v0.18.0

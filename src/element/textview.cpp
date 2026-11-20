@@ -118,7 +118,11 @@ void TextView::rebuild_() {
     plainText_.clear();
     for (auto &run : content_) plainText_ += run.text;
 
-    // 2. 通过 TextRenderPipeline 排版每个 run
+    // 2. 通过 TextRenderPipeline 排版每个 run（未变 run 复用旧结果）
+    //    全量重排是流式日志场景的性能/内存双杀手：N 行文档每批全量塑形
+    //    （harfbuzz O(总字形)，FPS 60→3）且大批量分配/释放加剧堆碎片
+    //    （稳态 WS 仍缓涨）。哈希索引旧 RunShape，text+排版参数一致即复用
+    //    （matchesKey 含 layoutEpoch，字体/DPI 变更自动失效）。
     auto &pipe = TextRenderPipeline::instance();
     if (fontId_ == kInvalidFontId) { fontId_ = pipe.activeFont(); }
 
@@ -126,20 +130,54 @@ void TextView::rebuild_() {
     cfg.wrap = WrapMode::NoWrap;
     cfg.maxWidth = 1e10f;
 
-    runShapes_.clear();
+    // 旧结果索引：(textHash, fontSize, italic) → 候选形状列表。命中后经
+    // matchesKey 终判（textHash/fontId/fontSize/maxWidth/wrap/layoutEpoch
+    // 全一致才复用——字体或 DPI 变更使 epoch 递增，自动失效全量重排）
+    std::unordered_map<std::uint64_t, std::vector<const RunShape *>> oldByIdx;
+    auto idxKey = [](std::size_t textHash, float fs, int italic) {
+        std::uint64_t h = static_cast<std::uint64_t>(textHash) * 1315423911u;
+        h += static_cast<std::uint64_t>(std::hash<float>{}(fs));
+        return h * 31u + static_cast<std::uint64_t>(italic);
+    };
+    for (auto &rs : runShapes_) {
+        if (!rs.layoutResult) continue;
+        float ofs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
+        int oit = (rs.style.fontStyle == FontStyle::Normal) ? 0 : 1;
+        oldByIdx[idxKey(rs.layoutResult->textHash, ofs, oit)].push_back(&rs);
+    }
+
+    std::vector<RunShape> next;
+    next.reserve(content_.size());
     for (auto &run : content_) {
         RunShape rs;
         rs.style = run.style;
         float fs = rs.style.fontSize > 0 ? rs.style.fontSize : 16.0f;
         if (fontId_ != kInvalidFontId && !run.text.empty()) {
             cfg.fontStyle = (rs.style.fontStyle == FontStyle::Normal) ? 0 : 1;    // 伪斜体进塑形+栅格化
-            rs.layoutResult = pipe.layoutText(run.text, fontId_, fs, cfg);
-            if (rs.layoutResult) {
-                for (auto &g : rs.layoutResult->glyphs) rs.advance += g.advanceX;
+            // 复用：同文本同塑形参数（fontWeight 只影响绘制期伪粗体，不影响
+            // 塑形，不参与判定）；未命中才走全量塑形
+            bool reused = false;
+            if (auto it = oldByIdx.find(idxKey(std::hash<std::string>{}(run.text), fs, cfg.fontStyle));
+                it != oldByIdx.end()) {
+                for (auto *old : it->second) {
+                    if (old->layoutResult->matchesKey(run.text, fontId_, fs, cfg)) {
+                        rs.layoutResult = old->layoutResult;
+                        rs.advance = old->advance;
+                        reused = true;
+                        break;
+                    }
+                }
+            }
+            if (!reused) {
+                rs.layoutResult = pipe.layoutText(run.text, fontId_, fs, cfg);
+                if (rs.layoutResult) {
+                    for (auto &g : rs.layoutResult->glyphs) rs.advance += g.advanceX;
+                }
             }
         }
-        runShapes_.push_back(std::move(rs));
+        next.push_back(std::move(rs));
     }
+    runShapes_ = std::move(next);
 
     // 3. 边界校正（防止光标越界）
     cursorPos_ = std::min(cursorPos_, plainText_.size());
@@ -450,6 +488,22 @@ void TextView::onDraw(Graphics &graphics) {
     Rect inner = {frame.x + props.padding.left, frame.y + props.padding.top, frame.width - props.padding.horizontal(),
                   frame.height - props.padding.vertical()};
 
+    // ── 可见带剔除（修复：滚动容器内大内容清单线性膨胀）──────────────────
+    // 原判据 drawY > inner.y + inner.height 对"自适应高度"的 TextView 永不
+    // 触发——无显式 height 时 frame.height = 测量的全内容高（滚动场景必然），
+    // 全部行×全部字形逐条进烘焙清单（drawTextCached 一字形一命令），内容
+    // 增长即清单/内存线性膨胀且每帧全量重录（串口日志实测 60fps→2.4fps、
+    // 每行 ~40KB 常驻）。改用最近滚动宿主的视口可见带（未滚动内容域），
+    // 与 ScrollView::onDraw 的 visRect 同口径；无滚动容器退化为原全量行为。
+    float visTop = inner.y;
+    float visBottom = inner.y + inner.height;
+    if (ScrollView *sv = scrollHost_()) {
+        Rect vp = sv->viewport();
+        Point sc = sv->scrollCompensation();
+        visTop = std::max(visTop, vp.y + sc.y);
+        visBottom = std::min(visBottom, vp.y + sc.y + vp.height);
+    }
+
     graphics.save();
     graphics.clipRoundedRect(inner, props.borderRadius);
 
@@ -459,11 +513,11 @@ void TextView::onDraw(Graphics &graphics) {
         float lh = line.height > 0 ? line.height : lhMul_(16.0f);
 
         // 跳过可见区外的行
-        if (drawY + lh < inner.y) {
+        if (drawY + lh < visTop) {
             drawY += lh;
             continue;
         }
-        if (drawY > inner.y + inner.height) break;
+        if (drawY > visBottom) break;
         if (line.glyphs.empty()) {
             drawY += lh;
             continue;
