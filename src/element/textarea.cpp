@@ -14,6 +14,7 @@ import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/V 的源�
 import kwik.element.selection;    // 选区服务 / Selectable 契约 / wordRangeAtText
 import kwik.element.text;    // Text::penOfBoundaryAt（逐行选区几何复用）
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -678,6 +679,8 @@ bool TextArea::setPropertyTyped(const char *name, const TypedProp &value) {
 }
 
 void TextArea::applyTextAreaProps(const TextAreaProps &p) {
+    // P1a：与现值全等零动作（发送区等静态多行框不再随每轮 reconcile 覆写）
+    if (structPropsEqual(p, props_)) return;
     // 新-5 受控回写门控：value 与上一轮 props 相同（键入触发的 reconcile
     // 常见）不覆盖 text_——无条件覆盖会把用户输入回退到旧 props；仅 JS 侧
     // 真正改值时才回填文档并重置排版

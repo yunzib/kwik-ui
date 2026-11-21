@@ -141,7 +141,10 @@ public:
             // 文本未变：只需按新段落属性重排行（tvp_ 已覆盖，烘焙值即新值）
             rebuildLines_(lastAvailWidth_);
         }
-        if (paraChanged) requestLayout();    // 行高倍率影响测量 → 重测量（契约自带 markDirty）
+        // 内容或段落属性变化都影响测量高（行数×行高）→ 必须 requestLayout：
+        // P1b 精准标脏后 rebuildTree 不再全量 markAllMeasureDirty，漏调则
+        // 内容增长的 TextView 高度不更新（滚动容器 contentSize 停留旧值）
+        if (changed || paraChanged) requestLayout();
     }
 
     ElementType type() const override { return ElementType::TextView; }

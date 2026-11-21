@@ -62,6 +62,7 @@ public:
 		tp_ = std::move(tp);
 		clampScrollY();
 		markDirty();
+		requestLayout();    // 行高/表头/列宽影响测量 → P1b 后须显式请求重测量
 	}
 
 	// ─── 属性读写 ─────────────────────────────────────

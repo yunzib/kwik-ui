@@ -3,6 +3,7 @@ export module kwik.element.scroll_view;
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.render.graphics;
 import kwik.element.view;
 import kwik.element.scroll_physics;    // ScrollPhysics — fling/回弹物理
@@ -54,7 +55,10 @@ public:
     const ScrollViewProps &scrollProps() const { return sp_; }
 
     /// @brief 增量更新滚动属性（reconcile 原地覆盖，触发重测+重排）
+    /// P1a：与现值逐字段相等则零动作（滚动容器数量多且属性低频变，此前
+    /// 无条件 markAllDirty+markAllMeasureDirty 把精准标脏打回全量）
     void applyScrollProps(const ScrollViewProps &sp) {
+        if (structPropsEqual(sp, sp_)) return;
         sp_ = sp;
         markAllDirty();
         markAllMeasureDirty();

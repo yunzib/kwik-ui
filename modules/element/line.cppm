@@ -2,6 +2,7 @@ export module kwik.element.line;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -30,8 +31,14 @@ public:
 
     explicit Line(ViewProps vp, LineProps lp) : View(std::move(vp)), lp_(std::move(lp)) {}
 
-    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
-    void applyLineProps(LineProps lp) { lp_ = std::move(lp); }
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取）
+     *  P1a：与现值全等零动作（未变不覆写不标脏） */
+    void applyLineProps(LineProps lp) {
+        if (structPropsEqual(lp, lp_)) return;
+        lp_ = std::move(lp);
+        markDirty();
+        requestLayout();
+    }
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;

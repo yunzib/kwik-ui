@@ -15,6 +15,7 @@ module kwik.element.switch_button;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -69,12 +70,19 @@ void Switch::setChecked(bool val) {
 // applySwitchProps — reconcile 属性覆盖（checked 受控回写门）
 // ============================================================================
 void Switch::applySwitchProps(SwitchProps sp) {
+	// P1a：运行值快照——覆盖后与快照全等则零动作（含 checked 门控语义：
+	// 门关路径回写运行值后结果不变，不触发重绘）
+	SwitchProps before = sp_;
 	// 门控判据与基准更新须先于覆盖（基准取本次解析值，运行值取覆盖前 sp_）
 	bool checkedFresh = (sp.checked != lastParsedChecked_);
 	lastParsedChecked_ = sp.checked;
 	bool runtime = sp_.checked;       // 命令式运行值（点击/setProp 写入；须在覆盖前捕获）
 	sp_ = std::move(sp);
 	if (!checkedFresh) { sp_.checked = runtime; }    // 未声明新 checked：保留运行值（门关路径）
+	if (!structPropsEqual(sp_, before)) {
+		markDirty();
+		requestLayout();
+	}
 }
 
 // ============================================================================

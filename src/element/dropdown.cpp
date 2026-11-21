@@ -27,6 +27,7 @@ import kwik.element.view;
 import kwik.element.layer_stack;
 import kwik.element.layer_view; // LayerStack（菜单层注册）
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -256,6 +257,13 @@ Dropdown::Dropdown(ViewProps vp, DropdownProps dp) : View(std::move(vp)), dp_(st
 void Dropdown::applyDropdownProps(DropdownProps dp) {
     if (dp.selectedIndex >= static_cast<int>(dp.items.size()))
         dp.selectedIndex = dp.items.empty() ? -1 : static_cast<int>(dp.items.size()) - 1;
+    // P1a：与现值全等零动作（门控基准同步更新后直接返回——下拉框属低频
+    // 变更组件，静态下拉不再随每轮 reconcile 覆写 + markDirty）
+    if (structPropsEqual(dp, dp_)) {
+        lastParsedValue_ = dp.value;
+        lastParsedIndex_ = dp.selectedIndex;
+        return;
+    }
     // 选中态门控：value 与 selectedIndex 均与上轮解析值相同 = rebuild 未声明
     // 新选中（onChange 写 State 触发的常见路径），保留运行选中
     bool valueFresh = (dp.value != lastParsedValue_);
@@ -274,6 +282,7 @@ void Dropdown::applyDropdownProps(DropdownProps dp) {
     }
     menuWidthCache_ = 0.0f;    // items/fontSize 可能变化：菜单自然宽度重算
     markDirty();
+    requestLayout();
 }
 
 void Dropdown::deriveSelectionFromValue() {

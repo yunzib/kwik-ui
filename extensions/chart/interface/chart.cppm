@@ -48,12 +48,17 @@ export struct ChartSeries {
 	std::vector<float> data;           // 数据点（饼图=扇区值, 折线=各点 y）
 	Color color{0, 0, 0, 0};           // 系列颜色（transparent=自动分配调色板色）
 	bool visible = true;
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门（真值变化才重绘）
+	constexpr bool operator==(const ChartSeries&) const = default;
 };
 
 /** @brief 仪表盘阈值分段（type=="gauge" 专用） */
 export struct GaugeSegment {
 	float value;                    ///< 段上限（值域 [min,max] 内）
 	Color color;                    ///< 段色（transparent = 跳过该段）
+
+	constexpr bool operator==(const GaugeSegment&) const = default;
 };
 
 /**
@@ -100,6 +105,9 @@ export struct GaugeProps {
 	float detailOffsetY = 0.0f;            ///< 读数中心 y 偏移 px（正=向下；指针模式 0 = 自动下沉避让 hub）
 
 	std::vector<GaugeSegment> segments;   ///< 阈值分段（按值域着色，超出分段范围部分显示背景轨道色）
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门
+	constexpr bool operator==(const GaugeProps&) const = default;
 };
 
 /**
@@ -111,6 +119,9 @@ export struct PieProps {
 	float innerRatio = 0.0f;         ///< donut 内半径占 r 比例（0=实心饼；0.55=环形）
 	float labelRadiusRatio = 0.62f;  ///< 百分比标签半径（占 r；实心饼时即原 0.62r 口径；donut 时映射到带内）
 	float startAngle = -90.0f;       ///< 起始角（度，-90=12 点方向顺时针展开）
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门
+	constexpr bool operator==(const PieProps&) const = default;
 };
 
 /**
@@ -150,6 +161,9 @@ export struct ChartStyle {
 	std::string valueFormat;           ///< 数值 printf 规格（如 "%.1f" / "%g"；空=各处沿用旧格式）
 	float lineAreaOpacity = 0.0f;      ///< 折线面积填充透明度 0..1（0=不填充，默认旧行为）
 	bool lineCurve = false;            ///< true → 折线平滑（二次贝塞尔中点法，仍走胶囊线段管线）
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门
+	constexpr bool operator==(const ChartStyle&) const = default;
 };
 
 /**
@@ -165,6 +179,16 @@ export struct ChartStyle {
 export struct AxisProps {
 	float yMin = std::numeric_limits<float>::quiet_NaN();   ///< y 轴下限覆写（NaN=自动值域）
 	float yMax = std::numeric_limits<float>::quiet_NaN();   ///< y 轴上限覆写（NaN=自动值域）
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门。
+	/// 自定义比较：缺省 NaN=自动值域的语义下"双侧皆 NaN"应视为相等
+	/// （默认 operator== 的 NaN!=NaN 会让缺省轴每轮 reconcile 误判变化）
+	constexpr bool operator==(const AxisProps &o) const {
+		auto eq = [](float a, float b) {
+			return (a != a && b != b) || a == b;    // 双 NaN 相等（a!=a 即 isnan，constexpr 可用）
+		};
+		return eq(yMin, o.yMin) && eq(yMax, o.yMax);
+	}
 };
 
 /**
@@ -202,6 +226,9 @@ export struct ChartProps {
 	PieProps pie;                   ///< 饼图/环形图专用（type=="pie" 时生效；子结构模式）
 	AxisProps axis;                 ///< 轴值域覆写（type=="line"/"bar" 时生效；子结构模式）
 	ChartStyle style;               ///< 集中样式覆写（新增能力；旧顶层颜色字段优先于此处对应项）
+
+	/// P1a reconcile 精准标脏：applyChartProps 全等门
+	constexpr bool operator==(const ChartProps&) const = default;
 };
 
 // ════════════════════════════════════════════════════════════

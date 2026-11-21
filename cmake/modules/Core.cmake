@@ -17,6 +17,7 @@ target_sources(kwik_core
             modules/core/coroutine.cppm
             modules/core/scheduler.cppm
             modules/core/props.cppm
+            modules/core/props_compare.cppm
             modules/core/prop_meta.cppm
             modules/core/timer.cppm
             modules/core/path.cppm

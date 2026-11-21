@@ -9,6 +9,7 @@ import kwik.element.view;
 import kwik.element.selection;    // 选区服务 / Selectable 契约 / clampToUtf8Boundary
 import kwik.element.clipboard_service;    // ClipboardService（Ctrl+C 出口）
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.prop_meta;
 import kwik.core.constraints;
@@ -45,14 +46,18 @@ static ClipboardService *clipOf(const View &v) {
 // 卡实锚。10-18 修复。
 // ═══════════════════════════════════════════════════════════════════════════
 void Text::applyTextContent(const TextContent &tc) {
+    // P1a：全字段 diff（此前仅 text 变更触发重排，样式变（颜色/字号/对齐）
+    // 静默不重绘，靠 rebuildTree 全树 markAllDirty 兜底）；全等零动作保留
+    // 运行期 setProp 值
+    if (structPropsEqual(tc, text_)) return;
     if (tc.text != text_.text) {
         clearSelectionIfHosted();    // 选区偏移随旧文本失效，文本变更先行清空
         layoutResult_.reset();    // 排版缓存废止，下次 ensureLayout 惰性重建
         displayedText_.clear();
-        markDirty();
-        requestLayout();    // 文字变化影响尺寸，与 typed 口径同
     }
     text_ = tc;
+    markDirty();
+    requestLayout();    // 文字/字号变化影响尺寸，与 typed 口径同
 }
 
 void Text::ensureLayout(float maxW) {

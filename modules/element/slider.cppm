@@ -2,6 +2,7 @@ export module kwik.element.slider;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -53,11 +54,18 @@ public:
      * @param sp 本次解析的专有属性
      */
     void applySliderProps(SliderProps sp) {
+        // P1a：运行值快照——覆盖后与快照全等则零动作（含 value 门控语义：
+        // 门关路径回写运行值后结果不变，不触发重绘）
+        SliderProps before = sp_;
         bool valueFresh = (sp.value != lastParsedValue_);
         lastParsedValue_ = sp.value;
         float runtime = sp_.value;
         sp_ = std::move(sp);
         if (!valueFresh) sp_.value = runtime;
+        if (!structPropsEqual(sp_, before)) {
+            markDirty();
+            requestLayout();
+        }
     }
 
     // ─── 属性读写 ─────────────────────────────────────

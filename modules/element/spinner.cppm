@@ -2,6 +2,7 @@ export module kwik.element.spinner;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -35,7 +36,13 @@ public:
         : View(std::move(vp)), sp_(std::move(sp)) {}
 
     /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
-    void applySpinnerProps(SpinnerProps sp) { sp_ = std::move(sp); }
+    /** @brief reconcile 属性覆盖（P1a：与现值全等零动作） */
+    void applySpinnerProps(SpinnerProps sp) {
+        if (structPropsEqual(sp, sp_)) return;
+        sp_ = std::move(sp);
+        markDirty();
+        requestLayout();
+    }
 
     // ─── 查询 ─────────────────────────────────────────
     ElementType type() const override { return ElementType::Spinner; }

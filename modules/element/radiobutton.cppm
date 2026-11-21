@@ -2,6 +2,7 @@ export module kwik.element.radiobutton;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -38,10 +39,14 @@ public:
     explicit RadioButton(ViewProps vp, TextContent tc, RadioButtonProps rp)
         : View(std::move(vp)), text_(std::move(tc)), radio_(std::move(rp)) {}
 
-    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析） */
+    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析）
+     *  P1a：与现值全等零动作（未变不覆写不标脏） */
     void applyRadioButtonProps(TextContent tc, RadioButtonProps rp) {
+        if (structPropsEqual(tc, text_) && structPropsEqual(rp, radio_)) return;
         text_ = std::move(tc);
         radio_ = std::move(rp);
+        markDirty();
+        requestLayout();
     }
 
     ElementType type() const override { return ElementType::RadioButton; }

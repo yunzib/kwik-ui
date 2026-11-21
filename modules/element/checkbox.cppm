@@ -2,6 +2,7 @@ export module kwik.element.checkbox;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -43,10 +44,14 @@ public:
     explicit Checkbox(ViewProps vp, TextContent tc, CheckboxProps cp) :
         View(std::move(vp)), text_(std::move(tc)), check_(std::move(cp)) {}
 
-    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析） */
+    /** @brief reconcile 属性覆盖（标签 + 专有属性整体重解析）
+     *  P1a：与现值全等零动作（未变不覆写不标脏） */
     void applyCheckboxProps(TextContent tc, CheckboxProps cp) {
+        if (structPropsEqual(tc, text_) && structPropsEqual(cp, check_)) return;
         text_ = std::move(tc);
         check_ = std::move(cp);
+        markDirty();
+        requestLayout();
     }
 
     // ─── 属性读写 ─────────────────────────────────────

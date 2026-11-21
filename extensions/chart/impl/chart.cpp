@@ -73,9 +73,13 @@ void Chart::applyChartProps(const ChartProps &cp) {
 
 	bool dataSame = seriesEq(cp.series, cp_.series) && cp.value == cp_.value;
 	if (dataSame) {
+		// P1a：全等门判定（此前靠 rebuildTree 全树 markAllDirty 兜底重绘，
+		// 精准标脏后样式/轴/主题等非数据字段变化须自行标脏）
+		const bool visualChanged = !(cp == cp_);
 		cp_ = cp;                     // 非数据字段（样式/主题重解析）照常更新
 		styleParsed_ = cp_.style;
 		gaugeParsed_ = cp_.gauge;
+		if (visualChanged) markDirty();
 		return;                       // 动画时间轴/morph 状态不动，入场自然延续
 	}
 

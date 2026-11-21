@@ -133,6 +133,14 @@ public:
      */
     static std::unique_ptr<View> reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot);
 
+    /** @brief 上一轮 reconcile 是否发生结构变化（新建/删除/类型切换节点）
+     *
+     *  P1b 精准标脏配套：rebuildTree 据此决定 renderFrame 的 structuralChange
+     *  （结构变化才重置 GPU 缓存 + 全屏重绘；纯 props 更新轮次走增量伤害带）。
+     *  须在 reconcile() 返回后、下一轮 reconcile() 之前读取。
+     */
+    static bool lastReconcileStructural();
+
     /**
      * @brief 挂载通知：前序遍历整树，对本轮新建节点触发 handlers.onMount
      *

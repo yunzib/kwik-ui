@@ -2,6 +2,7 @@ export module kwik.layout.radio_group;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.element.typed_prop;
@@ -47,7 +48,13 @@ public:
         : View(std::move(vp)), group_(std::move(rp)) {}
 
     /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
-    void applyRadioGroupProps(RadioGroupProps rp) { group_ = std::move(rp); }
+    /** @brief reconcile 属性覆盖（P1a：与现值全等零动作） */
+    void applyRadioGroupProps(RadioGroupProps rp) {
+        if (structPropsEqual(rp, group_)) return;
+        group_ = std::move(rp);
+        markDirty();
+        requestLayout();
+    }
 
     ElementType type() const override { return ElementType::RadioGroup; }
     const RadioGroupProps &groupProps() const { return group_; }

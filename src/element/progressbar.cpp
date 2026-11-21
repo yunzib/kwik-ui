@@ -14,6 +14,7 @@ module kwik.element.progressbar;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -111,12 +112,19 @@ bool ProgressBar::setPropertyTyped(const char *name, const TypedProp &value) {
 // applyProgressBarProps — reconcile 属性覆盖（value 受控回写门）
 // ============================================================================
 void ProgressBar::applyProgressBarProps(ProgressBarProps pp) {
+	// P1a：运行值快照——覆盖后与快照全等则零动作（含 value 门控语义：
+	// 门关路径回写运行值后结果不变，不触发重绘）
+	ProgressBarProps before = pp_;
 	// 门控判据与基准更新须先于覆盖（基准取本次解析值，运行值取覆盖前 pp_）
 	bool valueFresh = (pp.value != lastParsedValue_);
 	lastParsedValue_ = pp.value;
 	float runtime = pp_.value;    // 命令式运行值（setProp 写入；须在覆盖前捕获）
 	pp_ = std::move(pp);
 	if (!valueFresh) { pp_.value = runtime; }    // 未声明新 value：保留运行值（门关路径）
+	if (!structPropsEqual(pp_, before)) {
+		markDirty();
+		requestLayout();
+	}
 }
 
 void ProgressBar::resolveThemeDefaults() {

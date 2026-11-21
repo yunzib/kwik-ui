@@ -14,6 +14,7 @@ import kwik.element.clipboard_service;    // 剪贴板服务（Ctrl+C/V 的源�
 import kwik.element.selection;    // 选区服务 / Selectable 契约 / wordRangeAtText
 import kwik.element.text;    // Text::penOfBoundaryAt（单行选区几何复用）
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -84,12 +85,16 @@ Input::Input(ViewProps vp, InputProps ip) : View(std::move(vp)), input_(std::mov
 // （用户正在输入时外部 value 未变则不打扰光标/组合状态）
 // ============================================================================
 void Input::applyInputProps(InputProps ip) {
+    // P1a：与现值全等零动作（静态输入框不再随每轮 reconcile 覆写）
+    if (structPropsEqual(ip, input_)) return;
     bool valueChanged = ip.value != input_.value;
     input_ = std::move(ip);
     if (valueChanged) {
         text_ = input_.value;
         selectionStart_ = cursorPos_;    // 换值选区失效（偏移随旧文本作废）
     }
+    markDirty();
+    requestLayout();
 }
 // ============================================================================
 // onMeasure — 尺寸测量 (TextRenderPipeline 排版)

@@ -411,8 +411,14 @@ void KwikRuntime::rebuildTree() {
                                      std::move(tree_)    // 旧树所有权转移
     );
 
+    // P1b 精准标脏：不再全树 markAllMeasureDirty/markAllDirty——reconcile 的
+    // 各 props 应用路径已按值 diff 逐节点 markDirty + requestLayout（含结构
+    // 变化的父级标脏），测量/布局沿 subtreeMeasure_/needsMeasure_ 冒泡增量
+    // 收敛。relayoutTree 保留（根干净时 measure 首行短路、layout 无位移即
+    // 跳过，成本 O(1)+O(根直接子)）；改动面与伤害带随之从全屏缩到变更区。
+    // 全量兜底仅剩两处显式全量场景：themeChanged（element_parser 内已标）
+    // 与错误页/HMR 重建路径。
     if (tree_) {
-        tree_->markAllMeasureDirty();              // reconcile 直接赋值 props，必须全量重测
         relayoutTree(layoutSize());
         if (tree_) tree_->clearLayoutRequest();    // 防标志残留导致重复 relayout
     }
@@ -433,9 +439,10 @@ void KwikRuntime::rebuildTree() {
     eventRouter_.resetForTreeRebuild(&layers_);
     if (prevFocus) eventRouter_.focusManager().restoreFocus(prevFocus);
     jsCtx_.clearRenderFlag();
-    if (tree_) tree_->markAllDirty();
     jsCtx_.setUserPointer(tree_.get());
-    treeStructureChanged_ = true;
+    // P1b：结构变化才标记（GPU 缓存重置 + 全屏重绘）；纯 props 更新轮次
+    // 走增量伤害带（各节点 markDirty 已上报自身区域）
+    treeStructureChanged_ = ElementParser::lastReconcileStructural();
     // 生命周期: reconcile 新建节点挂载通知（复用节点无 pending 标记，不重触发）
     if (tree_) ElementParser::firePendingMounts(tree_.get());
 }

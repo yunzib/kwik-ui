@@ -2,6 +2,7 @@ export module kwik.element.progressring;
 
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -43,8 +44,14 @@ public:
      */
     explicit ProgressRing(ViewProps vp, ProgressRingProps pp) : View(std::move(vp)), pp_(std::move(pp)) {}
 
-    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取） */
-    void applyProgressRingProps(ProgressRingProps pp) { pp_ = std::move(pp); }
+    /** @brief reconcile 属性覆盖（整体重解析，渲染期活读取）
+     *  P1a：与现值全等零动作（未变不覆写不标脏） */
+    void applyProgressRingProps(ProgressRingProps pp) {
+        if (structPropsEqual(pp, pp_)) return;
+        pp_ = std::move(pp);
+        markDirty();
+        requestLayout();
+    }
 
     // ─── 属性读写 ─────────────────────────────────────
     std::string getProperty(const char *name) const override;

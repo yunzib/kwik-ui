@@ -1,5 +1,26 @@
 # 更新日志
 
+# 0.2.7 — 2026-11-21
+### 性能
+- **reconcile 精准标脏（State 增量渲染路径）**：`rebuildTree` 每轮无条件
+  `markAllMeasureDirty + markAllDirty`（全树重测量/全部 View 清单重编码/
+  全屏伤害带）移除——改为各 props 应用路径逐字段 diff 后按节点标脏：
+  - 新增 `kwik.core.props_compare`（`structPropsEqual`，与 props_reflect
+    同源 C++26 反射成员枚举）供 ViewProps/各组件专有 Props 全等门使用；
+    `Shadow`/`Gradient` 补默认 `operator==`，Chart 扩展补各子结构 ==
+    （AxisProps 的 NaN=自动值域语义按双 NaN 相等比较）
+  - `reconcileNode`：ViewProps 解析到局部比较，全等零动作（同时保留运行期
+    setProp 局部值）；Button/Text/Input/Switch/Dropdown/TextArea/Image/
+    Checkbox/RadioButton/Line/ProgressBar/ProgressRing/Spinner/Slider/
+    RadioGroup/ScrollView/三个布局容器的 `applyXxxProps` 全部补全等短路 +
+    变更标脏（含 `requestLayout`——P1b 后测量不再全量，缺此则内容增长的
+    TextView/Table 高度不更新）；`reconcileChildren` 结构变化（增删/新建/
+    类型切换）由父级标脏承接
+  - `renderFrame` 的 structuralChange 只在真结构变化时置位（此前每轮重置
+    GPU 渲染缓存 + 全屏重绘）；实测：serial-assistant 持续收发场景渲染
+    录制耗时 480ms/2s → 34ms/2s（-93%）
+  - 行为锁：44 示例 smoke 双模式 + ctest；Chart 全等门补样式变更标脏
+
 # 0.2.6 — 2026-11-20
 ### 修复
 - **TextView 大内容滚动场景内存线性增长 + FPS 随行数崩塌**（流式日志类应用的

@@ -29,6 +29,7 @@ module;
 module kwik.element.image;
 import kwik.element.view;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a applyXxxProps 精准标脏
 import kwik.core.types;
 import kwik.core.constraints;
 import kwik.render.graphics;
@@ -71,6 +72,9 @@ void Image::fireError() {
 // （reconcile 随每次 State 变更触发，无条件重载会对每张图反复磁盘解码）
 // ============================================================================
 void Image::applyImageProps(ImageProps ip) {
+    // P1a：与现值全等零动作（标题栏内联 SVG 图标随每轮 reconcile 解析同串，
+    // 全等短路免覆写；reload 判定保持既有磁盘解码防护语义）
+    if (structPropsEqual(ip, imageProps_)) return;
     bool reload;
     if (ip.source != imageProps_.source) {
         reload = true;
@@ -100,6 +104,10 @@ void Image::applyImageProps(ImageProps ip) {
         uploadRetries_ = 0;
         loadImage();
     }
+    // P1a：属性变更统一标脏（fit/imageOpacity 影响绘制；reload 路径的
+    // 首帧出图也依赖重编——此前靠 rebuildTree 全树 markAllDirty 兜底）
+    markDirty();
+    requestLayout();
 }
 // ============================================================================
 // loadFromFile — 扩展名分派: .svg → nanosvg, 其余 → stb_image

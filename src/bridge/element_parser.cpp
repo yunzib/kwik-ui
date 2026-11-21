@@ -20,6 +20,7 @@ import kwik.bridge.props_parser;
 import kwik.element.view;
 import kwik.element.rootview;
 import kwik.core.props;
+import kwik.core.props_compare;    // structPropsEqual — P1a reconcile 精准标脏
 import kwik.core.prop_meta;    // propIdFromName / getPropMeta（补记分类查表）
 import kwik.core.types;        // TypedProp / Transform / Color / EdgeInsets（reader 假读分派）
 import kwik.engine.js_value;
@@ -66,6 +67,11 @@ import kwik.element.spinbox;
 import kwik.bridge.element_spec; // ElementSpec / ElementRegistry — 扩展契约
 
 import std;
+
+// P1b：上一轮 reconcile 是否发生结构变化（新建/删除/类型切换节点）。
+// rebuildTree 据此决定 renderFrame 的 structuralChange（GPU 缓存重置 +
+// 全屏重绘）——纯 props 更新轮次不再全屏重绘。
+static bool s_reconcileStructural = true;    // 首轮默认 true（首帧全量）
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 批量补记绑定元数据
@@ -195,8 +201,9 @@ void applyBindings(View *view, const JSValueRef &pv) {
  * @param view     目标 View（themeTokens 将被填充）
  * @param propsVal JS props 对象（与传递给 TypeCreator 的同一对象）
  */
-static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
-    if (!view || !propsVal.isObject()) return;
+static void extractThemeTokens(std::unordered_map<std::string, std::string> &tokens,
+                               const JSValueRef &propsVal) {
+    if (!propsVal.isObject()) return;
     JSContext *ctx = propsVal.context();
     JSPropertyEnum *tab;
     std::uint32_t len;
@@ -208,7 +215,7 @@ static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
             JSValue val = JS_GetProperty(ctx, props, tab[i].atom);
             if (JS_IsString(val)) {
                 const char *str = JS_ToCString(ctx, val);
-                if (str && str[0] == '@') view->props.themeTokens[name] = std::string(str + 1);
+                if (str && str[0] == '@') tokens[name] = std::string(str + 1);
                 if (str) JS_FreeCString(ctx, str);
             }
             JS_FreeValue(ctx, val);
@@ -217,6 +224,11 @@ static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
         JS_FreeAtom(ctx, tab[i].atom);
     }
     js_free(ctx, tab);
+}
+
+/// @brief 旧签名兼容包装（parseNode 路径：直接写入 view 的 props）
+static void extractThemeTokens(View *view, const JSValueRef &propsVal) {
+    if (view) extractThemeTokens(view->props.themeTokens, propsVal);
 }
 
 // ============================================================================
@@ -942,14 +954,27 @@ void ElementParser::reconcileChildren(View *parent, const JSValueRef &childrenVa
 
     // ── ③ 清理未被认领的旧节点 ──
     auto *reg = getRegisteredRegistry();
+    std::size_t unclaimed = 0;
     for (std::size_t i = 0; i < oldN; ++i) {
         if (!claimed[i] && oldChildren[i]) {
+            ++unclaimed;
             // 稳N1：销毁整棵子树前整子树解绑——单节点 unbind 会让后代条目
             // 悬空，State 变更 notify 直写已释放内存（UAF）
             if (reg) reg->unbindSubtree(oldChildren[i].get());
             notifyUnmountRecursive(oldChildren[i].get());    // 卸载通知: 析构前 this/ctx 均有效
             // unique_ptr 在此析构 → 递归 ~View()
         }
+    }
+
+    // P1b：结构变化（子节点增删/新建/类型切换）→ 父级标脏（视觉重编 +
+    // 测量重算）。此前靠 rebuildTree 尾部全树 markAllDirty 兜底，精准化
+    // 后由这里承接；纯 props 更新（无结构变化）不触发，保持增量收益
+    bool structural = (newChildren.size() != oldN) || unclaimed > 0
+                      || std::any_of(freshChild.begin(), freshChild.end(), [](bool f) { return f; });
+    if (structural) {
+        parent->markDirty();
+        parent->requestLayout();
+        s_reconcileStructural = true;    // 通报 rebuildTree：本帧需结构级重绘
     }
 
     // 替换 parent 的 children
@@ -995,9 +1020,17 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // ── 类型一致 → 原地更新 props ──
     TypedPropMap meta;
     PropsExtractor ex(propsVal, &meta);
-    oldView->props = parseViewProps(ex);    // ← ViewProps 字段级覆盖
-
-    extractThemeTokens(oldView.get(), propsVal);
+    // P1a 精准标脏：ViewProps 解析到局部（含 @token 收集）后与现值逐字段
+    // 比较——全等则零动作（不赋值不标脏，运行期 setProp 局部值得以保留，
+    // 不再被同值重解析洗回）；不等才赋值 + markDirty（视觉重编）+
+    // requestLayout（测量/布局增量沿父冒泡，替代 rebuildTree 的全树标脏）
+    ViewProps nextProps = parseViewProps(ex);
+    extractThemeTokens(nextProps.themeTokens, propsVal);
+    if (!structPropsEqual(nextProps, oldView->props)) {
+        oldView->props = std::move(nextProps);
+        oldView->markDirty();
+        oldView->requestLayout();
+    }
 
     // ── 组件专有属性解析（applyTextContent 作废排版缓存，text 未变不重置）──
     // themeChanged：ThemeProvider 专属——theme 数据真变（setTheme 返 true）时
@@ -1005,10 +1038,20 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     bool themeChanged = false;
     switch (oldView->type()) {
     case ElementType::Text: static_cast<Text *>(oldView.get())->applyTextContent(parseTextContent(ex)); break;
-    case ElementType::Button:
-        static_cast<Button *>(oldView.get())->text_ = parseTextContent(ex);
-        static_cast<Button *>(oldView.get())->button_ = parseButtonState(ex);
+    case ElementType::Button: {
+        // P1a：文字/交互状态与现值逐字段比较——全等零动作（按钮数量多且
+        // 低频变，此前每轮 reconcile 无条件覆写 + 全树 markAllDirty 兜底）
+        auto *btn = static_cast<Button *>(oldView.get());
+        auto tc = parseTextContent(ex);
+        auto bs = parseButtonState(ex);
+        if (!structPropsEqual(tc, btn->text_) || !structPropsEqual(bs, btn->button_)) {
+            btn->text_ = std::move(tc);
+            btn->button_ = std::move(bs);
+            btn->markDirty();
+            btn->requestLayout();
+        }
         break;
+    }
     case ElementType::LayerView: static_cast<LayerView *>(oldView.get())->applyLayerProps(parseLayerProps(ex)); break;
     case ElementType::ScrollView:
         static_cast<ScrollView *>(oldView.get())->applyScrollProps(parseScrollViewProps(ex));
@@ -1212,9 +1255,14 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
     // 此处 children 已挂回（parent_ 链完整），theme() 上溯即得新 ThemeData；
     // 仅换肤时让位 27 的"复用零触碰"——token 属性按新主题重解析是换肤语义
     // 本体（对标 Flutter didChangeDependencies），无 token 字段零触碰。
-    // rebuildTree 尾部的 markAllDirty 已保障重绘，此处无需再标脏。
+    // P1b：rebuildTree 尾部不再 markAllDirty，换肤是低频全量场景——
+    // 此处自行全树标脏保障重绘（token 重解析只改字段值不触发标脏）
     if (themeChanged) {
-        for (auto &c : oldView->children) resolveThemeTree(c.get());
+        for (auto &c : oldView->children) {
+            resolveThemeTree(c.get());
+            c->markAllDirty();
+        }
+        oldView->markAllDirty();
     }
 
     // ── 重新绑定事件处理器 ──
@@ -1224,6 +1272,7 @@ std::unique_ptr<View> ElementParser::reconcileNode(const JSValueRef &jsVal, std:
 }
 
 std::unique_ptr<View> ElementParser::reconcile(JSContext *ctx, JSValueConst value, std::unique_ptr<View> oldRoot) {
+    s_reconcileStructural = (oldRoot == nullptr);    // 旧树为空 = 全新解析，必然全量
     JSValueRef jsVal(ctx, JS_DupValue(ctx, value));
     if (!jsVal.isObject() || jsVal.isNull()) return std::move(oldRoot);
     // 27：主题解析收口——凭指针身份区分复用与新建：返回指针与旧根相同
@@ -1234,9 +1283,14 @@ std::unique_ptr<View> ElementParser::reconcile(JSContext *ctx, JSValueConst valu
     // 整树自底向上补 resolveThemeDefaults
     View *oldPtr = oldRoot.get();
     auto root = reconcileNode(jsVal, std::move(oldRoot));
-    if (root && root.get() != oldPtr) resolveThemeTree(root.get());
+    if (root && root.get() != oldPtr) {
+        resolveThemeTree(root.get());
+        s_reconcileStructural = true;    // 根类型切换 = 全新树
+    }
     return root;
 }
+
+bool ElementParser::lastReconcileStructural() { return s_reconcileStructural; }
 
 // ============================================================================
 // 公开接口 - printTree 打印完整 View 组件树

@@ -169,6 +169,9 @@ export struct Shadow {
     constexpr Shadow() = default;
     constexpr Shadow(float ox, float oy, float blur, Color col) :
         offsetX(ox), offsetY(oy), blurRadius(blur), color(col) {}
+
+    /// P1a reconcile 精准标脏：props 逐字段比较用（POD 全成员）
+    constexpr bool operator==(const Shadow&) const = default;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,6 +209,9 @@ export struct Gradient {
     float        x1 = 0, y1 = 0;      ///< linear: 终点 / radial: (半径, 0)
     Color        color0;              ///< 起点 / 中心色
     Color        color1;              ///< 终点 / 边缘色
+
+    /// P1a reconcile 精准标脏：props 逐字段比较用（POD 全成员）
+    constexpr bool operator==(const Gradient&) const = default;
 };
 
 export {
